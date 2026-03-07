@@ -8,6 +8,7 @@ import {
   FOUNDRY_SQLITE_DATABASE_FILE_NAME,
   FOUNDRY_LEGACY_CONFIG_DIRECTORY_NAME,
   FOUNDRY_USERS_DIRECTORY_NAME,
+  FOUNDRY_THREADS_DIRECTORY_NAME,
   FOUNDRY_SKILLS_DIRECTORY_NAME,
   FOUNDRY_WINDOWS_CONFIG_DIRECTORY_NAME,
 } from "~/lib/constants";
@@ -26,6 +27,10 @@ type ResolveFoundryDatabaseUrlOptions = ResolveFoundryConfigDirectoryOptions & {
 
 type ResolveFoundryWorkspaceUserDirectoryOptions = ResolveFoundryConfigDirectoryOptions & {
   workspaceUserId: number;
+};
+
+type ResolveFoundryWorkspaceThreadDirectoryOptions = ResolveFoundryWorkspaceUserDirectoryOptions & {
+  threadId: string;
 };
 
 type NormalizePrismaSqliteDatabaseUrlOptions = {
@@ -95,6 +100,19 @@ export function resolveFoundryWorkspaceUserSkillsDirectory(
   return pathModule.join(workspaceUserDirectoryPath, FOUNDRY_SKILLS_DIRECTORY_NAME);
 }
 
+export function resolveFoundryWorkspaceThreadDirectory(
+  options: ResolveFoundryWorkspaceThreadDirectoryOptions,
+): string {
+  const workspaceUserDirectoryPath = resolveFoundryWorkspaceUserDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    workspaceUserDirectoryPath,
+    FOUNDRY_THREADS_DIRECTORY_NAME,
+    readWorkspaceThreadDirectoryName(options.threadId),
+  );
+}
+
 export function resolveFoundryDatabaseUrl(
   options: ResolveFoundryDatabaseUrlOptions = {},
 ): string {
@@ -149,6 +167,19 @@ function readWorkspaceUserDirectoryName(workspaceUserId: number): string {
   }
 
   return String(workspaceUserId);
+}
+
+function readWorkspaceThreadDirectoryName(threadId: string): string {
+  const normalizedThreadId = threadId.trim();
+  if (!normalizedThreadId) {
+    throw new Error("`threadId` must be a non-empty string.");
+  }
+
+  if (normalizedThreadId.includes("/") || normalizedThreadId.includes("\\")) {
+    throw new Error("`threadId` must not contain path separators.");
+  }
+
+  return normalizedThreadId;
 }
 
 function isInMemorySqliteDatabaseUrl(databaseUrl: string): boolean {

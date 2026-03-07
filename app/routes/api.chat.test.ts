@@ -62,6 +62,8 @@ const {
   buildUpstreamErrorMessage,
   isTransientNetworkTerminationError,
   shouldRetryChatExecution,
+  resolveThreadDirectoryPath,
+  applyDefaultThreadDirectoryToStdioServers,
 } = chatRouteTestUtils;
 
 describe("readWebSearchEnabled", () => {
@@ -109,6 +111,154 @@ describe("readInstructionContextToggles", () => {
       error:
         "`instructionContextToggles` must include all known boolean keys (for example `{ \"system\": true }`).",
     });
+  });
+});
+
+describe("resolveThreadDirectoryPath", () => {
+  it("returns thread workspace directory path when threadId is provided", () => {
+    expect(
+      resolveThreadDirectoryPath({
+        userId: 42,
+        threadId: "thread-abc",
+      }),
+    ).toBe(path.join(os.homedir(), ".foundry_local_playground", "users", "42", "threads", "thread-abc"));
+  });
+
+  it("returns null when threadId is missing", () => {
+    expect(
+      resolveThreadDirectoryPath({
+        userId: 42,
+        threadId: null,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("applyDefaultThreadDirectoryToStdioServers", () => {
+  it("applies thread workspace directory path only to stdio servers without explicit cwd", () => {
+    const defaultPath = "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
+    const result = applyDefaultThreadDirectoryToStdioServers(
+      [
+        {
+          name: "local-stdio",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          env: {},
+        },
+        {
+          name: "explicit-stdio",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          cwd: "/tmp/explicit",
+          env: {},
+        },
+        {
+          name: "http",
+          transport: "streamable_http",
+          url: "https://example.com/mcp",
+          headers: {},
+          useAzureAuth: false,
+          azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
+          timeoutSeconds: 30,
+        },
+      ],
+      defaultPath,
+      "/Users/hiroki/.foundry_local_playground/users/1",
+    );
+
+    expect(result).toEqual([
+      {
+        name: "local-stdio",
+        transport: "stdio",
+        command: "node",
+        args: ["mcp.js"],
+        cwd: defaultPath,
+        env: {},
+      },
+      {
+        name: "explicit-stdio",
+        transport: "stdio",
+        command: "node",
+        args: ["mcp.js"],
+        cwd: "/tmp/explicit",
+        env: {},
+      },
+      {
+        name: "http",
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
+        timeoutSeconds: 30,
+      },
+    ]);
+  });
+
+  it("de-duplicates equivalent stdio servers after default cwd is applied", () => {
+    const defaultPath = "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
+    const result = applyDefaultThreadDirectoryToStdioServers(
+      [
+        {
+          name: "server-a",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          env: {},
+        },
+        {
+          name: "server-b",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          cwd: defaultPath,
+          env: {},
+        },
+      ],
+      defaultPath,
+      "/Users/hiroki/.foundry_local_playground/users/1",
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      name: "server-a",
+      transport: "stdio",
+      command: "node",
+      args: ["mcp.js"],
+      cwd: defaultPath,
+      env: {},
+    });
+  });
+
+  it("replaces legacy workspace root cwd with thread workspace path", () => {
+    const defaultPath = "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
+    const result = applyDefaultThreadDirectoryToStdioServers(
+      [
+        {
+          name: "server-legacy",
+          transport: "stdio",
+          command: "node",
+          args: ["mcp.js"],
+          cwd: "/Users/hiroki/.foundry_local_playground/users/1",
+          env: {},
+        },
+      ],
+      defaultPath,
+      "/Users/hiroki/.foundry_local_playground/users/1",
+    );
+
+    expect(result).toEqual([
+      {
+        name: "server-legacy",
+        transport: "stdio",
+        command: "node",
+        args: ["mcp.js"],
+        cwd: defaultPath,
+        env: {},
+      },
+    ]);
   });
 });
 
@@ -1463,6 +1613,7 @@ describe("chat execution success log context", () => {
     const options: Parameters<typeof buildChatExecutionSuccessLogContext>[0] = {
       threadId: "thread-1",
       turnId: "turn-1",
+      userId: 1,
       clientUserAgent: "local-playground-test",
       clientPlatform: "darwin",
       azureConfig: {

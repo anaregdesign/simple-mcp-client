@@ -29,7 +29,10 @@ import {
   getAzureDependencies,
   normalizeAzureOpenAIBaseURL,
 } from "~/lib/azure/dependencies";
-import { resolveFoundryWorkspaceUserDirectory } from "~/lib/foundry/config";
+import {
+  resolveFoundryWorkspaceThreadDirectory,
+  resolveFoundryWorkspaceUserDirectory,
+} from "~/lib/foundry/config";
 import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
@@ -188,6 +191,7 @@ type UpstreamErrorPayload = {
 type ChatExecutionOptions = {
   threadId: string | null;
   turnId: string | null;
+  userId: number | null;
   clientUserAgent: string | null;
   clientPlatform: string | null;
   message: string;
@@ -582,6 +586,15 @@ export async function action({ request }: Route.ActionArgs) {
 
     return validationErrorResponse("invalid_mcp_servers_payload", mcpServersResult.error);
   }
+  const threadDirectoryContext = await resolveThreadDirectoryContext({
+    threadId,
+    tenantId: azureConfig.tenantId,
+  });
+  const mcpServers = applyDefaultThreadDirectoryToStdioServers(
+    mcpServersResult.value,
+    threadDirectoryContext?.threadDirectoryPath ?? null,
+    threadDirectoryContext?.userDirectoryPath ?? null,
+  );
 
   if (!azureConfig.baseUrl) {
     return validationErrorResponse("missing_azure_base_url", "Azure OpenAI base URL is missing.");
@@ -602,6 +615,7 @@ export async function action({ request }: Route.ActionArgs) {
   const executionOptions: ChatExecutionOptions = {
     threadId,
     turnId,
+    userId: threadDirectoryContext?.userId ?? null,
     clientUserAgent: readOptionalRequestHeaderValue(request, "user-agent"),
     clientPlatform: readOptionalRequestHeaderValue(request, "sec-ch-ua-platform"),
     message,
@@ -616,7 +630,7 @@ export async function action({ request }: Route.ActionArgs) {
     skills: skillsResult.value,
     explicitSkillLocations: explicitSkillLocationsResult.value,
     azureConfig,
-    mcpServers: mcpServersResult.value,
+    mcpServers,
   };
   const logContext = buildChatExecutionLogContext(executionOptions);
   const streamRequested = wantsEventStream(request);
@@ -2453,6 +2467,43 @@ function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
     mcpConnectDurationMs: 0,
     mcpSetupDurationMs: 0,
   };
+}
+
+function applyDefaultThreadDirectoryToStdioServers(
+  mcpServers: ClientMcpServerConfig[],
+  threadDirectoryPath: string | null,
+  userDirectoryPath: string | null,
+): ClientMcpServerConfig[] {
+  if (!threadDirectoryPath) {
+    return mcpServers;
+  }
+
+  const normalizedUserDirectoryPath = normalizePathForComparison(userDirectoryPath);
+  const dedupeKeys = new Set<string>();
+  const normalized: ClientMcpServerConfig[] = [];
+  for (const server of mcpServers) {
+    let nextServer: ClientMcpServerConfig = server;
+    if (server.transport === "stdio") {
+      const hasExplicitCwd = typeof server.cwd === "string" && server.cwd.trim().length > 0;
+      const isLegacyWorkspaceRootCwd = hasExplicitCwd &&
+        normalizePathForComparison(server.cwd) === normalizedUserDirectoryPath;
+      if (!hasExplicitCwd || isLegacyWorkspaceRootCwd) {
+        nextServer = {
+          ...server,
+          cwd: threadDirectoryPath,
+        };
+      }
+    }
+    const dedupeKey = buildMcpServerSessionConfigKey(nextServer);
+    if (dedupeKeys.has(dedupeKey)) {
+      continue;
+    }
+
+    dedupeKeys.add(dedupeKey);
+    normalized.push(nextServer);
+  }
+
+  return normalized;
 }
 
 function buildMcpServerSessionConfigKey(config: ClientMcpServerConfig): string {
@@ -4778,21 +4829,23 @@ async function buildSystemInstructionContextPayload(
   };
 
   try {
-    const user = await getOrCreateUserByIdentity({
-      tenantId: azureContext.tenantId,
-      principalId: azureContext.principalId,
-    });
+    const userId = options.userId;
+    if (userId === null) {
+      return payload;
+    }
+
     payload.userContext = {
-      userId: user.id,
-      workspaceDirectoryPath: resolveFoundryWorkspaceUserDirectory({
-        workspaceUserId: user.id,
+      userId,
+      workspaceDirectoryPath: resolveThreadDirectoryPath({
+        userId,
+        threadId: options.threadId,
       }),
     };
 
     await ensurePersistenceDatabaseReady();
     const [latestThreadName, selection] = await Promise.all([
-      readLatestThreadNameForInstruction(user.id),
-      readPlaygroundSelectionForInstruction(user.id),
+      readLatestThreadNameForInstruction(userId),
+      readPlaygroundSelectionForInstruction(userId),
     ]);
     payload.latestThreadName = latestThreadName;
     payload.azureContext = {
@@ -4806,6 +4859,65 @@ async function buildSystemInstructionContextPayload(
   }
 
   return payload;
+}
+
+function resolveThreadDirectoryPath(options: {
+  userId: number;
+  threadId: string | null;
+}): string | null {
+  if (!options.threadId) {
+    return null;
+  }
+
+  try {
+    return resolveFoundryWorkspaceThreadDirectory({
+      workspaceUserId: options.userId,
+      threadId: options.threadId,
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function resolveThreadDirectoryContext(options: {
+  threadId: string | null;
+  tenantId: string;
+}): Promise<{
+  userId: number;
+  userDirectoryPath: string;
+  threadDirectoryPath: string | null;
+} | null> {
+  try {
+    const azureContext = await readAzureArmUserContext(undefined, options.tenantId);
+    if (!azureContext) {
+      return null;
+    }
+
+    const user = await getOrCreateUserByIdentity({
+      tenantId: azureContext.tenantId,
+      principalId: azureContext.principalId,
+    });
+    return {
+      userId: user.id,
+      userDirectoryPath: resolveFoundryWorkspaceUserDirectory({
+        workspaceUserId: user.id,
+      }),
+      threadDirectoryPath: resolveThreadDirectoryPath({
+        userId: user.id,
+        threadId: options.threadId,
+      }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizePathForComparison(value: string | null | undefined): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().replaceAll("\\", "/").toLowerCase();
 }
 
 async function readLatestThreadNameForInstruction(userId: number): Promise<string | null> {
@@ -5996,4 +6108,6 @@ export const chatRouteTestUtils = {
   buildUpstreamErrorMessage,
   isTransientNetworkTerminationError,
   shouldRetryChatExecution,
+  resolveThreadDirectoryPath,
+  applyDefaultThreadDirectoryToStdioServers,
 };

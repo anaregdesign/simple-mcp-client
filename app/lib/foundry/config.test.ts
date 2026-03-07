@@ -11,6 +11,7 @@ import {
   resolveFoundryDatabaseFilePath,
   resolveFoundryDatabaseUrl,
   resolveFoundryConfigDirectory,
+  resolveFoundryWorkspaceThreadDirectory,
   resolveFoundryWorkspaceUserDirectory,
   resolveFoundryWorkspaceUserSkillsDirectory,
 } from "./config";
@@ -84,6 +85,30 @@ describe("resolveFoundryWorkspaceUserSkillsDirectory", () => {
     });
 
     expect(resolved).toBe("/Users/hiroki/.foundry_local_playground/users/42/skills");
+  });
+});
+
+describe("resolveFoundryWorkspaceThreadDirectory", () => {
+  it("builds workspace thread path in the primary config directory", () => {
+    const resolved = resolveFoundryWorkspaceThreadDirectory({
+      workspaceUserId: 42,
+      threadId: "thread-abc",
+      platform: "darwin",
+      homeDirectory: "/Users/hiroki",
+    });
+
+    expect(resolved).toBe("/Users/hiroki/.foundry_local_playground/users/42/threads/thread-abc");
+  });
+
+  it("rejects threadId values with path separators", () => {
+    expect(() =>
+      resolveFoundryWorkspaceThreadDirectory({
+        workspaceUserId: 42,
+        threadId: "../thread-abc",
+        platform: "darwin",
+        homeDirectory: "/Users/hiroki",
+      })
+    ).toThrow("`threadId` must not contain path separators.");
   });
 });
 

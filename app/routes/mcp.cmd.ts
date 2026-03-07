@@ -12,7 +12,7 @@ import {
   MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER,
   MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
 } from "~/lib/constants";
-import { resolveLegacyFoundryConfigDirectory } from "~/lib/foundry/config";
+import { resolveFoundryWorkspaceThreadDirectory } from "~/lib/foundry/config";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   installGlobalServerErrorLogging,
@@ -29,7 +29,7 @@ const MCP_CMD_TOOL_DESCRIPTION = [
   "Returns stdout/stderr, exit status, timeout state, execution duration, and resolved shell metadata.",
   "Safety policy: if this is the first command execution in a thread, ask the user for explicit consent in chat first.",
   "Then call again with confirmedByUser=true and confirmationMessage set to yes or no.",
-  "Default working directory is ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/tmp.",
+  "Default working directory is ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/.",
   "When threadContext.threadId is missing, explicit consent is required for every call and workingDirectory must be provided explicitly.",
 ].join("\n");
 
@@ -61,7 +61,7 @@ const cmdExecuteInputSchema = {
     .min(1)
     .optional()
     .describe(
-      "Optional working directory. Relative paths are resolved from the Local Playground process current directory. When omitted, uses ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/tmp.",
+      "Optional working directory. Relative paths are resolved from the Local Playground process current directory. When omitted, uses ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/.",
     ),
   timeoutSeconds: z
     .number()
@@ -678,7 +678,7 @@ function resolveWorkingDirectory(
   workingDirectory: string | null,
 ): ParseResult<string> {
   if (!workingDirectory) {
-    return ensureThreadTmpWorkingDirectory(userId, threadId);
+    return ensureThreadWorkingDirectory(userId, threadId);
   }
 
   const resolved = path.resolve(workingDirectory);
@@ -702,7 +702,7 @@ function resolveWorkingDirectory(
   return { ok: true, value: resolved };
 }
 
-function ensureThreadTmpWorkingDirectory(
+function ensureThreadWorkingDirectory(
   userId: number,
   threadId: string | null,
 ): ParseResult<string> {
@@ -714,15 +714,18 @@ function ensureThreadTmpWorkingDirectory(
     };
   }
 
-  const rootDirectory = resolveLegacyFoundryConfigDirectory();
-  const resolved = path.join(
-    rootDirectory,
-    "users",
-    String(userId),
-    "threads",
-    threadId,
-    "tmp",
-  );
+  let resolved: string;
+  try {
+    resolved = resolveFoundryWorkspaceThreadDirectory({
+      workspaceUserId: userId,
+      threadId,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Invalid threadContext.threadId: ${readErrorMessage(error)}`,
+    };
+  }
   try {
     fs.mkdirSync(resolved, { recursive: true });
   } catch (error) {

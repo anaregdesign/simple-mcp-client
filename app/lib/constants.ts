@@ -26,6 +26,7 @@ export const FOUNDRY_LEGACY_CONFIG_DIRECTORY_NAME = ".foundry_local_playground";
 export const FOUNDRY_WINDOWS_CONFIG_DIRECTORY_NAME = "FoundryLocalPlayground";
 export const FOUNDRY_SQLITE_DATABASE_FILE_NAME = "local-playground.sqlite";
 export const FOUNDRY_USERS_DIRECTORY_NAME = "users";
+export const FOUNDRY_THREADS_DIRECTORY_NAME = "threads";
 export const FOUNDRY_SKILLS_DIRECTORY_NAME = "skills";
 
 /**
