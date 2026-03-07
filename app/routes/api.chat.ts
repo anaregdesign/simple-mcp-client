@@ -3393,10 +3393,7 @@ function isLocalPlaygroundMcpContextUrl(rawUrl: string): boolean {
     }
 
     const normalizedRelativePath = parsedRelativeUrl.pathname.replace(/\/+$/, "");
-    return (
-      normalizedRelativePath === "/mcp/system" ||
-      normalizedRelativePath === "/mcp/cmd"
-    );
+    return normalizedRelativePath === "/mcp/cmd";
   }
 
   let parsedUrl: URL;
@@ -3407,10 +3404,7 @@ function isLocalPlaygroundMcpContextUrl(rawUrl: string): boolean {
   }
 
   const normalizedPathname = parsedUrl.pathname.replace(/\/+$/, "");
-  if (
-    normalizedPathname !== "/mcp/system" &&
-    normalizedPathname !== "/mcp/cmd"
-  ) {
+  if (normalizedPathname !== "/mcp/cmd") {
     return false;
   }
 

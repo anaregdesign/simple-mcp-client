@@ -245,16 +245,6 @@ export const HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS = [
     connectOnThreadCreate: false,
   },
   {
-    name: "system",
-    transport: "streamable_http",
-    url: "/mcp/system",
-    headers: {},
-    useAzureAuth: false,
-    azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
-    timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
-    connectOnThreadCreate: true,
-  },
-  {
     name: "cmd",
     transport: "streamable_http",
     url: "/mcp/cmd",

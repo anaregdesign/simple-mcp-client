@@ -30,7 +30,6 @@ type HomeDefaultWorkspaceMcpServerProfileHttpRow = Extract<
 >;
 const defaultOpenaiDocsMcpServerProfile = readDefaultHttpMcpServerProfile("openai-docs");
 const defaultMicrosoftLearnMcpServerProfile = readDefaultHttpMcpServerProfile("microsoft-learn");
-const defaultSystemMcpServerProfile = readDefaultHttpMcpServerProfile("system");
 const defaultCmdMcpServerProfile = readDefaultHttpMcpServerProfile("cmd");
 const defaultFilesystemMcpServerProfile = readDefaultStdioMcpServerProfile("filesystem");
 const defaultWorkiqMcpServerProfile = readDefaultStdioMcpServerProfile("workiq");
@@ -117,18 +116,18 @@ describe("parseIncomingMcpServer", () => {
   it("parses relative HTTP endpoint payloads", () => {
     const result = parseIncomingMcpServer({
       transport: "streamable_http",
-      url: "/mcp/system",
-      name: "system",
+      url: "/mcp/cmd",
+      name: "cmd",
       connectOnThreadCreate: true,
     });
 
     expect(result).toEqual({
       ok: true,
       value: {
-        name: "system",
+        name: "cmd",
         connectOnThreadCreate: true,
         transport: "streamable_http",
-        url: "/mcp/system",
+        url: "/mcp/cmd",
         headers: {},
         useAzureAuth: false,
         azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
@@ -259,10 +258,10 @@ describe("upsertWorkspaceMcpServerProfile", () => {
     const currentProfiles = [
       {
         id: "profile-1",
-        name: "System",
+        name: "Cmd",
         connectOnThreadCreate: true,
         transport: "streamable_http" as const,
-        url: "/mcp/system",
+        url: "/mcp/cmd",
         headers: {},
         useAzureAuth: false,
         azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
@@ -272,9 +271,9 @@ describe("upsertWorkspaceMcpServerProfile", () => {
 
     const incoming = {
       id: "profile-1",
-      name: "System Updated",
+      name: "Cmd Updated",
       transport: "streamable_http" as const,
-      url: "/mcp/system",
+      url: "/mcp/cmd",
       headers: {},
       useAzureAuth: false,
       azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
@@ -411,16 +410,6 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
           connectOnThreadCreate: false,
         }),
         expect.objectContaining({
-          name: defaultSystemMcpServerProfile.name,
-          transport: "streamable_http",
-          url: defaultSystemMcpServerProfile.url,
-          headers: {},
-          useAzureAuth: false,
-          azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
-          timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
-          connectOnThreadCreate: true,
-        }),
-        expect.objectContaining({
           name: defaultCmdMcpServerProfile.name,
           transport: "streamable_http",
           url: defaultCmdMcpServerProfile.url,
@@ -553,17 +542,6 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
         timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
       },
       {
-        id: "profile-system",
-        name: "System (Custom Name)",
-        connectOnThreadCreate: true,
-        transport: "streamable_http" as const,
-        url: defaultSystemMcpServerProfile.url,
-        headers: {},
-        useAzureAuth: false,
-        azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
-        timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
-      },
-      {
         id: "profile-cmd",
         name: "Cmd (Custom Name)",
         connectOnThreadCreate: defaultCmdMcpServerProfile.connectOnThreadCreate,
@@ -659,11 +637,6 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
         expect.objectContaining({
           transport: "streamable_http",
           url: defaultMicrosoftLearnMcpServerProfile.url,
-        }),
-        expect.objectContaining({
-          transport: "streamable_http",
-          url: defaultSystemMcpServerProfile.url,
-          connectOnThreadCreate: true,
         }),
         expect.objectContaining({
           transport: "streamable_http",

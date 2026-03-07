@@ -764,8 +764,8 @@ describe("readMcpServers", () => {
       {
         mcpServers: [
           {
-            name: "system",
-            url: "/mcp/system",
+            name: "cmd",
+            url: "/mcp/cmd",
           },
         ],
       },
@@ -780,9 +780,9 @@ describe("readMcpServers", () => {
     }
 
     expect(result.value[0]).toEqual({
-      name: "system",
+      name: "cmd",
       transport: "streamable_http",
-      url: "http://localhost:3000/mcp/system",
+      url: "http://localhost:3000/mcp/cmd",
       headers: {},
       useAzureAuth: false,
       azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
@@ -1249,13 +1249,13 @@ describe("buildMcpHttpRequestHeaders", () => {
 });
 
 describe("buildMcpContextRequestHeaders", () => {
-  it("adds thread context headers for localhost /mcp/system endpoints", () => {
+  it("adds thread context headers for localhost /mcp/cmd endpoints", () => {
     expect(
       buildMcpContextRequestHeaders(
         {
-          name: "system",
+          name: "cmd",
           transport: "streamable_http",
-          url: "http://localhost:3000/mcp/system/",
+          url: "http://localhost:3000/mcp/cmd/",
           headers: {},
           useAzureAuth: false,
           azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
@@ -1274,34 +1274,6 @@ describe("buildMcpContextRequestHeaders", () => {
       [MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER]:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5_0)",
       [MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER]: "\"macOS\"",
-    });
-  });
-
-  it("adds thread context headers for relative /mcp/system endpoints", () => {
-    expect(
-      buildMcpContextRequestHeaders(
-        {
-          name: "system",
-          transport: "streamable_http",
-          url: "/mcp/system",
-          headers: {},
-          useAzureAuth: false,
-          azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
-          timeoutSeconds: 10,
-        },
-        {
-          threadId: "thread-1",
-          turnId: "turn-2",
-          clientUserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-          clientPlatform: "\"Windows\"",
-        },
-      ),
-    ).toEqual({
-      [MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER]: "thread-1",
-      [MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER]: "turn-2",
-      [MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER]:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      [MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER]: "\"Windows\"",
     });
   });
 
@@ -1380,9 +1352,9 @@ describe("buildMcpHttpRuntimeHeaders", () => {
   it("applies static headers, context headers, and refreshed Authorization", async () => {
     const headers = await buildMcpHttpRuntimeHeaders(
       {
-        name: "system",
+        name: "cmd",
         transport: "streamable_http",
-        url: "/mcp/system",
+        url: "/mcp/cmd",
         headers: {
           "X-Trace-Id": "trace-1",
         },
@@ -1554,19 +1526,18 @@ describe("chat execution success log context", () => {
 });
 
 describe("isLocalPlaygroundMcpContextUrl", () => {
-  it("accepts localhost /mcp/system and /mcp/cmd endpoints", () => {
-    expect(isLocalPlaygroundMcpContextUrl("/mcp/system")).toBe(true);
-    expect(isLocalPlaygroundMcpContextUrl("/mcp/system/")).toBe(true);
-    expect(isLocalPlaygroundMcpContextUrl("http://localhost:3000/mcp/system")).toBe(true);
-    expect(isLocalPlaygroundMcpContextUrl("http://127.0.0.1:3000/mcp/system/")).toBe(true);
-    expect(isLocalPlaygroundMcpContextUrl("http://0.0.0.0:3000/mcp/system")).toBe(true);
+  it("accepts localhost /mcp/cmd endpoints", () => {
     expect(isLocalPlaygroundMcpContextUrl("/mcp/cmd")).toBe(true);
+    expect(isLocalPlaygroundMcpContextUrl("/mcp/cmd/")).toBe(true);
     expect(isLocalPlaygroundMcpContextUrl("http://localhost:3000/mcp/cmd")).toBe(true);
+    expect(isLocalPlaygroundMcpContextUrl("http://127.0.0.1:3000/mcp/cmd/")).toBe(true);
+    expect(isLocalPlaygroundMcpContextUrl("http://0.0.0.0:3000/mcp/cmd")).toBe(true);
   });
 
   it("rejects non-local or non-context endpoints", () => {
-    expect(isLocalPlaygroundMcpContextUrl("https://example.com/mcp/system")).toBe(false);
-    expect(isLocalPlaygroundMcpContextUrl("https://example.com/mcp/cmd")).toBe(false);
+    expect(isLocalPlaygroundMcpContextUrl("/mcp/debug")).toBe(false);
     expect(isLocalPlaygroundMcpContextUrl("http://localhost:3000/mcp/debug")).toBe(false);
+    expect(isLocalPlaygroundMcpContextUrl("https://example.com/mcp/cmd")).toBe(false);
+    expect(isLocalPlaygroundMcpContextUrl("http://localhost:3000/mcp/unknown")).toBe(false);
   });
 });
