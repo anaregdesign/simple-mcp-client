@@ -2,12 +2,16 @@
  * Home UI component module.
  */
 import type { ReactNode } from "react";
+import "katex/dist/katex.min.css";
+import rehypeKatex from "rehype-katex";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { CopyableBlock } from "~/components/home/shared/CopyableBlock";
 import { CopyIconButton } from "~/components/home/shared/CopyIconButton";
 import { formatChatAttachmentSize } from "~/lib/home/chat/attachments";
 import { buildThreadOperationLogCopyPayload, readOperationLogType } from "~/lib/home/chat/history";
+import { normalizeChatMarkdownMath } from "~/lib/home/chat/math-markdown";
 import {
   readMarkdownBlockCopyText,
   type MarkdownBlockNode,
@@ -167,78 +171,7 @@ export function renderMessageContent(
 
   const jsonTokens = parseJsonMessageTokens(message.content);
   if (!jsonTokens) {
-    return (
-      <div className="markdown-message">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            a: ({ ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
-            pre: ({ node, children, ...props }) =>
-              renderCopyableMarkdownBlock({
-                kind: "code block",
-                node: node as MarkdownBlockNode | undefined,
-                onCopyText,
-                content: <pre {...props}>{children}</pre>,
-              }),
-            blockquote: ({ node, children, ...props }) =>
-              renderCopyableMarkdownBlock({
-                kind: "blockquote",
-                node: node as MarkdownBlockNode | undefined,
-                onCopyText,
-                content: <blockquote {...props}>{children}</blockquote>,
-              }),
-            table: ({ node, children, ...props }) =>
-              renderCopyableMarkdownBlock({
-                kind: "table",
-                node: node as MarkdownBlockNode | undefined,
-                onCopyText,
-                content: <table {...props}>{children}</table>,
-              }),
-            ul: ({ node, children, ...props }) =>
-              renderCopyableMarkdownBlock({
-                kind: "unordered list",
-                node: node as MarkdownBlockNode | undefined,
-                onCopyText,
-                content: <ul {...props}>{children}</ul>,
-              }),
-            ol: ({ node, children, ...props }) =>
-              renderCopyableMarkdownBlock({
-                kind: "ordered list",
-                node: node as MarkdownBlockNode | undefined,
-                onCopyText,
-                content: <ol {...props}>{children}</ol>,
-              }),
-            code: ({ className, children, ...props }) => {
-              const isJsonCode = isJsonCodeClassName(className);
-              if (!isJsonCode) {
-                return (
-                  <code className={className} {...props}>
-                    {children}
-                  </code>
-                );
-              }
-
-              const rawText = String(children).replace(/\n$/, "");
-              const tokens = parseJsonMessageTokens(rawText) ?? tokenizeJson(rawText);
-              return (
-                <code className={className} {...props}>
-                  {tokens.map((token, index) => (
-                    <span
-                      key={`${token.type}-${index}`}
-                      className={token.type === "plain" ? undefined : `json-token ${token.type}`}
-                    >
-                      {token.value}
-                    </span>
-                  ))}
-                </code>
-              );
-            },
-          }}
-        >
-          {message.content}
-        </ReactMarkdown>
-      </div>
-    );
+    return <MarkdownMessageContent content={message.content} onCopyText={onCopyText} />;
   }
 
   return renderJsonTokens(jsonTokens, "JSON response", "default");
@@ -263,6 +196,88 @@ function renderCopyableMarkdownBlock(params: {
     >
       {content}
     </CopyableBlock>
+  );
+}
+
+function MarkdownMessageContent(props: {
+  content: string;
+  onCopyText: (content: string) => void;
+}) {
+  const { content, onCopyText } = props;
+  const normalizedContent = normalizeChatMarkdownMath(content);
+
+  return (
+    <div className="markdown-message">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
+        rehypePlugins={[rehypeKatex]}
+        components={{
+          a: ({ ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+          pre: ({ node, children, ...props }) =>
+            renderCopyableMarkdownBlock({
+              kind: "code block",
+              node: node as MarkdownBlockNode | undefined,
+              onCopyText,
+              content: <pre {...props}>{children}</pre>,
+            }),
+          blockquote: ({ node, children, ...props }) =>
+            renderCopyableMarkdownBlock({
+              kind: "blockquote",
+              node: node as MarkdownBlockNode | undefined,
+              onCopyText,
+              content: <blockquote {...props}>{children}</blockquote>,
+            }),
+          table: ({ node, children, ...props }) =>
+            renderCopyableMarkdownBlock({
+              kind: "table",
+              node: node as MarkdownBlockNode | undefined,
+              onCopyText,
+              content: <table {...props}>{children}</table>,
+            }),
+          ul: ({ node, children, ...props }) =>
+            renderCopyableMarkdownBlock({
+              kind: "unordered list",
+              node: node as MarkdownBlockNode | undefined,
+              onCopyText,
+              content: <ul {...props}>{children}</ul>,
+            }),
+          ol: ({ node, children, ...props }) =>
+            renderCopyableMarkdownBlock({
+              kind: "ordered list",
+              node: node as MarkdownBlockNode | undefined,
+              onCopyText,
+              content: <ol {...props}>{children}</ol>,
+            }),
+          code: ({ className, children, ...props }) => {
+            const isJsonCode = isJsonCodeClassName(className);
+            if (!isJsonCode) {
+              return (
+                <code className={className} {...props}>
+                  {children}
+                </code>
+              );
+            }
+
+            const rawText = String(children).replace(/\n$/, "");
+            const tokens = parseJsonMessageTokens(rawText) ?? tokenizeJson(rawText);
+            return (
+              <code className={className} {...props}>
+                {tokens.map((token, index) => (
+                  <span
+                    key={`${token.type}-${index}`}
+                    className={token.type === "plain" ? undefined : `json-token ${token.type}`}
+                  >
+                    {token.value}
+                  </span>
+                ))}
+              </code>
+            );
+          },
+        }}
+      >
+        {normalizedContent}
+      </ReactMarkdown>
+    </div>
   );
 }
 

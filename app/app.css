@@ -953,6 +953,21 @@ body {
   font-size: 0.82rem;
 }
 
+.markdown-message .katex {
+  font-size: 1.02em;
+}
+
+.markdown-message .katex-display {
+  margin: 0.55rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.08rem;
+}
+
+.markdown-message .katex-display > .katex {
+  text-align: left;
+}
+
 .markdown-message .copyable-block > pre,
 .markdown-message .copyable-block > blockquote,
 .markdown-message .copyable-block > table,

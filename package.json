@@ -46,6 +46,7 @@
     "@react-router/serve": "7.13.1",
     "electron-updater": "^6.8.3",
     "isbot": "^5.1.35",
+    "katex": "^0.16.37",
     "openai": "^6.25.0",
     "react": "^19.2.4",
     "react-diff-view": "^3.3.2",
@@ -53,7 +54,9 @@
     "react-markdown": "^10.1.0",
     "react-native-web": "^0.21.2",
     "react-router": "7.13.1",
+    "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
