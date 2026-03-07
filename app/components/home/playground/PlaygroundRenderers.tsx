@@ -1,11 +1,17 @@
 /**
  * Home UI component module.
  */
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { CopyableBlock } from "~/components/home/shared/CopyableBlock";
 import { CopyIconButton } from "~/components/home/shared/CopyIconButton";
-import { buildThreadOperationLogCopyPayload, readOperationLogType } from "~/lib/home/chat/history";
 import { formatChatAttachmentSize } from "~/lib/home/chat/attachments";
+import { buildThreadOperationLogCopyPayload, readOperationLogType } from "~/lib/home/chat/history";
+import {
+  readMarkdownBlockCopyText,
+  type MarkdownBlockNode,
+} from "~/lib/home/chat/markdown-block-copy";
 import type { ThreadMessage } from "~/lib/home/chat/messages";
 import type { JsonToken } from "~/lib/home/chat/json-highlighting";
 import {
@@ -17,6 +23,12 @@ import {
 import type { ThreadOperationLogEntry } from "~/lib/home/chat/stream";
 
 type JsonHighlightStyle = "default" | "compact";
+type CopyableMarkdownBlockKind =
+  | "code block"
+  | "blockquote"
+  | "table"
+  | "unordered list"
+  | "ordered list";
 
 export function renderTurnOperationLog(
   entries: ThreadOperationLogEntry[],
@@ -129,7 +141,10 @@ export function renderTurnOperationLog(
   );
 }
 
-export function renderMessageContent(message: ThreadMessage) {
+export function renderMessageContent(
+  message: ThreadMessage,
+  onCopyText: (content: string) => void,
+) {
   if (message.role !== "assistant") {
     return (
       <div className="user-message-body">
@@ -158,6 +173,41 @@ export function renderMessageContent(message: ThreadMessage) {
           remarkPlugins={[remarkGfm]}
           components={{
             a: ({ ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+            pre: ({ node, children, ...props }) =>
+              renderCopyableMarkdownBlock({
+                kind: "code block",
+                node: node as MarkdownBlockNode | undefined,
+                onCopyText,
+                content: <pre {...props}>{children}</pre>,
+              }),
+            blockquote: ({ node, children, ...props }) =>
+              renderCopyableMarkdownBlock({
+                kind: "blockquote",
+                node: node as MarkdownBlockNode | undefined,
+                onCopyText,
+                content: <blockquote {...props}>{children}</blockquote>,
+              }),
+            table: ({ node, children, ...props }) =>
+              renderCopyableMarkdownBlock({
+                kind: "table",
+                node: node as MarkdownBlockNode | undefined,
+                onCopyText,
+                content: <table {...props}>{children}</table>,
+              }),
+            ul: ({ node, children, ...props }) =>
+              renderCopyableMarkdownBlock({
+                kind: "unordered list",
+                node: node as MarkdownBlockNode | undefined,
+                onCopyText,
+                content: <ul {...props}>{children}</ul>,
+              }),
+            ol: ({ node, children, ...props }) =>
+              renderCopyableMarkdownBlock({
+                kind: "ordered list",
+                node: node as MarkdownBlockNode | undefined,
+                onCopyText,
+                content: <ol {...props}>{children}</ol>,
+              }),
             code: ({ className, children, ...props }) => {
               const isJsonCode = isJsonCodeClassName(className);
               if (!isJsonCode) {
@@ -192,6 +242,28 @@ export function renderMessageContent(message: ThreadMessage) {
   }
 
   return renderJsonTokens(jsonTokens, "JSON response", "default");
+}
+
+function renderCopyableMarkdownBlock(params: {
+  kind: CopyableMarkdownBlockKind;
+  node: MarkdownBlockNode | undefined;
+  onCopyText: (content: string) => void;
+  content: ReactNode;
+  className?: string;
+}) {
+  const { kind, node, onCopyText, content, className } = params;
+
+  return (
+    <CopyableBlock
+      className={className}
+      ariaLabel={`Copy ${kind}`}
+      title={`Copy ${kind}.`}
+      copyText={readMarkdownBlockCopyText(node)}
+      onCopyText={onCopyText}
+    >
+      {content}
+    </CopyableBlock>
+  );
 }
 
 function renderHighlightedJson(

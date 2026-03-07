@@ -127,7 +127,7 @@ type PlaygroundPanelProps<
   activeThreadName: string;
   isThreadOperationBusy: boolean;
   isCreatingThread: boolean;
-  renderMessageContent: (message: TMessage) => ReactNode;
+  renderMessageContent: (message: TMessage, onCopyText: (content: string) => void) => ReactNode;
   renderTurnOperationLog: (
     entries: TThreadOperationLogEntry[],
     isLive: boolean,
@@ -660,7 +660,7 @@ export function PlaygroundPanel<
           return (
             <div key={message.id} className={`turn-entry ${message.role}`}>
               <article className={`message-row ${message.role === "user" ? "user" : "assistant"}`}>
-                <div className="message-content">{renderMessageContent(message)}</div>
+                <div className="message-content">{renderMessageContent(message, onCopyMessage)}</div>
                 <CopyIconButton
                   className="message-copy-btn"
                   ariaLabel="Copy message"

@@ -716,6 +716,27 @@ body {
   border-radius: 6px;
 }
 
+.copyable-block {
+  position: relative;
+  margin: 0.45rem 0;
+}
+
+.copyable-block-toolbar {
+  position: absolute;
+  top: 0.38rem;
+  right: 0.42rem;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.copyable-block-copy-btn {
+  flex-shrink: 0;
+  background: var(--theme-color-rgba-255-255-255-0-72) !important;
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+}
+
 .info-symbol-btn {
   border-radius: var(--home-radius-pill);
 }
@@ -865,6 +886,14 @@ body {
   margin-bottom: 0;
 }
 
+.markdown-message > .copyable-block:first-child {
+  margin-top: 0;
+}
+
+.markdown-message > .copyable-block:last-child {
+  margin-bottom: 0;
+}
+
 .markdown-message p,
 .markdown-message ul,
 .markdown-message ol,
@@ -922,6 +951,29 @@ body {
   width: 100%;
   margin: 0.5rem 0;
   font-size: 0.82rem;
+}
+
+.markdown-message .copyable-block > pre,
+.markdown-message .copyable-block > blockquote,
+.markdown-message .copyable-block > table,
+.markdown-message .copyable-block > ul,
+.markdown-message .copyable-block > ol {
+  margin: 0;
+}
+
+.markdown-message .copyable-block > pre {
+  padding-top: 1.8rem;
+  padding-right: 2.2rem;
+}
+
+.markdown-message .copyable-block > blockquote {
+  padding-top: 1.55rem;
+  padding-right: 2.2rem;
+}
+
+.markdown-message .copyable-block > ul,
+.markdown-message .copyable-block > ol {
+  padding-right: 2.2rem;
 }
 
 .markdown-message th,

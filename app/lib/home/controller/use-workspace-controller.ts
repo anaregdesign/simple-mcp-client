@@ -5873,7 +5873,7 @@ export function useWorkspaceController() {
 
   const handleCopyMessage = (content: string) => {
     void copyTextToClipboard(content).catch(() => {
-      setUiError("Failed to copy message to clipboard.");
+      setUiError("Failed to copy text to clipboard.");
     });
   };
 
