@@ -128,6 +128,7 @@ import {
 } from "~/lib/home/thread/parsers";
 import {
   cloneThreadEnvironment,
+  cloneThreadInstructionContexts,
   buildThreadSaveSignature,
   cloneThreadOperationLogs,
   cloneMcpServers,
@@ -140,6 +141,11 @@ import {
   upsertThreadSnapshot,
 } from "~/lib/home/thread/snapshot-state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/home/thread/environment";
+import {
+  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+  THREAD_INSTRUCTION_CONTEXT_OPTIONS,
+  type ThreadInstructionContextToggleKey,
+} from "~/lib/home/thread/instruction-context";
 import {
   buildThreadAutoTitlePlaygroundContent,
   normalizeThreadAutoTitle,
@@ -272,6 +278,9 @@ export function useWorkspaceController() {
     HOME_DEFAULT_UTILITY_REASONING_EFFORT,
   );
   const [agentInstruction, setAgentInstruction] = useState(DEFAULT_AGENT_INSTRUCTION);
+  const [instructionContextToggles, setInstructionContextToggles] = useState(
+    cloneThreadInstructionContexts(DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES),
+  );
   const [loadedInstructionFileName, setLoadedInstructionFileName] = useState<string | null>(null);
   const [instructionFileError, setInstructionFileError] = useState<string | null>(null);
   const [instructionSaveError, setInstructionSaveError] = useState<string | null>(null);
@@ -1223,6 +1232,7 @@ export function useWorkspaceController() {
     reasoningEffort,
     webSearchEnabled,
     agentInstruction,
+    instructionContextToggles,
     messages,
     mcpServers,
     mcpRpcLogs,
@@ -1780,6 +1790,9 @@ export function useWorkspaceController() {
     setReasoningEffort(HOME_DEFAULT_REASONING_EFFORT);
     setWebSearchEnabled(HOME_DEFAULT_WEB_SEARCH_ENABLED);
     setAgentInstruction(DEFAULT_AGENT_INSTRUCTION);
+    setInstructionContextToggles(
+      cloneThreadInstructionContexts(DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES),
+    );
     setLoadedInstructionFileName(null);
     setInstructionFileError(null);
     setInstructionSaveError(null);
@@ -1920,7 +1933,12 @@ export function useWorkspaceController() {
   function shouldPersistThreadSnapshot(
     snapshot: Pick<
       ThreadSnapshot,
-      "id" | "messages" | "reasoningEffort" | "webSearchEnabled" | "threadEnvironment"
+      | "id"
+      | "messages"
+      | "reasoningEffort"
+      | "webSearchEnabled"
+      | "instructionContextToggles"
+      | "threadEnvironment"
     > &
       Partial<Pick<ThreadSnapshot, "skillSelections">>,
   ): boolean {
@@ -1950,6 +1968,9 @@ export function useWorkspaceController() {
       reasoningEffort: HOME_DEFAULT_REASONING_EFFORT,
       webSearchEnabled: HOME_DEFAULT_WEB_SEARCH_ENABLED,
       agentInstruction: DEFAULT_AGENT_INSTRUCTION,
+      instructionContextToggles: cloneThreadInstructionContexts(
+        DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+      ),
       threadEnvironment: {},
       messages: [],
       mcpServers: cloneMcpServers(defaultThreadMcpServers),
@@ -1972,6 +1993,7 @@ export function useWorkspaceController() {
       reasoningEffort,
       webSearchEnabled,
       agentInstruction,
+      instructionContextToggles: cloneThreadInstructionContexts(instructionContextToggles),
       threadEnvironment: cloneThreadEnvironment(base.threadEnvironment),
       messages: cloneMessages(messages),
       mcpServers: cloneMcpServers(mcpServers),
@@ -2079,6 +2101,9 @@ export function useWorkspaceController() {
     setReasoningEffort(thread.reasoningEffort);
     setWebSearchEnabled(thread.webSearchEnabled);
     setAgentInstruction(thread.agentInstruction);
+    setInstructionContextToggles(
+      cloneThreadInstructionContexts(thread.instructionContextToggles),
+    );
     setLoadedInstructionFileName(null);
     setInstructionFileError(null);
     setInstructionSaveError(null);
@@ -4109,6 +4134,9 @@ export function useWorkspaceController() {
       (selection) => selection.location,
     );
     const requestAgentInstruction = agentInstruction;
+    const requestInstructionContextToggles = cloneThreadInstructionContexts(
+      instructionContextToggles,
+    );
     const userMessage: ThreadMessage = createThreadMessage(
       "user",
       content,
@@ -4198,6 +4226,7 @@ export function useWorkspaceController() {
             : {}),
           webSearchEnabled,
           agentInstruction: requestAgentInstruction,
+          instructionContextToggles: requestInstructionContextToggles,
           threadEnvironment: requestThreadEnvironment,
           skills: requestSkillSelections,
           explicitSkillLocations: requestExplicitSkillLocations,
@@ -5094,6 +5123,25 @@ export function useWorkspaceController() {
     setUiError(null);
   }
 
+  function handleInstructionContextToggleChange(
+    toggleKey: ThreadInstructionContextToggleKey,
+    nextValue: boolean,
+  ) {
+    if (isArchivedThread(activeThreadIdRef.current)) {
+      return;
+    }
+
+    setInstructionContextToggles((current) => ({
+      ...current,
+      [toggleKey]: nextValue,
+    }));
+    setInstructionSaveError(null);
+    setInstructionSaveSuccess(null);
+    setInstructionEnhanceError(null);
+    setInstructionEnhanceSuccess(null);
+    setInstructionEnhanceComparison(null);
+  }
+
   function handleAgentInstructionChange(value: string) {
     if (isArchivedThread(activeThreadIdRef.current)) {
       return;
@@ -5957,6 +6005,13 @@ export function useWorkspaceController() {
   const threadsTabProps = {
     instructionSectionProps: {
       agentInstruction,
+      instructionContextToggleOptions: THREAD_INSTRUCTION_CONTEXT_OPTIONS.map((option) => ({
+        key: option.key,
+        label: option.label,
+        infoTitle: option.infoTitle,
+        infoLines: Array.from(option.infoLines),
+        enabled: instructionContextToggles[option.key],
+      })),
       instructionEnhanceComparison,
       describeInstructionLanguage,
       isSending,
@@ -5980,6 +6035,7 @@ export function useWorkspaceController() {
       onClearInstructionEnhanceSuccess: () => {
         setInstructionEnhanceSuccess(null);
       },
+      onInstructionContextToggleChange: handleInstructionContextToggleChange,
       onAgentInstructionChange: handleAgentInstructionChange,
       onInstructionFileChange: handleInstructionFileChange,
       onSaveInstructionPrompt: handleSaveInstructionPrompt,

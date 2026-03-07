@@ -66,6 +66,7 @@ model Thread {
   reasoningEffort       String             @default("none")
   webSearchEnabled      Boolean            @default(false)
   threadEnvironmentJson String             @default("{}")
+  instructionContextTogglesJson String     @default("{\"system\":true}")
   user                  WorkspaceUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
   instruction           ThreadInstruction?
   messages              ThreadMessage[]

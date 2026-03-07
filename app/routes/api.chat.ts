@@ -29,6 +29,7 @@ import {
   getAzureDependencies,
   normalizeAzureOpenAIBaseURL,
 } from "~/lib/azure/dependencies";
+import { resolveFoundryWorkspaceUserDirectory } from "~/lib/foundry/config";
 import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
@@ -110,6 +111,16 @@ import {
   parseThreadEnvironmentFromUnknown,
   type ThreadEnvironment,
 } from "~/lib/home/thread/environment";
+import {
+  readThreadInstructionContextTogglesFromUnknown,
+  type ThreadInstructionContextToggles,
+} from "~/lib/home/thread/instruction-context";
+import {
+  readAzureArmUserContext,
+  type AzurePrincipalType,
+} from "~/lib/server/auth/azure-user";
+import { ensurePersistenceDatabaseReady, prisma } from "~/lib/server/persistence/prisma";
+import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 import { readSkillFrontmatter, readSkillMarkdown } from "~/lib/server/skills/catalog";
 import {
   inspectSkillResourceManifest,
@@ -186,11 +197,50 @@ type ChatExecutionOptions = {
   webSearchEnabled: boolean;
   temperature: number | null;
   agentInstruction: string;
+  instructionContextToggles: ThreadInstructionContextToggles;
   threadEnvironment: ThreadEnvironment;
   skills: ClientSkillSelection[];
   explicitSkillLocations: string[];
   azureConfig: ResolvedAzureConfig;
   mcpServers: ClientMcpServerConfig[];
+};
+type InstructionClientOperatingSystemContext = {
+  name: string;
+  version: string | null;
+  source: "sec-ch-ua-platform" | "user-agent" | "unknown";
+};
+type InstructionServerOperatingSystemContext = {
+  name: string;
+  platform: NodeJS.Platform;
+  release: string;
+  architecture: string;
+};
+type SystemInstructionContextPayload = {
+  userContext: {
+    userId: number | null;
+    workspaceDirectoryPath: string | null;
+  };
+  threadContext: {
+    threadId: string | null;
+    turnId: string | null;
+  };
+  systemContext: {
+    clientOperatingSystem: InstructionClientOperatingSystemContext;
+    serverOperatingSystem: InstructionServerOperatingSystemContext;
+  };
+  latestThreadName: string | null;
+  azureContext: {
+    principalDisplayName: string | null;
+    principalName: string | null;
+    principalType: "User" | "Service Principal" | "Managed Identity" | "Unknown";
+    tenantId: string | null;
+    principalId: string | null;
+    playgroundProject: string | null;
+    playgroundProjectId: string | null;
+    playgroundDeployment: string | null;
+    endpoint: string | null;
+    apiVersion: string | null;
+  };
 };
 type McpRequestContext = {
   threadId: string | null;
@@ -441,6 +491,23 @@ export async function action({ request }: Route.ActionArgs) {
     return validationErrorResponse("invalid_temperature_payload", temperatureResult.error);
   }
   const agentInstruction = readAgentInstruction(payload);
+  const instructionContextTogglesResult = readInstructionContextToggles(payload);
+  if (!instructionContextTogglesResult.ok) {
+    await logServerRouteEvent({
+      request,
+      route: "/api/chat",
+      eventName: "invalid_instruction_context_toggles_payload",
+      action: "validate_payload",
+      level: "warning",
+      statusCode: 422,
+      message: instructionContextTogglesResult.error,
+    });
+
+    return validationErrorResponse(
+      "invalid_instruction_context_toggles_payload",
+      instructionContextTogglesResult.error,
+    );
+  }
   const threadEnvironmentResult = readThreadEnvironment(payload);
   if (!threadEnvironmentResult.ok) {
     await logServerRouteEvent({
@@ -544,6 +611,7 @@ export async function action({ request }: Route.ActionArgs) {
     webSearchEnabled,
     temperature: temperatureResult.value,
     agentInstruction,
+    instructionContextToggles: instructionContextTogglesResult.value,
     threadEnvironment: threadEnvironmentResult.value,
     skills: skillsResult.value,
     explicitSkillLocations: explicitSkillLocationsResult.value,
@@ -825,6 +893,9 @@ async function executeChat(
         message: `Skill loading warnings: ${skillWarnings.slice(0, 2).join(" / ")}`,
       });
     }
+    const implicitSystemInstructionContext = options.instructionContextToggles.system
+      ? await buildSystemInstructionContextPayload(options)
+      : null;
 
     emitProgress({ message: "Initializing model and agent..." });
 
@@ -883,7 +954,10 @@ async function executeChat(
 
     const agent = new Agent({
       name: "LocalPlaygroundAgent",
-      instructions: buildAgentInstructionWithSkills(options.agentInstruction, skillRuntime),
+      instructions: buildAgentInstructionWithSkills(options.agentInstruction, skillRuntime, {
+        instructionContextToggles: options.instructionContextToggles,
+        systemInstructionContext: implicitSystemInstructionContext,
+      }),
       model,
       modelSettings: {
         ...(options.temperature !== null ? { temperature: options.temperature } : {}),
@@ -1176,6 +1250,7 @@ function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<str
     threadEnvironmentKeyCount: Object.keys(options.threadEnvironment).length,
     reasoningEffort: options.reasoningEffort,
     webSearchEnabled: options.webSearchEnabled,
+    systemInstructionContextEnabled: options.instructionContextToggles.system,
     mcpServerCount: options.mcpServers.length,
     skillCount: options.skills.length,
     explicitSkillLocationCount: options.explicitSkillLocations.length,
@@ -1888,6 +1963,30 @@ function readAgentInstruction(payload: unknown): string {
   }
 
   return trimmed.slice(0, CHAT_MAX_AGENT_INSTRUCTION_LENGTH);
+}
+
+function readInstructionContextToggles(
+  payload: unknown,
+): ParseResult<ThreadInstructionContextToggles> {
+  if (!isRecord(payload)) {
+    return { ok: false, error: "`instructionContextToggles` is required." };
+  }
+  if (!Object.prototype.hasOwnProperty.call(payload, "instructionContextToggles")) {
+    return { ok: false, error: "`instructionContextToggles` is required." };
+  }
+
+  const parsed = readThreadInstructionContextTogglesFromUnknown(
+    payload.instructionContextToggles,
+  );
+  if (!parsed) {
+    return {
+      ok: false,
+      error:
+        "`instructionContextToggles` must include all known boolean keys (for example `{ \"system\": true }`).",
+    };
+  }
+
+  return { ok: true, value: parsed };
 }
 
 function readThreadEnvironment(payload: unknown): ParseResult<ThreadEnvironment> {
@@ -4543,33 +4642,53 @@ function buildSkillEnvironmentSnapshotOperationRecord(options: {
 function buildAgentInstructionWithSkills(
   baseInstruction: string,
   runtime: SkillRuntimeContext,
+  options: {
+    instructionContextToggles: ThreadInstructionContextToggles;
+    systemInstructionContext: SystemInstructionContextPayload | null;
+  },
 ): string {
   const normalizedBaseInstruction = baseInstruction.trim() || DEFAULT_AGENT_INSTRUCTION;
+  const lines: string[] = [normalizedBaseInstruction];
+
+  if (options.instructionContextToggles.system && options.systemInstructionContext) {
+    lines.push(
+      "",
+      "<implicit_instruction_contexts>",
+      "The following context is injected by Local Playground at runtime.",
+      "Treat these identifiers and runtime values as authoritative. Reuse values directly and do not guess missing values.",
+      '<context name="system">',
+      "```json",
+      JSON.stringify(options.systemInstructionContext, null, 2),
+      "```",
+      "</context>",
+      "</implicit_instruction_contexts>",
+    );
+  }
+
   if (runtime.activeSkills.length === 0) {
-    return normalizedBaseInstruction;
+    return lines.join("\n");
   }
 
   const preloadedGuideSkillCount = runtime.activeSkills.filter(
     (skill) => skill.preloadedGuideMarkdown !== null,
   ).length;
-  const lines: string[] = [
-    normalizedBaseInstruction,
+  lines.push(
     "",
     "<skills_context>",
     "The runtime supports agentskills-compatible Skill directories (SKILL.md + scripts/references/assets). Some skills may also define non-standard directories like resources/.",
     preloadedGuideSkillCount > 0
       ? "Linked Skills in this turn are initialized in order with skill/activate then skill_read_guide before model execution."
       : "Active skills are preloaded with frontmatter only (name + description).",
-    preloadedGuideSkillCount > 0 && preloadedGuideSkillCount < runtime.activeSkills.length
-      ? "Other active skills are preloaded with frontmatter only (name + description)."
-      : null,
     "skill_read_guide is already executed once for linked Skills. Call it again only when a specific line range is needed.",
     "Use skill_list_resources before reading/running files when paths are unknown.",
     "Use skill_get_environment and skill_set_environment to inspect and update thread-scoped environment variables that persist across turns.",
     "skill_run_script runs with the current thread-scoped environment variables.",
     "Follow each SKILL.md guide and use the needed paths from skill_list_resources with skill_read_guide, skill_read_reference, skill_read_asset, and skill_run_script.",
-  ].filter((line): line is string => line !== null);
+  );
 
+  if (preloadedGuideSkillCount > 0 && preloadedGuideSkillCount < runtime.activeSkills.length) {
+    lines.push("Other active skills are preloaded with frontmatter only (name + description).");
+  }
   lines.push("<active_skills>");
   for (const skill of runtime.activeSkills) {
     lines.push(`<<<ACTIVE_SKILL_FRONTMATTER name="${skill.name}" location="${skill.location}">>>`);
@@ -4609,6 +4728,290 @@ function buildAgentInstructionWithSkills(
 
   lines.push("</skills_context>");
   return lines.join("\n");
+}
+
+async function buildSystemInstructionContextPayload(
+  options: ChatExecutionOptions,
+): Promise<SystemInstructionContextPayload> {
+  const clientOperatingSystem = buildInstructionClientOperatingSystemContext(
+    options.clientPlatform,
+    options.clientUserAgent,
+  );
+  const serverOperatingSystem = buildInstructionServerOperatingSystemContext();
+  const basePayload: SystemInstructionContextPayload = {
+    userContext: {
+      userId: null,
+      workspaceDirectoryPath: null,
+    },
+    threadContext: {
+      threadId: options.threadId,
+      turnId: options.turnId,
+    },
+    systemContext: {
+      clientOperatingSystem,
+      serverOperatingSystem,
+    },
+    latestThreadName: null,
+    azureContext: {
+      principalDisplayName: null,
+      principalName: null,
+      principalType: "Unknown",
+      tenantId: normalizeOptionalInstructionLabel(options.azureConfig.tenantId),
+      principalId: null,
+      playgroundProject: normalizeOptionalInstructionLabel(options.azureConfig.projectName),
+      playgroundProjectId: null,
+      playgroundDeployment: normalizeOptionalInstructionLabel(options.azureConfig.deploymentName),
+      endpoint: normalizeOptionalInstructionLabel(options.azureConfig.baseUrl),
+      apiVersion: normalizeOptionalInstructionLabel(options.azureConfig.apiVersion),
+    },
+  };
+
+  const azureContext = await readAzureArmUserContext(undefined, options.azureConfig.tenantId);
+  if (!azureContext) {
+    return basePayload;
+  }
+
+  const payload: SystemInstructionContextPayload = {
+    ...basePayload,
+    azureContext: {
+      ...basePayload.azureContext,
+      principalDisplayName: normalizeOptionalInstructionLabel(azureContext.displayName),
+      principalName: normalizeOptionalInstructionLabel(azureContext.principalName),
+      principalType: formatInstructionPrincipalType(azureContext.principalType),
+      tenantId: normalizeOptionalInstructionLabel(azureContext.tenantId),
+      principalId: normalizeOptionalInstructionLabel(azureContext.principalId),
+    },
+  };
+
+  try {
+    const user = await getOrCreateUserByIdentity({
+      tenantId: azureContext.tenantId,
+      principalId: azureContext.principalId,
+    });
+    payload.userContext = {
+      userId: user.id,
+      workspaceDirectoryPath: resolveFoundryWorkspaceUserDirectory({
+        workspaceUserId: user.id,
+      }),
+    };
+
+    await ensurePersistenceDatabaseReady();
+    const [latestThreadName, selection] = await Promise.all([
+      readLatestThreadNameForInstruction(user.id),
+      readPlaygroundSelectionForInstruction(user.id),
+    ]);
+    payload.latestThreadName = latestThreadName;
+    payload.azureContext = {
+      ...payload.azureContext,
+      playgroundProjectId: selection.projectId,
+      playgroundDeployment:
+        payload.azureContext.playgroundDeployment ?? selection.deploymentName,
+    };
+  } catch {
+    // Best-effort enrichment only; chat execution should not fail when this metadata is unavailable.
+  }
+
+  return payload;
+}
+
+async function readLatestThreadNameForInstruction(userId: number): Promise<string | null> {
+  const latestThread = await prisma.thread.findFirst({
+    where: {
+      userId,
+      deletedAt: null,
+    },
+    orderBy: [
+      { updatedAt: "desc" },
+    ],
+    select: {
+      name: true,
+    },
+  });
+
+  return normalizeOptionalInstructionLabel(latestThread?.name);
+}
+
+async function readPlaygroundSelectionForInstruction(userId: number): Promise<{
+  projectId: string | null;
+  deploymentName: string | null;
+}> {
+  const selection = await prisma.azureSelectionPreference.findUnique({
+    where: {
+      userId,
+    },
+    select: {
+      projectId: true,
+      deploymentName: true,
+    },
+  });
+
+  return {
+    projectId: normalizeOptionalInstructionLabel(selection?.projectId),
+    deploymentName: normalizeOptionalInstructionLabel(selection?.deploymentName),
+  };
+}
+
+function normalizeOptionalInstructionLabel(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function formatInstructionPrincipalType(
+  principalType: AzurePrincipalType,
+): "User" | "Service Principal" | "Managed Identity" | "Unknown" {
+  if (principalType === "user") {
+    return "User";
+  }
+  if (principalType === "servicePrincipal") {
+    return "Service Principal";
+  }
+  if (principalType === "managedIdentity") {
+    return "Managed Identity";
+  }
+  return "Unknown";
+}
+
+function buildInstructionClientOperatingSystemContext(
+  clientPlatform: string | null,
+  clientUserAgent: string | null,
+): InstructionClientOperatingSystemContext {
+  const normalizedPlatform = normalizeOptionalInstructionLabel(clientPlatform);
+  if (normalizedPlatform) {
+    return {
+      name: normalizeInstructionClientHintPlatform(normalizedPlatform),
+      version: null,
+      source: "sec-ch-ua-platform",
+    };
+  }
+
+  const normalizedUserAgent = normalizeOptionalInstructionLabel(clientUserAgent);
+  if (!normalizedUserAgent) {
+    return {
+      name: "Unknown",
+      version: null,
+      source: "unknown",
+    };
+  }
+
+  const parsedFromUserAgent = parseInstructionOperatingSystemFromUserAgent(
+    normalizedUserAgent,
+  );
+  if (!parsedFromUserAgent) {
+    return {
+      name: "Unknown",
+      version: null,
+      source: "unknown",
+    };
+  }
+
+  return {
+    ...parsedFromUserAgent,
+    source: "user-agent",
+  };
+}
+
+function parseInstructionOperatingSystemFromUserAgent(
+  userAgent: string,
+): Omit<InstructionClientOperatingSystemContext, "source"> | null {
+  const lowerUserAgent = userAgent.toLowerCase();
+
+  if (lowerUserAgent.includes("windows nt")) {
+    return {
+      name: "Windows",
+      version: normalizeInstructionOperatingSystemVersion(
+        extractInstructionUserAgentVersion(userAgent, /Windows NT ([0-9.]+)/i),
+      ),
+    };
+  }
+
+  if (/iphone|ipad|ipod/i.test(userAgent)) {
+    return {
+      name: "iOS",
+      version: normalizeInstructionOperatingSystemVersion(
+        extractInstructionUserAgentVersion(userAgent, /OS ([0-9_]+)/i),
+      ),
+    };
+  }
+
+  if (lowerUserAgent.includes("android")) {
+    return {
+      name: "Android",
+      version: normalizeInstructionOperatingSystemVersion(
+        extractInstructionUserAgentVersion(userAgent, /Android ([0-9.]+)/i),
+      ),
+    };
+  }
+
+  if (lowerUserAgent.includes("mac os x") || lowerUserAgent.includes("macintosh")) {
+    return {
+      name: "macOS",
+      version: normalizeInstructionOperatingSystemVersion(
+        extractInstructionUserAgentVersion(userAgent, /Mac OS X ([0-9_]+)/i),
+      ),
+    };
+  }
+
+  if (lowerUserAgent.includes("linux")) {
+    return {
+      name: "Linux",
+      version: null,
+    };
+  }
+
+  return null;
+}
+
+function extractInstructionUserAgentVersion(
+  userAgent: string,
+  pattern: RegExp,
+): string | null {
+  const matched = userAgent.match(pattern);
+  const version = matched?.[1];
+  if (typeof version !== "string") {
+    return null;
+  }
+
+  const normalized = version.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeInstructionOperatingSystemVersion(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return value.replaceAll("_", ".");
+}
+
+function normalizeInstructionClientHintPlatform(value: string): string {
+  const unquoted = value.trim().replace(/^"(.*)"$/, "$1").trim();
+  return unquoted.length > 0 ? unquoted : "Unknown";
+}
+
+function buildInstructionServerOperatingSystemContext(): InstructionServerOperatingSystemContext {
+  const platform = process.platform;
+  return {
+    name: mapInstructionNodePlatformToOperatingSystemName(platform),
+    platform,
+    release: nodeOs.release(),
+    architecture: nodeOs.arch(),
+  };
+}
+
+function mapInstructionNodePlatformToOperatingSystemName(platform: NodeJS.Platform): string {
+  if (platform === "darwin") {
+    return "macOS";
+  }
+  if (platform === "win32") {
+    return "Windows";
+  }
+  if (platform === "linux") {
+    return "Linux";
+  }
+  return platform;
 }
 
 function truncateSkillDescription(value: string): string {
@@ -5559,6 +5962,7 @@ function sleep(durationMs: number): Promise<void> {
 export const chatRouteTestUtils = {
   readTemperature,
   readWebSearchEnabled,
+  readInstructionContextToggles,
   readAttachments,
   readThreadEnvironment,
   hasNonPdfAttachments,

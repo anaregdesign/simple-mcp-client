@@ -48,6 +48,9 @@ describe("POST /api/threads", () => {
     reasoningEffort: "medium",
     webSearchEnabled: true,
     agentInstruction: "",
+    instructionContextToggles: {
+      system: true,
+    },
     threadEnvironment: {},
     messages: [],
     mcpServers: [],

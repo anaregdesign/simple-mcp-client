@@ -54,6 +54,7 @@ describe("hasThreadPersistableState", () => {
         messages: [],
         reasoningEffort: "none",
         webSearchEnabled: false,
+        instructionContextToggles: { system: true },
         threadEnvironment: {},
       }),
     ).toBe(false);
@@ -65,6 +66,7 @@ describe("hasThreadPersistableState", () => {
         messages: [],
         reasoningEffort: "medium",
         webSearchEnabled: false,
+        instructionContextToggles: { system: true },
         threadEnvironment: {},
       }),
     ).toBe(true);
@@ -76,6 +78,7 @@ describe("hasThreadPersistableState", () => {
         messages: [],
         reasoningEffort: "none",
         webSearchEnabled: true,
+        instructionContextToggles: { system: true },
         threadEnvironment: {},
       }),
     ).toBe(true);
@@ -87,9 +90,22 @@ describe("hasThreadPersistableState", () => {
         messages: [],
         reasoningEffort: "none",
         webSearchEnabled: false,
+        instructionContextToggles: { system: true },
         threadEnvironment: {
           VIRTUAL_ENV: "/tmp/.venv",
         },
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when instruction context toggles differ from defaults", () => {
+    expect(
+      hasThreadPersistableState({
+        messages: [],
+        reasoningEffort: "none",
+        webSearchEnabled: false,
+        instructionContextToggles: { system: false },
+        threadEnvironment: {},
       }),
     ).toBe(true);
   });

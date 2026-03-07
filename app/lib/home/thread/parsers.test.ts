@@ -19,6 +19,9 @@ describe("readThreadSnapshotFromUnknown", () => {
       reasoningEffort: "none",
       webSearchEnabled: false,
       agentInstruction: "You are concise.",
+      instructionContextToggles: {
+        system: true,
+      },
       threadEnvironment: {
         VIRTUAL_ENV: "/tmp/thread-1/.venv",
       },
@@ -119,6 +122,9 @@ describe("readThreadSnapshotList", () => {
         reasoningEffort: "none",
         webSearchEnabled: false,
         agentInstruction: "Instruction",
+        instructionContextToggles: {
+          system: true,
+        },
         threadEnvironment: {},
         skillSelections: [],
       },
@@ -131,6 +137,9 @@ describe("readThreadSnapshotList", () => {
         reasoningEffort: "none",
         webSearchEnabled: false,
         agentInstruction: "Instruction",
+        instructionContextToggles: {
+          system: true,
+        },
         threadEnvironment: {},
         skillSelections: [],
       },
@@ -155,6 +164,9 @@ describe("buildThreadSummary", () => {
       reasoningEffort: "none",
       webSearchEnabled: false,
       agentInstruction: "Instruction",
+      instructionContextToggles: {
+        system: true,
+      },
       threadEnvironment: {},
       messages: [
         {

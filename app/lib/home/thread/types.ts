@@ -7,6 +7,7 @@ import type { McpServerConfig } from "~/lib/home/mcp/profile";
 import type { ReasoningEffort } from "~/lib/home/shared/view-types";
 import type { ThreadSkillActivation } from "~/lib/home/skills/types";
 import type { ThreadEnvironment } from "~/lib/home/thread/environment";
+import type { ThreadInstructionContextToggles } from "~/lib/home/thread/instruction-context";
 
 export type ThreadSnapshot = {
   id: string;
@@ -17,6 +18,7 @@ export type ThreadSnapshot = {
   reasoningEffort: ReasoningEffort;
   webSearchEnabled: boolean;
   agentInstruction: string;
+  instructionContextToggles: ThreadInstructionContextToggles;
   threadEnvironment: ThreadEnvironment;
   messages: ThreadMessage[];
   mcpServers: McpServerConfig[];

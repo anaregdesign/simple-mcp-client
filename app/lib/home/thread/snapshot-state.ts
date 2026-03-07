@@ -10,6 +10,10 @@ import type { ThreadMessage } from "~/lib/home/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/home/chat/stream";
 import type { ThreadSkillActivation } from "~/lib/home/skills/types";
 import type { ThreadEnvironment } from "~/lib/home/thread/environment";
+import {
+  cloneThreadInstructionContextToggles,
+  hasNonDefaultThreadInstructionContextToggles,
+} from "~/lib/home/thread/instruction-context";
 import type { ThreadSnapshot } from "~/lib/home/thread/types";
 
 export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
@@ -51,6 +55,12 @@ export function cloneThreadEnvironment(value: ThreadEnvironment): ThreadEnvironm
   return { ...value };
 }
 
+export function cloneThreadInstructionContexts(
+  value: ThreadSnapshot["instructionContextToggles"],
+): ThreadSnapshot["instructionContextToggles"] {
+  return cloneThreadInstructionContextToggles(value);
+}
+
 export function buildThreadSaveSignature(snapshot: ThreadSnapshot): string {
   return JSON.stringify({
     name: snapshot.name,
@@ -58,6 +68,7 @@ export function buildThreadSaveSignature(snapshot: ThreadSnapshot): string {
     reasoningEffort: snapshot.reasoningEffort,
     webSearchEnabled: snapshot.webSearchEnabled,
     agentInstruction: snapshot.agentInstruction,
+    instructionContextToggles: snapshot.instructionContextToggles,
     threadEnvironment: snapshot.threadEnvironment,
     messages: snapshot.messages,
     mcpServers: snapshot.mcpServers,
@@ -80,7 +91,11 @@ export function hasThreadInteraction(
 export function hasThreadPersistableState(
   snapshot: Pick<
     ThreadSnapshot,
-    "messages" | "reasoningEffort" | "webSearchEnabled" | "threadEnvironment"
+    | "messages"
+    | "reasoningEffort"
+    | "webSearchEnabled"
+    | "instructionContextToggles"
+    | "threadEnvironment"
   > &
     Partial<Pick<ThreadSnapshot, "skillSelections">>,
 ): boolean {
@@ -91,6 +106,7 @@ export function hasThreadPersistableState(
   return (
     snapshot.reasoningEffort !== HOME_DEFAULT_REASONING_EFFORT ||
     snapshot.webSearchEnabled !== HOME_DEFAULT_WEB_SEARCH_ENABLED ||
+    hasNonDefaultThreadInstructionContextToggles(snapshot.instructionContextToggles) ||
     Object.keys(snapshot.threadEnvironment).length > 0
   );
 }

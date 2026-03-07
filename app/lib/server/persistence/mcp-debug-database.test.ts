@@ -54,6 +54,17 @@ describe("mcp-debug-database metadata", () => {
         }),
       ]),
     );
+
+    const threadTable = tables.find((table) => table.tableName === "Thread");
+    expect(threadTable).toBeTruthy();
+    expect(threadTable?.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "instructionContextTogglesJson",
+          type: "TEXT",
+        }),
+      ]),
+    );
   });
 
   it("keeps debug table catalog aligned with prisma schema models", () => {
@@ -186,6 +197,7 @@ describe("mcp-debug-database metadata", () => {
     expect(description).toContain("Input options:");
     expect(description).toContain("Output fields:");
     expect(description).toContain("snapshot.messages[]");
+    expect(description).toContain("instructionContextToggles");
     expect(description).toContain("runtimeEventLogs[]");
   });
 

@@ -6,10 +6,13 @@ import type { ChangeEvent, RefObject } from "react";
 import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
 import { AutoDismissStatusMessageList } from "~/components/home/shared/AutoDismissStatusMessageList";
+import { InfoIconButton } from "~/components/home/shared/InfoIconButton";
+import { LabeledTooltip } from "~/components/home/shared/LabeledTooltip";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
+import type { ThreadInstructionContextToggleKey } from "~/lib/home/thread/instruction-context";
 
-const { Button, Spinner, Textarea } = FluentUI;
+const { Button, Spinner, Switch, Textarea } = FluentUI;
 
 type InstructionLanguageLike = "japanese" | "english" | "mixed" | "unknown";
 
@@ -19,8 +22,17 @@ type InstructionEnhanceComparisonLike = {
   diffPatch: string;
 };
 
+type InstructionContextToggleOptionLike = {
+  key: ThreadInstructionContextToggleKey;
+  label: string;
+  infoTitle: string;
+  infoLines: string[];
+  enabled: boolean;
+};
+
 type InstructionSectionProps = {
   agentInstruction: string;
+  instructionContextToggleOptions: InstructionContextToggleOptionLike[];
   instructionEnhanceComparison: InstructionEnhanceComparisonLike | null;
   describeInstructionLanguage: (language: InstructionLanguageLike) => string;
   isSending: boolean;
@@ -40,6 +52,10 @@ type InstructionSectionProps = {
   instructionEnhanceSuccess: string | null;
   onClearInstructionSaveSuccess: () => void;
   onClearInstructionEnhanceSuccess: () => void;
+  onInstructionContextToggleChange: (
+    key: ThreadInstructionContextToggleKey,
+    enabled: boolean,
+  ) => void;
   onAgentInstructionChange: (value: string) => void;
   onInstructionFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onSaveInstructionPrompt: () => void | Promise<void>;
@@ -52,6 +68,7 @@ type InstructionSectionProps = {
 export function InstructionSection(props: InstructionSectionProps) {
   const {
     agentInstruction,
+    instructionContextToggleOptions,
     instructionEnhanceComparison,
     describeInstructionLanguage,
     isSending,
@@ -71,6 +88,7 @@ export function InstructionSection(props: InstructionSectionProps) {
     instructionEnhanceSuccess,
     onClearInstructionSaveSuccess,
     onClearInstructionEnhanceSuccess,
+    onInstructionContextToggleChange,
     onAgentInstructionChange,
     onInstructionFileChange,
     onSaveInstructionPrompt,
@@ -257,6 +275,37 @@ export function InstructionSection(props: InstructionSectionProps) {
           },
         ]}
       />
+      <div className="instruction-context-toggle-list" aria-label="Instruction context toggles">
+        {instructionContextToggleOptions.map((option) => (
+          <div key={option.key} className="instruction-context-toggle-item">
+            <div className="instruction-context-toggle-switch-row">
+              <Switch
+                id={`instruction-context-toggle-${option.key}`}
+                className="instruction-context-toggle-switch"
+                label={option.label}
+                checked={option.enabled}
+                onChange={(_, data) => {
+                  onInstructionContextToggleChange(option.key, data.checked === true);
+                }}
+                disabled={isSending || isEnhancingInstruction || isThreadReadOnly}
+              />
+              {option.infoLines.length > 0 ? (
+                <LabeledTooltip
+                  title={option.infoTitle}
+                  lines={option.infoLines}
+                  className="setting-group-tooltip-target"
+                >
+                  <InfoIconButton
+                    className="setting-group-tooltip-icon instruction-context-toggle-info-icon"
+                    ariaLabel={`Show ${option.label} injection details`}
+                    title={`Show ${option.label} injection details`}
+                  />
+                </LabeledTooltip>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
     </ConfigSection>
   );
 }

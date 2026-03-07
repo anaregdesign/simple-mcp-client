@@ -435,7 +435,7 @@ const tableDefinitions: DatabaseDebugTableDefinition[] = [
     tableName: "Thread",
     toolName: "debug_read_thread_table",
     purpose:
-      "Stores thread-level metadata and runtime options (name, timestamps, reasoning mode, web search toggle, thread environment variables).",
+      "Stores thread-level metadata and runtime options (name, timestamps, reasoning mode, web search toggle, instruction context toggles, thread environment variables).",
     accumulatesErrors: false,
     fields: [
       {
@@ -491,6 +491,13 @@ const tableDefinitions: DatabaseDebugTableDefinition[] = [
         type: "TEXT",
         nullable: false,
         description: "Serialized thread-scoped environment variables JSON shared across turns.",
+      },
+      {
+        name: "instructionContextTogglesJson",
+        type: "TEXT",
+        nullable: false,
+        description:
+          "Serialized instruction-context toggle map JSON (for example `{\\\"system\\\":true}`) controlling hidden context injection per thread.",
       },
     ],
   },
@@ -1043,7 +1050,7 @@ export function buildDatabaseDebugLatestThreadToolDescription(): string {
     "Output fields:",
     "- `target`: Which thread-selection mode was used (`latest` or `by_id`), and the effective threadId/includeArchived flags.",
     "- `found`: Whether a matching thread exists.",
-    "- `snapshot.thread`: Thread core metadata. Includes parsed `threadEnvironment` alongside raw `threadEnvironmentJson`.",
+    "- `snapshot.thread`: Thread core metadata. Includes parsed `threadEnvironment` and `instructionContextToggles` alongside raw `threadEnvironmentJson` and `instructionContextTogglesJson`.",
     "- `snapshot.instruction`: Per-thread instruction row (or null when absent).",
     "- `snapshot.messages[]`: Ordered thread messages. Includes parsed `attachments` plus linked `skillActivations` and normalized `normalizedSkillActivations`.",
     "- `snapshot.mcpServers[]`: Ordered MCP server snapshot rows. Includes parsed `headers`/`args`/`env` plus raw JSON fields.",
@@ -1332,6 +1339,10 @@ export async function readDatabaseDebugLatestThreadSnapshot(
     webSearchEnabled: thread.webSearchEnabled,
     threadEnvironmentJson: thread.threadEnvironmentJson,
     threadEnvironment: normalizeUnknownForJson(readJsonValue(thread.threadEnvironmentJson, {})),
+    instructionContextTogglesJson: thread.instructionContextTogglesJson,
+    instructionContextToggles: normalizeUnknownForJson(
+      readJsonValue(thread.instructionContextTogglesJson, {}),
+    ),
   };
   const instruction = thread.instruction ? { ...thread.instruction } : null;
   const normalizedRuntimeEventLogs = runtimeEventLogs.map((event) => ({

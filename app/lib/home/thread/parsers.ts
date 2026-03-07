@@ -12,6 +12,7 @@ import { readMcpServerFromUnknown } from "~/lib/home/mcp/profile";
 import type { ReasoningEffort } from "~/lib/home/shared/view-types";
 import { readThreadSkillActivationList } from "~/lib/home/skills/parsers";
 import { readThreadEnvironmentFromUnknown } from "~/lib/home/thread/environment";
+import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/home/thread/instruction-context";
 import type { ThreadSnapshot, ThreadSummary } from "~/lib/home/thread/types";
 
 type ReadThreadSnapshotOptions = {
@@ -73,6 +74,12 @@ export function readThreadSnapshotFromUnknown(
   const fallbackInstruction = options.fallbackInstruction ?? "";
   const agentInstruction =
     typeof agentInstructionValue === "string" ? agentInstructionValue : fallbackInstruction;
+  const instructionContextToggles = readThreadInstructionContextTogglesFromUnknown(
+    value.instructionContextToggles,
+  );
+  if (!instructionContextToggles) {
+    return null;
+  }
   const threadEnvironment = readThreadEnvironmentFromUnknown(value.threadEnvironment);
 
   const messages = readThreadMessageList(value.messages);
@@ -89,6 +96,7 @@ export function readThreadSnapshotFromUnknown(
     reasoningEffort,
     webSearchEnabled,
     agentInstruction,
+    instructionContextToggles,
     threadEnvironment,
     messages,
     mcpServers,

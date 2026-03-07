@@ -223,9 +223,25 @@ async function ensureThreadSchema(prisma: PrismaClient): Promise<void> {
       "reasoningEffort" TEXT NOT NULL DEFAULT 'none',
       "webSearchEnabled" BOOLEAN NOT NULL DEFAULT false,
       "threadEnvironmentJson" TEXT NOT NULL DEFAULT '{}',
+      "instructionContextTogglesJson" TEXT NOT NULL DEFAULT '{"system":true}',
       FOREIGN KEY ("userId") REFERENCES "WorkspaceUser" ("id") ON DELETE CASCADE
     )
   `);
+
+  const threadColumns = (await prisma.$queryRawUnsafe<Array<{ name?: string }>>(
+    `PRAGMA table_info("Thread")`,
+  )) ?? [];
+  const hasInstructionContextTogglesColumn = threadColumns.some(
+    (column) =>
+      typeof column.name === "string" &&
+      column.name.trim().toLowerCase() === "instructioncontexttogglesjson",
+  );
+  if (!hasInstructionContextTogglesColumn) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "Thread"
+      ADD COLUMN "instructionContextTogglesJson" TEXT NOT NULL DEFAULT '{"system":true}'
+    `);
+  }
 
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS "Thread_userId_updatedAt_idx"

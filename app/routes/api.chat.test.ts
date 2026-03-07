@@ -22,6 +22,7 @@ import { chatRouteTestUtils } from "./api.chat";
 const {
   readTemperature,
   readWebSearchEnabled,
+  readInstructionContextToggles,
   readAttachments,
   readThreadEnvironment,
   hasNonPdfAttachments,
@@ -73,6 +74,41 @@ describe("readWebSearchEnabled", () => {
   it("accepts explicit boolean flags", () => {
     expect(readWebSearchEnabled({ webSearchEnabled: true })).toBe(true);
     expect(readWebSearchEnabled({ webSearchEnabled: false })).toBe(false);
+  });
+});
+
+describe("readInstructionContextToggles", () => {
+  it("parses required instruction context toggles", () => {
+    expect(
+      readInstructionContextToggles({
+        instructionContextToggles: {
+          system: true,
+        },
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        system: true,
+      },
+    });
+  });
+
+  it("rejects missing or invalid toggles payload", () => {
+    expect(readInstructionContextToggles({})).toEqual({
+      ok: false,
+      error: "`instructionContextToggles` is required.",
+    });
+    expect(
+      readInstructionContextToggles({
+        instructionContextToggles: {
+          system: "yes",
+        },
+      }),
+    ).toEqual({
+      ok: false,
+      error:
+        "`instructionContextToggles` must include all known boolean keys (for example `{ \"system\": true }`).",
+    });
   });
 });
 
@@ -1472,6 +1508,9 @@ describe("chat execution success log context", () => {
       webSearchEnabled: false,
       temperature: null,
       agentInstruction: "",
+      instructionContextToggles: {
+        system: true,
+      },
       mcpServers: [],
       skills: [],
       explicitSkillLocations: [],

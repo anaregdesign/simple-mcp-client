@@ -2495,6 +2495,42 @@ body {
   font: inherit;
 }
 
+.instruction-context-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.instruction-context-toggle-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.instruction-context-toggle-switch-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.instruction-context-toggle-switch.fui-Switch {
+  margin: 0;
+}
+
+.instruction-context-toggle-switch-row .instruction-context-toggle-switch.fui-Switch {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.instruction-context-toggle-switch .fui-Switch__label {
+  font-weight: 600;
+}
+
+.instruction-context-toggle-info-icon {
+  margin-top: 0.02rem;
+}
+
 .setting-group .fui-Input[data-invalid="true"],
 .setting-group .fui-Textarea[data-invalid="true"] {
   border-color: var(--danger);
