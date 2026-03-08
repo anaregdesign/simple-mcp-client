@@ -176,11 +176,21 @@ import {
   readDesktopUpdaterStatusFromUnknown,
 } from "~/lib/home/controller/desktop-updater";
 import {
+  resolveAzureTenantOptions,
+  resolveInitialAzureProjectId,
+} from "~/lib/home/controller/azure-runtime";
+import { serializeMcpServersForChatRequest } from "~/lib/home/controller/mcp-runtime";
+import { deriveInstructionRuntimeUiState } from "~/lib/home/controller/instruction-runtime";
+import {
   canStartThreadOperation,
   completeThreadOperationPhase,
   isThreadOperationPhaseBusy,
   type ThreadOperationPhase,
 } from "~/lib/home/controller/thread-operation-phase";
+import {
+  buildThreadListOptions,
+  mergeSkillSelections,
+} from "~/lib/home/controller/thread-runtime";
 import { readJsonPayload } from "~/lib/home/controller/http";
 import {
   type AzureActionApiResponse,
@@ -415,12 +425,14 @@ export function useWorkspaceController() {
     azureConnections.find((connection) => connection.id === selectedUtilityAzureConnectionId) ??
     azureConnections[0] ??
     null;
-  const canClearAgentInstruction =
-    agentInstruction.length > 0 ||
-    loadedInstructionFileName !== null ||
-    instructionFileError !== null;
-  const canSaveAgentInstructionPrompt = agentInstruction.trim().length > 0;
-  const canEnhanceAgentInstruction = agentInstruction.trim().length > 0;
+  const instructionRuntimeUiState = deriveInstructionRuntimeUiState({
+    agentInstruction,
+    loadedInstructionFileName,
+    instructionFileError,
+  });
+  const canClearAgentInstruction = instructionRuntimeUiState.hasInstructionInteraction;
+  const canSaveAgentInstructionPrompt = instructionRuntimeUiState.canSaveAgentInstructionPrompt;
+  const canEnhanceAgentInstruction = instructionRuntimeUiState.canEnhanceAgentInstruction;
   const playgroundAzureDeploymentNames = playgroundAzureDeployments.map(
     (deployment) => deployment.name,
   );
@@ -537,6 +549,16 @@ export function useWorkspaceController() {
     instructionEnhancingThreadId === activeThreadId;
   const activeThreadSummaries = threadSummaries.filter((thread) => thread.deletedAt === null);
   const archivedThreadSummaries = threadSummaries.filter((thread) => thread.deletedAt !== null);
+  const activeThreadOptions = buildThreadListOptions({
+    summaries: activeThreadSummaries,
+    threadRequestStateById,
+    renameActiveThreadId: activeThreadId,
+    activeThreadNameInput,
+  });
+  const archivedThreadOptions = buildThreadListOptions({
+    summaries: archivedThreadSummaries,
+    threadRequestStateById,
+  });
   const availableSkillByLocation = useMemo(
     () => new Map(availableSkills.map((skill) => [skill.location, skill] as const)),
     [availableSkills],
@@ -3453,39 +3475,20 @@ export function useWorkspaceController() {
           const preferredUtilityReasoningEffort =
             preferredSelection?.utility?.reasoningEffort ?? HOME_DEFAULT_UTILITY_REASONING_EFFORT;
           const knownProjectIds = new Set(cachedCatalog.projects.map((connection) => connection.id));
-
-          const resolveInitialProjectId = (
-            currentProjectId: string,
-            preferredProjectId: string,
-            fallbackProjectId = "",
-          ): string => {
-            const normalizedCurrentProjectId = currentProjectId.trim();
-            if (knownProjectIds.has(normalizedCurrentProjectId)) {
-              return normalizedCurrentProjectId;
-            }
-
-            const normalizedPreferredProjectId = preferredProjectId.trim();
-            if (knownProjectIds.has(normalizedPreferredProjectId)) {
-              return normalizedPreferredProjectId;
-            }
-
-            const normalizedFallbackProjectId = fallbackProjectId.trim();
-            if (knownProjectIds.has(normalizedFallbackProjectId)) {
-              return normalizedFallbackProjectId;
-            }
-
-            return cachedCatalog.projects[0]?.id ?? "";
-          };
-
-          const nextPlaygroundProjectId = resolveInitialProjectId(
-            selectedPlaygroundAzureConnectionIdRef.current,
-            preferredPlaygroundProjectId,
-          );
-          const nextUtilityProjectId = resolveInitialProjectId(
-            selectedUtilityAzureConnectionIdRef.current,
-            preferredUtilityProjectId,
-            nextPlaygroundProjectId,
-          );
+          const defaultProjectId = cachedCatalog.projects[0]?.id ?? "";
+          const nextPlaygroundProjectId = resolveInitialAzureProjectId({
+            knownProjectIds,
+            currentProjectId: selectedPlaygroundAzureConnectionIdRef.current,
+            preferredProjectId: preferredPlaygroundProjectId,
+            defaultProjectId,
+          });
+          const nextUtilityProjectId = resolveInitialAzureProjectId({
+            knownProjectIds,
+            currentProjectId: selectedUtilityAzureConnectionIdRef.current,
+            preferredProjectId: preferredUtilityProjectId,
+            fallbackProjectId: nextPlaygroundProjectId,
+            defaultProjectId,
+          });
 
           cancelAzureDeploymentLoads();
           setAzureConnections(cachedCatalog.projects.map((project) => ({ ...project })));
@@ -3619,39 +3622,20 @@ export function useWorkspaceController() {
       const preferredUtilityReasoningEffort =
         preferredSelection?.utility?.reasoningEffort ?? HOME_DEFAULT_UTILITY_REASONING_EFFORT;
       const knownProjectIds = new Set(parsedProjects.map((connection) => connection.id));
-
-      const resolveInitialProjectId = (
-        currentProjectId: string,
-        preferredProjectId: string,
-        fallbackProjectId = "",
-      ): string => {
-        const normalizedCurrentProjectId = currentProjectId.trim();
-        if (knownProjectIds.has(normalizedCurrentProjectId)) {
-          return normalizedCurrentProjectId;
-        }
-
-        const normalizedPreferredProjectId = preferredProjectId.trim();
-        if (knownProjectIds.has(normalizedPreferredProjectId)) {
-          return normalizedPreferredProjectId;
-        }
-
-        const normalizedFallbackProjectId = fallbackProjectId.trim();
-        if (knownProjectIds.has(normalizedFallbackProjectId)) {
-          return normalizedFallbackProjectId;
-        }
-
-        return parsedProjects[0]?.id ?? "";
-      };
-
-      const nextPlaygroundProjectId = resolveInitialProjectId(
-        selectedPlaygroundAzureConnectionIdRef.current,
-        preferredPlaygroundProjectId,
-      );
-      const nextUtilityProjectId = resolveInitialProjectId(
-        selectedUtilityAzureConnectionIdRef.current,
-        preferredUtilityProjectId,
-        nextPlaygroundProjectId,
-      );
+      const defaultProjectId = parsedProjects[0]?.id ?? "";
+      const nextPlaygroundProjectId = resolveInitialAzureProjectId({
+        knownProjectIds,
+        currentProjectId: selectedPlaygroundAzureConnectionIdRef.current,
+        preferredProjectId: preferredPlaygroundProjectId,
+        defaultProjectId,
+      });
+      const nextUtilityProjectId = resolveInitialAzureProjectId({
+        knownProjectIds,
+        currentProjectId: selectedUtilityAzureConnectionIdRef.current,
+        preferredProjectId: preferredUtilityProjectId,
+        fallbackProjectId: nextPlaygroundProjectId,
+        defaultProjectId,
+      });
 
       cancelAzureDeploymentLoads();
       setAzureConnections(parsedProjects);
@@ -4233,26 +4217,7 @@ export function useWorkspaceController() {
           threadEnvironment: requestThreadEnvironment,
           skills: requestSkillSelections,
           explicitSkillLocations: requestExplicitSkillLocations,
-          mcpServers: requestMcpServers.map((server) =>
-            server.transport === "stdio"
-              ? {
-                  name: server.name,
-                  transport: server.transport,
-                  command: server.command,
-                  args: server.args,
-                  cwd: server.cwd,
-                  env: server.env,
-                }
-              : {
-                  name: server.name,
-                  transport: server.transport,
-                  url: server.url,
-                  headers: server.headers,
-                  useAzureAuth: server.useAzureAuth,
-                  azureAuthScope: server.azureAuthScope,
-                  timeoutSeconds: server.timeoutSeconds,
-                },
-          ),
+          mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
         }),
       });
 
@@ -6121,29 +6086,8 @@ export function useWorkspaceController() {
       onAdoptEnhancedInstruction: handleAdoptEnhancedInstruction,
       onAdoptOriginalInstruction: handleAdoptOriginalInstruction,
     },
-    activeThreadOptions: activeThreadSummaries.map((thread) => {
-      const isActiveThread = thread.id === activeThreadId;
-      return {
-        id: thread.id,
-        name: isActiveThread ? activeThreadNameInput : thread.name,
-        updatedAt: thread.updatedAt,
-        deletedAt: thread.deletedAt,
-        messageCount: thread.messageCount,
-        mcpServerCount: thread.mcpServerCount,
-        isAwaitingResponse:
-          (threadRequestStateById[thread.id] ?? HOME_DEFAULT_THREAD_REQUEST_STATE).isSending,
-      };
-    }),
-    archivedThreadOptions: archivedThreadSummaries.map((thread) => ({
-      id: thread.id,
-      name: thread.name,
-      updatedAt: thread.updatedAt,
-      deletedAt: thread.deletedAt,
-      messageCount: thread.messageCount,
-      mcpServerCount: thread.mcpServerCount,
-      isAwaitingResponse:
-        (threadRequestStateById[thread.id] ?? HOME_DEFAULT_THREAD_REQUEST_STATE).isSending,
-    })),
+    activeThreadOptions,
+    archivedThreadOptions,
     activeThreadId,
     isLoadingThreads,
     isSwitchingThread,
@@ -6313,65 +6257,6 @@ export function useWorkspaceController() {
     },
     playgroundPanelProps,
   };
-}
-
-function resolveAzureTenantOptions(
-  tenants: AzureTenantOption[],
-  activeTenantIdRaw: string,
-): AzureTenantOption[] {
-  const activeTenantId = activeTenantIdRaw.trim();
-  const activeTenantKey = activeTenantId.toLowerCase();
-  const tenantById = new Map<string, AzureTenantOption>();
-
-  for (const tenant of tenants) {
-    const tenantId = tenant.tenantId.trim();
-    const tenantKey = tenantId.toLowerCase();
-    if (!tenantId || tenantById.has(tenantKey)) {
-      continue;
-    }
-
-    tenantById.set(tenantKey, {
-      tenantId,
-      displayName: tenant.displayName.trim() || tenant.defaultDomain.trim() || tenantId,
-      defaultDomain: tenant.defaultDomain.trim(),
-    });
-  }
-
-  if (activeTenantId && !tenantById.has(activeTenantKey)) {
-    tenantById.set(activeTenantKey, {
-      tenantId: activeTenantId,
-      displayName: activeTenantId,
-      defaultDomain: "",
-    });
-  }
-
-  return Array.from(tenantById.values()).sort((left, right) => {
-    if (activeTenantKey && left.tenantId.toLowerCase() === activeTenantKey) {
-      return -1;
-    }
-    if (activeTenantKey && right.tenantId.toLowerCase() === activeTenantKey) {
-      return 1;
-    }
-    return left.displayName.localeCompare(right.displayName);
-  });
-}
-
-function mergeSkillSelections(
-  threadSkills: ThreadSkillActivation[],
-  messageSkillActivations: ThreadSkillActivation[],
-): ThreadSkillActivation[] {
-  const byLocation = new Map<string, ThreadSkillActivation>();
-  for (const selection of [...threadSkills, ...messageSkillActivations]) {
-    const location = selection.location.trim();
-    if (!location || byLocation.has(location)) {
-      continue;
-    }
-    byLocation.set(location, {
-      name: selection.name,
-      location,
-    });
-  }
-  return Array.from(byLocation.values());
 }
 
 function resolveSkillBadgeLabel(
