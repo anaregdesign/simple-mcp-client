@@ -1,7 +1,6 @@
 /**
  * API route module for /api/azure/projects/:projectId/deployments.
  */
-import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import {
   authRequiredResponse,
   errorResponse,
@@ -31,8 +30,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return methodNotAllowedResponse(AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS);
   }
 
-  const dependencies = getAzureDependencies();
-  const tokenResult = await getArmAccessToken(dependencies);
+  const tokenResult = await getArmAccessToken();
   if (!tokenResult.ok) {
     return authRequiredResponse();
   }
@@ -56,7 +54,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return validationErrorResponse("invalid_project_id", "Invalid projectId.");
   }
 
-  const principal = await resolveAzurePrincipalProfile(tokenResult, dependencies);
+  const principal = await resolveAzurePrincipalProfile(tokenResult);
 
   try {
     const deployments = await azureProjectQueryService.listProjectDeployments(

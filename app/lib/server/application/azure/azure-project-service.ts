@@ -143,7 +143,7 @@ export class AzureProjectQueryService {
 
   async resolveAzurePrincipalProfile(
     tokenResult: Extract<ArmAccessTokenResult, { ok: true }>,
-    dependencies: AzureDependencies,
+    dependencies?: AzureDependencies,
   ): Promise<AzurePrincipalProfile | null> {
     return resolveAzurePrincipalProfile(tokenResult, dependencies);
   }
@@ -985,7 +985,7 @@ export async function getArmAccessToken(
 
 export async function resolveAzurePrincipalProfile(
   accessContext: Extract<ArmAccessTokenResult, { ok: true }>,
-  dependencies: AzureDependencies,
+  dependencies: AzureDependencies = getAzureDependencies(),
 ): Promise<AzurePrincipalProfile> {
   const fallbackProfile: AzurePrincipalProfile = {
     tenantId: accessContext.tenantId,

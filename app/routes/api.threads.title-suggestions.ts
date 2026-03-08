@@ -3,11 +3,10 @@
  */
 import type { Route } from "./+types/api.threads.title-suggestions";
 import { Agent, run, user } from "@openai/agents";
-import { OpenAIResponsesModel } from "@openai/agents-openai";
 import {
-  getAzureDependencies,
+  createAzureResponsesModel,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/server/infrastructure/azure/dependencies";
+} from "~/lib/server/application/azure/azure-openai-service";
 import {
   CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
   REASONING_EFFORT_OPTIONS,
@@ -210,14 +209,11 @@ export async function action({ request }: Route.ActionArgs) {
 async function generateThreadTitle(
   options: ThreadTitleOptions,
 ): Promise<string> {
-  const azureDependencies = getAzureDependencies();
-  const model = new OpenAIResponsesModel(
-    azureDependencies.getAzureOpenAIClient(
-      options.azureConfig.baseUrl,
-      options.azureConfig.tenantId,
-    ),
-    options.azureConfig.deploymentName,
-  );
+  const model = createAzureResponsesModel({
+    baseUrl: options.azureConfig.baseUrl,
+    tenantId: options.azureConfig.tenantId,
+    deploymentName: options.azureConfig.deploymentName,
+  });
 
   const agent = new Agent({
     name: "LocalPlaygroundThreadTitleAgent",

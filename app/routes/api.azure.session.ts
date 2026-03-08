@@ -1,23 +1,13 @@
 /**
  * API route module for /api/azure/session.
  */
-import {
-  AZURE_COGNITIVE_SERVICES_SCOPE,
-  getAzureDependencies,
-  resetAzureDependencies,
-} from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
+import { azureSessionService } from "~/lib/server/application/azure/azure-session-service";
 import { errorResponse, methodNotAllowedResponse } from "~/lib/server/http";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
-import {
-  getOrCreateUserByIdentity,
-  readMostRecentWorkspaceUserTenantId,
-} from "~/lib/server/persistence/user";
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
-import { ensureDefaultMcpServersForUser } from "~/lib/server/application/mcp/mcp-server-profile-service";
 import type { Route } from "./+types/api.azure.session";
 
 const AZURE_SESSION_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
@@ -49,33 +39,8 @@ export async function action({ request }: Route.ActionArgs) {
     let resolvedTenantId = "";
 
     try {
-      const persistedTenantId = tenantId || (await readMostRecentWorkspaceUserTenantId());
-      resolvedTenantId = persistedTenantId.trim();
-      resetAzureDependencies();
-      const dependencies = getAzureDependencies();
-      if (resolvedTenantId) {
-        await dependencies.authenticateAzure(AZURE_ARM_SCOPE, resolvedTenantId);
-      } else {
-        await dependencies.authenticateAzure(AZURE_ARM_SCOPE);
-      }
-      const identity = await readAzureArmUserContext(dependencies, resolvedTenantId);
-      if (!identity) {
-        throw new Error("Azure token does not include tenant or principal claims.");
-      }
-      if (
-        resolvedTenantId &&
-        identity.tenantId.toLowerCase() !== resolvedTenantId.toLowerCase()
-      ) {
-        throw new Error(
-          `Azure tenant switch did not complete. Requested tenant: ${resolvedTenantId}, resolved tenant: ${identity.tenantId}.`,
-        );
-      }
-      await ensureAzureCognitiveTokenForTenant(dependencies, identity.tenantId);
-      const user = await getOrCreateUserByIdentity({
-        tenantId: identity.tenantId,
-        principalId: identity.principalId,
-      });
-      await ensureDefaultMcpServersForUser(user.id);
+      const session = await azureSessionService.startSession(tenantId);
+      resolvedTenantId = session.tenantId;
 
       return Response.json({
         message: "Azure login completed. Azure projects were refreshed.",
@@ -104,7 +69,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    resetAzureDependencies();
+    azureSessionService.endSession();
 
     return Response.json({
       message: "Azure logout completed. Sign in again when needed.",
@@ -129,28 +94,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
-}
-
-async function ensureAzureCognitiveTokenForTenant(
-  dependencies: ReturnType<typeof getAzureDependencies>,
-  tenantId: string,
-): Promise<void> {
-  try {
-    await dependencies.getAzureBearerToken(AZURE_COGNITIVE_SERVICES_SCOPE, tenantId);
-  } catch (error) {
-    if (!isTenantMismatchError(error)) {
-      throw error;
-    }
-    await dependencies.authenticateAzure(AZURE_COGNITIVE_SERVICES_SCOPE, tenantId);
-  }
-}
-
-function isTenantMismatchError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  const message = error.message.toLowerCase();
-  return message.includes("azure credential returned tenant") && message.includes("requested");
 }
 
 async function readAzureSessionPutTenantId(

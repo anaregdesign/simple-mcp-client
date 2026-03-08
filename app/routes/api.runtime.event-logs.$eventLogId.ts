@@ -1,7 +1,7 @@
 /**
  * API route module for /api/runtime/event-logs/:eventLogId.
  */
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
+import { runtimeEventLogService } from "~/lib/server/application/runtime-event-logs/runtime-event-log-service";
 import {
   authRequiredResponse,
   errorResponse,
@@ -11,9 +11,7 @@ import {
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
-  readRuntimeEventLogByIdForUser,
 } from "~/lib/server/observability/runtime-event-log";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 import type { Route } from "./+types/api.runtime.event-logs.$eventLogId";
 
 const RUNTIME_EVENT_LOG_ITEM_ALLOWED_METHODS = ["GET"] as const;
@@ -45,24 +43,22 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return validationErrorResponse("invalid_event_log_id", "Invalid event log id.");
   }
 
-  const identity = await readAzureArmUserContext();
-  if (!identity) {
-    return authRequiredResponse();
-  }
-
+  let accessContext:
+    | { tenantId: string; principalId: string }
+    | null = null;
   try {
-    const user = await getOrCreateUserByIdentity({
-      tenantId: identity.tenantId,
-      principalId: identity.principalId,
-    });
-
-    const eventLog = await readRuntimeEventLogByIdForUser({
+    const result = await runtimeEventLogService.readRuntimeEventLogForCurrentUser(
       eventLogId,
-      tenantId: identity.tenantId,
-      principalId: identity.principalId,
-      userId: user.id,
-    });
-    if (!eventLog) {
+    );
+    if (result.status === "auth_required") {
+      return authRequiredResponse();
+    }
+    accessContext = {
+      tenantId: result.tenantId,
+      principalId: result.principalId,
+    };
+
+    if (result.status === "not_found") {
       return errorResponse({
         status: 404,
         code: "runtime_event_log_not_found",
@@ -70,7 +66,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       });
     }
 
-    return Response.json({ eventLog });
+    return Response.json({ eventLog: result.eventLog });
   } catch (error) {
     await logServerRouteEvent({
       request,
@@ -81,8 +77,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       error,
       context: {
         eventLogId,
-        tenantId: identity.tenantId,
-        principalId: identity.principalId,
+        tenantId: accessContext?.tenantId ?? null,
+        principalId: accessContext?.principalId ?? null,
       },
     });
 

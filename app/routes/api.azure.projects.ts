@@ -1,7 +1,6 @@
 /**
  * API route module for /api/azure/projects.
  */
-import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import {
   azureProjectQueryService,
   getArmAccessToken,
@@ -40,13 +39,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   const requestedTenantId = new URL(request.url).searchParams.get("tenantId")?.trim() ?? "";
-  const dependencies = getAzureDependencies();
-  const tokenResult = await getArmAccessToken(dependencies, requestedTenantId);
+  const tokenResult = await getArmAccessToken(undefined, requestedTenantId);
   if (!tokenResult.ok) {
     return authRequiredResponse();
   }
 
-  const principal = await resolveAzurePrincipalProfile(tokenResult, dependencies);
+  const principal = await resolveAzurePrincipalProfile(tokenResult);
 
   try {
     const [projects, tenants] = await Promise.all([

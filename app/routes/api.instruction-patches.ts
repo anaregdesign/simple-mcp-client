@@ -3,11 +3,10 @@
  */
 import type { Route } from "./+types/api.instruction-patches";
 import { Agent, run, user } from "@openai/agents";
-import { OpenAIResponsesModel } from "@openai/agents-openai";
 import {
-  getAzureDependencies,
+  createAzureResponsesModel,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/server/infrastructure/azure/dependencies";
+} from "~/lib/server/application/azure/azure-openai-service";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -233,14 +232,11 @@ export async function action({ request }: Route.ActionArgs) {
 async function enhanceInstruction(
   options: InstructionEnhanceOptions,
 ): Promise<string> {
-  const azureDependencies = getAzureDependencies();
-  const model = new OpenAIResponsesModel(
-    azureDependencies.getAzureOpenAIClient(
-      options.azureConfig.baseUrl,
-      options.azureConfig.tenantId,
-    ),
-    options.azureConfig.deploymentName,
-  );
+  const model = createAzureResponsesModel({
+    baseUrl: options.azureConfig.baseUrl,
+    tenantId: options.azureConfig.tenantId,
+    deploymentName: options.azureConfig.deploymentName,
+  });
 
   const agent = new Agent({
     name: "LocalPlaygroundInstructionAgent",

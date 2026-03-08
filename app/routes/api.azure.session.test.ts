@@ -2,44 +2,26 @@
  * Test module verifying api.azure.session behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 
 const {
-  authenticateAzure,
-  getAzureBearerToken,
-  resetAzureDependencies,
+  startSession,
+  endSession,
   logServerRouteEvent,
-  readAzureArmUserContext,
-  getOrCreateUserByIdentity,
-  readMostRecentWorkspaceUserTenantId,
-  ensureDefaultMcpServersForUser,
 } = vi.hoisted(() => ({
-  authenticateAzure: vi.fn(async () => undefined),
-  getAzureBearerToken: vi.fn(async () => "cognitive-token"),
-  resetAzureDependencies: vi.fn(),
-  logServerRouteEvent: vi.fn(async () => undefined),
-  readAzureArmUserContext: vi.fn(
-    async (): Promise<{ tenantId: string; principalId: string } | null> => ({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    }),
-  ),
-  getOrCreateUserByIdentity: vi.fn(async () => ({
-    id: 10,
+  startSession: vi.fn(async () => ({
     tenantId: "tenant-a",
     principalId: "principal-a",
+    userId: 10,
   })),
-  readMostRecentWorkspaceUserTenantId: vi.fn(async () => ""),
-  ensureDefaultMcpServersForUser: vi.fn(async () => undefined),
+  endSession: vi.fn(),
+  logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/infrastructure/azure/dependencies", () => ({
-  AZURE_COGNITIVE_SERVICES_SCOPE: "https://cognitiveservices.azure.com/.default",
-  getAzureDependencies: () => ({
-    authenticateAzure,
-    getAzureBearerToken,
-  }),
-  resetAzureDependencies,
+vi.mock("~/lib/server/application/azure/azure-session-service", () => ({
+  azureSessionService: {
+    startSession,
+    endSession,
+  },
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -47,45 +29,19 @@ vi.mock("~/lib/server/observability/runtime-event-log", () => ({
   logServerRouteEvent,
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
-  readAzureArmUserContext,
-}));
-
-vi.mock("~/lib/server/persistence/user", () => ({
-  getOrCreateUserByIdentity,
-  readMostRecentWorkspaceUserTenantId,
-}));
-
-vi.mock("~/lib/server/application/mcp/mcp-server-profile-service", () => ({
-  ensureDefaultMcpServersForUser,
-}));
-
 import { action, loader } from "./api.azure.session";
 
 describe("/api/azure/session", () => {
   beforeEach(() => {
-    authenticateAzure.mockReset();
-    authenticateAzure.mockResolvedValue(undefined);
-    getAzureBearerToken.mockReset();
-    getAzureBearerToken.mockResolvedValue("cognitive-token");
-    resetAzureDependencies.mockReset();
+    startSession.mockReset();
+    startSession.mockResolvedValue({
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+      userId: 10,
+    });
+    endSession.mockReset();
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
-    readAzureArmUserContext.mockReset();
-    readAzureArmUserContext.mockResolvedValue({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
-    getOrCreateUserByIdentity.mockReset();
-    getOrCreateUserByIdentity.mockResolvedValue({
-      id: 10,
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
-    readMostRecentWorkspaceUserTenantId.mockReset();
-    readMostRecentWorkspaceUserTenantId.mockResolvedValue("");
-    ensureDefaultMcpServersForUser.mockReset();
-    ensureDefaultMcpServersForUser.mockResolvedValue(undefined);
   });
 
   it("returns 405 for loader and includes Allow", async () => {
@@ -106,7 +62,7 @@ describe("/api/azure/session", () => {
     expect(response.headers.get("allow")).toBe("PUT, DELETE");
   });
 
-  it("runs interactive azure authentication on PUT", async () => {
+  it("starts Azure session on PUT", async () => {
     const response = await action({
       request: new Request("http://localhost/api/azure/session", { method: "PUT" }),
     } as never);
@@ -114,29 +70,15 @@ describe("/api/azure/session", () => {
 
     expect(response.status).toBe(200);
     expect(payload.message).toBe("Azure login completed. Azure projects were refreshed.");
-    expect(authenticateAzure).toHaveBeenCalledTimes(1);
-    expect(authenticateAzure).toHaveBeenCalledWith(AZURE_ARM_SCOPE);
-    expect(getAzureBearerToken).toHaveBeenCalledTimes(1);
-    expect(getAzureBearerToken).toHaveBeenCalledWith(
-      "https://cognitiveservices.azure.com/.default",
-      "tenant-a",
-    );
-    expect(getOrCreateUserByIdentity).toHaveBeenCalledWith({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
-    expect(ensureDefaultMcpServersForUser).toHaveBeenCalledWith(10);
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect(startSession).toHaveBeenCalledWith("");
   });
 
-  it("uses requested tenantId when provided on PUT", async () => {
-    readAzureArmUserContext.mockResolvedValueOnce({
+  it("passes requested tenantId to the session service", async () => {
+    startSession.mockResolvedValueOnce({
       tenantId: "tenant-b",
       principalId: "principal-b",
-    });
-    getOrCreateUserByIdentity.mockResolvedValueOnce({
-      id: 11,
-      tenantId: "tenant-b",
-      principalId: "principal-b",
+      userId: 11,
     });
 
     const response = await action({
@@ -152,89 +94,21 @@ describe("/api/azure/session", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(authenticateAzure).toHaveBeenCalledTimes(1);
-    expect(authenticateAzure).toHaveBeenCalledWith(AZURE_ARM_SCOPE, "tenant-b");
-    expect(getAzureBearerToken).toHaveBeenCalledTimes(1);
-    expect(getAzureBearerToken).toHaveBeenCalledWith(
-      "https://cognitiveservices.azure.com/.default",
-      "tenant-b",
-    );
-    expect(getOrCreateUserByIdentity).toHaveBeenCalledWith({
-      tenantId: "tenant-b",
-      principalId: "principal-b",
-    });
-    expect(readMostRecentWorkspaceUserTenantId).not.toHaveBeenCalled();
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect(startSession).toHaveBeenCalledWith("tenant-b");
   });
 
-  it("uses the most recent persisted tenant when PUT body omits tenantId", async () => {
-    readMostRecentWorkspaceUserTenantId.mockResolvedValueOnce(" tenant-z ");
-    readAzureArmUserContext.mockResolvedValueOnce({
-      tenantId: "tenant-z",
-      principalId: "principal-z",
-    });
-    getOrCreateUserByIdentity.mockResolvedValueOnce({
-      id: 12,
-      tenantId: "tenant-z",
-      principalId: "principal-z",
-    });
+  it("returns 500 when Azure session startup fails", async () => {
+    startSession.mockRejectedValueOnce(new Error("manual login cancelled"));
 
     const response = await action({
       request: new Request("http://localhost/api/azure/session", { method: "PUT" }),
     } as never);
-
-    expect(response.status).toBe(200);
-    expect(readMostRecentWorkspaceUserTenantId).toHaveBeenCalledTimes(1);
-    expect(authenticateAzure).toHaveBeenCalledWith(AZURE_ARM_SCOPE, "tenant-z");
-    expect(getAzureBearerToken).toHaveBeenCalledWith(
-      "https://cognitiveservices.azure.com/.default",
-      "tenant-z",
-    );
-  });
-
-  it("returns 500 when identity is unavailable after authentication", async () => {
-    readAzureArmUserContext.mockResolvedValueOnce(null);
-
-    const response = await action({
-      request: new Request("http://localhost/api/azure/session", { method: "PUT" }),
-    } as never);
+    const payload = (await response.json()) as { error?: string };
 
     expect(response.status).toBe(500);
-    expect(getOrCreateUserByIdentity).not.toHaveBeenCalled();
-    expect(ensureDefaultMcpServersForUser).not.toHaveBeenCalled();
+    expect(payload.error).toContain("Failed to run Azure login");
     expect(logServerRouteEvent).toHaveBeenCalledTimes(1);
-  });
-
-  it("returns 500 when resolved tenant differs from requested tenant", async () => {
-    readAzureArmUserContext.mockResolvedValueOnce({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
-
-    const response = await action({
-      request: new Request("http://localhost/api/azure/session", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId: "tenant-b",
-        }),
-      }),
-    } as never);
-
-    expect(response.status).toBe(500);
-    expect(logServerRouteEvent).toHaveBeenCalledTimes(1);
-  });
-
-  it("resets azure dependencies on DELETE and returns success message", async () => {
-    const response = await action({
-      request: new Request("http://localhost/api/azure/session", { method: "DELETE" }),
-    } as never);
-    const payload = (await response.json()) as { message?: string };
-
-    expect(response.status).toBe(200);
-    expect(payload.message).toBe("Azure logout completed. Sign in again when needed.");
-    expect(resetAzureDependencies).toHaveBeenCalledTimes(1);
   });
 
   it("returns 400 when PUT body is invalid JSON", async () => {
@@ -251,71 +125,32 @@ describe("/api/azure/session", () => {
 
     expect(response.status).toBe(400);
     expect(payload.error).toBe("Invalid request body.");
-    expect(authenticateAzure).not.toHaveBeenCalled();
+    expect(startSession).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when authentication fails", async () => {
-    authenticateAzure.mockRejectedValueOnce(new Error("manual login cancelled"));
-
+  it("ends Azure session on DELETE and returns success message", async () => {
     const response = await action({
-      request: new Request("http://localhost/api/azure/session", { method: "PUT" }),
+      request: new Request("http://localhost/api/azure/session", { method: "DELETE" }),
     } as never);
-    const payload = (await response.json()) as { error?: string };
-
-    expect(response.status).toBe(500);
-    expect(payload.error).toContain("Failed to run Azure login");
-    expect(logServerRouteEvent).toHaveBeenCalledTimes(1);
-  });
-
-  it("retries interactive auth for cognitive scope on tenant mismatch", async () => {
-    readAzureArmUserContext.mockResolvedValueOnce({
-      tenantId: "tenant-b",
-      principalId: "principal-b",
-    });
-    getOrCreateUserByIdentity.mockResolvedValueOnce({
-      id: 11,
-      tenantId: "tenant-b",
-      principalId: "principal-b",
-    });
-    getAzureBearerToken.mockRejectedValueOnce(
-      new Error("Azure credential returned tenant tenant-a while tenant tenant-b was requested"),
-    );
-
-    const response = await action({
-      request: new Request("http://localhost/api/azure/session", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tenantId: "tenant-b",
-        }),
-      }),
-    } as never);
+    const payload = (await response.json()) as { message?: string };
 
     expect(response.status).toBe(200);
-    expect(authenticateAzure).toHaveBeenCalledTimes(2);
-    expect(authenticateAzure).toHaveBeenNthCalledWith(1, AZURE_ARM_SCOPE, "tenant-b");
-    expect(authenticateAzure).toHaveBeenNthCalledWith(
-      2,
-      "https://cognitiveservices.azure.com/.default",
-      "tenant-b",
-    );
-    expect(logServerRouteEvent).not.toHaveBeenCalled();
+    expect(payload.message).toBe("Azure logout completed. Sign in again when needed.");
+    expect(endSession).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 500 when cognitive services token acquisition fails", async () => {
-    getAzureBearerToken.mockRejectedValueOnce(new Error("cognitive scope unavailable"));
+  it("returns 500 when Azure logout reset fails", async () => {
+    endSession.mockImplementationOnce(() => {
+      throw new Error("reset failed");
+    });
 
     const response = await action({
-      request: new Request("http://localhost/api/azure/session", {
-        method: "PUT",
-      }),
+      request: new Request("http://localhost/api/azure/session", { method: "DELETE" }),
     } as never);
     const payload = (await response.json()) as { error?: string };
 
     expect(response.status).toBe(500);
-    expect(payload.error).toContain("Failed to run Azure login");
+    expect(payload.error).toContain("Failed to reset Azure authentication state");
     expect(logServerRouteEvent).toHaveBeenCalledTimes(1);
   });
 });

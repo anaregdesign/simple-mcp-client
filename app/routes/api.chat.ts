@@ -23,11 +23,6 @@ import {
   codeInterpreterTool,
 } from "@openai/agents-openai";
 import { toFile } from "openai";
-import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
-import {
-  resolveWorkspaceThreadDirectory,
-  resolveWorkspaceUserDirectory,
-} from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
@@ -91,7 +86,6 @@ import {
   AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS,
   AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
 } from "~/lib/constants/skills";
-import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import {
   cloneThreadEnvironment,
@@ -123,11 +117,6 @@ import {
   type AzurePrincipalType,
 } from "~/lib/server/auth/azure-user";
 import {
-  ensurePersistenceDatabaseReady,
-  prisma,
-} from "~/lib/server/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
-import {
   readSkillFrontmatter,
   readSkillMarkdown,
 } from "~/lib/server/skills/catalog";
@@ -153,9 +142,20 @@ import {
   type WebSearchPreviewUserLocation,
 } from "~/lib/server/chat/request-metadata";
 import {
+  readLatestThreadNameForInstruction,
+  readPlaygroundSelectionForInstruction,
+  resolveThreadDirectoryContext,
+  resolveThreadDirectoryPath,
+} from "~/lib/server/chat/instruction-context-enrichment";
+import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,
 } from "~/lib/server/chat/stdio-runtime-path";
+import {
+  createAzureOpenAIClient,
+  getAzureBearerTokenForScope,
+  type AzureOpenAIClient,
+} from "~/lib/server/application/azure/azure-openai-service";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 const chatTransientTerminationRetryMaxAttempts = 2;
@@ -544,11 +544,9 @@ async function executeChat(
   abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
   throwIfAborted(abortSignal);
-  const azureDependencies = getAzureDependencies();
-  const azureOpenAIClient = getAzureOpenAIClient(
+  const azureOpenAIClient = createAzureOpenAIClient(
     options.azureConfig.baseUrl,
     options.azureConfig.tenantId,
-    azureDependencies,
   );
   const connectedMcpServers: MCPServer[] = [];
   const connectedMcpServerLeases: ThreadMcpServerSessionLease[] = [];
@@ -633,7 +631,6 @@ async function executeChat(
                 const created = getAzureMcpAuthorizationToken(
                   normalizedScope,
                   options.azureConfig.tenantId,
-                  azureDependencies,
                 );
                 azureMcpAuthorizationTokenPromiseByScope.set(
                   normalizedScope,
@@ -1198,7 +1195,7 @@ function collectNonPdfAttachments(
 
 async function createCodeInterpreterContainerWithAttachments(
   attachments: ClientAttachment[],
-  client: ReturnType<AzureDependencies["getAzureOpenAIClient"]>,
+  client: AzureOpenAIClient,
 ): Promise<string> {
   const container = await awaitWithTimeout(
     client.containers.create({
@@ -1390,16 +1387,8 @@ function extractAgentFinalOutput(finalOutput: unknown): string {
   return "";
 }
 
-function getAzureOpenAIClient(
-  baseUrl: string,
-  tenantId: string,
-  dependencies: AzureDependencies,
-) {
-  return dependencies.getAzureOpenAIClient(baseUrl, tenantId);
-}
-
 async function initializeCompactionSession(options: {
-  client: ReturnType<AzureDependencies["getAzureOpenAIClient"]>;
+  client: AzureOpenAIClient;
   deploymentName: string;
   historyInput: AgentInputItem[];
   onCompactionUnavailable: () => void;
@@ -2475,10 +2464,9 @@ function isLocalPlaygroundMcpContextUrl(rawUrl: string): boolean {
 async function getAzureMcpAuthorizationToken(
   scope: string,
   tenantId: string,
-  dependencies: AzureDependencies,
 ): Promise<string> {
   try {
-    return await dependencies.getAzureBearerToken(scope, tenantId);
+    return await getAzureBearerTokenForScope(scope, tenantId);
   } catch {
     throw new Error(
       `Azure credential failed to acquire token for MCP Authorization header (scope: ${scope}). Run Azure Login and try again.`,
@@ -3942,7 +3930,6 @@ async function buildSystemInstructionContextPayload(
       }),
     };
 
-    await ensurePersistenceDatabaseReady();
     const [latestThreadName, selection] = await Promise.all([
       readLatestThreadNameForInstruction(userId),
       readPlaygroundSelectionForInstruction(userId),
@@ -3961,105 +3948,12 @@ async function buildSystemInstructionContextPayload(
   return payload;
 }
 
-function resolveThreadDirectoryPath(options: {
-  userId: number;
-  threadId: string | null;
-}): string | null {
-  if (!options.threadId) {
-    return null;
-  }
-
-  try {
-    return resolveWorkspaceThreadDirectory({
-      workspaceUserId: options.userId,
-      threadId: options.threadId,
-    });
-  } catch {
-    return null;
-  }
-}
-
-async function resolveThreadDirectoryContext(options: {
-  threadId: string | null;
-  tenantId: string;
-}): Promise<{
-  userId: number;
-  userDirectoryPath: string;
-  threadDirectoryPath: string | null;
-} | null> {
-  try {
-    const azureContext = await readAzureArmUserContext(
-      undefined,
-      options.tenantId,
-    );
-    if (!azureContext) {
-      return null;
-    }
-
-    const user = await getOrCreateUserByIdentity({
-      tenantId: azureContext.tenantId,
-      principalId: azureContext.principalId,
-    });
-    return {
-      userId: user.id,
-      userDirectoryPath: resolveWorkspaceUserDirectory({
-        workspaceUserId: user.id,
-      }),
-      threadDirectoryPath: resolveThreadDirectoryPath({
-        userId: user.id,
-        threadId: options.threadId,
-      }),
-    };
-  } catch {
-    return null;
-  }
-}
-
 function normalizePathForComparison(value: string | null | undefined): string {
   if (typeof value !== "string") {
     return "";
   }
 
   return value.trim().replaceAll("\\", "/").toLowerCase();
-}
-
-async function readLatestThreadNameForInstruction(
-  userId: number,
-): Promise<string | null> {
-  const latestThread = await prisma.thread.findFirst({
-    where: {
-      userId,
-      deletedAt: null,
-    },
-    orderBy: [{ updatedAt: "desc" }],
-    select: {
-      name: true,
-    },
-  });
-
-  return normalizeOptionalInstructionLabel(latestThread?.name);
-}
-
-async function readPlaygroundSelectionForInstruction(userId: number): Promise<{
-  projectId: string | null;
-  deploymentName: string | null;
-}> {
-  const selection = await prisma.azureSelectionPreference.findUnique({
-    where: {
-      userId,
-    },
-    select: {
-      projectId: true,
-      deploymentName: true,
-    },
-  });
-
-  return {
-    projectId: normalizeOptionalInstructionLabel(selection?.projectId),
-    deploymentName: normalizeOptionalInstructionLabel(
-      selection?.deploymentName,
-    ),
-  };
 }
 
 function normalizeOptionalInstructionLabel(value: unknown): string | null {
