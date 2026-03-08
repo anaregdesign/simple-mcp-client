@@ -133,6 +133,13 @@ import {
   type SkillResourceFileEntry,
   type SkillResourceKind,
 } from "~/lib/server/skills/runtime";
+import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stream";
+import {
+  readOptionalRequestHeaderValue,
+  readWebSearchUserLocationFromRequest,
+  wantsEventStream,
+  type WebSearchPreviewUserLocation,
+} from "~/lib/server/chat/request-metadata";
 
 type ThreadMessageRole = "user" | "assistant";
 
@@ -187,10 +194,6 @@ type UpstreamErrorPayload = {
   code: string;
   error: string;
   errorCode?: "azure_login_required";
-};
-type WebSearchPreviewUserLocation = {
-  type: "approximate";
-  country: string;
 };
 type ChatExecutionOptions = {
   threadId: string | null;
@@ -405,7 +408,6 @@ let codeInterpreterAttachmentAvailabilityCache: CodeInterpreterAttachmentAvailab
   null;
 const WEB_SEARCH_PREVIEW_TOOL_NAME = "web_search_preview";
 const WEB_SEARCH_PREVIEW_CONTEXT_SIZE = "medium";
-const BCP47_REGION_CODE_PATTERN = /^[A-Za-z]{2}$/;
 const MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES = ["gpt-5.4"] as const;
 const CHAT_ALLOWED_METHODS = ["POST"] as const;
 
@@ -1203,152 +1205,75 @@ async function executeChatWithTransientRetry(
 }
 
 function streamChatResponse(options: ChatExecutionOptions): Response {
-  const encoder = new TextEncoder();
+  return createJsonEventStreamResponse(async (send) => {
+    const sendPayload = (payload: ChatStreamPayload) => {
+      send(payload);
+    };
 
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const send = (payload: ChatStreamPayload) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
-      };
+    try {
+      sendPayload({
+        type: "progress",
+        message: "Preparing request...",
+      });
 
-      try {
-        send({
-          type: "progress",
-          message: "Preparing request...",
-        });
-
-        const result = await executeChatWithTransientRetry(options, (event) => {
-          if (event.type === "progress") {
-            send({
-              type: "progress",
-              message: event.message,
-              ...(event.isMcp ? { isMcp: true } : {}),
-            });
-            return;
-          }
-
-          send({
-            type: "operation_log",
-            record: event.record,
+      const result = await executeChatWithTransientRetry(options, (event) => {
+        if (event.type === "progress") {
+          sendPayload({
+            type: "progress",
+            message: event.message,
+            ...(event.isMcp ? { isMcp: true } : {}),
           });
+          return;
+        }
+
+        sendPayload({
+          type: "operation_log",
+          record: event.record,
         });
+      });
 
-        send({
-          type: "final",
-          message: result.message,
-          threadEnvironment: result.threadEnvironment,
-        });
-        await logServerRouteEvent({
-          route: "/api/chat",
-          eventName: "chat_stream_execution_succeeded",
-          action: "stream_chat",
-          level: "info",
-          statusCode: 200,
-          message: "Chat stream completed.",
-          threadId: options.threadId,
-          context: buildChatExecutionSuccessLogContext(options, result),
-        });
-      } catch (error) {
-        const upstreamError = buildUpstreamErrorPayload(
-          error,
-          options.azureConfig.deploymentName,
-        );
-        await logServerRouteEvent({
-          route: "/api/chat",
-          eventName: "chat_stream_execution_failed",
-          action: "stream_chat",
-          statusCode: upstreamError.status,
-          error,
-          threadId: options.threadId,
-          context: {
-            ...buildChatExecutionLogContext(options),
-            maxRunTurns: CHAT_MAX_RUN_TURNS,
-          },
-        });
+      sendPayload({
+        type: "final",
+        message: result.message,
+        threadEnvironment: result.threadEnvironment,
+      });
+      await logServerRouteEvent({
+        route: "/api/chat",
+        eventName: "chat_stream_execution_succeeded",
+        action: "stream_chat",
+        level: "info",
+        statusCode: 200,
+        message: "Chat stream completed.",
+        threadId: options.threadId,
+        context: buildChatExecutionSuccessLogContext(options, result),
+      });
+    } catch (error) {
+      const upstreamError = buildUpstreamErrorPayload(
+        error,
+        options.azureConfig.deploymentName,
+      );
+      await logServerRouteEvent({
+        route: "/api/chat",
+        eventName: "chat_stream_execution_failed",
+        action: "stream_chat",
+        statusCode: upstreamError.status,
+        error,
+        threadId: options.threadId,
+        context: {
+          ...buildChatExecutionLogContext(options),
+          maxRunTurns: CHAT_MAX_RUN_TURNS,
+        },
+      });
 
-        send({
-          type: "error",
-          error: upstreamError.payload.error,
-          ...(upstreamError.payload.errorCode
-            ? { errorCode: upstreamError.payload.errorCode }
-            : {}),
-        });
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
-}
-
-function wantsEventStream(request: Request): boolean {
-  const acceptHeader = request.headers.get("accept");
-  return (
-    typeof acceptHeader === "string" &&
-    acceptHeader.toLowerCase().includes("text/event-stream")
-  );
-}
-
-function readOptionalRequestHeaderValue(request: Request, headerName: string): string | null {
-  const rawValue = request.headers.get(headerName);
-  if (typeof rawValue !== "string") {
-    return null;
-  }
-
-  const normalized = rawValue.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function readWebSearchUserLocationFromRequest(
-  request: Request,
-): WebSearchPreviewUserLocation | null {
-  const acceptLanguage = readOptionalRequestHeaderValue(request, "accept-language");
-  if (!acceptLanguage) {
-    return null;
-  }
-
-  const primaryLanguageRange = acceptLanguage.split(",")[0]?.trim() ?? "";
-  if (!primaryLanguageRange) {
-    return null;
-  }
-
-  const primaryLanguageTag = primaryLanguageRange.split(";")[0]?.trim() ?? "";
-  if (!primaryLanguageTag) {
-    return null;
-  }
-
-  const country = readRegionCodeFromLanguageTag(primaryLanguageTag);
-  if (!country) {
-    return null;
-  }
-
-  return {
-    type: "approximate",
-    country,
-  };
-}
-
-function readRegionCodeFromLanguageTag(languageTag: string): string | null {
-  const subtags = languageTag
-    .split(/[-_]/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-
-  for (const subtag of subtags.slice(1)) {
-    if (BCP47_REGION_CODE_PATTERN.test(subtag)) {
-      return subtag.toUpperCase();
+      sendPayload({
+        type: "error",
+        error: upstreamError.payload.error,
+        ...(upstreamError.payload.errorCode
+          ? { errorCode: upstreamError.payload.errorCode }
+          : {}),
+      });
     }
-  }
-
-  return null;
+  });
 }
 
 function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<string, unknown> {
