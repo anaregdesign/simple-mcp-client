@@ -1,6 +1,6 @@
 ---
 name: local-playground-dev
-description: Mandatory policy compliance workflow for Local Playground implementation tasks. Use only for development work in the local-playground repository, and use for every code change in that repository to run repeated AGENTS.md conformance checks before, during, and after implementation.
+description: Mandatory policy compliance workflow for Local Playground implementation tasks. Use only for development work in the local-playground repository, and use for every code change in that repository to run repeated AGENTS.md and client clean architecture conformance checks before, during, and after implementation.
 ---
 
 # Local Playground Compliance Workflow
@@ -18,6 +18,7 @@ Run this loop for every implementation task.
 
 1. Pre-change gate:
    - Read `AGENTS.md`.
+   - Read `docs/architecture/client-clean-architecture.md`.
    - Map expected policy constraints before editing.
    - Run quick checks from `references/review-checklist.md` sections 0-4.
 2. In-change gate:
@@ -40,6 +41,20 @@ Run this loop for every implementation task.
 
 ## 2) Enforce Core Architecture Constraints
 
+- Treat `docs/architecture/client-clean-architecture.md` as the contributor architecture source of truth.
+- Keep `app/lib` top-level layout restricted to:
+  - `app/lib/client/`
+  - `app/lib/contracts/`
+  - `app/lib/constants/`
+  - `app/lib/domain/`
+  - `app/lib/server/`
+- Do not create new top-level feature roots under `app/lib/`.
+- Do not recreate obsolete roots:
+  - `app/lib/azure/`
+  - `app/lib/foundry/`
+  - `app/lib/mcp/`
+  - `app/lib/observability/`
+  - `app/welcome/`
 - Keep UI terminology consistent: `Playground`, `Threads`, `MCP Servers`, `Skills`, `Settings`.
 - Treat Prisma schema entity/field terminology as the canonical domain vocabulary.
 - Keep a single term per domain concept across schema references, runtime types, API contracts, component props, tests, and docs.
@@ -56,14 +71,15 @@ Run this loop for every implementation task.
   - structured JSON error payloads with stable machine-readable code and concise message
 - Enforce API service boundary for route implementations:
   - avoid route-to-route imports inside `app/routes/api.*` production modules
-  - extract shared route logic to `app/lib/server/*-service.ts` (or feature subdirectories under `app/lib/server/`)
+  - extract shared route logic to `app/lib/server/application/*` or `app/lib/server/shared/*`
+  - if touching a legacy `app/lib/server/*` directory outside those buckets, prefer moving code toward the target buckets instead of expanding the legacy directory
 - Keep `api.chat` orchestration-focused:
-  - request parsing/metadata helpers and SSE/runtime helpers should live in `app/lib/server/chat/*`
-  - reusable low-level runtime helpers (for example stdio command/path resolution and environment shaping) should be extracted to `app/lib/server/chat/*` with dedicated unit tests
+  - request parsing/metadata helpers and SSE/runtime helpers may remain in `app/lib/server/chat/*` during migration, but new reusable logic should prefer the approved target buckets when placement is clear
+  - reusable low-level runtime helpers (for example stdio command/path resolution and environment shaping) should be extracted from the route file and tested in dedicated server modules
   - stream disconnect/cancel must propagate `AbortSignal` and trigger cleanup paths
   - stream disconnect should be classified as cancellation (`chat_stream_canceled` info log) and must not emit upstream-failure error payloads
-- Keep MCP validation logic centralized in `app/lib/mcp/validation.ts` and reused by both frontend input parsers and backend route parsers.
-- Keep MCP server config parser logic centralized in `app/lib/mcp/server-config-parser.ts`; route-specific prefixes/messages may vary but parser behavior must stay shared.
+- Keep MCP validation logic centralized in `app/lib/contracts/mcp/validation.ts` and reused by both frontend input parsers and backend route parsers.
+- Keep MCP server config parser logic centralized in `app/lib/contracts/mcp/server-config-parser.ts`; route-specific prefixes/messages may vary but parser behavior must stay shared.
 - Keep MCP session lifecycle disciplined:
   - prefer bounded wait-and-reuse before ephemeral fallback on session-pool contention
   - register shutdown cleanup hooks idempotently and close all thread MCP sessions on runtime shutdown
@@ -81,6 +97,7 @@ Run this loop for every implementation task.
   - latest-thread schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
   - affected MCP debug tool descriptions derived from metadata
 - Keep `app/lib/server/persistence/mcp-debug-database.test.ts` aligned with metadata changes.
+- Do not introduce new `app/lib/server` -> `app/lib/client` imports. When server code needs a shared helper or type, move it to `contracts`, `domain`, or `constants`.
 - Keep shared Client view/domain types centralized in `app/lib/client/shared/view-types.ts`; avoid duplicated local `*Like` aliases across components.
 - Use semantic naming for ordering and log concepts:
   - same behavior -> same identifier family
@@ -88,6 +105,7 @@ Run this loop for every implementation task.
   - avoid protocol- or storage-specific names when the app-level concept is broader
 - Keep Client route modules in `app/routes/` as visual composition and panel wiring only.
 - Keep Client runtime ownership in `app/lib/client/controller/`.
+- Keep `use-workspace-client-controller.ts` on a shrinking path. Prefer extracting new orchestration into `WorkspaceController`, `WorkspaceStore`, feature `ApiClient`, and selector/helper modules instead of growing the hook.
 - Map each change to the approved `client` structure:
   - `app/components/client/authorize/`: auth-only top-level panel(s) for sign-in-required states.
   - `app/components/client/playground/`: left-pane Playground panel and renderers.

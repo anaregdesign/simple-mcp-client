@@ -25,8 +25,9 @@ Ensure this skill is used only for this repository and used for every implementa
 
 1. Confirm current task is Local Playground development work in the `local-playground` repository.
 2. Confirm this skill was invoked before implementation and kept active during the task.
-3. If repository scope differs, stop and switch to an appropriate skill.
-4. Confirm the development-phase rule is applied: no backward compatibility/fallback implementation unless explicitly requested.
+3. Confirm `AGENTS.md` and `docs/architecture/client-clean-architecture.md` were read before editing.
+4. If repository scope differs, stop and switch to an appropriate skill.
+5. Confirm the development-phase rule is applied: no backward compatibility/fallback implementation unless explicitly requested.
 
 ### Pass Criteria
 
@@ -66,7 +67,7 @@ rg -n "from ['\\\"]~/components/client/shared|from ['\\\"].*/client/shared" app/
 
 ### Goal
 
-Keep the `client` component tree aligned with architecture rules.
+Keep changed files aligned with the approved client-centered architecture.
 
 ### Checks
 
@@ -76,7 +77,19 @@ Keep the `client` component tree aligned with architecture rules.
 git diff --name-only
 ```
 
-2. Confirm each new/changed file is in the correct folder:
+2. Confirm no obsolete root directories were reintroduced:
+   - `app/lib/azure/`
+   - `app/lib/foundry/`
+   - `app/lib/mcp/`
+   - `app/lib/observability/`
+   - `app/welcome/`
+3. Confirm `app/lib` top-level structure stays within the approved layer set:
+   - `client`
+   - `contracts`
+   - `constants`
+   - `domain`
+   - `server`
+4. Confirm each new/changed client-facing file is in the correct folder:
    - Auth-only top-level panel(s) -> `app/components/client/authorize/`
    - Playground panel/renderers -> `app/components/client/playground/`
    - Config panel shell -> `app/components/client/config/`
@@ -85,23 +98,24 @@ git diff --name-only
    - Skills tab/sections -> `app/components/client/config/skills/`
    - Settings tab/sections -> `app/components/client/config/settings/`
    - Reusable primitives -> `app/components/client/shared/`
-3. Confirm naming conventions:
+5. Confirm new reusable server code targets `app/lib/server/application/`, `app/lib/server/infrastructure/`, or `app/lib/server/shared/`; treat other `app/lib/server/*` directories as migration residue that should shrink, not grow.
+6. Confirm naming conventions:
    - top-level panes: `*Panel`
    - tab roots: `*Tab`
    - tab subsections: `*Section`
-4. Confirm top-level panel directories mirror DOM hierarchy:
+7. Confirm top-level panel directories mirror DOM hierarchy:
    - top-level panels are siblings under `app/components/client/`
    - no nesting of one top-level panel inside another panel directory
-5. Validate schema-aligned terminology:
+8. Validate schema-aligned terminology:
    - changed identifiers use Prisma schema vocabulary for the same domain concept
    - no parallel aliases remain for one concept across API/runtime/UI/tests/docs
-6. Validate semantic identifier consistency:
+9. Validate semantic identifier consistency:
    - same behavior uses the same identifier family across entities/modules
    - different behaviors use different identifier families
    - ordering/log identifiers reflect app behavior, not incidental implementation detail
-7. If a rename/refactor happened, run static drift search for deprecated terms and contract keys.
+10. If a rename/refactor happened, run static drift search for deprecated terms and contract keys.
    - Build a focused `rg` pattern list from replaced terms in this task and verify zero matches in `app/`.
-8. Validate API contract integrity for changed `app/routes/api.*` handlers:
+11. Validate API contract integrity for changed `app/routes/api.*` handlers:
    - resource-first noun-based collection/item route shape
    - mutation resource IDs in path params (not query params)
    - query params limited to read concerns (filtering/pagination/sorting/projection)
@@ -109,49 +123,49 @@ git diff --name-only
    - method semantics: `POST` create/non-idempotent, `PUT`/`PATCH` update, `DELETE` idempotent
    - status codes: `200`/`201`/`204` success semantics, `409` state conflicts, `422` validation failures
    - structured JSON errors with machine-readable code + concise message
-9. Validate command-style API exceptions stay limited to:
+12. Validate command-style API exceptions stay limited to:
    - `/api/chat`
    - `/api/instruction-patches`
    - `/api/threads/title-suggestions`
-10. Run static API drift checks for route handlers:
+13. Run static API drift checks for route handlers:
    - raw `405` implementation search in `api.*` files (should use `methodNotAllowedResponse`)
    - mutation query-contract search (resource IDs passed by query for mutations)
    - route-to-route import search in production route modules (must be zero)
    ```bash
    rg -n "from ['\\\"]\\./api\\.[^\\\"]+['\\\"]" app/routes -g 'api*.ts' -g '!*.test.ts'
    ```
-11. If any `app/routes/api.*` file changed, run:
+14. If any `app/routes/api.*` file changed, run:
    - `npm run test:core -- app/routes/api.*.test.ts`
    - `npm run typecheck:core`
-12. If any `app/routes/api.*` file changed, explicitly confirm REST best-practice compliance in your implementation report.
-13. If `prisma/schema.prisma` changed for persisted models/fields, verify `/mcp/debug` schema design metadata was updated in `app/lib/server/persistence/mcp-debug-database.ts`:
+15. If any `app/routes/api.*` file changed, explicitly confirm REST best-practice compliance in your implementation report.
+16. If `prisma/schema.prisma` changed for persisted models/fields, verify `/mcp/debug` schema design metadata was updated in `app/lib/server/persistence/mcp-debug-database.ts`:
    - metadata definition rows with field/type/nullability/description entries
    - latest-thread schema-source model list in `buildDatabaseDebugLatestThreadToolDescription`
-14. If `prisma/schema.prisma` changed for persisted models/fields, verify `app/lib/server/persistence/mcp-debug-database.test.ts` was updated or remains valid for the new metadata and run:
+17. If `prisma/schema.prisma` changed for persisted models/fields, verify `app/lib/server/persistence/mcp-debug-database.test.ts` was updated or remains valid for the new metadata and run:
    - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
-15. If `app/routes/api.chat.ts` changed, verify module boundary and lifecycle rules:
+18. If `app/routes/api.chat.ts` changed, verify module boundary and lifecycle rules:
    - route remains orchestration-focused
-   - parser/metadata/SSE/runtime helpers are implemented under `app/lib/server/chat/*`
+   - parser/metadata/SSE/runtime helpers are implemented in dedicated server modules and extracted from the route when reusable
    - disconnect/cancel path propagates `AbortSignal` and cleanup hooks
-16. If MCP validation changed in UI/route parsing paths, verify shared validator usage in `app/lib/mcp/validation.ts` from both frontend and backend entry points.
-17. If `/mcp/debug` metadata changed, verify metadata source remains modular:
+19. If MCP validation changed in UI/route parsing paths, verify shared validator usage in `app/lib/contracts/mcp/validation.ts` from both frontend and backend entry points.
+20. If `/mcp/debug` metadata changed, verify metadata source remains modular:
    - metadata rows in `app/lib/server/persistence/mcp-debug-database-metadata.ts`
    - shared metadata types in `app/lib/server/persistence/mcp-debug-database-types.ts`
    - runtime helper module consumes metadata definitions instead of re-inlining a large array
-18. If `app/routes/api.chat.ts` changed, verify cancellation classification behavior:
+21. If `app/routes/api.chat.ts` changed, verify cancellation classification behavior:
    - stream disconnect path logs `chat_stream_canceled` at info level
    - disconnect does not emit upstream-failure error payload to stream clients
-19. If MCP server parser behavior changed, verify shared parser module usage:
-   - `app/lib/mcp/server-config-parser.ts` is the parser source for both chat payload entries and MCP server routes
+22. If MCP server parser behavior changed, verify shared parser module usage:
+   - `app/lib/contracts/mcp/server-config-parser.ts` is the parser source for both chat payload entries and MCP server routes
    - route/request modules do not reintroduce duplicated MCP parser blocks
-20. If `app/lib/client/controller/use-workspace-client-controller.ts` changed, verify operation and send boundaries:
+23. If `app/lib/client/controller/use-workspace-client-controller.ts` changed, verify operation and send boundaries:
    - Thread operation phase updates flow through `thread-operation-phase.ts` transition helpers
    - send-message pipeline boundaries remain delegated to `send-message-usecase.ts`
    - Client API auth/error branches are centralized via `api-client.ts`
-21. If `app/lib/server/mcp/thread-mcp-server-session-pool.ts` changed, verify close-safety:
+24. If `app/lib/server/mcp/thread-mcp-server-session-pool.ts` changed, verify close-safety:
    - idle cleanup close failures are handled by best-effort safe close + warning log
    - tests cover close-reject behavior without unhandled rejection
-22. If `app/lib/client/controller/use-workspace-client-controller.ts` changed, run hotspot duplication checks:
+25. If `app/lib/client/controller/use-workspace-client-controller.ts` changed, run hotspot duplication checks:
    - Thread selector duplication:
    ```bash
    rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/client/controller/use-workspace-client-controller.ts
@@ -160,16 +174,17 @@ git diff --name-only
    ```bash
    rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/client/controller/use-workspace-client-controller.ts
    ```
-23. If `app/routes/api.chat.ts` changed, run route-helper concentration checks:
+26. If `app/routes/api.chat.ts` changed, run route-helper concentration checks:
    ```bash
    rg -n "^function " app/routes/api.chat.ts
    rg -n "buildStdioSpawnEnvironment|resolveExecutableCommand" app/routes/api.chat.ts
    ```
-   - New reusable low-level helpers should be added under `app/lib/server/chat/*` with dedicated unit tests.
+   - New reusable low-level helpers should be added in dedicated server modules with dedicated unit tests.
 
 ### Pass Criteria
 
 - File placement matches feature ownership.
+- No obsolete root directories were reintroduced.
 - Names communicate structural role (`Panel`, `Tab`, `Section`).
 - Top-level panel placement matches DOM hierarchy.
 - No naming-drift findings remain for this change batch.
@@ -177,7 +192,7 @@ git diff --name-only
 - No route-to-route production import findings remain for changed API handlers.
 - REST best-practice compliance was re-validated whenever `app/routes/api.*` changed.
 - Prisma schema and `/mcp/debug` metadata/test sync is confirmed when Prisma persisted models/fields changed.
-- New guardrail checks (18-23) pass for the modules touched in this change batch.
+- New guardrail checks (18-26) pass for the modules touched in this change batch.
 
 ## 3) Route vs Controller Ownership
 
@@ -236,7 +251,7 @@ git diff --name-only | rg "^app/lib/client/controller/"
     rg -n "^function " app/routes/api.chat.ts
     rg -n "buildStdioSpawnEnvironment|resolveExecutableCommand" app/routes/api.chat.ts
     ```
-    - New reusable low-level helpers should be implemented under `app/lib/server/chat/*`.
+    - New reusable low-level helpers should be implemented in dedicated server modules.
 
 ### Pass Criteria
 
