@@ -753,7 +753,9 @@ export async function action({ request }: Route.ActionArgs) {
 async function executeChat(
   options: ChatExecutionOptions,
   onEvent?: (event: ChatExecutionEvent) => void,
+  abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
+  throwIfAborted(abortSignal);
   const azureDependencies = getAzureDependencies();
   const azureOpenAIClient = getAzureOpenAIClient(
     options.azureConfig.baseUrl,
@@ -1087,6 +1089,7 @@ async function executeChat(
           }),
         CHAT_MODEL_RUN_TIMEOUT_MS,
         runTimeoutMessage,
+        abortSignal,
       );
       for await (const event of streamedResult) {
         const progress = readProgressEventFromRunStreamEvent(
@@ -1131,6 +1134,7 @@ async function executeChat(
         }),
       CHAT_MODEL_RUN_TIMEOUT_MS,
       runTimeoutMessage,
+      abortSignal,
     );
     const assistantMessage = extractAgentFinalOutput(result.finalOutput);
     if (!assistantMessage) {
@@ -1176,11 +1180,16 @@ async function executeChat(
 async function executeChatWithTransientRetry(
   options: ChatExecutionOptions,
   onEvent?: (event: ChatExecutionEvent) => void,
+  abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
   for (let attempt = 1; attempt <= chatTransientTerminationRetryMaxAttempts; attempt += 1) {
     try {
-      return await executeChat(options, onEvent);
+      throwIfAborted(abortSignal);
+      return await executeChat(options, onEvent, abortSignal);
     } catch (error) {
+      if (abortSignal?.aborted) {
+        throw error;
+      }
       if (
         !shouldRetryChatExecution(
           error,
@@ -1205,7 +1214,7 @@ async function executeChatWithTransientRetry(
 }
 
 function streamChatResponse(options: ChatExecutionOptions): Response {
-  return createJsonEventStreamResponse(async (send) => {
+  return createJsonEventStreamResponse(async ({ send, signal }) => {
     const sendPayload = (payload: ChatStreamPayload) => {
       send(payload);
     };
@@ -1230,7 +1239,7 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
           type: "operation_log",
           record: event.record,
         });
-      });
+      }, signal);
 
       sendPayload({
         type: "final",
@@ -5743,14 +5752,48 @@ async function runAgentWithTimeout<T>(
   runTask: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
   timeoutMessage: string,
+  upstreamAbortSignal?: AbortSignal,
 ): Promise<T> {
   const controller = new AbortController();
+  const removeAbortRelay = relayAbortSignal(upstreamAbortSignal, controller);
   try {
     return await awaitWithTimeout(runTask(controller.signal), timeoutMs, timeoutMessage);
   } catch (error) {
     controller.abort();
     throw error;
+  } finally {
+    removeAbortRelay();
   }
+}
+
+function relayAbortSignal(
+  source: AbortSignal | undefined,
+  target: AbortController,
+): () => void {
+  if (!source) {
+    return () => {};
+  }
+
+  if (source.aborted) {
+    target.abort();
+    return () => {};
+  }
+
+  const onAbort = () => {
+    target.abort();
+  };
+  source.addEventListener("abort", onAbort);
+  return () => {
+    source.removeEventListener("abort", onAbort);
+  };
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal || !signal.aborted) {
+    return;
+  }
+
+  throw new Error("Request was canceled.");
 }
 
 function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
@@ -6161,6 +6204,7 @@ export const chatRouteTestUtils = {
   buildUpstreamErrorMessage,
   isTransientNetworkTerminationError,
   shouldRetryChatExecution,
+  runAgentWithTimeout,
   resolveThreadDirectoryPath,
   applyDefaultThreadDirectoryToStdioServers,
 };

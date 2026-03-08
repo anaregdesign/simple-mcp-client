@@ -65,6 +65,7 @@ const {
   buildUpstreamErrorMessage,
   isTransientNetworkTerminationError,
   shouldRetryChatExecution,
+  runAgentWithTimeout,
   resolveThreadDirectoryPath,
   applyDefaultThreadDirectoryToStdioServers,
 } = chatRouteTestUtils;
@@ -501,6 +502,33 @@ describe("shouldRetryChatExecution", () => {
     expect(shouldRetryChatExecution(new TypeError("terminated"), 1, 2)).toBe(true);
     expect(shouldRetryChatExecution(new TypeError("terminated"), 2, 2)).toBe(false);
     expect(shouldRetryChatExecution(new Error("timeout"), 1, 2)).toBe(false);
+  });
+});
+
+describe("runAgentWithTimeout", () => {
+  it("aborts task when upstream signal is canceled", async () => {
+    const upstreamAbortController = new AbortController();
+    const runPromise = runAgentWithTimeout(
+      async (signal) => {
+        await new Promise<void>((resolve) => {
+          const poll = () => {
+            if (signal.aborted) {
+              resolve();
+              return;
+            }
+            setTimeout(poll, 5);
+          };
+          poll();
+        });
+        throw new Error("aborted");
+      },
+      5_000,
+      "Timed out",
+      upstreamAbortController.signal,
+    );
+
+    upstreamAbortController.abort();
+    await expect(runPromise).rejects.toThrow("aborted");
   });
 });
 

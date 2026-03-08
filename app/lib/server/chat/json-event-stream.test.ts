@@ -6,7 +6,7 @@ import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stre
 
 describe("createJsonEventStreamResponse", () => {
   it("returns SSE headers and streamed JSON payload blocks", async () => {
-    const response = createJsonEventStreamResponse(async (send) => {
+    const response = createJsonEventStreamResponse(async ({ send }) => {
       send({ type: "progress", message: "Preparing request..." });
       send({ type: "final", message: "Done" });
     });
@@ -19,5 +19,31 @@ describe("createJsonEventStreamResponse", () => {
     const body = await response.text();
     expect(body).toContain('data: {"type":"progress","message":"Preparing request..."}');
     expect(body).toContain('data: {"type":"final","message":"Done"}');
+  });
+
+  it("aborts runner signal when stream reader cancels", async () => {
+    let abortObserved = false;
+    const response = createJsonEventStreamResponse(async ({ send, signal }) => {
+      send({ type: "progress", message: "Preparing request..." });
+      await new Promise<void>((resolve) => {
+        signal.addEventListener(
+          "abort",
+          () => {
+            abortObserved = true;
+            resolve();
+          },
+          { once: true },
+        );
+      });
+    });
+
+    const reader = response.body?.getReader();
+    expect(reader).toBeTruthy();
+    if (!reader) {
+      return;
+    }
+
+    await reader.cancel();
+    expect(abortObserved).toBe(true);
   });
 });
