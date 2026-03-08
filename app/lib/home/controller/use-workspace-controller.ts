@@ -3566,38 +3566,21 @@ export function useWorkspaceController() {
       const projectsRequestUrl = preferredTenantId
         ? `/api/azure/projects?tenantId=${encodeURIComponent(preferredTenantId)}`
         : "/api/azure/projects";
-      const response = await fetch(projectsRequestUrl, {
-        method: "GET",
+      const { payload } = await requestHomeApi<AzureProjectsApiResponse>({
+        url: projectsRequestUrl,
+        init: {
+          method: "GET",
+        },
+        readPayload: (response) => readJsonPayload<AzureProjectsApiResponse>(response, "Azure projects"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load Azure projects.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
       });
-
-      const payload = (await response.json()) as AzureProjectsApiResponse;
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
         return isAzureAuthRequired;
-      }
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        clearActiveAzureIdentity();
-        clearWorkspaceMcpServerProfilesState();
-        clearThreadsState(
-          authRequired
-            ? "Azure login is required. Open Settings and sign in to load threads."
-            : null,
-        );
-        setIsAzureAuthRequired(authRequired);
-        setAzureConnections([]);
-        setPlaygroundAzureDeployments([]);
-        setUtilityAzureDeployments([]);
-        setIsLoadingPlaygroundAzureDeployments(false);
-        setIsLoadingUtilityAzureDeployments(false);
-        setSelectedPlaygroundAzureConnectionId("");
-        setSelectedPlaygroundAzureDeploymentName("");
-        setSelectedUtilityAzureConnectionId("");
-        setSelectedUtilityAzureDeploymentName("");
-        setUtilityReasoningEffort(HOME_DEFAULT_UTILITY_REASONING_EFFORT);
-        setAzureConnectionError(authRequired ? null : payload.error || "Failed to load Azure projects.");
-        setPlaygroundAzureDeploymentError(null);
-        setUtilityAzureDeploymentError(null);
-        return authRequired;
       }
 
       const parsedProjects = readAzureProjectList(payload.projects);
@@ -3714,9 +3697,11 @@ export function useWorkspaceController() {
       logHomeError("load_azure_projects_failed", loadError, {
         action: "load_azure_projects",
       });
-      const errorMessage =
-        loadError instanceof Error ? loadError.message : "Failed to load Azure projects.";
-      const nextAuthRequired = isLikelyChatAzureAuthError(errorMessage);
+      const errorMessage = mapApiError(loadError, "Failed to load Azure projects.");
+      const nextAuthRequired =
+        loadError instanceof HomeApiError
+          ? loadError.kind === "auth_required"
+          : isLikelyChatAzureAuthError(errorMessage);
       clearActiveAzureIdentity();
       clearWorkspaceMcpServerProfilesState();
       clearThreadsState(
@@ -3840,14 +3825,20 @@ export function useWorkspaceController() {
     }
 
     try {
-      const response = await fetch(
-        `/api/azure/projects/${encodeURIComponent(normalizedProjectId)}/deployments`,
-        {
+      const { payload } = await requestHomeApi<AzureProjectsApiResponse>({
+        url: `/api/azure/projects/${encodeURIComponent(normalizedProjectId)}/deployments`,
+        init: {
           method: "GET",
         },
-      );
-
-      const payload = (await response.json()) as AzureProjectsApiResponse;
+        readPayload: (response) =>
+          readJsonPayload<AzureProjectsApiResponse>(response, "Azure deployments"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load deployments for the selected project.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
+      });
       const activeRequestSeq =
         target === "playground"
           ? playgroundAzureDeploymentRequestSeqRef.current
@@ -3861,34 +3852,6 @@ export function useWorkspaceController() {
           ? selectedPlaygroundAzureConnectionIdRef.current.trim()
           : selectedUtilityAzureConnectionIdRef.current.trim();
       if (!selectedProjectId || selectedProjectId !== normalizedProjectId) {
-        return;
-      }
-
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        if (authRequired) {
-          clearActiveAzureIdentity();
-          clearWorkspaceMcpServerProfilesState();
-          clearThreadsState("Azure login is required. Open Settings and sign in to load threads.");
-        }
-        setIsAzureAuthRequired(authRequired);
-        if (target === "playground") {
-          setPlaygroundAzureDeployments([]);
-          setSelectedPlaygroundAzureDeploymentName("");
-          setPlaygroundAzureDeploymentError(
-            authRequired
-              ? null
-              : payload.error || "Failed to load deployments for the selected project.",
-          );
-        } else {
-          setUtilityAzureDeployments([]);
-          setSelectedUtilityAzureDeploymentName("");
-          setUtilityAzureDeploymentError(
-            authRequired
-              ? null
-              : payload.error || "Failed to load deployments for the selected project.",
-          );
-        }
         return;
       }
 
@@ -3935,22 +3898,28 @@ export function useWorkspaceController() {
           projectId: normalizedProjectId,
         },
       });
-      setIsAzureAuthRequired(false);
+      const authRequired = loadError instanceof HomeApiError && loadError.kind === "auth_required";
+      if (authRequired) {
+        clearActiveAzureIdentity();
+        clearWorkspaceMcpServerProfilesState();
+        clearThreadsState("Azure login is required. Open Settings and sign in to load threads.");
+      }
+      setIsAzureAuthRequired(authRequired);
       if (target === "playground") {
         setPlaygroundAzureDeployments([]);
         setSelectedPlaygroundAzureDeploymentName("");
         setPlaygroundAzureDeploymentError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load deployments for the selected project.",
+          authRequired
+            ? null
+            : mapApiError(loadError, "Failed to load deployments for the selected project."),
         );
       } else {
         setUtilityAzureDeployments([]);
         setSelectedUtilityAzureDeploymentName("");
         setUtilityAzureDeploymentError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load deployments for the selected project.",
+          authRequired
+            ? null
+            : mapApiError(loadError, "Failed to load deployments for the selected project."),
         );
       }
     } finally {

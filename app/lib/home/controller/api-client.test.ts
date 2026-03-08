@@ -141,6 +141,7 @@ describe("requestHomeApi", () => {
     ).rejects.toMatchObject({
       kind: "http_error",
       message: "payload error",
+      status: 500,
     } satisfies Partial<HomeApiError>);
   });
 
