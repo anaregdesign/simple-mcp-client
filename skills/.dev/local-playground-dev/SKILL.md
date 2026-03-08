@@ -59,6 +59,7 @@ Run this loop for every implementation task.
   - extract shared route logic to `app/lib/server/*-service.ts` (or feature subdirectories under `app/lib/server/`)
 - Keep `api.chat` orchestration-focused:
   - request parsing/metadata helpers and SSE/runtime helpers should live in `app/lib/server/chat/*`
+  - reusable low-level runtime helpers (for example stdio command/path resolution and environment shaping) should be extracted to `app/lib/server/chat/*` with dedicated unit tests
   - stream disconnect/cancel must propagate `AbortSignal` and trigger cleanup paths
   - stream disconnect should be classified as cancellation (`chat_stream_canceled` info log) and must not emit upstream-failure error payloads
 - Keep MCP validation logic centralized in `app/lib/mcp/validation.ts` and reused by both frontend input parsers and backend route parsers.
@@ -106,10 +107,12 @@ Run this loop for every implementation task.
 - Keep persistent application state in React runtime first (controller-owned state in `app/lib/home/controller/`).
 - Keep active thread runtime state single-sourced in controller (`threads + activeThreadId`) and avoid mirrored state fields for snapshot-owned data.
 - Prefer pure selector/update helpers for Thread snapshot read/write flows (`app/lib/home/thread/*`) over duplicated ad-hoc state mutation paths.
+- For `use-workspace-controller.ts`, avoid repeating inline `threadsRef.current.find(...)` for Thread ID lookup; use a shared selector helper (for example `findThreadSnapshotById`).
 - Prefer phase-based operation state (`ThreadOperationPhase`) and guard helpers instead of many independent boolean busy flags.
 - Apply operation phase updates via transition helpers in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation`) instead of direct string assignments.
 - Keep send-message pipeline module boundaries explicit in `app/lib/home/controller/send-message-usecase.ts` (`validateSendPreconditions`, `buildChatRequestPayload`, `consumeChatResponseStream`, `applySendResult`).
 - Reuse `app/lib/home/controller/api-client.ts` for Home API auth/error handling; avoid per-handler duplication of 401/authRequired/network mapping.
+- For Home controller network handlers that parse JSON and branch on auth/error, default to `requestHomeApi` and keep handler code focused on domain state transitions.
 - Persist that state to SQLite via delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat DB as durable snapshot storage; treat React state as the immediate source of truth during interaction.
 - Implement persistence from controller logic under `app/lib/home/controller/`.
@@ -128,6 +131,10 @@ Run this loop for every implementation task.
 - Use `references/review-checklist.md` at pre-change, in-change, and final gates.
 - Treat sections 0-4 as continuous guardrails during implementation.
 - For naming/contract refactors, run repeated static drift checks plus dynamic gates until findings are zero.
+- For controller/chat hotspot files, include focused drift checks in each refactor batch:
+  - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
+  - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
+  - `rg -n "^function " app/routes/api.chat.ts`
 
 ## 6) Run Mandatory Quality Gates
 

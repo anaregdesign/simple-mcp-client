@@ -151,6 +151,21 @@ git diff --name-only
 21. If `app/lib/server/mcp/thread-mcp-server-session-pool.ts` changed, verify close-safety:
    - idle cleanup close failures are handled by best-effort safe close + warning log
    - tests cover close-reject behavior without unhandled rejection
+22. If `app/lib/home/controller/use-workspace-controller.ts` changed, run hotspot duplication checks:
+   - Thread selector duplication:
+   ```bash
+   rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts
+   ```
+   - Manual response/auth branch duplication:
+   ```bash
+   rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts
+   ```
+23. If `app/routes/api.chat.ts` changed, run route-helper concentration checks:
+   ```bash
+   rg -n "^function " app/routes/api.chat.ts
+   rg -n "buildStdioSpawnEnvironment|resolveExecutableCommand" app/routes/api.chat.ts
+   ```
+   - New reusable low-level helpers should be added under `app/lib/server/chat/*` with dedicated unit tests.
 
 ### Pass Criteria
 
@@ -162,7 +177,7 @@ git diff --name-only
 - No route-to-route production import findings remain for changed API handlers.
 - REST best-practice compliance was re-validated whenever `app/routes/api.*` changed.
 - Prisma schema and `/mcp/debug` metadata/test sync is confirmed when Prisma persisted models/fields changed.
-- New guardrail checks (18-21) pass for the modules touched in this change batch.
+- New guardrail checks (18-23) pass for the modules touched in this change batch.
 
 ## 3) Route vs Controller Ownership
 
@@ -208,12 +223,27 @@ git diff --name-only | rg "^app/lib/home/controller/"
    ```bash
    rg -n "requestHomeApi|resolveAuthRequired|mapApiError" app/lib/home/controller/use-workspace-controller.ts app/lib/home/controller/api-client.ts
    ```
+9. For controller hotspot refactors, verify duplicated Thread lookup patterns were not reintroduced:
+   ```bash
+   rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts
+   ```
+10. For controller hotspot refactors, verify manual auth/error branches were not reintroduced where `requestHomeApi` should be used:
+    ```bash
+    rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts
+    ```
+11. For `api.chat` hotspot refactors, verify low-level helper extraction is preserved:
+    ```bash
+    rg -n "^function " app/routes/api.chat.ts
+    rg -n "buildStdioSpawnEnvironment|resolveExecutableCommand" app/routes/api.chat.ts
+    ```
+    - New reusable low-level helpers should be implemented under `app/lib/server/chat/*`.
 
 ### Pass Criteria
 
 - Home route entries remain layout wiring only.
 - Runtime state ownership is not fragmented across route-level hooks.
 - Thread runtime state does not regress into duplicated mirrored state.
+- Controller/chat hotspot duplicate patterns are not reintroduced.
 
 ## 4) State Persistence Policy (React First, Delayed DB Write)
 

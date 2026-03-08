@@ -124,6 +124,12 @@
   - old query-contract search (resource IDs passed by query for mutations)
   - route-to-route import search in `app/routes/api.*` implementations
   - duplicated local `*Like` type search in Home UI modules when shared view models were changed
+  - duplicated Thread selector pattern search in controller hotspots:
+    - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
+  - duplicated Home API auth/error branch search in controller hotspots:
+    - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
+  - `api.chat` helper concentration search:
+    - `rg -n "^function " app/routes/api.chat.ts`
 - Run dynamic validation after static cleanup:
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
@@ -197,10 +203,12 @@
   - canonical state is `threads + activeThreadId`
   - avoid mirrored controller-level state for data already represented in thread snapshots (`messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`)
 - Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/home/thread/*` over ad-hoc duplicated mutation code in controller handlers.
+- When `use-workspace-controller.ts` needs Thread lookup by ID, use shared selector helpers (for example `findThreadSnapshotById`) instead of repeating inline `threadsRef.current.find(...)`.
 - Use phase-based Thread operation state (`ThreadOperationPhase`) with shared guard helpers instead of many independent busy booleans.
 - Apply Thread operation phase updates through transition APIs in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation` / `canTransition`) instead of direct phase mutation.
 - Keep `sendMessage` orchestration thin by delegating precondition checks, request payload composition, stream consumption, and result application to `app/lib/home/controller/send-message-usecase.ts`.
 - Centralize shared Home API auth/error handling in `app/lib/home/controller/api-client.ts` (`requestHomeApi`, `resolveAuthRequired`, `mapApiError`) instead of duplicating 401/authRequired/network branches per handler.
+- For Home controller fetch calls that read JSON payload and map auth/error branches, use `requestHomeApi` by default and keep per-handler logic limited to domain-specific state updates.
 - Keep persistent interactive state in React/controller runtime first.
 - Persist controller state to SQLite with delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat SQLite as durable snapshot storage; treat React/controller state as the immediate source of truth during interaction.
@@ -270,6 +278,7 @@
 - Support chat attachments for Code Interpreter-compatible files with current validation limits from constants modules under `app/lib/`.
 - Keep `app/routes/api.chat.ts` orchestration-focused.
   - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live under `app/lib/server/chat/*`.
+- Do not add reusable low-level runtime utilities directly in `app/routes/api.chat.ts` (for example stdio command/path resolution, environment shaping, retry helpers); place them under `app/lib/server/chat/*` with dedicated unit tests.
 - On stream disconnect/cancel, propagate `AbortSignal` through chat execution and ensure MCP/session/container cleanup paths always execute.
 - Classify stream disconnect as cancellation (not upstream failure): do not emit stream error payload on client disconnect, and log cancellation as info-level (`chat_stream_canceled`).
 
