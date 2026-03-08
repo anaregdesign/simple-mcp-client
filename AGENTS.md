@@ -46,12 +46,17 @@
 
 - When `prisma/schema.prisma` changes for persisted models/fields, update `/mcp/debug` schema design descriptions in `app/lib/server/persistence/mcp-debug-database.ts` in the same implementation pass.
 - Keep `/mcp/debug` metadata aligned end-to-end:
-  - `tableDefinitions` role/field/type/nullability entries
+  - metadata definition rows (role/field/type/nullability entries)
   - latest-thread description schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
   - any affected MCP debug tool descriptions generated from metadata
 - Verify sync with `app/lib/server/persistence/mcp-debug-database.test.ts`.
 - After Prisma schema updates that affect persisted models/fields, run:
   - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
+- Keep table metadata definitions modular:
+  - `app/lib/server/persistence/mcp-debug-database-metadata.ts` is the source of table metadata rows.
+  - `app/lib/server/persistence/mcp-debug-database-types.ts` is the source of metadata types.
+  - `app/lib/server/persistence/mcp-debug-database.ts` should consume metadata definitions, not re-inline a large metadata array.
+- When metadata definitions change, update metadata module and tests in the same pass.
 
 ## Ordering Field Semantics
 
@@ -95,6 +100,13 @@
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
 
+## API Service Boundaries
+
+- Do not import one route module from another in `app/routes/api.*` implementations.
+- Shared route logic must live in `app/lib/server/*-service.ts` (or a feature subdirectory under `app/lib/server/`).
+- Route modules should own HTTP concerns (method dispatch, status code, response shape, request validation) and delegate reusable domain logic to service modules.
+- For any `api.*` refactor, run a static audit that route-to-route import findings are zero.
+
 ## Agents SDK Command API Exceptions
 
 - Keep command-style APIs where they are required for Agents SDK runtime behavior:
@@ -110,6 +122,8 @@
   - old term search (`rg`) for deprecated entity names and payload keys
   - raw `405` search in `api.*` implementations
   - old query-contract search (resource IDs passed by query for mutations)
+  - route-to-route import search in `app/routes/api.*` implementations
+  - duplicated local `*Like` type search in Home UI modules when shared view models were changed
 - Run dynamic validation after static cleanup:
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
@@ -179,6 +193,11 @@
   - thread-scoped execution logs
   - agent instruction
   - thread request status (send/progress/error)
+- Keep a single source of truth for active Thread runtime state:
+  - canonical state is `threads + activeThreadId`
+  - avoid mirrored controller-level state for data already represented in thread snapshots (`messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`)
+- Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/home/thread/*` over ad-hoc duplicated mutation code in controller handlers.
+- Use phase-based Thread operation state (`ThreadOperationPhase`) with shared guard helpers instead of many independent busy booleans.
 - Keep persistent interactive state in React/controller runtime first.
 - Persist controller state to SQLite with delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat SQLite as durable snapshot storage; treat React/controller state as the immediate source of truth during interaction.
@@ -190,6 +209,8 @@
 - Import constants directly from the owning constants module under `~/lib/` with the same exported name.
   - Avoid alias renaming (`as`) for constants.
 - Avoid re-export-only type/constant passthrough files; import from the source module directly.
+- For Home UI and controller boundaries, shared view/domain types belong in `app/lib/home/shared/view-types.ts`.
+  - Avoid reintroducing duplicated component-local `*Like` types when the same shape is used in multiple modules.
 
 ## Visual Style Baseline (Current UI)
 
@@ -244,6 +265,9 @@
 - Render Markdown responses and apply syntax highlighting to JSON responses.
 - Show concrete streaming progress states (not only generic `Thinking...`).
 - Support chat attachments for Code Interpreter-compatible files with current validation limits from constants modules under `app/lib/`.
+- Keep `app/routes/api.chat.ts` orchestration-focused.
+  - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live under `app/lib/server/chat/*`.
+- On stream disconnect/cancel, propagate `AbortSignal` through chat execution and ensure MCP/session/container cleanup paths always execute.
 
 ## Threads / Instruction Behavior
 
@@ -289,6 +313,9 @@
   - allow additional custom headers
   - support per-server timeout and per-server Azure token scope
   - when Azure auth is enabled, inject `Authorization: Bearer <token>` at request time from `DefaultAzureCredential`
+- Share MCP input validation between frontend and backend via `app/lib/mcp/validation.ts`; UI and route parsers may format context-specific error messages but should not duplicate validation rules.
+- For MCP session pool contention, prefer bounded wait-and-reuse before ephemeral fallback to improve session reuse and reduce connection churn.
+- Register runtime shutdown cleanup hooks once (idempotent) and close all Thread MCP sessions during process shutdown.
 
 ## MCP Debugging UX
 

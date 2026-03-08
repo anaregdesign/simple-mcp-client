@@ -116,15 +116,28 @@ git diff --name-only
 10. Run static API drift checks for route handlers:
    - raw `405` implementation search in `api.*` files (should use `methodNotAllowedResponse`)
    - mutation query-contract search (resource IDs passed by query for mutations)
+   - route-to-route import search in production route modules (must be zero)
+   ```bash
+   rg -n "from ['\\\"]\\./api\\.[^\\\"]+['\\\"]" app/routes -g 'api*.ts' -g '!*.test.ts'
+   ```
 11. If any `app/routes/api.*` file changed, run:
    - `npm run test:core -- app/routes/api.*.test.ts`
    - `npm run typecheck:core`
 12. If any `app/routes/api.*` file changed, explicitly confirm REST best-practice compliance in your implementation report.
 13. If `prisma/schema.prisma` changed for persisted models/fields, verify `/mcp/debug` schema design metadata was updated in `app/lib/server/persistence/mcp-debug-database.ts`:
-   - `tableDefinitions` field/type/nullability/description entries
+   - metadata definition rows with field/type/nullability/description entries
    - latest-thread schema-source model list in `buildDatabaseDebugLatestThreadToolDescription`
 14. If `prisma/schema.prisma` changed for persisted models/fields, verify `app/lib/server/persistence/mcp-debug-database.test.ts` was updated or remains valid for the new metadata and run:
    - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
+15. If `app/routes/api.chat.ts` changed, verify module boundary and lifecycle rules:
+   - route remains orchestration-focused
+   - parser/metadata/SSE/runtime helpers are implemented under `app/lib/server/chat/*`
+   - disconnect/cancel path propagates `AbortSignal` and cleanup hooks
+16. If MCP validation changed in UI/route parsing paths, verify shared validator usage in `app/lib/mcp/validation.ts` from both frontend and backend entry points.
+17. If `/mcp/debug` metadata changed, verify metadata source remains modular:
+   - metadata rows in `app/lib/server/persistence/mcp-debug-database-metadata.ts`
+   - shared metadata types in `app/lib/server/persistence/mcp-debug-database-types.ts`
+   - runtime helper module consumes metadata definitions instead of re-inlining a large array
 
 ### Pass Criteria
 
@@ -133,6 +146,7 @@ git diff --name-only
 - Top-level panel placement matches DOM hierarchy.
 - No naming-drift findings remain for this change batch.
 - No REST/command API contract drift remains for changed handlers.
+- No route-to-route production import findings remain for changed API handlers.
 - REST best-practice compliance was re-validated whenever `app/routes/api.*` changed.
 - Prisma schema and `/mcp/debug` metadata/test sync is confirmed when Prisma persisted models/fields changed.
 
@@ -162,10 +176,17 @@ rg -n "useState|useReducer|useEffect|useMemo|useCallback" app/routes
 git diff --name-only | rg "^app/lib/home/controller/"
 ```
 
+4. For Thread state refactors, verify single-source ownership:
+   - active runtime state is derived from `threads + activeThreadId`
+   - avoid parallel mirrored state for `messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`
+
+5. For controller operation flags, prefer phase-based state (`ThreadOperationPhase`) and shared guard helpers over multiple independent booleans.
+
 ### Pass Criteria
 
 - Home route entries remain layout wiring only.
 - Runtime state ownership is not fragmented across route-level hooks.
+- Thread runtime state does not regress into duplicated mirrored state.
 
 ## 4) State Persistence Policy (React First, Delayed DB Write)
 
@@ -180,11 +201,13 @@ Keep interactive state responsive and persistence stable.
 3. Confirm persistence orchestration lives in controller code (`app/lib/home/controller/`) or controller-adjacent runtime modules.
 4. Treat SQLite records as durable snapshots, not as the immediate interaction source.
 5. For debug tooling, `/mcp/debug` endpoint usage (including DB table inspection) is treated as development-only workflow.
+6. Confirm Thread snapshot mutations/reads use pure helper modules where practical (selectors/updaters under `app/lib/home/thread/*`) instead of repeating ad-hoc mutation logic.
 
 ### Pass Criteria
 
 - No unnecessary eager DB writes on each input mutation.
 - React/controller remains the primary state owner during UI interaction.
+- Thread runtime/state update flows remain deterministic and helper-driven.
 
 ## 5) Constants and Imports Hygiene
 
@@ -197,11 +220,17 @@ Avoid drift in constant ownership and import style.
 1. Confirm shared constants are centralized under `app/lib/` (constants modules).
 2. Avoid new non-local `UPPER_SNAKE_CASE` constants in feature files.
 3. Import constants directly from the project constants module under `~/lib/` with original names.
+4. For Home UI view/domain types shared across modules, define/import from `app/lib/home/shared/view-types.ts` and avoid duplicating local `*Like` aliases.
+
+```bash
+rg -n "type .*Like|interface .*Like|\\*Like" app/components/home app/lib/home -g '*.ts' -g '*.tsx'
+```
 
 ### Pass Criteria
 
 - Shared constants are centralized.
 - Constant imports are direct and unaliased.
+- Shared Home view/domain types are centralized and duplicate `*Like` aliases are removed when applicable.
 
 ## 6) UX and Layout Guardrails
 
