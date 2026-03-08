@@ -39,6 +39,7 @@ import {
   type ThreadMcpServerSession,
   type ThreadMcpServerSessionLease,
 } from "~/lib/server/mcp/thread-mcp-server-session-pool";
+import { registerThreadMcpServerSessionPoolShutdownHooks } from "~/lib/server/mcp/thread-mcp-server-session-pool-shutdown";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -410,6 +411,8 @@ const WEB_SEARCH_PREVIEW_TOOL_NAME = "web_search_preview";
 const WEB_SEARCH_PREVIEW_CONTEXT_SIZE = "medium";
 const MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES = ["gpt-5.4"] as const;
 const CHAT_ALLOWED_METHODS = ["POST"] as const;
+
+registerThreadMcpServerSessionPoolShutdownHooks();
 
 export function loader({}: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
