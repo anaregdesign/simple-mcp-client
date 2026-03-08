@@ -6,13 +6,8 @@ import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promise
 import { constants as fsConstants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  AGENT_SKILL_NAME_PATTERN,
-  FOUNDRY_SKILLS_DIRECTORY_NAME,
-  FOUNDRY_USERS_DIRECTORY_NAME,
-  SKILL_REGISTRY_LIST_CACHE_TTL_MS,
-  SKILL_REGISTRY_TREE_CACHE_TTL_MS,
-} from "~/lib/constants";
+import { FOUNDRY_SKILLS_DIRECTORY_NAME, FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
+import { AGENT_SKILL_NAME_PATTERN, SKILL_REGISTRY_LIST_CACHE_TTL_MS, SKILL_REGISTRY_TREE_CACHE_TTL_MS } from "~/lib/constants/skills";
 import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/foundry/config";
 import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/home/skills/frontmatter";
 import {

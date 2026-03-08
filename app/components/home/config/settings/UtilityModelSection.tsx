@@ -8,11 +8,8 @@ import type {
   AzureConnectionOptionView,
   ReasoningEffort,
 } from "~/lib/home/shared/view-types";
-import {
-  HOME_REASONING_EFFORT_OPTIONS,
-  HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
-  HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL,
-} from "~/lib/constants";
+import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import { HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL, HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL } from "~/lib/constants/client";
 
 const { Select, Spinner } = FluentUI;
 

@@ -2,7 +2,7 @@
  * Test module verifying dependencies behavior.
  */
 import { describe, expect, it, vi } from "vitest";
-import { AZURE_ARM_SCOPE } from "~/lib/constants";
+import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 import {
   AZURE_COGNITIVE_SERVICES_SCOPE,
   createAzureDependencies,

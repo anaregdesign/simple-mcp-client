@@ -3,11 +3,7 @@
  */
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-  HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
-} from "~/lib/constants";
+import { HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS } from "~/lib/constants/mcp";
 import { resolveFoundryConfigDirectory } from "~/lib/foundry/config";
 import { mcpServersRouteTestUtils } from "./api.mcp.servers";
 

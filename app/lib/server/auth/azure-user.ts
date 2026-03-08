@@ -3,7 +3,7 @@
  */
 import type { AzureDependencies } from "~/lib/azure/dependencies";
 import { getAzureDependencies } from "~/lib/azure/dependencies";
-import { AZURE_ARM_SCOPE } from "~/lib/constants";
+import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 
 export type AzurePrincipalType = "user" | "servicePrincipal" | "managedIdentity" | "unknown";
 

@@ -6,7 +6,7 @@ import {
   getAzureDependencies,
   resetAzureDependencies,
 } from "~/lib/azure/dependencies";
-import { AZURE_ARM_SCOPE } from "~/lib/constants";
+import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 import { errorResponse, methodNotAllowedResponse } from "~/lib/server/http";
 import {
   installGlobalServerErrorLogging,

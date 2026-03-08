@@ -2,7 +2,7 @@
  * Test module verifying api.azure.session behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AZURE_ARM_SCOPE } from "~/lib/constants";
+import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 
 const {
   authenticateAzure,

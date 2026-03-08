@@ -10,12 +10,8 @@ export type SaveInstructionToClientFileResult = {
   mode: "picker" | "download";
 };
 
-import {
-  INSTRUCTION_ALLOWED_EXTENSIONS,
-  INSTRUCTION_DEFAULT_EXTENSION,
-  INSTRUCTION_SAVE_FILE_TYPES,
-} from "~/lib/constants";
-import type { InstructionSaveFileType } from "~/lib/constants";
+import { INSTRUCTION_ALLOWED_EXTENSIONS, INSTRUCTION_DEFAULT_EXTENSION, INSTRUCTION_SAVE_FILE_TYPES } from "~/lib/constants/instruction";
+import type { InstructionSaveFileType } from "~/lib/constants/instruction";
 
 type SaveFilePickerOptionsCompat = {
   suggestedName?: string;

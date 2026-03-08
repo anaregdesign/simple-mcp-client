@@ -2,13 +2,8 @@
  * API route module for /api/threads.
  */
 import { Prisma } from "@prisma/client";
-import {
-  DEFAULT_AGENT_INSTRUCTION,
-  HOME_DEFAULT_REASONING_EFFORT,
-  HOME_REASONING_EFFORT_OPTIONS,
-  HOME_THREAD_NAME_MAX_LENGTH,
-  THREAD_DEFAULT_NAME,
-} from "~/lib/constants";
+import { DEFAULT_AGENT_INSTRUCTION, HOME_DEFAULT_REASONING_EFFORT, HOME_REASONING_EFFORT_OPTIONS, THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
+import { HOME_THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,

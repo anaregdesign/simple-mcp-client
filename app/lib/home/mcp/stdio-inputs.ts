@@ -2,7 +2,7 @@
  * Client runtime support module.
  */
 import type { ParseResult } from "~/lib/home/mcp/http-inputs";
-import { ENV_KEY_PATTERN } from "~/lib/constants";
+import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
 
 export function parseStdioArgsInput(input: string): ParseResult<string[]> {
   const trimmed = input.trim();

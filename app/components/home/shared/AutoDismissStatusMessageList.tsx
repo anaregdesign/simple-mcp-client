@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo } from "react";
 import { StatusMessageList, type StatusMessage } from "~/components/home/shared/StatusMessageList";
-import { AUTO_DISMISS_STATUS_DEFAULT_MS } from "~/lib/constants";
+import { AUTO_DISMISS_STATUS_DEFAULT_MS } from "~/lib/constants/client";
 
 type AutoDismissStatusMessage = StatusMessage & {
   onClear?: () => void;

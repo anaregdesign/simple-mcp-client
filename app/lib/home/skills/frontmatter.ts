@@ -1,11 +1,7 @@
 /**
  * Client runtime support module.
  */
-import {
-  AGENT_SKILL_DESCRIPTION_MAX_LENGTH,
-  AGENT_SKILL_NAME_MAX_LENGTH,
-  AGENT_SKILL_NAME_PATTERN,
-} from "~/lib/constants";
+import { AGENT_SKILL_DESCRIPTION_MAX_LENGTH, AGENT_SKILL_NAME_MAX_LENGTH, AGENT_SKILL_NAME_PATTERN } from "~/lib/constants/skills";
 
 export type SkillFrontmatter = {
   name: string;

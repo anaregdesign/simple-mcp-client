@@ -4,7 +4,7 @@
 import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
 import { SubSection } from "~/components/home/shared/SubSection";
-import { HOME_THEME_OPTIONS } from "~/lib/constants";
+import { HOME_THEME_OPTIONS } from "~/lib/constants/client";
 import type { HomeTheme } from "~/lib/home/shared/view-types";
 
 const { Select } = FluentUI;

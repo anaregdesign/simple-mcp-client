@@ -1,14 +1,7 @@
 /**
  * Shared MCP validation helpers for frontend and backend.
  */
-import {
-  HTTP_HEADER_NAME_PATTERN,
-  MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_HTTP_HEADERS_MAX,
-  MCP_TIMEOUT_SECONDS_MAX,
-  MCP_TIMEOUT_SECONDS_MIN,
-} from "~/lib/constants";
+import { HTTP_HEADER_NAME_PATTERN, MCP_AZURE_AUTH_SCOPE_MAX_LENGTH, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_HTTP_HEADERS_MAX, MCP_TIMEOUT_SECONDS_MAX, MCP_TIMEOUT_SECONDS_MIN } from "~/lib/constants/mcp";
 
 export type McpHeaderKeyValidationResult =
   | { ok: true }

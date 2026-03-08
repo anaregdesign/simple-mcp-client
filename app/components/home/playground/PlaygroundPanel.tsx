@@ -28,10 +28,7 @@ import type {
 } from "~/lib/home/shared/view-types";
 import { resolveDesktopUpdaterActionState } from "~/lib/home/controller/desktop-updater";
 import { formatChatAttachmentSize } from "~/lib/home/chat/attachments";
-import {
-  HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
-  HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL,
-} from "~/lib/constants";
+import { HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL, HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL } from "~/lib/constants/client";
 
 const {
   Button,

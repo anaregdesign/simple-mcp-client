@@ -1,12 +1,8 @@
 /**
  * Client runtime support module.
  */
-import {
-  ENV_KEY_PATTERN,
-  THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VARIABLES_MAX,
-} from "~/lib/constants";
+import { THREAD_ENVIRONMENT_KEY_MAX_LENGTH, THREAD_ENVIRONMENT_VALUE_MAX_LENGTH, THREAD_ENVIRONMENT_VARIABLES_MAX } from "~/lib/constants/chat";
+import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
 
 export type ThreadEnvironment = Record<string, string>;
 

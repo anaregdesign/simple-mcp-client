@@ -3,11 +3,7 @@
  */
 import { InteractiveBrowserCredential } from "@azure/identity";
 import OpenAI from "openai";
-import {
-  AZURE_ACCESS_TOKEN_REFRESH_BUFFER_MS,
-  AZURE_ARM_SCOPE,
-  AZURE_COGNITIVE_SERVICES_SCOPE,
-} from "~/lib/constants";
+import { AZURE_ACCESS_TOKEN_REFRESH_BUFFER_MS, AZURE_ARM_SCOPE, AZURE_COGNITIVE_SERVICES_SCOPE } from "~/lib/constants/azure";
 
 type AzureCredential = {
   getToken: InteractiveBrowserCredential["getToken"];

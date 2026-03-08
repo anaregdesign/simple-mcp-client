@@ -6,11 +6,8 @@ import { access, mkdir, open, readdir, readFile, realpath, stat } from "node:fs/
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  AGENT_SKILL_FILE_MAX_BYTES,
-  AGENT_SKILLS_DIRECTORY_NAME,
-  FOUNDRY_USERS_DIRECTORY_NAME,
-} from "~/lib/constants";
+import { FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
+import { AGENT_SKILLS_DIRECTORY_NAME, AGENT_SKILL_FILE_MAX_BYTES } from "~/lib/constants/skills";
 import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/foundry/config";
 import {
   parseSkillFrontmatter,

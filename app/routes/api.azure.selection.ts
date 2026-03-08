@@ -17,7 +17,8 @@ import {
   methodNotAllowedResponse,
   validationErrorResponse,
 } from "~/lib/server/http";
-import { HOME_DEFAULT_THEME, HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants";
+import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
 import type { HomeTheme, ReasoningEffort } from "~/lib/home/shared/view-types";
 import { readHomeThemeFromUnknown } from "~/lib/home/theme/preference";
 import type { Route } from "./+types/api.azure.selection";

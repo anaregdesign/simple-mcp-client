@@ -8,7 +8,7 @@ import { SkillsTab } from "~/components/home/config/skills/SkillsTab";
 import { SettingsTab } from "~/components/home/config/settings/SettingsTab";
 import { ThreadsTab } from "~/components/home/config/threads/ThreadsTab";
 import type { MainViewTab } from "~/lib/home/shared/view-types";
-import { HOME_MAIN_VIEW_TAB_OPTIONS } from "~/lib/constants";
+import { HOME_MAIN_VIEW_TAB_OPTIONS } from "~/lib/constants/client";
 
 const { MessageBar, MessageBarBody, Tab, TabList } = FluentUI;
 

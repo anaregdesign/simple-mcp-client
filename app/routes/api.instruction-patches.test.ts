@@ -2,7 +2,7 @@
  * Test module verifying api.instruction-patches behavior.
  */
 import { describe, expect, it } from "vitest";
-import { PROMPT_MAX_CONTENT_BYTES } from "~/lib/constants";
+import { PROMPT_MAX_CONTENT_BYTES } from "~/lib/constants/instruction";
 import {
   buildPromptFileName,
   extractInstructionDiffPatch,

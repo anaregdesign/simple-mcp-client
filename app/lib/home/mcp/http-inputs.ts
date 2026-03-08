@@ -3,13 +3,7 @@
  */
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-import {
-  MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-  MCP_HTTP_HEADERS_MAX,
-  MCP_TIMEOUT_SECONDS_MAX,
-  MCP_TIMEOUT_SECONDS_MIN,
-} from "~/lib/constants";
+import { MCP_AZURE_AUTH_SCOPE_MAX_LENGTH, MCP_DEFAULT_TIMEOUT_SECONDS, MCP_HTTP_HEADERS_MAX, MCP_TIMEOUT_SECONDS_MAX, MCP_TIMEOUT_SECONDS_MIN } from "~/lib/constants/mcp";
 import {
   isMcpHeaderCountWithinLimit,
   normalizeAndValidateMcpAzureAuthScope,

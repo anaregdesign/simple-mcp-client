@@ -1,12 +1,14 @@
 /**
  * Client runtime support module.
  */
+import type { McpTransport } from "~/lib/domain/shared/mcp-transport";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/shared/theme-mode";
 import type { ThreadInstructionContextToggleKey } from "~/lib/home/thread/instruction-context";
 
 export type MainViewTab = "settings" | "skills" | "mcp" | "threads";
-export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
-export type McpTransport = "streamable_http" | "sse" | "stdio";
-export type HomeTheme = "light" | "dark";
+export type { McpTransport, ReasoningEffort };
+export type HomeTheme = ThemeMode;
 
 export type ThreadMessageRole = "user" | "assistant";
 

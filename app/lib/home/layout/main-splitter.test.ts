@@ -2,10 +2,7 @@
  * Test module verifying main-splitter behavior.
  */
 import { describe, expect, it } from "vitest";
-import {
-  HOME_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX,
-  HOME_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
-} from "~/lib/constants";
+import { HOME_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX, HOME_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX } from "~/lib/constants/client";
 import { resolveMainSplitterMaxRightWidth } from "./main-splitter";
 
 describe("resolveMainSplitterMaxRightWidth", () => {

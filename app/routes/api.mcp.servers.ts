@@ -1,12 +1,7 @@
 /**
  * API route module for /api/mcp/servers.
  */
-import {
-  HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
-} from "~/lib/constants";
+import { HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS, MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES } from "~/lib/constants/mcp";
 import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
 import {
   parseIncomingMcpServer,

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-} from "~/lib/constants";
+import { MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS } from "~/lib/constants/mcp";
 import { parseIncomingMcpServer } from "./mcp-server-profile-service";
 
 describe("mcp-server-profile-service", () => {

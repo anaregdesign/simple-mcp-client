@@ -1,10 +1,7 @@
 /**
  * Client runtime support module.
  */
-import {
-  AGENT_SKILL_NAME_PATTERN,
-  HOME_DEFAULT_SKILL_REGISTRY_OPTIONS,
-} from "~/lib/constants";
+import { AGENT_SKILL_NAME_PATTERN, HOME_DEFAULT_SKILL_REGISTRY_OPTIONS } from "~/lib/constants/skills";
 
 export const SKILL_REGISTRY_OPTIONS = HOME_DEFAULT_SKILL_REGISTRY_OPTIONS;
 

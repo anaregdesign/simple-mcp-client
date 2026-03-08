@@ -1,10 +1,7 @@
 /**
  * Client runtime support module.
  */
-import {
-  THREAD_OPERATION_LOG_ROW_ID_PATTERN,
-  THREAD_MCP_SERVER_ROW_ID_PATTERN,
-} from "~/lib/constants";
+import { THREAD_MCP_SERVER_ROW_ID_PATTERN, THREAD_OPERATION_LOG_ROW_ID_PATTERN } from "~/lib/constants/persistence";
 
 export function normalizeThreadMcpServerSourceId(sourceId: string, index: number): string {
   let normalized = sourceId.trim();

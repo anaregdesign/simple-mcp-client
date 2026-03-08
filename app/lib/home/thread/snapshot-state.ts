@@ -1,10 +1,7 @@
 /**
  * Client runtime support module.
  */
-import {
-  HOME_DEFAULT_REASONING_EFFORT,
-  HOME_DEFAULT_WEB_SEARCH_ENABLED,
-} from "~/lib/constants";
+import { HOME_DEFAULT_REASONING_EFFORT, HOME_DEFAULT_WEB_SEARCH_ENABLED } from "~/lib/constants/chat";
 import type { McpServerConfig } from "~/lib/home/mcp/profile";
 import type { ThreadMessage } from "~/lib/home/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/home/chat/stream";

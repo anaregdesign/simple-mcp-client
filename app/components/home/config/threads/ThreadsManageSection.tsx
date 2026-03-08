@@ -10,7 +10,7 @@ import {
   type ContextActionMenuItem,
 } from "~/components/home/shared/ContextActionMenu";
 import { StatusMessageList } from "~/components/home/shared/StatusMessageList";
-import { HOME_THREAD_NAME_MAX_LENGTH } from "~/lib/constants";
+import { HOME_THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 
 const { Button, Input, Spinner } = FluentUI;
 
