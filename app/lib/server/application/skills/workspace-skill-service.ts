@@ -18,7 +18,7 @@ import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 import { discoverSkillCatalog } from "~/lib/server/skills/catalog";
 import { discoverSkillRegistries } from "~/lib/server/skills/registry";
 
-type SkillsDiscoveryResult = {
+export type SkillDiscoveryResult = {
   skills: SkillCatalogEntry[];
   registries: SkillRegistryCatalog[];
   skillWarnings: string[];
@@ -26,15 +26,39 @@ type SkillsDiscoveryResult = {
   warnings: string[];
 };
 
+type WorkspaceSkillProfilesSnapshot = {
+  workspaceSkillProfiles: Array<{
+    id: number;
+    registryProfileId: number | null;
+    name: string;
+    location: string;
+    source: string;
+  }>;
+  workspaceSkillRegistryProfiles: Array<{
+    id: number;
+    registryId: string;
+    registryLabel: string;
+    registryDescription: string;
+    repository: string;
+    repositoryUrl: string;
+    sourcePath: string;
+    installDirectoryName: string;
+  }>;
+};
+
 type WorkspaceSkillProfileReconcilePayload = {
   forceRefresh: boolean;
 };
 
 export class WorkspaceSkillService {
+  async readWorkspaceSkillProfiles(userId: number): Promise<WorkspaceSkillProfilesSnapshot> {
+    return readWorkspaceSkillProfiles(userId);
+  }
+
   async discoverWorkspaceSkills(options: {
     userId: number;
     forceRefresh: boolean;
-  }): Promise<SkillsDiscoveryResult> {
+  }): Promise<SkillDiscoveryResult> {
     return discoverWorkspaceSkills(options);
   }
 
@@ -292,10 +316,67 @@ export async function syncWorkspaceSkillMasters(options: {
   });
 }
 
+async function readWorkspaceSkillProfiles(
+  userId: number,
+): Promise<WorkspaceSkillProfilesSnapshot> {
+  await ensurePersistenceDatabaseReady();
+
+  const [workspaceSkillProfiles, workspaceSkillRegistryProfiles] = await Promise.all([
+    prisma.workspaceSkillProfile.findMany({
+      where: {
+        userId,
+      },
+      orderBy: [
+        {
+          name: "asc",
+        },
+        {
+          location: "asc",
+        },
+      ],
+      select: {
+        id: true,
+        registryProfileId: true,
+        name: true,
+        location: true,
+        source: true,
+      },
+    }),
+    prisma.workspaceSkillRegistryProfile.findMany({
+      where: {
+        userId,
+      },
+      orderBy: [
+        {
+          registryLabel: "asc",
+        },
+        {
+          registryId: "asc",
+        },
+      ],
+      select: {
+        id: true,
+        registryId: true,
+        registryLabel: true,
+        registryDescription: true,
+        repository: true,
+        repositoryUrl: true,
+        sourcePath: true,
+        installDirectoryName: true,
+      },
+    }),
+  ]);
+
+  return {
+    workspaceSkillProfiles,
+    workspaceSkillRegistryProfiles,
+  };
+}
+
 async function discoverWorkspaceSkills(options: {
   userId: number;
   forceRefresh: boolean;
-}): Promise<SkillsDiscoveryResult> {
+}): Promise<SkillDiscoveryResult> {
   const [catalogDiscovery, registryDiscovery] = await Promise.all([
     discoverSkillCatalog({ workspaceUserId: options.userId }),
     discoverSkillRegistries({

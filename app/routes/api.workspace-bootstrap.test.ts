@@ -1,0 +1,88 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  loadWorkspaceBootstrapMock,
+  installGlobalServerErrorLoggingMock,
+  logServerRouteEventMock,
+} = vi.hoisted(() => ({
+  loadWorkspaceBootstrapMock: vi.fn(),
+  installGlobalServerErrorLoggingMock: vi.fn(),
+  logServerRouteEventMock: vi.fn(),
+}));
+
+vi.mock("~/lib/server/application/workspace/workspace-bootstrap-service", () => ({
+  workspaceBootstrapService: {
+    loadWorkspaceBootstrap: loadWorkspaceBootstrapMock,
+  },
+}));
+
+vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+  installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
+  logServerRouteEvent: logServerRouteEventMock,
+}));
+
+import { loader } from "./api.workspace-bootstrap";
+
+describe("/api/workspace-bootstrap", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    loadWorkspaceBootstrapMock.mockResolvedValue({
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+      principal: null,
+      azureProjects: [],
+      azureTenants: [],
+      azureSelection: null,
+      azureDeploymentsByProjectId: {},
+      threads: [],
+      workspaceMcpServerProfiles: [],
+      skills: [],
+      skillRegistries: [],
+      skillWarnings: [],
+      registryWarnings: [],
+      warnings: [],
+      desktopStatus: null,
+    });
+    logServerRouteEventMock.mockResolvedValue(undefined);
+  });
+
+  it("returns 405 with Allow for unsupported methods", async () => {
+    const response = await loader({
+      request: new Request("http://localhost/api/workspace-bootstrap", { method: "POST" }),
+    } as never);
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET");
+  });
+
+  it("returns 401 when bootstrap auth is unavailable", async () => {
+    loadWorkspaceBootstrapMock.mockResolvedValueOnce(null);
+
+    const response = await loader({
+      request: new Request("http://localhost/api/workspace-bootstrap", { method: "GET" }),
+    } as never);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "auth_required",
+        message: "Azure login is required. Click Azure Login to continue.",
+      },
+    });
+  });
+
+  it("returns a data envelope for GET", async () => {
+    const response = await loader({
+      request: new Request("http://localhost/api/workspace-bootstrap", { method: "GET" }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      data: expect.objectContaining({
+        tenantId: "tenant-a",
+        principalId: "principal-a",
+        workspaceMcpServerProfiles: [],
+      }),
+    });
+  });
+});

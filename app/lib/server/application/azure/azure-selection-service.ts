@@ -30,7 +30,7 @@ type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreference & {
   reasoningEffort: ReasoningEffort;
 };
 
-type AzureSelectionPreference = {
+export type AzureSelectionPreference = {
   tenantId: string;
   principalId: string;
   theme: ThemeMode;

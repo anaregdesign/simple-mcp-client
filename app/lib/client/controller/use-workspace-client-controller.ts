@@ -1509,16 +1509,12 @@ export function useWorkspaceClientController() {
     setIsLoadingSkills(true);
 
     try {
+      const skillsRequestUrl =
+        options.forceRefresh === true ? "/api/skills?refresh=1" : "/api/skills";
       const { payload } = await requestClientApi<SkillsApiResponse>({
-        url: "/api/skills",
+        url: skillsRequestUrl,
         init: {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            forceRefresh: options.forceRefresh === true,
-          }),
+          method: "GET",
         },
         readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
         resolveAuthRequired: (status, responsePayload) =>
