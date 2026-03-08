@@ -226,6 +226,23 @@ describe("parseReasoningEffortOptionsFromString", () => {
 });
 
 describe("resolveReasoningEffortOptionsByModelName", () => {
+  it("returns model-specific options for GPT-5.4 family", () => {
+    expect(resolveReasoningEffortOptionsByModelName("gpt-5.4")).toEqual([
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+    expect(resolveReasoningEffortOptionsByModelName("gpt-5.4-pro-2026-03-05")).toEqual([
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+  });
+
   it("returns model-specific options for GPT-5.2 family", () => {
     expect(resolveReasoningEffortOptionsByModelName("gpt-5.2")).toEqual([
       "none",
@@ -240,11 +257,7 @@ describe("resolveReasoningEffortOptionsByModelName", () => {
     expect(resolveReasoningEffortOptionsByModelName("o3-pro")).toEqual(["high"]);
   });
 
-  it("falls back to baseline options for unknown reasoning models", () => {
-    expect(resolveReasoningEffortOptionsByModelName("o9-experimental")).toEqual([
-      "low",
-      "medium",
-      "high",
-    ]);
+  it("does not infer options for unknown models", () => {
+    expect(resolveReasoningEffortOptionsByModelName("o9-experimental")).toEqual([]);
   });
 });

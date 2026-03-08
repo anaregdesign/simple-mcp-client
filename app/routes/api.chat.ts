@@ -188,6 +188,10 @@ type UpstreamErrorPayload = {
   error: string;
   errorCode?: "azure_login_required";
 };
+type WebSearchPreviewUserLocation = {
+  type: "approximate";
+  country: string;
+};
 type ChatExecutionOptions = {
   threadId: string | null;
   turnId: string | null;
@@ -199,6 +203,7 @@ type ChatExecutionOptions = {
   history: ClientMessage[];
   reasoningEffort: ReasoningEffort | null;
   webSearchEnabled: boolean;
+  webSearchUserLocation: WebSearchPreviewUserLocation | null;
   temperature: number | null;
   agentInstruction: string;
   instructionContextToggles: ThreadInstructionContextToggles;
@@ -400,6 +405,8 @@ let codeInterpreterAttachmentAvailabilityCache: CodeInterpreterAttachmentAvailab
   null;
 const WEB_SEARCH_PREVIEW_TOOL_NAME = "web_search_preview";
 const WEB_SEARCH_PREVIEW_CONTEXT_SIZE = "medium";
+const BCP47_REGION_CODE_PATTERN = /^[A-Za-z]{2}$/;
+const MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES = ["gpt-5.4"] as const;
 const CHAT_ALLOWED_METHODS = ["POST"] as const;
 
 export function loader({}: Route.LoaderArgs) {
@@ -478,8 +485,30 @@ export async function action({ request }: Route.ActionArgs) {
     return validationErrorResponse("invalid_attachments_payload", attachmentsResult.error);
   }
   const supportsReasoningEffort = readSupportsReasoningEffort(payload);
-  const reasoningEffort = supportsReasoningEffort ? readReasoningEffort(payload) : null;
   const webSearchEnabled = readWebSearchEnabled(payload);
+  const webSearchUserLocation = webSearchEnabled
+    ? readWebSearchUserLocationFromRequest(request)
+    : null;
+  const reasoningEffort = supportsReasoningEffort ? readReasoningEffort(payload) : null;
+  if (
+    reasoningEffort &&
+    webSearchEnabled &&
+    !isWebSearchCompatibleReasoningEffort(reasoningEffort)
+  ) {
+    const errorMessage =
+      "`reasoningEffort` value is not compatible with `webSearchEnabled: true`.";
+    await logServerRouteEvent({
+      request,
+      route: "/api/chat",
+      eventName: "invalid_reasoning_effort_for_web_search",
+      action: "validate_payload",
+      level: "warning",
+      statusCode: 422,
+      message: errorMessage,
+    });
+
+    return validationErrorResponse("invalid_reasoning_effort_for_web_search", errorMessage);
+  }
   const temperatureResult = readTemperature(payload);
   if (!temperatureResult.ok) {
     await logServerRouteEvent({
@@ -572,6 +601,28 @@ export async function action({ request }: Route.ActionArgs) {
     return validationErrorResponse("invalid_azure_config", azureConfigResult.error);
   }
   const azureConfig = azureConfigResult.value;
+  if (
+    reasoningEffort &&
+    !isDeploymentReasoningEffortCompatible(azureConfig.deploymentName, reasoningEffort)
+  ) {
+    const errorMessage =
+      "`reasoningEffort` value is not supported by the selected deployment.";
+    await logServerRouteEvent({
+      request,
+      route: "/api/chat",
+      eventName: "invalid_reasoning_effort_for_deployment",
+      action: "validate_payload",
+      level: "warning",
+      statusCode: 422,
+      message: errorMessage,
+      context: {
+        deploymentName: azureConfig.deploymentName,
+        reasoningEffort,
+      },
+    });
+
+    return validationErrorResponse("invalid_reasoning_effort_for_deployment", errorMessage);
+  }
   const mcpServersResult = readMcpServers(payload, { requestUrl: request.url });
   if (!mcpServersResult.ok) {
     await logServerRouteEvent({
@@ -623,6 +674,7 @@ export async function action({ request }: Route.ActionArgs) {
     history,
     reasoningEffort,
     webSearchEnabled,
+    webSearchUserLocation,
     temperature: temperatureResult.value,
     agentInstruction,
     instructionContextToggles: instructionContextTogglesResult.value,
@@ -917,7 +969,9 @@ async function executeChat(
       azureOpenAIClient,
       options.azureConfig.deploymentName,
     );
-    const webSearchTools = options.webSearchEnabled ? [buildWebSearchPreviewTool()] : [];
+    const webSearchTools = options.webSearchEnabled
+      ? [buildWebSearchPreviewTool(options.webSearchUserLocation)]
+      : [];
     if (options.webSearchEnabled) {
       emitProgress({ message: "Enabling web-search-preview tool..." });
     }
@@ -1253,6 +1307,50 @@ function readOptionalRequestHeaderValue(request: Request, headerName: string): s
   return normalized.length > 0 ? normalized : null;
 }
 
+function readWebSearchUserLocationFromRequest(
+  request: Request,
+): WebSearchPreviewUserLocation | null {
+  const acceptLanguage = readOptionalRequestHeaderValue(request, "accept-language");
+  if (!acceptLanguage) {
+    return null;
+  }
+
+  const primaryLanguageRange = acceptLanguage.split(",")[0]?.trim() ?? "";
+  if (!primaryLanguageRange) {
+    return null;
+  }
+
+  const primaryLanguageTag = primaryLanguageRange.split(";")[0]?.trim() ?? "";
+  if (!primaryLanguageTag) {
+    return null;
+  }
+
+  const country = readRegionCodeFromLanguageTag(primaryLanguageTag);
+  if (!country) {
+    return null;
+  }
+
+  return {
+    type: "approximate",
+    country,
+  };
+}
+
+function readRegionCodeFromLanguageTag(languageTag: string): string | null {
+  const subtags = languageTag
+    .split(/[-_]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  for (const subtag of subtags.slice(1)) {
+    if (BCP47_REGION_CODE_PATTERN.test(subtag)) {
+      return subtag.toUpperCase();
+    }
+  }
+
+  return null;
+}
+
 function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<string, unknown> {
   return {
     turnId: options.turnId,
@@ -1264,6 +1362,7 @@ function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<str
     threadEnvironmentKeyCount: Object.keys(options.threadEnvironment).length,
     reasoningEffort: options.reasoningEffort,
     webSearchEnabled: options.webSearchEnabled,
+    webSearchUserLocationCountry: options.webSearchUserLocation?.country ?? null,
     systemInstructionContextEnabled: options.instructionContextToggles.system,
     mcpServerCount: options.mcpServers.length,
     skillCount: options.skills.length,
@@ -1283,7 +1382,7 @@ function buildChatExecutionSuccessLogContext(
   };
 }
 
-function buildWebSearchPreviewTool() {
+function buildWebSearchPreviewTool(userLocation: WebSearchPreviewUserLocation | null) {
   return {
     type: "hosted_tool" as const,
     name: WEB_SEARCH_PREVIEW_TOOL_NAME,
@@ -1291,6 +1390,7 @@ function buildWebSearchPreviewTool() {
       type: "web_search_preview",
       name: WEB_SEARCH_PREVIEW_TOOL_NAME,
       search_context_size: WEB_SEARCH_PREVIEW_CONTEXT_SIZE,
+      ...(userLocation ? { user_location: userLocation } : {}),
     },
   };
 }
@@ -1914,6 +2014,31 @@ function readReasoningEffort(payload: unknown): ReasoningEffort {
     return value as ReasoningEffort;
   }
   return "none";
+}
+
+function isWebSearchCompatibleReasoningEffort(reasoningEffort: ReasoningEffort): boolean {
+  return reasoningEffort !== "minimal";
+}
+
+function isDeploymentReasoningEffortCompatible(
+  deploymentNameRaw: string,
+  reasoningEffort: ReasoningEffort,
+): boolean {
+  const deploymentName = deploymentNameRaw.trim().toLowerCase();
+  if (!deploymentName) {
+    return true;
+  }
+
+  if (
+    reasoningEffort === "minimal" &&
+    MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES.some((prefix) =>
+      deploymentName.startsWith(prefix),
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function readSupportsReasoningEffort(payload: unknown): boolean {
@@ -6067,7 +6192,10 @@ function sleep(durationMs: number): Promise<void> {
 
 export const chatRouteTestUtils = {
   readTemperature,
+  isWebSearchCompatibleReasoningEffort,
+  isDeploymentReasoningEffortCompatible,
   readWebSearchEnabled,
+  readWebSearchUserLocationFromRequest,
   readInstructionContextToggles,
   readAttachments,
   readThreadEnvironment,

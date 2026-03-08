@@ -465,7 +465,10 @@ export async function listProjectDeployments(
     const capabilities =
       modelCapabilities.get(createModelKey(modelName, modelVersion)) ??
       modelCapabilities.get(createModelKey(modelName, ""));
-    const reasoningEffortOptions = resolveDeploymentReasoningEffortOptions(modelName, capabilities);
+    const reasoningEffortOptions = resolveDeploymentReasoningEffortOptions(
+      modelName,
+      capabilities,
+    );
 
     const key = name.toLowerCase();
     const existing = deploymentsByName.get(key);
@@ -649,34 +652,16 @@ function resolveDeploymentReasoningEffortOptions(
   modelName: string,
   capabilities: ModelCapabilities | undefined,
 ): ReasoningEffort[] {
-  if (capabilities) {
-    if (capabilities.reasoningEffortOptions.length > 0) {
-      return capabilities.reasoningEffortOptions;
-    }
-
-    const flags = capabilities.flags;
-    const reasoningCapability =
-      flags.reasoning === true ||
-      flags.reasoningeffort === true ||
-      flags.reasoningtokens === true ||
-      flags.reasoningoutput === true;
-    if (flags.reasoning === false || flags.reasoningeffort === false) {
-      return [];
-    }
-
-    if (!reasoningCapability) {
-      if (!looksLikeReasoningModelName(modelName)) {
-        return [];
-      }
-    }
+  const modelSpecificOptions = resolveReasoningEffortOptionsByModelName(modelName);
+  if (modelSpecificOptions.length > 0) {
+    return modelSpecificOptions;
   }
 
-  if (!capabilities && !looksLikeReasoningModelName(modelName)) {
-    return [];
+  if (capabilities && capabilities.reasoningEffortOptions.length > 0) {
+    return capabilities.reasoningEffortOptions;
   }
 
-  const fallbackOptions = resolveReasoningEffortOptionsByModelName(modelName);
-  return fallbackOptions.length > 0 ? fallbackOptions : ["low", "medium", "high"];
+  return [];
 }
 
 export function resolveReasoningEffortOptionsByModelName(modelName: string): ReasoningEffort[] {
@@ -684,14 +669,12 @@ export function resolveReasoningEffortOptionsByModelName(modelName: string): Rea
     return [];
   }
 
-  // Fallback matrix from official OpenAI model reference pages when ARM capabilities
-  // do not enumerate reasoning effort values for a model.
   if (modelName.startsWith("o3-pro")) {
     return ["high"];
   }
 
   if (modelName.startsWith("gpt-5.4")) {
-    return ["minimal", "low", "medium", "high", "xhigh"];
+    return ["none", "low", "medium", "high", "xhigh"];
   }
 
   if (modelName.startsWith("gpt-5.2")) {
@@ -711,10 +694,6 @@ export function resolveReasoningEffortOptionsByModelName(modelName: string): Rea
   }
 
   if (modelName.startsWith("o3") || modelName.startsWith("o4-mini")) {
-    return ["low", "medium", "high"];
-  }
-
-  if (looksLikeReasoningModelName(modelName)) {
     return ["low", "medium", "high"];
   }
 
@@ -825,10 +804,6 @@ function mergeReasoningEffortOptions(
 function orderReasoningEffortOptions(options: ReasoningEffort[]): ReasoningEffort[] {
   const optionSet = new Set(options);
   return HOME_REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
-}
-
-function looksLikeReasoningModelName(modelName: string): boolean {
-  return /^o[1-9]/.test(modelName) || modelName.startsWith("gpt-5");
 }
 
 function isUnsupportedModelName(modelName: string): boolean {

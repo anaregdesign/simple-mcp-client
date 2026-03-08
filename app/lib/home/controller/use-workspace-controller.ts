@@ -415,7 +415,6 @@ export function useWorkspaceController() {
     instructionFileError !== null;
   const canSaveAgentInstructionPrompt = agentInstruction.trim().length > 0;
   const canEnhanceAgentInstruction = agentInstruction.trim().length > 0;
-  const reasoningEffortOptions: ReasoningEffort[] = [...HOME_REASONING_EFFORT_OPTIONS];
   const playgroundAzureDeploymentNames = playgroundAzureDeployments.map(
     (deployment) => deployment.name,
   );
@@ -426,38 +425,47 @@ export function useWorkspaceController() {
   const selectedUtilityAzureDeployment = utilityAzureDeployments.find(
     (deployment) => deployment.name === selectedUtilityAzureDeploymentName,
   );
-  const isPlaygroundReasoningEffortSupported = selectedPlaygroundAzureDeployment
-    ? selectedPlaygroundAzureDeployment.reasoningEffortOptions.length > 0
-    : true;
-  const isUtilityReasoningEffortSupported = selectedUtilityAzureDeployment
-    ? selectedUtilityAzureDeployment.reasoningEffortOptions.length > 0
-    : true;
   const selectedPlaygroundDeploymentReasoningEffortOptions = resolveSupportedReasoningEffortOptions(
     selectedPlaygroundAzureDeployment?.reasoningEffortOptions ?? [],
   );
   const selectedUtilityDeploymentReasoningEffortOptions = resolveSupportedReasoningEffortOptions(
     selectedUtilityAzureDeployment?.reasoningEffortOptions ?? [],
   );
+  const selectedPlaygroundDeploymentCompatibleReasoningEffortOptions =
+    filterReasoningEffortOptionsForDeploymentCompatibility(
+      selectedPlaygroundDeploymentReasoningEffortOptions,
+      selectedPlaygroundAzureDeploymentName,
+    );
+  const selectedUtilityDeploymentCompatibleReasoningEffortOptions =
+    filterReasoningEffortOptionsForDeploymentCompatibility(
+      selectedUtilityDeploymentReasoningEffortOptions,
+      selectedUtilityAzureDeploymentName,
+    );
+  const isPlaygroundReasoningEffortSupported =
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions.length > 0;
+  const isUtilityReasoningEffortSupported =
+    selectedUtilityDeploymentCompatibleReasoningEffortOptions.length > 0;
   const effectivePlaygroundReasoningEffortOptions: ReasoningEffort[] = isPlaygroundReasoningEffortSupported
-    ? selectedPlaygroundDeploymentReasoningEffortOptions.length > 0
-      ? selectedPlaygroundDeploymentReasoningEffortOptions
-      : reasoningEffortOptions
+    ? filterReasoningEffortOptionsForWebSearch(
+        selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+        webSearchEnabled,
+      )
     : [HOME_DEFAULT_REASONING_EFFORT];
   const effectiveUtilityReasoningEffortOptions: ReasoningEffort[] = isUtilityReasoningEffortSupported
-    ? selectedUtilityDeploymentReasoningEffortOptions.length > 0
-      ? selectedUtilityDeploymentReasoningEffortOptions
-      : reasoningEffortOptions
+    ? selectedUtilityDeploymentCompatibleReasoningEffortOptions
     : [HOME_DEFAULT_REASONING_EFFORT];
-  const effectivePlaygroundReasoningEffort = resolveEffectiveReasoningEffort(
-    reasoningEffort,
-    effectivePlaygroundReasoningEffortOptions,
-    HOME_DEFAULT_REASONING_EFFORT,
-  );
   const effectiveUtilityReasoningEffort = resolveEffectiveReasoningEffort(
     utilityReasoningEffort,
     effectiveUtilityReasoningEffortOptions,
     HOME_DEFAULT_UTILITY_REASONING_EFFORT,
   );
+  const isSelectedPlaygroundReasoningEffortOptionAvailable =
+    !isPlaygroundReasoningEffortSupported ||
+    effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort);
+  const isPlaygroundReasoningEffortWebSearchCompatible =
+    !webSearchEnabled ||
+    !isPlaygroundReasoningEffortSupported ||
+    isWebSearchCompatibleReasoningEffort(reasoningEffort);
   const activeThreadRequestState =
     threadRequestStateById[activeThreadId] ?? HOME_DEFAULT_THREAD_REQUEST_STATE;
   const isSending = activeThreadRequestState.isSending;
@@ -693,6 +701,8 @@ export function useWorkspaceController() {
     !!activeThreadId.trim() &&
     !!activePlaygroundAzureConnection &&
     !!selectedPlaygroundAzureDeploymentName.trim() &&
+    isSelectedPlaygroundReasoningEffortOptionAvailable &&
+    isPlaygroundReasoningEffortWebSearchCompatible &&
     draft.trim().length > 0;
 
   // Observability helpers for Home runtime events.
@@ -983,7 +993,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    void loadAzureDeployments(activePlaygroundAzureConnection.id, "playground");
+    void loadAzureDeployments(activePlaygroundAzureConnection.id, "playground", { force: true });
   }, [activePlaygroundAzureConnection]);
 
   useEffect(() => {
@@ -995,7 +1005,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    void loadAzureDeployments(activeUtilityAzureConnection.id, "utility");
+    void loadAzureDeployments(activeUtilityAzureConnection.id, "utility", { force: true });
   }, [activeUtilityAzureConnection]);
 
   useEffect(() => {
@@ -3255,6 +3265,42 @@ export function useWorkspaceController() {
     return HOME_REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
   }
 
+  function isWebSearchCompatibleReasoningEffort(value: ReasoningEffort): boolean {
+    return value !== "minimal";
+  }
+
+  function isReasoningEffortCompatibleWithDeployment(
+    deploymentNameRaw: string,
+    value: ReasoningEffort,
+  ): boolean {
+    const deploymentName = deploymentNameRaw.trim().toLowerCase();
+    if (deploymentName.startsWith("gpt-5.4")) {
+      return value !== "minimal";
+    }
+
+    return true;
+  }
+
+  function filterReasoningEffortOptionsForDeploymentCompatibility(
+    options: ReasoningEffort[],
+    deploymentNameRaw: string,
+  ): ReasoningEffort[] {
+    return options.filter((value) =>
+      isReasoningEffortCompatibleWithDeployment(deploymentNameRaw, value),
+    );
+  }
+
+  function filterReasoningEffortOptionsForWebSearch(
+    options: ReasoningEffort[],
+    webSearchEnabledValue: boolean,
+  ): ReasoningEffort[] {
+    if (!webSearchEnabledValue) {
+      return options;
+    }
+
+    return options.filter(isWebSearchCompatibleReasoningEffort);
+  }
+
   function resolveEffectiveReasoningEffort(
     current: ReasoningEffort,
     options: ReasoningEffort[],
@@ -3741,7 +3787,7 @@ export function useWorkspaceController() {
     options: LoadAzureDeploymentsOptions = {},
   ): Promise<void> {
     const normalizedProjectId = projectId.trim();
-    const forceReload = options.force === true;
+    const forceReload = options.force !== false;
     if (!normalizedProjectId) {
       if (target === "playground") {
         setPlaygroundAzureDeployments([]);
@@ -4113,6 +4159,27 @@ export function useWorkspaceController() {
       return;
     }
 
+    if (
+      isPlaygroundReasoningEffortSupported &&
+      !effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort)
+    ) {
+      setUiError(
+        "Select a Reasoning Effort value available for the selected deployment before sending.",
+      );
+      return;
+    }
+
+    if (
+      webSearchEnabled &&
+      isPlaygroundReasoningEffortSupported &&
+      !isWebSearchCompatibleReasoningEffort(reasoningEffort)
+    ) {
+      setUiError(
+        "Selected Reasoning Effort cannot be used with Web Search. Choose a Web Search-compatible value.",
+      );
+      return;
+    }
+
     const baseThread = threadsRef.current.find((thread) => thread.id === threadId);
     const shouldRefreshThreadTitleOnFirstMessage =
       !!baseThread && baseThread.deletedAt === null && baseThread.messages.length === 0;
@@ -4222,7 +4289,7 @@ export function useWorkspaceController() {
           },
           supportsReasoningEffort: isPlaygroundReasoningEffortSupported,
           ...(isPlaygroundReasoningEffortSupported
-            ? { reasoningEffort: effectivePlaygroundReasoningEffort }
+            ? { reasoningEffort }
             : {}),
           webSearchEnabled,
           agentInstruction: requestAgentInstruction,
@@ -5119,6 +5186,29 @@ export function useWorkspaceController() {
   }
 
   function handleWebSearchEnabledChange(nextValue: boolean) {
+    if (
+      nextValue &&
+      isPlaygroundReasoningEffortSupported &&
+      filterReasoningEffortOptionsForWebSearch(
+        selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+        true,
+      ).length === 0
+    ) {
+      setUiError("Web Search is not available for the selected deployment.");
+      return;
+    }
+
+    if (
+      nextValue &&
+      isPlaygroundReasoningEffortSupported &&
+      !isWebSearchCompatibleReasoningEffort(reasoningEffort)
+    ) {
+      setUiError(
+        "Selected Reasoning Effort cannot be used with Web Search. Choose a compatible value first.",
+      );
+      return;
+    }
+
     setWebSearchEnabled(nextValue);
     setUiError(null);
   }
@@ -6196,7 +6286,7 @@ export function useWorkspaceController() {
     selectedAzureDeploymentName: selectedPlaygroundAzureDeploymentName,
     azureDeployments: playgroundAzureDeploymentNames,
     onDeploymentChange: handleChatDeploymentChange,
-    reasoningEffort: effectivePlaygroundReasoningEffort,
+    reasoningEffort,
     reasoningEffortOptions: effectivePlaygroundReasoningEffortOptions,
     isReasoningEffortSupported: isPlaygroundReasoningEffortSupported,
     onReasoningEffortChange: handleReasoningEffortChange,

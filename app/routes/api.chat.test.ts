@@ -21,7 +21,10 @@ import { chatRouteTestUtils } from "./api.chat";
 
 const {
   readTemperature,
+  isWebSearchCompatibleReasoningEffort,
+  isDeploymentReasoningEffortCompatible,
   readWebSearchEnabled,
+  readWebSearchUserLocationFromRequest,
   readInstructionContextToggles,
   readAttachments,
   readThreadEnvironment,
@@ -76,6 +79,61 @@ describe("readWebSearchEnabled", () => {
   it("accepts explicit boolean flags", () => {
     expect(readWebSearchEnabled({ webSearchEnabled: true })).toBe(true);
     expect(readWebSearchEnabled({ webSearchEnabled: false })).toBe(false);
+  });
+});
+
+describe("isWebSearchCompatibleReasoningEffort", () => {
+  it("returns false for minimal and true for other values", () => {
+    expect(isWebSearchCompatibleReasoningEffort("minimal")).toBe(false);
+    expect(isWebSearchCompatibleReasoningEffort("none")).toBe(true);
+    expect(isWebSearchCompatibleReasoningEffort("low")).toBe(true);
+    expect(isWebSearchCompatibleReasoningEffort("medium")).toBe(true);
+    expect(isWebSearchCompatibleReasoningEffort("high")).toBe(true);
+    expect(isWebSearchCompatibleReasoningEffort("xhigh")).toBe(true);
+  });
+});
+
+describe("isDeploymentReasoningEffortCompatible", () => {
+  it("rejects minimal for gpt-5.4 deployment variants", () => {
+    expect(isDeploymentReasoningEffortCompatible("gpt-5.4", "minimal")).toBe(false);
+    expect(isDeploymentReasoningEffortCompatible("gpt-5.4-pro-2026-03-05", "minimal")).toBe(
+      false,
+    );
+  });
+
+  it("accepts non-minimal values for gpt-5.4 deployment variants", () => {
+    expect(isDeploymentReasoningEffortCompatible("gpt-5.4", "none")).toBe(true);
+    expect(isDeploymentReasoningEffortCompatible("gpt-5.4-pro-2026-03-05", "low")).toBe(true);
+  });
+
+  it("accepts minimal for other deployments", () => {
+    expect(isDeploymentReasoningEffortCompatible("gpt-5.2", "minimal")).toBe(true);
+    expect(isDeploymentReasoningEffortCompatible("o3-pro", "minimal")).toBe(true);
+  });
+});
+
+describe("readWebSearchUserLocationFromRequest", () => {
+  it("reads country from the primary Accept-Language locale", () => {
+    const request = new Request("http://localhost/api/chat", {
+      headers: {
+        "accept-language": "ja-JP,ja;q=0.9,en-US;q=0.8",
+      },
+    });
+
+    expect(readWebSearchUserLocationFromRequest(request)).toEqual({
+      type: "approximate",
+      country: "JP",
+    });
+  });
+
+  it("returns null when Accept-Language has no region code", () => {
+    const request = new Request("http://localhost/api/chat", {
+      headers: {
+        "accept-language": "ja,en;q=0.8",
+      },
+    });
+
+    expect(readWebSearchUserLocationFromRequest(request)).toBeNull();
   });
 });
 
@@ -1629,6 +1687,7 @@ describe("chat execution success log context", () => {
       threadEnvironment: {},
       reasoningEffort: "none",
       webSearchEnabled: false,
+      webSearchUserLocation: null,
       temperature: null,
       agentInstruction: "",
       instructionContextToggles: {
