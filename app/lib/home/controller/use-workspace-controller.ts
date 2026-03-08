@@ -184,9 +184,14 @@ import { deriveInstructionRuntimeUiState } from "~/lib/home/controller/instructi
 import {
   canStartThreadOperation,
   completeThreadOperationPhase,
-  isThreadOperationPhaseBusy,
   type ThreadOperationPhase,
 } from "~/lib/home/controller/thread-operation-phase";
+import {
+  canSendMessageByGuard,
+  isThreadPhaseBlockingSend,
+  selectThreadOperationPhaseFlags,
+  shouldBlockThreadPersistence,
+} from "~/lib/home/controller/thread-guards";
 import {
   buildThreadListOptions,
   mergeSkillSelections,
@@ -367,13 +372,14 @@ export function useWorkspaceController() {
   const [isApplyingDesktopUpdate, setIsApplyingDesktopUpdate] = useState(false);
   const [rightPaneWidth, setRightPaneWidth] = useState(420);
   const [activeResizeHandle, setActiveResizeHandle] = useState<"main" | null>(null);
-  const isLoadingThreads = threadOperationPhase === "loading";
-  const isSwitchingThread = threadOperationPhase === "switching";
-  const isCreatingThread = threadOperationPhase === "creating";
-  const isDeletingThread = threadOperationPhase === "deleting";
-  const isClearingThread = threadOperationPhase === "clearing";
-  const isRestoringThread = threadOperationPhase === "restoring";
-  const isThreadOperationBusy = isThreadOperationPhaseBusy(threadOperationPhase);
+  const threadOperationPhaseFlags = selectThreadOperationPhaseFlags(threadOperationPhase);
+  const isLoadingThreads = threadOperationPhaseFlags.isLoadingThreads;
+  const isSwitchingThread = threadOperationPhaseFlags.isSwitchingThread;
+  const isCreatingThread = threadOperationPhaseFlags.isCreatingThread;
+  const isDeletingThread = threadOperationPhaseFlags.isDeletingThread;
+  const isClearingThread = threadOperationPhaseFlags.isClearingThread;
+  const isRestoringThread = threadOperationPhaseFlags.isRestoringThread;
+  const isThreadOperationBusy = threadOperationPhaseFlags.isThreadOperationBusy;
 
   // Mutable refs for request sequencing, optimistic state, and debounce timers.
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
@@ -723,23 +729,20 @@ export function useWorkspaceController() {
       skills: [],
     }));
   }, [skillRegistryCatalogs]);
-  const canSendMessage =
-    !isSending &&
-    !isSwitchingThread &&
-    !isDeletingThread &&
-    !isClearingThread &&
-    !isRestoringThread &&
-    !isActiveThreadArchived &&
-    !isLoadingThreads &&
-    !isChatLocked &&
-    !isLoadingAzureConnections &&
-    !isLoadingPlaygroundAzureDeployments &&
-    !!activeThreadId.trim() &&
-    !!activePlaygroundAzureConnection &&
-    !!selectedPlaygroundAzureDeploymentName.trim() &&
-    isSelectedPlaygroundReasoningEffortOptionAvailable &&
-    isPlaygroundReasoningEffortWebSearchCompatible &&
-    draft.trim().length > 0;
+  const canSendMessage = canSendMessageByGuard({
+    threadOperationPhase,
+    isSending,
+    isActiveThreadArchived,
+    isChatLocked,
+    isLoadingAzureConnections,
+    isLoadingPlaygroundAzureDeployments,
+    hasActiveThreadId: activeThreadId.trim().length > 0,
+    hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+    hasSelectedPlaygroundAzureDeploymentName: selectedPlaygroundAzureDeploymentName.trim().length > 0,
+    isSelectedPlaygroundReasoningEffortOptionAvailable,
+    isPlaygroundReasoningEffortWebSearchCompatible,
+    hasDraftContent: draft.trim().length > 0,
+  });
 
   // Observability helpers for Home runtime events.
   function buildRuntimeLogContext(extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -1234,12 +1237,11 @@ export function useWorkspaceController() {
       return;
     }
     if (
-      isSending ||
-      isSwitchingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread ||
-      isLoadingThreads
+      shouldBlockThreadPersistence({
+        threadOperationPhase,
+        isSending,
+        blockOnCreating: false,
+      })
     ) {
       return;
     }
@@ -1285,11 +1287,7 @@ export function useWorkspaceController() {
     selectedThreadSkills,
     threads,
     isSending,
-    isSwitchingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
-    isLoadingThreads,
+    threadOperationPhase,
   ]);
 
   useEffect(() => {
@@ -1297,13 +1295,11 @@ export function useWorkspaceController() {
       return;
     }
     if (
-      isSending ||
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
+      shouldBlockThreadPersistence({
+        threadOperationPhase,
+        isSending,
+        blockOnCreating: true,
+      })
     ) {
       return;
     }
@@ -1341,12 +1337,7 @@ export function useWorkspaceController() {
     activeThreadNameInput,
     threads,
     isSending,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
+    threadOperationPhase,
   ]);
 
   useEffect(() => {
@@ -1389,12 +1380,7 @@ export function useWorkspaceController() {
     activeThreadId,
     agentInstruction,
     threads,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
+    threadOperationPhase,
   ]);
 
   useEffect(() => {
@@ -1432,12 +1418,7 @@ export function useWorkspaceController() {
     });
   }, [
     isChatLocked,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
+    threadOperationPhase,
     isLoadingUtilityAzureDeployments,
     selectedUtilityAzureConnectionId,
     selectedUtilityAzureDeploymentName,
@@ -4041,13 +4022,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (isThreadPhaseBlockingSend(threadOperationPhase)) {
       setThreadError("Thread state is updating. Please wait.");
       setActiveMainTab("threads");
       return;
