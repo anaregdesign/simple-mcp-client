@@ -138,6 +138,8 @@ import {
   hasThreadPersistableState,
   isThreadArchivedById,
   isThreadSnapshotArchived,
+  readThreadRuntimeStateById,
+  updateThreadSnapshotCollectionById,
   upsertThreadSnapshot,
 } from "~/lib/home/thread/snapshot-state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/home/thread/environment";
@@ -240,7 +242,6 @@ export function useWorkspaceController() {
   const [activeAzurePrincipal, setActiveAzurePrincipal] = useState<AzurePrincipalProfile | null>(
     null,
   );
-  const [messages, setMessages] = useState<ThreadMessage[]>([...HOME_INITIAL_MESSAGES]);
   const [draft, setDraft] = useState("");
   const [chatComposerCursorIndex, setChatComposerCursorIndex] = useState(0);
   const [chatCommandHighlightedIndex, setChatCommandHighlightedIndex] = useState(0);
@@ -292,7 +293,6 @@ export function useWorkspaceController() {
   const [instructionEnhancingThreadId, setInstructionEnhancingThreadId] = useState("");
   const [instructionEnhanceComparison, setInstructionEnhanceComparison] =
     useState<InstructionEnhanceComparison | null>(null);
-  const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
   const [workspaceMcpServerProfiles, setWorkspaceMcpServerProfiles] = useState<McpServerConfig[]>([]);
   const [mcpNameInput, setMcpNameInput] = useState("");
   const [mcpUrlInput, setMcpUrlInput] = useState("");
@@ -329,7 +329,6 @@ export function useWorkspaceController() {
   const [azureLoginError, setAzureLoginError] = useState<string | null>(null);
   const [azureTenantSwitchError, setAzureTenantSwitchError] = useState<string | null>(null);
   const [azureLogoutError, setAzureLogoutError] = useState<string | null>(null);
-  const [mcpRpcLogs, setThreadOperationLogs] = useState<ThreadOperationLogEntry[]>([]);
   const [threads, setThreads] = useState<ThreadSnapshot[]>([]);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [activeThreadNameInput, setActiveThreadNameInput] = useState("");
@@ -342,7 +341,6 @@ export function useWorkspaceController() {
   const [isRestoringThread, setIsRestoringThread] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<SkillCatalogEntry[]>([]);
-  const [selectedThreadSkills, setSelectedThreadSkills] = useState<ThreadSkillActivation[]>([]);
   const [selectedMessageSkillActivations, setSelectedMessageSkillActivations] = useState<ThreadSkillActivation[]>([]);
   const [skillRegistryCatalogs, setSkillRegistryCatalogs] = useState<SkillRegistryCatalog[]>([]);
   const [isMutatingSkillRegistries, setIsMutatingSkillRegistries] = useState(false);
@@ -473,6 +471,16 @@ export function useWorkspaceController() {
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
   const error = uiError ?? activeThreadRequestState.error;
+  const activeThreadRuntimeState = useMemo(
+    () => readThreadRuntimeStateById(threads, activeThreadId),
+    [activeThreadId, threads],
+  );
+  const activeThreadSnapshot = activeThreadRuntimeState.activeThreadSnapshot;
+  const messages =
+    activeThreadSnapshot !== null ? activeThreadRuntimeState.messages : [...HOME_INITIAL_MESSAGES];
+  const mcpServers = activeThreadRuntimeState.mcpServers;
+  const mcpRpcLogs = activeThreadRuntimeState.mcpRpcLogs;
+  const selectedThreadSkills = activeThreadRuntimeState.skillSelections;
   const threadOperationLogsByTurnId = useMemo(
     () => buildThreadOperationLogsByTurnId(mcpRpcLogs),
     [mcpRpcLogs],
@@ -514,8 +522,6 @@ export function useWorkspaceController() {
   ].join(",");
   const chatAttachmentFormatHint = "Code Interpreter supported files (.pdf, .csv, .xlsx, .docx, .png, ...)";
   const threadSummaries: ThreadSummary[] = threads.map((thread) => buildThreadSummary(thread));
-  const activeThreadSnapshot =
-    threads.find((thread) => thread.id === activeThreadId) ?? null;
   const isActiveThreadArchived = isThreadSnapshotArchived(activeThreadSnapshot);
   const isEnhancingInstructionForActiveThread =
     isEnhancingInstruction &&
@@ -1792,10 +1798,6 @@ export function useWorkspaceController() {
     setIsClearingThread(false);
     setIsRestoringThread(false);
     setIsSavingThread(false);
-    setMessages([...HOME_INITIAL_MESSAGES]);
-    setThreadOperationLogs([]);
-    setMcpServers([]);
-    setSelectedThreadSkills([]);
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(HOME_DEFAULT_REASONING_EFFORT);
     setWebSearchEnabled(HOME_DEFAULT_WEB_SEARCH_ENABLED);
@@ -2028,20 +2030,9 @@ export function useWorkspaceController() {
       return;
     }
 
-    updateThreadsState((current) => {
-      const index = current.findIndex((thread) => thread.id === threadId);
-      if (index < 0) {
-        return current;
-      }
-
-      const base = current[index];
-      const updatedThread = updater(base);
-      const normalizedUpdatedThread = {
-        ...updatedThread,
-        updatedAt: updatedThread.updatedAt || new Date().toISOString(),
-      };
-      return upsertThreadSnapshot(current, normalizedUpdatedThread);
-    });
+    updateThreadsState((current) =>
+      updateThreadSnapshotCollectionById(current, threadId, updater),
+    );
   }
 
   function appendMessageToThreadState(threadId: string, message: ThreadMessage): void {
@@ -2056,10 +2047,6 @@ export function useWorkspaceController() {
       updatedAt: new Date().toISOString(),
       messages: [...thread.messages, clonedMessage],
     }));
-
-    if (activeThreadIdRef.current === threadId) {
-      setMessages((current) => [...current, clonedMessage]);
-    }
   }
 
   function appendThreadOperationLogToThreadState(threadId: string, entry: ThreadOperationLogEntry): void {
@@ -2070,10 +2057,6 @@ export function useWorkspaceController() {
       updatedAt: new Date().toISOString(),
       mcpRpcLogs: upsertThreadOperationLogEntry(thread.mcpRpcLogs, clonedEntry),
     }));
-
-    if (activeThreadIdRef.current === threadId) {
-      setThreadOperationLogs((current) => upsertThreadOperationLogEntry(current, clonedEntry));
-    }
   }
 
   function applyThreadEnvironmentToThreadState(
@@ -2095,18 +2078,9 @@ export function useWorkspaceController() {
   function applyThreadSnapshotToState(thread: ThreadSnapshot) {
     isApplyingThreadStateRef.current = true;
 
-    const clonedMessages = cloneMessages(thread.messages);
-    const clonedMcpServers = cloneMcpServers(thread.mcpServers);
-    const clonedThreadOperationLogs = cloneThreadOperationLogs(thread.mcpRpcLogs);
-    const clonedSkillSelections = cloneThreadSkillActivations(thread.skillSelections);
-
     activeThreadIdRef.current = thread.id;
     setActiveThreadId(thread.id);
     setActiveThreadNameInput(thread.name);
-    setMessages(clonedMessages);
-    setMcpServers(clonedMcpServers);
-    setThreadOperationLogs(clonedThreadOperationLogs);
-    setSelectedThreadSkills(clonedSkillSelections);
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(thread.reasoningEffort);
     setWebSearchEnabled(thread.webSearchEnabled);
@@ -4085,17 +4059,28 @@ export function useWorkspaceController() {
   }
 
   function connectMcpServerToAgent(serverToConnect: McpServerConfig) {
-    setMcpServers((current) => {
-      const existingIndex = current.findIndex(
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+
+    updateThreadSnapshotById(activeId, (thread) => {
+      const existingIndex = thread.mcpServers.findIndex(
         (server) => buildMcpServerKey(server) === buildMcpServerKey(serverToConnect),
       );
       if (existingIndex >= 0) {
-        return current.map((server, index) =>
-          index === existingIndex ? { ...server, name: serverToConnect.name } : server,
-        );
+        return {
+          ...thread,
+          mcpServers: thread.mcpServers.map((server, index) =>
+            index === existingIndex ? { ...server, name: serverToConnect.name } : server,
+          ),
+        };
       }
 
-      return [...current, serverToConnect];
+      return {
+        ...thread,
+        mcpServers: [...thread.mcpServers, serverToConnect],
+      };
     });
   }
 
@@ -4680,9 +4665,15 @@ export function useWorkspaceController() {
       setWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
 
       const deletedKey = buildMcpServerKey(selected);
-      setMcpServers((current) =>
-        current.filter((server) => buildMcpServerKey(server) !== deletedKey),
-      );
+      const activeId = activeThreadIdRef.current.trim();
+      if (activeId) {
+        updateThreadSnapshotById(activeId, (thread) => ({
+          ...thread,
+          mcpServers: thread.mcpServers.filter(
+            (server) => buildMcpServerKey(server) !== deletedKey,
+          ),
+        }));
+      }
 
       if (editingMcpServerId === serverId) {
         clearMcpServerEditState();
@@ -4785,23 +4776,30 @@ export function useWorkspaceController() {
       return;
     }
 
-    setSelectedThreadSkills((current) => {
-      if (current.some((selection) => selection.location === location)) {
-        return current;
+    const skill = availableSkillByLocation.get(location);
+    if (!skill) {
+      return;
+    }
+
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => {
+      if (thread.skillSelections.some((selection) => selection.location === location)) {
+        return thread;
       }
 
-      const skill = availableSkillByLocation.get(location);
-      if (!skill) {
-        return current;
-      }
-
-      return [
-        ...current,
-        {
-          name: skill.name,
-          location: skill.location,
-        },
-      ];
+      return {
+        ...thread,
+        skillSelections: [
+          ...thread.skillSelections,
+          {
+            name: skill.name,
+            location: skill.location,
+          },
+        ],
+      };
     });
     setSkillsError(null);
   }
@@ -4811,10 +4809,16 @@ export function useWorkspaceController() {
     if (!location) {
       return;
     }
-
-    setSelectedThreadSkills((current) =>
-      current.filter((selection) => selection.location !== location),
-    );
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => ({
+      ...thread,
+      skillSelections: thread.skillSelections.filter(
+        (selection) => selection.location !== location,
+      ),
+    }));
     setSkillsError(null);
   }
 
@@ -4823,25 +4827,38 @@ export function useWorkspaceController() {
     if (!location) {
       return;
     }
-
-    setSelectedThreadSkills((current) => {
-      const existingIndex = current.findIndex((selection) => selection.location === location);
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => {
+      const existingIndex = thread.skillSelections.findIndex(
+        (selection) => selection.location === location,
+      );
       if (existingIndex >= 0) {
-        return current.filter((selection) => selection.location !== location);
+        return {
+          ...thread,
+          skillSelections: thread.skillSelections.filter(
+            (selection) => selection.location !== location,
+          ),
+        };
       }
 
       const skill = availableSkillByLocation.get(location);
       if (!skill) {
-        return current;
+        return thread;
       }
 
-      return [
-        ...current,
-        {
-          name: skill.name,
-          location: skill.location,
-        },
-      ];
+      return {
+        ...thread,
+        skillSelections: [
+          ...thread.skillSelections,
+          {
+            name: skill.name,
+            location: skill.location,
+          },
+        ],
+      };
     });
     setSkillsError(null);
   }
@@ -5699,25 +5716,34 @@ export function useWorkspaceController() {
       if (isEditing && editingServer) {
         const previousServerKey = buildMcpServerKey(editingServer);
         const nextServerKey = buildMcpServerKey(savedProfile);
-        setMcpServers((current) => {
-          const filtered = current.filter(
-            (server) => buildMcpServerKey(server) !== previousServerKey,
-          );
-          if (filtered.length === current.length) {
-            return current;
-          }
-
-          const nextIndex = filtered.findIndex(
-            (server) => buildMcpServerKey(server) === nextServerKey,
-          );
-          if (nextIndex >= 0) {
-            return filtered.map((server, index) =>
-              index === nextIndex ? { ...server, name: savedProfile.name } : server,
+        const activeId = activeThreadIdRef.current.trim();
+        if (activeId) {
+          updateThreadSnapshotById(activeId, (thread) => {
+            const filtered = thread.mcpServers.filter(
+              (server) => buildMcpServerKey(server) !== previousServerKey,
             );
-          }
+            if (filtered.length === thread.mcpServers.length) {
+              return thread;
+            }
 
-          return [...filtered, savedProfile];
-        });
+            const nextIndex = filtered.findIndex(
+              (server) => buildMcpServerKey(server) === nextServerKey,
+            );
+            if (nextIndex >= 0) {
+              return {
+                ...thread,
+                mcpServers: filtered.map((server, index) =>
+                  index === nextIndex ? { ...server, name: savedProfile.name } : server,
+                ),
+              };
+            }
+
+            return {
+              ...thread,
+              mcpServers: [...filtered, savedProfile],
+            };
+          });
+        }
       } else {
         connectMcpServerToAgent(savedProfile);
       }
@@ -5794,15 +5820,27 @@ export function useWorkspaceController() {
     }
 
     const selectedKey = buildMcpServerKey(selected);
-    setMcpServers((current) => {
-      const alreadyConnected = current.some(
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => {
+      const alreadyConnected = thread.mcpServers.some(
         (server) => buildMcpServerKey(server) === selectedKey,
       );
       if (alreadyConnected) {
-        return current.filter((server) => buildMcpServerKey(server) !== selectedKey);
+        return {
+          ...thread,
+          mcpServers: thread.mcpServers.filter(
+            (server) => buildMcpServerKey(server) !== selectedKey,
+          ),
+        };
       }
 
-      return [...current, selected];
+      return {
+        ...thread,
+        mcpServers: [...thread.mcpServers, selected],
+      };
     });
     setWorkspaceMcpServerProfileError(null);
   }
@@ -5811,8 +5849,14 @@ export function useWorkspaceController() {
     if (isArchivedThread(activeThreadIdRef.current)) {
       return;
     }
-
-    setMcpServers((current) => current.filter((server) => server.id !== id));
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => ({
+      ...thread,
+      mcpServers: thread.mcpServers.filter((server) => server.id !== id),
+    }));
   }
 
   async function handleApplyDesktopUpdate() {

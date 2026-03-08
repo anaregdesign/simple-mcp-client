@@ -142,3 +142,67 @@ export function upsertThreadSnapshot(
   const updated = current.map((thread, index) => (index === existingIndex ? next : thread));
   return updated.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
+
+export function readThreadSnapshotById(
+  snapshots: ThreadSnapshot[],
+  threadIdRaw: string,
+): ThreadSnapshot | null {
+  const threadId = threadIdRaw.trim();
+  if (!threadId) {
+    return null;
+  }
+
+  return snapshots.find((thread) => thread.id === threadId) ?? null;
+}
+
+export function readThreadRuntimeStateById(
+  snapshots: ThreadSnapshot[],
+  threadIdRaw: string,
+): {
+  activeThreadSnapshot: ThreadSnapshot | null;
+  messages: ThreadMessage[];
+  mcpServers: McpServerConfig[];
+  mcpRpcLogs: ThreadOperationLogEntry[];
+  skillSelections: ThreadSkillActivation[];
+} {
+  const activeThreadSnapshot = readThreadSnapshotById(snapshots, threadIdRaw);
+  if (!activeThreadSnapshot) {
+    return {
+      activeThreadSnapshot: null,
+      messages: [],
+      mcpServers: [],
+      mcpRpcLogs: [],
+      skillSelections: [],
+    };
+  }
+
+  return {
+    activeThreadSnapshot,
+    messages: cloneMessages(activeThreadSnapshot.messages),
+    mcpServers: cloneMcpServers(activeThreadSnapshot.mcpServers),
+    mcpRpcLogs: cloneThreadOperationLogs(activeThreadSnapshot.mcpRpcLogs),
+    skillSelections: cloneThreadSkillActivations(activeThreadSnapshot.skillSelections),
+  };
+}
+
+export function updateThreadSnapshotCollectionById(
+  snapshots: ThreadSnapshot[],
+  threadIdRaw: string,
+  updater: (current: ThreadSnapshot) => ThreadSnapshot,
+): ThreadSnapshot[] {
+  const threadId = threadIdRaw.trim();
+  if (!threadId) {
+    return snapshots;
+  }
+
+  const currentThread = readThreadSnapshotById(snapshots, threadId);
+  if (!currentThread) {
+    return snapshots;
+  }
+
+  const nextThread = updater(currentThread);
+  return upsertThreadSnapshot(snapshots, {
+    ...nextThread,
+    updatedAt: nextThread.updatedAt || new Date().toISOString(),
+  });
+}
