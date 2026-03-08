@@ -135,6 +135,12 @@ import {
 } from "~/lib/server/skills/runtime";
 import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stream";
 import {
+  buildAgentRunContext,
+  cleanupChatRuntime,
+  prepareMcpRuntime,
+  prepareSkillRuntime,
+} from "~/lib/server/chat/chat-runtime-stages";
+import {
   readOptionalRequestHeaderValue,
   readWebSearchUserLocationFromRequest,
   wantsEventStream,
@@ -563,9 +569,9 @@ async function executeChat(
       });
     }
 
-    const mcpSetupStartedAtMs = Date.now();
-    const connectResults = await Promise.allSettled(
-      options.mcpServers.map(async (serverConfig) => {
+    const mcpRuntime = await prepareMcpRuntime({
+      serverConfigs: options.mcpServers,
+      connectServer: async (serverConfig) => {
         emitProgress({
           message: `Connecting MCP server: ${serverConfig.name}`,
           isMcp: true,
@@ -612,17 +618,6 @@ async function executeChat(
             createSession: async () => createMcpServerSession(serverConfig),
           });
 
-          const connectDurationMs = Math.max(0, Date.now() - connectStartedAtMs);
-          mcpRuntimeMetrics.mcpConnectDurationMs += connectDurationMs;
-          if (lease.status === "reused") {
-            mcpRuntimeMetrics.mcpReusedCount += 1;
-          } else {
-            mcpRuntimeMetrics.mcpConnectedCount += 1;
-          }
-          if (lease.isEphemeral) {
-            mcpRuntimeMetrics.mcpEphemeralConnectCount += 1;
-          }
-
           emitThreadOperationLogRecord({
             id: connectRequestId,
             sequence: connectSequence,
@@ -645,6 +640,7 @@ async function executeChat(
           return {
             lease,
             server: lease.server,
+            connectDurationMs: Math.max(0, Date.now() - connectStartedAtMs),
           };
         } catch (error) {
           const connectResponse: JsonRpcResponsePayload = {
@@ -670,54 +666,35 @@ async function executeChat(
             `Failed to connect MCP server "${serverConfig.name}" (${describeMcpServer(serverConfig)}): ${readErrorMessage(error)}`,
           );
         }
-      }),
-    );
-
-    const successfulConnectResults: Array<{
-      lease: ThreadMcpServerSessionLease;
-      server: MCPServer;
-    }> = [];
-    let firstConnectError: Error | null = null;
-    for (const result of connectResults) {
-      if (result.status === "fulfilled") {
-        successfulConnectResults.push(result.value);
-        continue;
-      }
-
-      if (!firstConnectError) {
-        firstConnectError = result.reason instanceof Error
-          ? result.reason
-          : new Error(readErrorMessage(result.reason));
-      }
-    }
-
-    if (firstConnectError) {
-      await Promise.allSettled(
-        successfulConnectResults.map((result) => result.lease.release()),
-      );
-      throw firstConnectError;
-    }
-
-    connectedMcpServerLeases.push(...successfulConnectResults.map((result) => result.lease));
-    connectedMcpServers.push(...successfulConnectResults.map((result) => result.server));
-    mcpRuntimeMetrics.mcpSetupDurationMs = Math.max(0, Date.now() - mcpSetupStartedAtMs);
-
-    const skillRuntime = await buildSkillRuntimeContext(options.skills, {
-      explicitSkillLocations: options.explicitSkillLocations,
+      },
+      releaseLease: async (lease) => lease.release(),
     });
-    const skillExecutionContext: SkillToolExecutionContext | null =
-      skillRuntime.activeSkills.length > 0
-        ? {
-            threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
-          }
-        : null;
-    if (skillExecutionContext) {
-      emitSkillActivationOperationLogs(skillRuntime, {
-        nextSequence: nextThreadOperationLogSequence,
-        onRecord: emitThreadOperationLogRecord,
-      }, skillExecutionContext);
-    }
-    const skillWarnings = collectSkillRuntimeWarnings(skillRuntime);
+    connectedMcpServerLeases.push(...mcpRuntime.leases);
+    connectedMcpServers.push(...mcpRuntime.servers);
+    Object.assign(mcpRuntimeMetrics, mcpRuntime.metrics);
+
+    const preparedSkillRuntime = await prepareSkillRuntime({
+      loadRuntime: async () =>
+        buildSkillRuntimeContext(options.skills, {
+          explicitSkillLocations: options.explicitSkillLocations,
+        }),
+      createExecutionContext: (skillRuntime) =>
+        skillRuntime.activeSkills.length > 0
+          ? {
+              threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
+            }
+          : null,
+      emitActivationLogs: (skillRuntime, skillExecutionContext) => {
+        emitSkillActivationOperationLogs(skillRuntime, {
+          nextSequence: nextThreadOperationLogSequence,
+          onRecord: emitThreadOperationLogRecord,
+        }, skillExecutionContext);
+      },
+      collectWarnings: (skillRuntime) => collectSkillRuntimeWarnings(skillRuntime),
+    });
+    const skillRuntime = preparedSkillRuntime.runtime;
+    const skillExecutionContext = preparedSkillRuntime.executionContext;
+    const skillWarnings = preparedSkillRuntime.warnings;
     if (skillWarnings.length > 0) {
       emitProgress({
         message: `Skill loading warnings: ${skillWarnings.slice(0, 2).join(" / ")}`,
@@ -830,7 +807,11 @@ async function executeChat(
         });
       },
     });
-    const runInput = compactionSession ? [currentInput] : [...historyInput, currentInput];
+    const { runInput } = buildAgentRunContext({
+      historyInput,
+      currentInput,
+      compactionSession,
+    });
 
     emitProgress({ message: "Sending request to Azure OpenAI..." });
     const runTimeoutSeconds = Math.ceil(CHAT_MODEL_RUN_TIMEOUT_MS / 1000);
@@ -911,29 +892,19 @@ async function executeChat(
       mcpRuntimeMetrics,
     };
   } finally {
-    await Promise.allSettled([
-      awaitWithTimeout(
-        (async () => {
-          if (!codeInterpreterContainerId) {
-            return;
-          }
-          try {
-            await azureOpenAIClient.containers.delete(codeInterpreterContainerId);
-          } catch {
-            // Best-effort cleanup for temporary Code Interpreter containers.
-          }
-        })(),
-        CHAT_CLEANUP_TIMEOUT_MS,
-        "Timed out while cleaning up the Code Interpreter container.",
-      ),
-      awaitWithTimeout(
-        Promise.allSettled(connectedMcpServerLeases.map((lease) => lease.release())).then(
-          () => undefined,
-        ),
-        CHAT_CLEANUP_TIMEOUT_MS,
-        "Timed out while releasing MCP server sessions.",
-      ),
-    ]);
+    await cleanupChatRuntime({
+      codeInterpreterContainerId,
+      deleteCodeInterpreterContainer: async (containerId) => {
+        try {
+          await azureOpenAIClient.containers.delete(containerId);
+        } catch {
+          // Best-effort cleanup for temporary Code Interpreter containers.
+        }
+      },
+      mcpServerLeases: connectedMcpServerLeases,
+      awaitWithTimeout,
+      cleanupTimeoutMs: CHAT_CLEANUP_TIMEOUT_MS,
+    });
   }
 }
 
