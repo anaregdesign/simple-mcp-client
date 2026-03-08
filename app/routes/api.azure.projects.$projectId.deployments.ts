@@ -13,13 +13,13 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
 import {
+  azureProjectQueryService,
   getArmAccessToken,
   isLikelyAzureAuthError,
-  listProjectDeployments,
   parseProjectId,
   readErrorMessage,
   resolveAzurePrincipalProfile,
-} from "~/lib/server/azure/azure-project-service";
+} from "~/lib/server/application/azure/azure-project-service";
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
@@ -59,7 +59,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const principal = await resolveAzurePrincipalProfile(tokenResult, dependencies);
 
   try {
-    const deployments = await listProjectDeployments(tokenResult.token, projectRef);
+    const deployments = await azureProjectQueryService.listProjectDeployments(
+      tokenResult.token,
+      projectRef,
+    );
     return Response.json({
       deployments,
       principal,

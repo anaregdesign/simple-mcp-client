@@ -4,29 +4,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  readAzureArmUserContextMock,
+  readAuthenticatedIdentityMock,
+  readStoredSelectionMock,
+  saveStoredSelectionMock,
+  deleteStoredSelectionMock,
+  readErrorMessageMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
-  ensurePersistenceDatabaseReadyMock,
-  workspaceUserFindUniqueMock,
-  workspaceUserUpsertMock,
-  azureSelectionFindUniqueMock,
-  azureSelectionUpsertMock,
-  azureSelectionDeleteManyMock,
 } = vi.hoisted(() => ({
-  readAzureArmUserContextMock: vi.fn(),
+  readAuthenticatedIdentityMock: vi.fn(),
+  readStoredSelectionMock: vi.fn(),
+  saveStoredSelectionMock: vi.fn(),
+  deleteStoredSelectionMock: vi.fn(),
+  readErrorMessageMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
-  ensurePersistenceDatabaseReadyMock: vi.fn(),
-  workspaceUserFindUniqueMock: vi.fn(),
-  workspaceUserUpsertMock: vi.fn(),
-  azureSelectionFindUniqueMock: vi.fn(),
-  azureSelectionUpsertMock: vi.fn(),
-  azureSelectionDeleteManyMock: vi.fn(),
-}));
-
-vi.mock("~/lib/server/auth/azure-user", () => ({
-  readAzureArmUserContext: readAzureArmUserContextMock,
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -34,20 +26,22 @@ vi.mock("~/lib/server/observability/runtime-event-log", () => ({
   logServerRouteEvent: logServerRouteEventMock,
 }));
 
-vi.mock("~/lib/server/persistence/prisma", () => ({
-  ensurePersistenceDatabaseReady: ensurePersistenceDatabaseReadyMock,
-  prisma: {
-    workspaceUser: {
-      findUnique: workspaceUserFindUniqueMock,
-      upsert: workspaceUserUpsertMock,
+vi.mock("~/lib/server/application/azure/azure-selection-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/lib/server/application/azure/azure-selection-service")
+  >("~/lib/server/application/azure/azure-selection-service");
+
+  return {
+    ...actual,
+    azureSelectionService: {
+      readStoredSelection: readStoredSelectionMock,
+      saveStoredSelection: saveStoredSelectionMock,
+      deleteStoredSelection: deleteStoredSelectionMock,
     },
-    azureSelectionPreference: {
-      findUnique: azureSelectionFindUniqueMock,
-      upsert: azureSelectionUpsertMock,
-      deleteMany: azureSelectionDeleteManyMock,
-    },
-  },
-}));
+    readAuthenticatedIdentity: readAuthenticatedIdentityMock,
+    readErrorMessage: readErrorMessageMock,
+  };
+});
 
 import { action, loader, parseAzureSelectionPreference } from "./api.azure.selection";
 
@@ -138,34 +132,43 @@ describe("parseAzureSelectionPreference", () => {
 describe("/api/azure/selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    readAzureArmUserContextMock.mockResolvedValue({
+    readAuthenticatedIdentityMock.mockResolvedValue({
       tenantId: "tenant-a",
       principalId: "principal-a",
     });
-    ensurePersistenceDatabaseReadyMock.mockResolvedValue(undefined);
-    workspaceUserFindUniqueMock.mockResolvedValue({
+    readStoredSelectionMock.mockResolvedValue({
       tenantId: "tenant-a",
       principalId: "principal-a",
-      azureSelection: {
+      theme: "dark",
+      playground: {
         projectId: "project-a",
         deploymentName: "deploy-a",
-        theme: "dark",
-        utilityProjectId: "project-b",
-        utilityDeploymentName: "deploy-b",
-        utilityReasoningEffort: "medium",
+      },
+      utility: {
+        projectId: "project-b",
+        deploymentName: "deploy-b",
+        reasoningEffort: "medium",
       },
     });
-    workspaceUserUpsertMock.mockResolvedValue({ id: 10, tenantId: "tenant-a", principalId: "principal-a" });
-    azureSelectionFindUniqueMock.mockResolvedValue({ userId: 10 });
-    azureSelectionUpsertMock.mockResolvedValue({
-      projectId: "project-a",
-      deploymentName: "deploy-a",
-      theme: "dark",
-      utilityProjectId: "project-b",
-      utilityDeploymentName: "deploy-b",
-      utilityReasoningEffort: "medium",
+    saveStoredSelectionMock.mockResolvedValue({
+      selection: {
+        tenantId: "tenant-a",
+        principalId: "principal-a",
+        theme: "dark",
+        playground: {
+          projectId: "project-a",
+          deploymentName: "deploy-a",
+        },
+        utility: {
+          projectId: "project-b",
+          deploymentName: "deploy-b",
+          reasoningEffort: "medium",
+        },
+      },
+      created: false,
     });
-    azureSelectionDeleteManyMock.mockResolvedValue({ count: 1 });
+    deleteStoredSelectionMock.mockResolvedValue(true);
+    readErrorMessageMock.mockReturnValue("Unknown error.");
     logServerRouteEventMock.mockResolvedValue(undefined);
   });
 
@@ -179,7 +182,7 @@ describe("/api/azure/selection", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    readAzureArmUserContextMock.mockResolvedValueOnce(null);
+    readAuthenticatedIdentityMock.mockResolvedValueOnce(null);
 
     const response = await action({
       request: new Request("http://localhost/api/azure/selection", { method: "PATCH" }),
@@ -189,7 +192,23 @@ describe("/api/azure/selection", () => {
   });
 
   it("returns 201 and Location when creating a new selection", async () => {
-    azureSelectionFindUniqueMock.mockResolvedValueOnce(null);
+    saveStoredSelectionMock.mockResolvedValueOnce({
+      selection: {
+        tenantId: "tenant-a",
+        principalId: "principal-a",
+        theme: "dark",
+        playground: {
+          projectId: "project-a",
+          deploymentName: "deploy-a",
+        },
+        utility: {
+          projectId: "project-b",
+          deploymentName: "deploy-b",
+          reasoningEffort: "medium",
+        },
+      },
+      created: true,
+    });
 
     const response = await action({
       request: new Request("http://localhost/api/azure/selection", {
@@ -240,19 +259,18 @@ describe("/api/azure/selection", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(azureSelectionUpsertMock).toHaveBeenCalledWith(
+    expect(saveStoredSelectionMock).toHaveBeenCalledWith(
+      {
+        tenantId: "tenant-a",
+        principalId: "principal-a",
+      },
       expect.objectContaining({
-        update: expect.objectContaining({
-          theme: "dark",
-        }),
+        theme: "dark",
       }),
     );
   });
 
   it("deletes selection and returns 204", async () => {
-    workspaceUserFindUniqueMock.mockResolvedValueOnce({ id: 10 });
-    azureSelectionDeleteManyMock.mockResolvedValueOnce({ count: 1 });
-
     const response = await action({
       request: new Request("http://localhost/api/azure/selection", {
         method: "DELETE",
@@ -263,8 +281,7 @@ describe("/api/azure/selection", () => {
   });
 
   it("returns 404 when deleting non-existing selection", async () => {
-    workspaceUserFindUniqueMock.mockResolvedValueOnce({ id: 10 });
-    azureSelectionDeleteManyMock.mockResolvedValueOnce({ count: 0 });
+    deleteStoredSelectionMock.mockResolvedValueOnce(false);
 
     const response = await action({
       request: new Request("http://localhost/api/azure/selection", {
