@@ -2,7 +2,7 @@
  * Runtime support module for thread-scoped MCP server session reuse.
  */
 import type { MCPServer } from "@openai/agents";
-import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants";
+import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
 
 export type ThreadMcpServerSessionStatus = "connected" | "reused";
 

@@ -1,8 +1,8 @@
 /**
  * API route module for /api/threads/:threadId.
  */
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants";
-import { readThreadSnapshotFromUnknown } from "~/lib/home/thread/parsers";
+import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
+import { readThreadSnapshotFromUnknown } from "~/lib/contracts/threads/parsers";
 import {
   authRequiredResponse,
   errorResponse,
@@ -22,7 +22,7 @@ import {
   readErrorMessage,
   readJsonPayload,
   updateThreadSnapshot,
-} from "~/lib/server/threads/thread-service";
+} from "~/lib/server/application/threads/thread-service";
 import type { Route } from "./+types/api.threads.$threadId";
 
 const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;

@@ -4,31 +4,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  readAzureArmUserContextMock,
-  getOrCreateUserByIdentityMock,
+  readRuntimeEventLogForCurrentUserMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
-  readRuntimeEventLogByIdForUserMock,
 } = vi.hoisted(() => ({
-  readAzureArmUserContextMock: vi.fn(),
-  getOrCreateUserByIdentityMock: vi.fn(),
+  readRuntimeEventLogForCurrentUserMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
-  readRuntimeEventLogByIdForUserMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
-  readAzureArmUserContext: readAzureArmUserContextMock,
-}));
-
-vi.mock("~/lib/server/persistence/user", () => ({
-  getOrCreateUserByIdentity: getOrCreateUserByIdentityMock,
+vi.mock("~/lib/server/application/runtime-event-logs/runtime-event-log-service", () => ({
+  runtimeEventLogService: {
+    readRuntimeEventLogForCurrentUser: readRuntimeEventLogForCurrentUserMock,
+  },
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
-  readRuntimeEventLogByIdForUser: readRuntimeEventLogByIdForUserMock,
 }));
 
 import { action, loader } from "./api.runtime.event-logs.$eventLogId";
@@ -36,14 +29,15 @@ import { action, loader } from "./api.runtime.event-logs.$eventLogId";
 describe("/api/runtime/event-logs/:eventLogId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    readAzureArmUserContextMock.mockResolvedValue({
+    readRuntimeEventLogForCurrentUserMock.mockResolvedValue({
+      status: "ok",
       tenantId: "tenant-a",
       principalId: "principal-a",
-    });
-    getOrCreateUserByIdentityMock.mockResolvedValue({ id: 10 });
-    readRuntimeEventLogByIdForUserMock.mockResolvedValue({
-      id: "event-1",
-      context: { origin: "client" },
+      userId: 10,
+      eventLog: {
+        id: "event-1",
+        context: { origin: "client" },
+      },
     });
     logServerRouteEventMock.mockResolvedValue(undefined);
   });
@@ -64,7 +58,9 @@ describe("/api/runtime/event-logs/:eventLogId", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    readAzureArmUserContextMock.mockResolvedValueOnce(null);
+    readRuntimeEventLogForCurrentUserMock.mockResolvedValueOnce({
+      status: "auth_required",
+    });
 
     const response = await loader({
       request: new Request("http://localhost/api/runtime/event-logs/event-1", { method: "GET" }),
@@ -75,7 +71,12 @@ describe("/api/runtime/event-logs/:eventLogId", () => {
   });
 
   it("returns 404 for inaccessible event log", async () => {
-    readRuntimeEventLogByIdForUserMock.mockResolvedValueOnce(null);
+    readRuntimeEventLogForCurrentUserMock.mockResolvedValueOnce({
+      status: "not_found",
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+      userId: 10,
+    });
 
     const response = await loader({
       request: new Request("http://localhost/api/runtime/event-logs/event-1", { method: "GET" }),

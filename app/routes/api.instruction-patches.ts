@@ -3,11 +3,10 @@
  */
 import type { Route } from "./+types/api.instruction-patches";
 import { Agent, run, user } from "@openai/agents";
-import { OpenAIResponsesModel } from "@openai/agents-openai";
 import {
-  getAzureDependencies,
+  createAzureResponsesModel,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/azure/dependencies";
+} from "~/lib/server/application/azure/azure-openai-service";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -20,10 +19,12 @@ import {
 } from "~/lib/server/http";
 import {
   CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
-  HOME_REASONING_EFFORT_OPTIONS,
+  REASONING_EFFORT_OPTIONS,
+} from "~/lib/constants/chat";
+import {
   INSTRUCTION_DIFF_PATCH_FILE_NAME_PATTERN,
-  INSTRUCTION_DIFF_PATCH_MAX_HUNK_LINES,
   INSTRUCTION_DIFF_PATCH_MAX_HUNKS,
+  INSTRUCTION_DIFF_PATCH_MAX_HUNK_LINES,
   INSTRUCTION_DIFF_PATCH_MAX_LINE_TEXT_LENGTH,
   INSTRUCTION_DIFF_PATCH_OUTPUT_TYPE,
   INSTRUCTION_ENHANCE_SYSTEM_PROMPT,
@@ -33,8 +34,8 @@ import {
   PROMPT_MAX_CONTENT_BYTES,
   PROMPT_MAX_FILE_NAME_LENGTH,
   PROMPT_MAX_FILE_STEM_LENGTH,
-} from "~/lib/constants";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+} from "~/lib/constants/instruction";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 const INSTRUCTION_PATCHES_ALLOWED_METHODS = ["POST"] as const;
@@ -144,7 +145,10 @@ export async function action({ request }: Route.ActionArgs) {
         message: reasoningEffortResult.error,
       });
 
-      return validationErrorResponse("invalid_reasoning_effort", reasoningEffortResult.error);
+      return validationErrorResponse(
+        "invalid_reasoning_effort",
+        reasoningEffortResult.error,
+      );
     }
     reasoningEffort = reasoningEffortResult.value;
   }
@@ -160,12 +164,18 @@ export async function action({ request }: Route.ActionArgs) {
       message: azureConfigResult.error,
     });
 
-    return validationErrorResponse("invalid_azure_config", azureConfigResult.error);
+    return validationErrorResponse(
+      "invalid_azure_config",
+      azureConfigResult.error,
+    );
   }
   const azureConfig = azureConfigResult.value;
 
   if (!azureConfig.baseUrl) {
-    return validationErrorResponse("missing_azure_base_url", "Azure OpenAI base URL is missing.");
+    return validationErrorResponse(
+      "missing_azure_base_url",
+      "Azure OpenAI base URL is missing.",
+    );
   }
   if (!azureConfig.deploymentName) {
     return validationErrorResponse(
@@ -189,7 +199,10 @@ export async function action({ request }: Route.ActionArgs) {
     });
     return Response.json({ message: patch });
   } catch (error) {
-    const upstreamError = buildUpstreamErrorPayload(error, azureConfig.deploymentName);
+    const upstreamError = buildUpstreamErrorPayload(
+      error,
+      azureConfig.deploymentName,
+    );
     await logServerRouteEvent({
       request,
       route: "/api/instruction-patches",
@@ -216,22 +229,23 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-async function enhanceInstruction(options: InstructionEnhanceOptions): Promise<string> {
-  const azureDependencies = getAzureDependencies();
-  const model = new OpenAIResponsesModel(
-    azureDependencies.getAzureOpenAIClient(
-      options.azureConfig.baseUrl,
-      options.azureConfig.tenantId,
-    ),
-    options.azureConfig.deploymentName,
-  );
+async function enhanceInstruction(
+  options: InstructionEnhanceOptions,
+): Promise<string> {
+  const model = createAzureResponsesModel({
+    baseUrl: options.azureConfig.baseUrl,
+    tenantId: options.azureConfig.tenantId,
+    deploymentName: options.azureConfig.deploymentName,
+  });
 
   const agent = new Agent({
     name: "LocalPlaygroundInstructionAgent",
     instructions: options.enhanceAgentInstruction,
     model,
     modelSettings: {
-      ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+      ...(options.reasoningEffort
+        ? { reasoning: { effort: options.reasoningEffort } }
+        : {}),
     },
     outputType: INSTRUCTION_DIFF_PATCH_OUTPUT_TYPE,
   });
@@ -267,10 +281,14 @@ export function extractInstructionDiffPatch(finalOutput: unknown): string {
     }
   }
 
-  throw new Error("Enhancement response does not match the required patch schema.");
+  throw new Error(
+    "Enhancement response does not match the required patch schema.",
+  );
 }
 
-function buildInstructionDiffPatchText(output: InstructionDiffPatchOutput): string {
+function buildInstructionDiffPatchText(
+  output: InstructionDiffPatchOutput,
+): string {
   if (output.hunks.length === 0) {
     return "";
   }
@@ -301,7 +319,9 @@ function buildInstructionDiffPatchText(output: InstructionDiffPatchOutput): stri
       hunkLines.push(`+${line.text}`);
     }
 
-    patchLines.push(`@@ -${hunk.oldStart},${oldLength} +${hunk.newStart},${newLength} @@`);
+    patchLines.push(
+      `@@ -${hunk.oldStart},${oldLength} +${hunk.newStart},${newLength} @@`,
+    );
     patchLines.push(...hunkLines);
   }
 
@@ -310,7 +330,9 @@ function buildInstructionDiffPatchText(output: InstructionDiffPatchOutput): stri
 
 function normalizeInstructionPatchFileName(value: string): string {
   const normalizedSlashes = value.trim().replace(/\\/g, "/");
-  const fileName = normalizedSlashes.slice(normalizedSlashes.lastIndexOf("/") + 1);
+  const fileName = normalizedSlashes.slice(
+    normalizedSlashes.lastIndexOf("/") + 1,
+  );
   const safeFileName = fileName
     .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, "-")
     .replace(/\s+/g, "-")
@@ -345,7 +367,10 @@ function readInstructionDiffPatchOutput(
       return null;
     }
 
-    if (hunk.lines.length === 0 || hunk.lines.length > INSTRUCTION_DIFF_PATCH_MAX_HUNK_LINES) {
+    if (
+      hunk.lines.length === 0 ||
+      hunk.lines.length > INSTRUCTION_DIFF_PATCH_MAX_HUNK_LINES
+    ) {
       return null;
     }
 
@@ -425,7 +450,9 @@ function readEnhanceAgentInstruction(payload: unknown): string {
   return trimmed.slice(0, CHAT_MAX_AGENT_INSTRUCTION_LENGTH);
 }
 
-export function parseInstructionReasoningEffort(payload: unknown): ParseResult<ReasoningEffort> {
+export function parseInstructionReasoningEffort(
+  payload: unknown,
+): ParseResult<ReasoningEffort> {
   if (!isRecord(payload)) {
     return { ok: true, value: "high" };
   }
@@ -439,13 +466,13 @@ export function parseInstructionReasoningEffort(payload: unknown): ParseResult<R
   }
 
   const normalized = value.trim();
-  if (HOME_REASONING_EFFORT_OPTIONS.includes(normalized as ReasoningEffort)) {
+  if (REASONING_EFFORT_OPTIONS.includes(normalized as ReasoningEffort)) {
     return { ok: true, value: normalized as ReasoningEffort };
   }
 
   return {
     ok: false,
-    error: `\`reasoningEffort\` must be one of: ${HOME_REASONING_EFFORT_OPTIONS.join(", ")}.`,
+    error: `\`reasoningEffort\` must be one of: ${REASONING_EFFORT_OPTIONS.join(", ")}.`,
   };
 }
 
@@ -471,7 +498,10 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     return { ok: false, error: "`azureConfig` must be an object." };
   }
 
-  if (value.projectName !== undefined && typeof value.projectName !== "string") {
+  if (
+    value.projectName !== undefined &&
+    typeof value.projectName !== "string"
+  ) {
     return { ok: false, error: "`azureConfig.projectName` must be a string." };
   }
 
@@ -487,13 +517,22 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     return { ok: false, error: "`azureConfig.apiVersion` must be a string." };
   }
 
-  if (value.deploymentName !== undefined && typeof value.deploymentName !== "string") {
-    return { ok: false, error: "`azureConfig.deploymentName` must be a string." };
+  if (
+    value.deploymentName !== undefined &&
+    typeof value.deploymentName !== "string"
+  ) {
+    return {
+      ok: false,
+      error: "`azureConfig.deploymentName` must be a string.",
+    };
   }
 
-  const tenantId = typeof value.tenantId === "string" ? value.tenantId.trim() : "";
+  const tenantId =
+    typeof value.tenantId === "string" ? value.tenantId.trim() : "";
   const baseUrl =
-    typeof value.baseUrl === "string" ? normalizeAzureOpenAIBaseURL(value.baseUrl) : "";
+    typeof value.baseUrl === "string"
+      ? normalizeAzureOpenAIBaseURL(value.baseUrl)
+      : "";
   const apiVersion =
     typeof value.apiVersion === "string" && value.apiVersion.trim()
       ? value.apiVersion.trim()
@@ -517,7 +556,8 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     ok: true,
     value: {
       tenantId,
-      projectName: typeof value.projectName === "string" ? value.projectName.trim() : "",
+      projectName:
+        typeof value.projectName === "string" ? value.projectName.trim() : "",
       baseUrl,
       apiVersion,
       deploymentName,
@@ -578,7 +618,9 @@ export function parseRequestedPromptFileName(
   return normalizeRequestedPromptFileName(trimmed);
 }
 
-export function normalizeRequestedPromptFileName(fileName: string): ParseResult<string> {
+export function normalizeRequestedPromptFileName(
+  fileName: string,
+): ParseResult<string> {
   const baseName = getBaseName(fileName.trim());
   if (!baseName) {
     return { ok: false, error: "File name is invalid." };
@@ -586,10 +628,15 @@ export function normalizeRequestedPromptFileName(fileName: string): ParseResult<
 
   const extension = getFileExtension(baseName);
   if (extension && !PROMPT_ALLOWED_FILE_EXTENSIONS.has(extension)) {
-    return { ok: false, error: "File extension must be .md, .txt, .xml, or .json." };
+    return {
+      ok: false,
+      error: "File extension must be .md, .txt, .xml, or .json.",
+    };
   }
 
-  const stemCandidate = extension ? baseName.slice(0, -extension.length) : baseName;
+  const stemCandidate = extension
+    ? baseName.slice(0, -extension.length)
+    : baseName;
   const normalizedStem = normalizeFileStem(stemCandidate);
   if (!normalizedStem) {
     return { ok: false, error: "File name is invalid." };
@@ -663,7 +710,10 @@ function normalizeFileStem(rawStem: string): string {
 }
 
 function normalizeRandomSuffix(source: string | undefined): string {
-  const candidate = typeof source === "string" ? source : Math.random().toString(36).slice(2, 8);
+  const candidate =
+    typeof source === "string"
+      ? source
+      : Math.random().toString(36).slice(2, 8);
   const normalized = candidate
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "")
@@ -698,7 +748,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
 
-function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
+function buildUpstreamErrorPayload(
+  error: unknown,
+  deploymentName: string,
+): {
   payload: UpstreamErrorPayload;
   status: number;
 } {
@@ -707,7 +760,7 @@ function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
       payload: {
         code: "auth_required",
         error:
-          "Azure authentication failed. Click \"Azure Login\", complete sign-in, and try again.",
+          'Azure authentication failed. Click "Azure Login", complete sign-in, and try again.',
         errorCode: "azure_login_required",
       },
       status: 401,
@@ -721,7 +774,10 @@ function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
   };
 }
 
-function buildUpstreamErrorMessage(error: unknown, deploymentName: string): string {
+function buildUpstreamErrorMessage(
+  error: unknown,
+  deploymentName: string,
+): string {
   if (!(error instanceof Error)) {
     return "Could not connect to Azure OpenAI.";
   }

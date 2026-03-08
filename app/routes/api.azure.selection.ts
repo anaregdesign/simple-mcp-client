@@ -2,14 +2,11 @@
  * API route module for /api/azure/selection.
  */
 import {
-  ensurePersistenceDatabaseReady,
-  prisma,
-} from "~/lib/server/persistence/prisma";
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
-import {
-  installGlobalServerErrorLogging,
-  logServerRouteEvent,
-} from "~/lib/server/observability/runtime-event-log";
+  azureSelectionService,
+  parseAzureSelectionPreference,
+  readAuthenticatedIdentity,
+  readErrorMessage,
+} from "~/lib/server/application/azure/azure-selection-service";
 import {
   authRequiredResponse,
   errorResponse,
@@ -17,39 +14,15 @@ import {
   methodNotAllowedResponse,
   validationErrorResponse,
 } from "~/lib/server/http";
-import { HOME_DEFAULT_THEME, HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants";
-import type { HomeTheme, ReasoningEffort } from "~/lib/home/shared/view-types";
-import { readHomeThemeFromUnknown } from "~/lib/home/theme/preference";
+import {
+  installGlobalServerErrorLogging,
+  logServerRouteEvent,
+} from "~/lib/server/observability/runtime-event-log";
 import type { Route } from "./+types/api.azure.selection";
 
+export { parseAzureSelectionPreference };
+
 const AZURE_SELECTION_ALLOWED_METHODS = ["GET", "PATCH", "DELETE"] as const;
-
-type AzureSelectionPreferencePayload = {
-  target: AzureSelectionTarget | null;
-  projectId: string;
-  deploymentName: string;
-  reasoningEffort: ReasoningEffort | null;
-  homeTheme: HomeTheme | null;
-};
-
-type AzureSelectionTarget = "playground" | "utility";
-
-type AzureSelectionTargetPreference = {
-  projectId: string;
-  deploymentName: string;
-};
-
-type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreference & {
-  reasoningEffort: ReasoningEffort;
-};
-
-type AzureSelectionPreference = {
-  tenantId: string;
-  principalId: string;
-  homeTheme: HomeTheme;
-  playground: AzureSelectionTargetPreference | null;
-  utility: AzureUtilitySelectionTargetPreference | null;
-};
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -64,7 +37,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    const selection = await readStoredSelection(identity);
+    const selection = await azureSelectionService.readStoredSelection(identity);
     return Response.json({ selection });
   } catch (error) {
     await logServerRouteEvent({
@@ -102,7 +75,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (request.method === "DELETE") {
     try {
-      const deleted = await deleteStoredSelection(identity);
+      const deleted = await azureSelectionService.deleteStoredSelection(identity);
       if (!deleted) {
         return errorResponse({
           status: 404,
@@ -161,17 +134,17 @@ export async function action({ request }: Route.ActionArgs) {
       level: "warning",
       statusCode: 422,
       message:
-        "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `homeTheme` only.",
+        "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `theme` only.",
     });
 
     return validationErrorResponse(
       "invalid_selection_payload",
-      "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `homeTheme` only.",
+      "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `theme` only.",
     );
   }
 
   try {
-    const saved = await saveStoredSelection(identity, preference);
+    const saved = await azureSelectionService.saveStoredSelection(identity, preference);
     return Response.json(
       { selection: saved.selection },
       {
@@ -198,7 +171,7 @@ export async function action({ request }: Route.ActionArgs) {
         projectId: preference.projectId,
         deploymentName: preference.deploymentName,
         reasoningEffort: preference.reasoningEffort,
-        homeTheme: preference.homeTheme,
+        theme: preference.theme,
       },
     });
 
@@ -208,266 +181,4 @@ export async function action({ request }: Route.ActionArgs) {
       error: `Failed to save Azure selection to database: ${readErrorMessage(error)}`,
     });
   }
-}
-
-export function parseAzureSelectionPreference(value: unknown): AzureSelectionPreferencePayload | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const target = value.target;
-  const projectId = typeof value.projectId === "string" ? value.projectId.trim() : "";
-  const deploymentName = typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
-  const reasoningEffort =
-    typeof value.reasoningEffort === "string"
-      ? readReasoningEffortFromUnknown(value.reasoningEffort)
-      : null;
-  const homeTheme = readHomeThemeFromUnknown(value.homeTheme);
-  const hasSelectionInput =
-    value.target !== undefined ||
-    value.projectId !== undefined ||
-    value.deploymentName !== undefined ||
-    value.reasoningEffort !== undefined;
-
-  if (!hasSelectionInput) {
-    if (!homeTheme) {
-      return null;
-    }
-    return {
-      target: null,
-      projectId: "",
-      deploymentName: "",
-      reasoningEffort: null,
-      homeTheme,
-    };
-  }
-
-  if (
-    (target !== "playground" && target !== "utility") ||
-    !projectId ||
-    !deploymentName ||
-    (target === "utility" && !reasoningEffort)
-  ) {
-    return null;
-  }
-
-  return {
-    target,
-    projectId,
-    deploymentName,
-    reasoningEffort,
-    homeTheme,
-  };
-}
-
-async function readStoredSelection(
-  identity: {
-    tenantId: string;
-    principalId: string;
-  },
-): Promise<AzureSelectionPreference | null> {
-  await ensurePersistenceDatabaseReady();
-  const user = await prisma.workspaceUser.findUnique({
-    where: {
-      tenantId_principalId: {
-        tenantId: identity.tenantId,
-        principalId: identity.principalId,
-      },
-    },
-    include: {
-      azureSelection: true,
-    },
-  });
-
-  if (!user || !user.azureSelection) {
-    return null;
-  }
-
-  return mapSelectionRecord(user, user.azureSelection);
-}
-
-async function saveStoredSelection(
-  identity: {
-    tenantId: string;
-    principalId: string;
-  },
-  preference: AzureSelectionPreferencePayload,
-): Promise<{ selection: AzureSelectionPreference; created: boolean }> {
-  await ensurePersistenceDatabaseReady();
-  const user = await prisma.workspaceUser.upsert({
-    where: {
-      tenantId_principalId: {
-        tenantId: identity.tenantId,
-        principalId: identity.principalId,
-      },
-    },
-    create: {
-      tenantId: identity.tenantId,
-      principalId: identity.principalId,
-    },
-    update: {},
-  });
-
-  const existing = await prisma.azureSelectionPreference.findUnique({
-    where: { userId: user.id },
-    select: { userId: true },
-  });
-
-  const saved = await prisma.azureSelectionPreference.upsert({
-    where: { userId: user.id },
-    create: {
-      userId: user.id,
-      projectId: preference.target === "playground" ? preference.projectId : "",
-      deploymentName: preference.target === "playground" ? preference.deploymentName : "",
-      homeTheme: preference.homeTheme ?? HOME_DEFAULT_THEME,
-      utilityProjectId: preference.target === "utility" ? preference.projectId : "",
-      utilityDeploymentName: preference.target === "utility" ? preference.deploymentName : "",
-      utilityReasoningEffort:
-        preference.target === "utility" ? preference.reasoningEffort ?? "high" : "high",
-    },
-    update: {
-      ...(preference.target === "playground"
-        ? {
-            projectId: preference.projectId,
-            deploymentName: preference.deploymentName,
-          }
-        : {}),
-      ...(preference.target === "utility"
-        ? {
-            utilityProjectId: preference.projectId,
-            utilityDeploymentName: preference.deploymentName,
-            utilityReasoningEffort: preference.reasoningEffort ?? "high",
-          }
-        : {}),
-      ...(preference.homeTheme
-        ? {
-            homeTheme: preference.homeTheme,
-          }
-        : {}),
-    },
-  });
-
-  return {
-    selection: mapSelectionRecord(user, saved),
-    created: !existing,
-  };
-}
-
-async function deleteStoredSelection(identity: {
-  tenantId: string;
-  principalId: string;
-}): Promise<boolean> {
-  await ensurePersistenceDatabaseReady();
-  const user = await prisma.workspaceUser.findUnique({
-    where: {
-      tenantId_principalId: {
-        tenantId: identity.tenantId,
-        principalId: identity.principalId,
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
-  if (!user) {
-    return false;
-  }
-
-  const deleteResult = await prisma.azureSelectionPreference.deleteMany({
-    where: {
-      userId: user.id,
-    },
-  });
-  return deleteResult.count > 0;
-}
-
-async function readAuthenticatedIdentity(): Promise<{ tenantId: string; principalId: string } | null> {
-  const context = await readAzureArmUserContext();
-  if (!context) {
-    return null;
-  }
-
-  return {
-    tenantId: context.tenantId,
-    principalId: context.principalId,
-  };
-}
-
-function mapSelectionRecord(
-  user: {
-    tenantId: string;
-    principalId: string;
-  },
-  selection: {
-    projectId: string;
-    deploymentName: string;
-    homeTheme: string;
-    utilityProjectId: string;
-    utilityDeploymentName: string;
-    utilityReasoningEffort: string;
-  },
-): AzureSelectionPreference {
-  return {
-    tenantId: user.tenantId,
-    principalId: user.principalId,
-    homeTheme: readHomeThemeFromUnknown(selection.homeTheme) ?? HOME_DEFAULT_THEME,
-    playground: mapSelectionTarget(selection.projectId, selection.deploymentName),
-    utility: mapUtilitySelectionTarget(
-      selection.utilityProjectId,
-      selection.utilityDeploymentName,
-      selection.utilityReasoningEffort,
-    ),
-  };
-}
-
-function mapSelectionTarget(
-  projectId: string,
-  deploymentName: string,
-): AzureSelectionTargetPreference | null {
-  const normalizedProjectId = projectId.trim();
-  const normalizedDeploymentName = deploymentName.trim();
-  if (!normalizedProjectId || !normalizedDeploymentName) {
-    return null;
-  }
-
-  return {
-    projectId: normalizedProjectId,
-    deploymentName: normalizedDeploymentName,
-  };
-}
-
-function mapUtilitySelectionTarget(
-  projectId: string,
-  deploymentName: string,
-  reasoningEffort: string,
-): AzureUtilitySelectionTargetPreference | null {
-  const base = mapSelectionTarget(projectId, deploymentName);
-  if (!base) {
-    return null;
-  }
-
-  const normalizedReasoningEffort = readReasoningEffortFromUnknown(reasoningEffort) ?? "high";
-  return {
-    ...base,
-    reasoningEffort: normalizedReasoningEffort,
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
-}
-
-function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error.";
-}
-
-function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  if (HOME_REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)) {
-    return value as ReasoningEffort;
-  }
-
-  return null;
 }

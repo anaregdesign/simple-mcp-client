@@ -1,7 +1,7 @@
 /**
  * Persistence database configuration helpers.
  */
-import { resolveFoundryDatabaseUrl } from "~/lib/foundry/config";
+import { resolveWorkspaceDatabaseUrl } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 
 export type PersistenceDatabaseProvider =
   | "sqlite"
@@ -10,9 +10,15 @@ export type PersistenceDatabaseProvider =
   | "cockroachdb"
   | "sqlserver";
 
-type PersistenceRelationalDatabaseProvider = Exclude<PersistenceDatabaseProvider, "sqlite">;
+type PersistenceRelationalDatabaseProvider = Exclude<
+  PersistenceDatabaseProvider,
+  "sqlite"
+>;
 
-export type PersistenceSqlAuthenticationMethod = "password" | "azure_identity" | "access_token";
+export type PersistenceSqlAuthenticationMethod =
+  | "password"
+  | "azure_identity"
+  | "access_token";
 
 export type PersistenceSqlAuthenticationConfig =
   | {
@@ -46,7 +52,8 @@ const DEFAULT_POSTGRES_PORT = "5432";
 const DEFAULT_POSTGRES_SSLMODE = "require";
 const DEFAULT_OSS_RDBMS_AZURE_IDENTITY_SCOPE =
   "https://ossrdbms-aad.database.windows.net/.default";
-const DEFAULT_SQLSERVER_AZURE_IDENTITY_SCOPE = "https://database.windows.net/.default";
+const DEFAULT_SQLSERVER_AZURE_IDENTITY_SCOPE =
+  "https://database.windows.net/.default";
 
 export function resolvePersistenceDatabaseConfig(
   options: ResolvePersistenceDatabaseConfigOptions = {},
@@ -54,7 +61,9 @@ export function resolvePersistenceDatabaseConfig(
   const env = options.env ?? process.env;
   const configuredProvider = readConfiguredProvider(env);
   const configuredDatabaseUrl = readConfiguredDatabaseUrl(env);
-  const providerFromDatabaseUrl = detectProviderFromDatabaseUrl(configuredDatabaseUrl);
+  const providerFromDatabaseUrl = detectProviderFromDatabaseUrl(
+    configuredDatabaseUrl,
+  );
   const postgresComponents = readPostgresComponents(env);
   const provider =
     configuredProvider ??
@@ -74,7 +83,7 @@ export function resolvePersistenceDatabaseConfig(
   if (provider === "sqlite") {
     return {
       provider,
-      databaseUrl: resolveFoundryDatabaseUrl({
+      databaseUrl: resolveWorkspaceDatabaseUrl({
         envDatabaseUrl: configuredDatabaseUrl,
         platform: options.platform,
         homeDirectory: options.homeDirectory,
@@ -110,7 +119,10 @@ export function buildSqlDatabaseUrlWithPassword(options: {
   }
 
   if (options.provider === "sqlserver") {
-    return buildSqlServerDatabaseUrlWithPassword(normalizedUrl, options.password);
+    return buildSqlServerDatabaseUrlWithPassword(
+      normalizedUrl,
+      options.password,
+    );
   }
 
   if (!isDatabaseUrlForProvider(normalizedUrl, options.provider)) {
@@ -136,7 +148,10 @@ function resolveRelationalDatabaseUrl(options: {
     });
   }
 
-  return resolveNonPostgresDatabaseUrl(options.provider, options.configuredDatabaseUrl);
+  return resolveNonPostgresDatabaseUrl(
+    options.provider,
+    options.configuredDatabaseUrl,
+  );
 }
 
 function resolvePostgresDatabaseUrl(options: {
@@ -144,7 +159,9 @@ function resolvePostgresDatabaseUrl(options: {
   postgresComponents: PostgresComponents;
 }): string {
   if (options.configuredDatabaseUrl) {
-    if (!isDatabaseUrlForProvider(options.configuredDatabaseUrl, "postgresql")) {
+    if (
+      !isDatabaseUrlForProvider(options.configuredDatabaseUrl, "postgresql")
+    ) {
       throw new Error(
         "PostgreSQL provider requires `LOCAL_PLAYGROUND_DATABASE_URL`/`DATABASE_URL` to use a postgres:// or postgresql:// URL.",
       );
@@ -223,13 +240,17 @@ function applyPostgresQueryDefaults(
 
 function readPostgresSslModeFromUrl(databaseUrl: string): string {
   try {
-    return readTrimmedEnvironmentValue(new URL(databaseUrl).searchParams.get("sslmode"));
+    return readTrimmedEnvironmentValue(
+      new URL(databaseUrl).searchParams.get("sslmode"),
+    );
   } catch {
     return "";
   }
 }
 
-function readConfiguredProvider(env: NodeJS.ProcessEnv): PersistenceDatabaseProvider | null {
+function readConfiguredProvider(
+  env: NodeJS.ProcessEnv,
+): PersistenceDatabaseProvider | null {
   const configuredProvider = readTrimmedEnvironmentValue(
     env.LOCAL_PLAYGROUND_DATABASE_PROVIDER || env.DATABASE_PROVIDER,
   ).toLowerCase();
@@ -240,13 +261,19 @@ function readConfiguredProvider(env: NodeJS.ProcessEnv): PersistenceDatabaseProv
   if (configuredProvider === "sqlite") {
     return "sqlite";
   }
-  if (configuredProvider === "postgresql" || configuredProvider === "postgres") {
+  if (
+    configuredProvider === "postgresql" ||
+    configuredProvider === "postgres"
+  ) {
     return "postgresql";
   }
   if (configuredProvider === "mysql") {
     return "mysql";
   }
-  if (configuredProvider === "cockroachdb" || configuredProvider === "cockroach") {
+  if (
+    configuredProvider === "cockroachdb" ||
+    configuredProvider === "cockroach"
+  ) {
     return "cockroachdb";
   }
   if (configuredProvider === "sqlserver" || configuredProvider === "mssql") {
@@ -259,10 +286,14 @@ function readConfiguredProvider(env: NodeJS.ProcessEnv): PersistenceDatabaseProv
 }
 
 function readConfiguredDatabaseUrl(env: NodeJS.ProcessEnv): string {
-  return readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_DATABASE_URL || env.DATABASE_URL);
+  return readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_DATABASE_URL || env.DATABASE_URL,
+  );
 }
 
-function detectProviderFromDatabaseUrl(databaseUrl: string): PersistenceDatabaseProvider | null {
+function detectProviderFromDatabaseUrl(
+  databaseUrl: string,
+): PersistenceDatabaseProvider | null {
   const normalized = databaseUrl.trim().toLowerCase();
   if (!normalized) {
     return null;
@@ -270,7 +301,10 @@ function detectProviderFromDatabaseUrl(databaseUrl: string): PersistenceDatabase
   if (normalized.startsWith("file:")) {
     return "sqlite";
   }
-  if (normalized.startsWith("postgresql://") || normalized.startsWith("postgres://")) {
+  if (
+    normalized.startsWith("postgresql://") ||
+    normalized.startsWith("postgres://")
+  ) {
     return "postgresql";
   }
   if (normalized.startsWith("mysql://")) {
@@ -285,13 +319,19 @@ function detectProviderFromDatabaseUrl(databaseUrl: string): PersistenceDatabase
   return null;
 }
 
-function isDatabaseUrlForProvider(databaseUrl: string, provider: PersistenceDatabaseProvider): boolean {
+function isDatabaseUrlForProvider(
+  databaseUrl: string,
+  provider: PersistenceDatabaseProvider,
+): boolean {
   const normalized = databaseUrl.trim().toLowerCase();
   if (provider === "sqlite") {
     return normalized.startsWith("file:");
   }
   if (provider === "postgresql") {
-    return normalized.startsWith("postgresql://") || normalized.startsWith("postgres://");
+    return (
+      normalized.startsWith("postgresql://") ||
+      normalized.startsWith("postgres://")
+    );
   }
   if (provider === "mysql") {
     return normalized.startsWith("mysql://");
@@ -314,19 +354,27 @@ type PostgresComponents = {
 };
 
 function readPostgresComponents(env: NodeJS.ProcessEnv): PostgresComponents {
-  const host = readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_POSTGRES_HOST || env.PGHOST);
-  const port = readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_POSTGRES_PORT || env.PGPORT);
+  const host = readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_POSTGRES_HOST || env.PGHOST,
+  );
+  const port = readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_POSTGRES_PORT || env.PGPORT,
+  );
   const database = readTrimmedEnvironmentValue(
     env.LOCAL_PLAYGROUND_POSTGRES_DATABASE || env.PGDATABASE,
   );
-  const user = readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_POSTGRES_USER || env.PGUSER);
+  const user = readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_POSTGRES_USER || env.PGUSER,
+  );
   const password = readTrimmedEnvironmentValue(
     env.LOCAL_PLAYGROUND_POSTGRES_PASSWORD || env.PGPASSWORD,
   );
   const sslMode = readTrimmedEnvironmentValue(
     env.LOCAL_PLAYGROUND_POSTGRES_SSLMODE || env.PGSSLMODE,
   );
-  const schema = readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_POSTGRES_SCHEMA);
+  const schema = readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_POSTGRES_SCHEMA,
+  );
 
   return {
     host,
@@ -362,14 +410,19 @@ function resolveSqlAuthenticationConfig(
   if (method === "azure_identity") {
     return {
       method,
-      clientId: readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_DATABASE_AZURE_IDENTITY_CLIENT_ID),
+      clientId: readTrimmedEnvironmentValue(
+        env.LOCAL_PLAYGROUND_DATABASE_AZURE_IDENTITY_CLIENT_ID,
+      ),
       scope:
-        readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_DATABASE_AZURE_IDENTITY_SCOPE) ||
-        resolveDefaultAzureIdentityScope(provider),
+        readTrimmedEnvironmentValue(
+          env.LOCAL_PLAYGROUND_DATABASE_AZURE_IDENTITY_SCOPE,
+        ) || resolveDefaultAzureIdentityScope(provider),
     };
   }
 
-  const accessToken = readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_DATABASE_ACCESS_TOKEN);
+  const accessToken = readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_DATABASE_ACCESS_TOKEN,
+  );
   if (!accessToken) {
     throw new Error(
       "SQL access token authentication requires `LOCAL_PLAYGROUND_DATABASE_ACCESS_TOKEN`.",
@@ -382,8 +435,12 @@ function resolveSqlAuthenticationConfig(
   };
 }
 
-function readSqlAuthenticationMethod(env: NodeJS.ProcessEnv): PersistenceSqlAuthenticationMethod {
-  const configuredMethod = readTrimmedEnvironmentValue(env.LOCAL_PLAYGROUND_DATABASE_AUTH_METHOD)
+function readSqlAuthenticationMethod(
+  env: NodeJS.ProcessEnv,
+): PersistenceSqlAuthenticationMethod {
+  const configuredMethod = readTrimmedEnvironmentValue(
+    env.LOCAL_PLAYGROUND_DATABASE_AUTH_METHOD,
+  )
     .toLowerCase()
     .replaceAll("-", "_");
   if (!configuredMethod || configuredMethod === "password") {
@@ -401,14 +458,18 @@ function readSqlAuthenticationMethod(env: NodeJS.ProcessEnv): PersistenceSqlAuth
   );
 }
 
-function resolveDefaultAzureIdentityScope(provider: PersistenceRelationalDatabaseProvider): string {
+function resolveDefaultAzureIdentityScope(
+  provider: PersistenceRelationalDatabaseProvider,
+): string {
   if (provider === "sqlserver") {
     return DEFAULT_SQLSERVER_AZURE_IDENTITY_SCOPE;
   }
   return DEFAULT_OSS_RDBMS_AZURE_IDENTITY_SCOPE;
 }
 
-function formatProviderLabel(provider: PersistenceRelationalDatabaseProvider): string {
+function formatProviderLabel(
+  provider: PersistenceRelationalDatabaseProvider,
+): string {
   if (provider === "postgresql") {
     return "PostgreSQL";
   }
@@ -421,9 +482,14 @@ function formatProviderLabel(provider: PersistenceRelationalDatabaseProvider): s
   return "SQL Server";
 }
 
-function buildSqlServerDatabaseUrlWithPassword(databaseUrl: string, password: string): string {
+function buildSqlServerDatabaseUrlWithPassword(
+  databaseUrl: string,
+  password: string,
+): string {
   if (!isDatabaseUrlForProvider(databaseUrl, "sqlserver")) {
-    throw new Error("Database URL must use the sqlserver:// scheme to inject a password.");
+    throw new Error(
+      "Database URL must use the sqlserver:// scheme to inject a password.",
+    );
   }
 
   const segments = databaseUrl.split(";");

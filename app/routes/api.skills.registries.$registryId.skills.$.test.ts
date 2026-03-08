@@ -39,7 +39,7 @@ const {
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("./api.skills", () => ({
+vi.mock("~/lib/server/application/skills/workspace-skill-service", () => ({
   parseSkillRegistryMutationPath,
   readAuthenticatedUser,
   syncWorkspaceSkillMasters,

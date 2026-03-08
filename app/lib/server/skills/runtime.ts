@@ -1,36 +1,12 @@
 /**
  * Server runtime module.
  */
-import { spawn } from "node:child_process";
-import { constants as fsConstants, type Dirent } from "node:fs";
-import {
-  access,
-  lstat,
-  mkdtemp,
-  readdir,
-  readFile,
-  realpath,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import childProcess from "node:child_process";
+import nodeFs from "node:fs";
+import nodeFsPromises from "node:fs/promises";
 import nodeOs from "node:os";
 import path from "node:path";
-import {
-  AGENT_SKILL_ASSET_FILE_MAX_BYTES,
-  AGENT_SKILL_ASSETS_DIRECTORY_NAME,
-  AGENT_SKILL_REFERENCE_FILE_MAX_BYTES,
-  AGENT_SKILL_REFERENCES_DIRECTORY_NAME,
-  AGENT_SKILL_RESOURCES_DIRECTORY_NAME,
-  AGENT_SKILL_RESOURCE_MAX_FILES_PER_DIRECTORY,
-  AGENT_SKILL_RESOURCE_PATH_MAX_LENGTH,
-  AGENT_SKILL_SCRIPT_ARG_MAX_LENGTH,
-  AGENT_SKILL_SCRIPT_MAX_ARGS,
-  AGENT_SKILL_SCRIPT_OUTPUT_MAX_CHARS,
-  AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS,
-  AGENT_SKILL_SCRIPT_TIMEOUT_MS,
-  AGENT_SKILL_SCRIPTS_DIRECTORY_NAME,
-} from "~/lib/constants";
+import { AGENT_SKILL_ASSETS_DIRECTORY_NAME, AGENT_SKILL_ASSET_FILE_MAX_BYTES, AGENT_SKILL_REFERENCES_DIRECTORY_NAME, AGENT_SKILL_REFERENCE_FILE_MAX_BYTES, AGENT_SKILL_RESOURCES_DIRECTORY_NAME, AGENT_SKILL_RESOURCE_MAX_FILES_PER_DIRECTORY, AGENT_SKILL_RESOURCE_PATH_MAX_LENGTH, AGENT_SKILL_SCRIPTS_DIRECTORY_NAME, AGENT_SKILL_SCRIPT_ARG_MAX_LENGTH, AGENT_SKILL_SCRIPT_MAX_ARGS, AGENT_SKILL_SCRIPT_OUTPUT_MAX_CHARS, AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS, AGENT_SKILL_SCRIPT_TIMEOUT_MS } from "~/lib/constants/skills";
 
 const SKILL_RESOURCE_DIRECTORY_BY_KIND = {
   scripts: AGENT_SKILL_SCRIPTS_DIRECTORY_NAME,
@@ -41,6 +17,9 @@ const SKILL_RESOURCE_DIRECTORY_BY_KIND = {
 // agentskills.io defines scripts/references/assets as canonical directories.
 // resources/ is a non-standard optional directory used by some skills.
 // Include it when SKILL.md guidance and resource discovery indicate it is required.
+const fsConstants = nodeFs.constants;
+type Dirent = import("node:fs").Dirent;
+
 const SKILL_RESOURCE_DIRECTORY_CANDIDATES_BY_KIND = {
   scripts: [AGENT_SKILL_SCRIPTS_DIRECTORY_NAME],
   references: [AGENT_SKILL_REFERENCES_DIRECTORY_NAME, AGENT_SKILL_RESOURCES_DIRECTORY_NAME],
@@ -143,12 +122,12 @@ export async function readSkillResourceText(options: {
     options.relativePath,
   );
   const maxBytes = normalizeMaxBytes(options.maxBytes, options.kind);
-  const fileStats = await stat(absolutePath);
+  const fileStats = await nodeFsPromises.stat(absolutePath);
   if (fileStats.size > maxBytes) {
     throw new Error(`Skill ${options.kind} file exceeds ${maxBytes} bytes.`);
   }
 
-  return await readFile(absolutePath, "utf8");
+  return await nodeFsPromises.readFile(absolutePath, "utf8");
 }
 
 export async function readSkillResourceBuffer(options: {
@@ -163,12 +142,12 @@ export async function readSkillResourceBuffer(options: {
     options.relativePath,
   );
   const maxBytes = normalizeMaxBytes(options.maxBytes, options.kind);
-  const fileStats = await stat(absolutePath);
+  const fileStats = await nodeFsPromises.stat(absolutePath);
   if (fileStats.size > maxBytes) {
     throw new Error(`Skill ${options.kind} file exceeds ${maxBytes} bytes.`);
   }
 
-  return await readFile(absolutePath);
+  return await nodeFsPromises.readFile(absolutePath);
 }
 
 export async function runSkillScript(options: SkillScriptRunOptions): Promise<SkillScriptRunResult> {
@@ -255,7 +234,7 @@ async function listSkillResourceFiles(
 
     let entries: Dirent[];
     try {
-      entries = await readdir(currentDirectory.absolutePath, { withFileTypes: true });
+      entries = await nodeFsPromises.readdir(currentDirectory.absolutePath, { withFileTypes: true });
     } catch {
       continue;
     }
@@ -282,7 +261,7 @@ async function listSkillResourceFiles(
         continue;
       }
 
-      const fileStats = await stat(childAbsolutePath).catch(() => null);
+      const fileStats = await nodeFsPromises.stat(childAbsolutePath).catch(() => null);
       if (!fileStats || !fileStats.isFile()) {
         continue;
       }
@@ -360,9 +339,9 @@ async function assertReadableSkillResourcePath(
   scopeDirectory: string,
   kind: SkillResourceKind,
 ): Promise<void> {
-  await access(candidatePath, fsConstants.R_OK);
+  await nodeFsPromises.access(candidatePath, fsConstants.R_OK);
 
-  const fileStats = await lstat(candidatePath);
+  const fileStats = await nodeFsPromises.lstat(candidatePath);
   if (fileStats.isSymbolicLink()) {
     throw new Error(`Skill ${kind} path cannot be a symbolic link.`);
   }
@@ -372,8 +351,8 @@ async function assertReadableSkillResourcePath(
   }
 
   const [scopeDirectoryRealPath, candidateRealPath] = await Promise.all([
-    realpath(scopeDirectory).catch(() => scopeDirectory),
-    realpath(candidatePath).catch(() => candidatePath),
+    nodeFsPromises.realpath(scopeDirectory).catch(() => scopeDirectory),
+    nodeFsPromises.realpath(candidatePath).catch(() => candidatePath),
   ]);
 
   if (!isPathWithin(candidateRealPath, scopeDirectoryRealPath)) {
@@ -601,7 +580,7 @@ async function runProcess(options: {
   timeoutMs: number;
   outputMaxChars: number;
 }): Promise<SkillScriptRunResult> {
-  const child = spawn(options.command, options.args, {
+  const child = childProcess.spawn(options.command, options.args, {
     cwd: options.cwd,
     env: options.env,
     stdio: ["ignore", "pipe", "pipe"],
@@ -735,7 +714,7 @@ async function runProcessWithShellEnvironmentCapture(options: {
   timeoutMs: number;
   outputMaxChars: number;
 }): Promise<SkillScriptRunResult> {
-  const tempDirectory = await mkdtemp(
+  const tempDirectory = await nodeFsPromises.mkdtemp(
     path.join(nodeOs.tmpdir(), "local-playground-skill-env-"),
   );
   const environmentSnapshotPath = path.join(tempDirectory, "environment.snapshot");
@@ -765,7 +744,7 @@ async function runProcessWithShellEnvironmentCapture(options: {
     "",
   ].join("\n");
 
-  await writeFile(wrapperPath, wrapperScript, {
+  await nodeFsPromises.writeFile(wrapperPath, wrapperScript, {
     encoding: "utf8",
     mode: 0o700,
   });
@@ -805,7 +784,7 @@ async function runProcessWithShellEnvironmentCapture(options: {
       },
     };
   } finally {
-    await rm(tempDirectory, {
+    await nodeFsPromises.rm(tempDirectory, {
       recursive: true,
       force: true,
     });
@@ -865,7 +844,7 @@ async function runProcessWithPowerShellEnvironmentCapture(options: {
   timeoutMs: number;
   outputMaxChars: number;
 }): Promise<SkillScriptRunResult> {
-  const tempDirectory = await mkdtemp(
+  const tempDirectory = await nodeFsPromises.mkdtemp(
     path.join(nodeOs.tmpdir(), "local-playground-skill-env-"),
   );
   const environmentSnapshotPath = path.join(tempDirectory, "environment.snapshot");
@@ -906,7 +885,7 @@ async function runProcessWithPowerShellEnvironmentCapture(options: {
     "",
   ].join("\n");
 
-  await writeFile(wrapperPath, wrapperScript, {
+  await nodeFsPromises.writeFile(wrapperPath, wrapperScript, {
     encoding: "utf8",
     mode: 0o700,
   });
@@ -945,7 +924,7 @@ async function runProcessWithPowerShellEnvironmentCapture(options: {
       },
     };
   } finally {
-    await rm(tempDirectory, {
+    await nodeFsPromises.rm(tempDirectory, {
       recursive: true,
       force: true,
     });
@@ -960,7 +939,7 @@ async function runProcessWithWindowsCommandEnvironmentCapture(options: {
   timeoutMs: number;
   outputMaxChars: number;
 }): Promise<SkillScriptRunResult> {
-  const tempDirectory = await mkdtemp(
+  const tempDirectory = await nodeFsPromises.mkdtemp(
     path.join(nodeOs.tmpdir(), "local-playground-skill-env-"),
   );
   const environmentSnapshotPath = path.join(tempDirectory, "environment.snapshot");
@@ -981,7 +960,7 @@ async function runProcessWithWindowsCommandEnvironmentCapture(options: {
     "",
   ].join("\r\n");
 
-  await writeFile(wrapperPath, wrapperScript, {
+  await nodeFsPromises.writeFile(wrapperPath, wrapperScript, {
     encoding: "utf8",
     mode: 0o700,
   });
@@ -1014,7 +993,7 @@ async function runProcessWithWindowsCommandEnvironmentCapture(options: {
       },
     };
   } finally {
-    await rm(tempDirectory, {
+    await nodeFsPromises.rm(tempDirectory, {
       recursive: true,
       force: true,
     });
@@ -1025,7 +1004,7 @@ async function readCapturedEnvironmentSnapshot(
   snapshotPath: string,
 ): Promise<Record<string, string> | null> {
   try {
-    const raw = await readFile(snapshotPath, "utf8");
+    const raw = await nodeFsPromises.readFile(snapshotPath, "utf8");
     const entries = raw.includes("\0") ? raw.split("\0") : raw.split(/\r?\n/);
     const environment: Record<string, string> = {};
     for (const entry of entries) {
@@ -1131,7 +1110,7 @@ function isPathWithin(targetPath: string, basePath: string): boolean {
 
 async function directoryExists(location: string): Promise<boolean> {
   try {
-    const locationStat = await stat(location);
+    const locationStat = await nodeFsPromises.stat(location);
     return locationStat.isDirectory();
   } catch {
     return false;

@@ -1,23 +1,26 @@
 /**
  * Server runtime module.
  */
-import { constants as fsConstants, type Dirent } from "node:fs";
-import { access, mkdir, open, readdir, readFile, realpath, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import nodeFs from "node:fs";
+import nodeFsPromises from "node:fs/promises";
+import nodeOs from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import nodeUrl from "node:url";
+import { WORKSPACE_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
 import {
-  AGENT_SKILL_FILE_MAX_BYTES,
   AGENT_SKILLS_DIRECTORY_NAME,
-  FOUNDRY_USERS_DIRECTORY_NAME,
-} from "~/lib/constants";
-import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/foundry/config";
+  AGENT_SKILL_FILE_MAX_BYTES,
+} from "~/lib/constants/skills";
+import { resolveWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import {
   parseSkillFrontmatter,
   type SkillFrontmatter,
   validateSkillFrontmatter,
-} from "~/lib/home/skills/frontmatter";
-import type { SkillCatalogEntry, SkillCatalogSource } from "~/lib/home/skills/types";
+} from "~/lib/contracts/skills/frontmatter";
+import type {
+  SkillCatalogEntry,
+  SkillCatalogSource,
+} from "~/lib/contracts/skills/types";
 
 type SkillCatalogRoot = {
   path: string;
@@ -33,7 +36,7 @@ export type SkillCatalogDiscoveryResult = {
 type ResolveSkillCatalogRootsOptions = {
   workspaceUserId: number;
   codexHome?: string;
-  foundryConfigDirectory?: string;
+  workspaceStorageDirectory?: string;
   platform?: NodeJS.Platform;
   homeDirectory?: string;
   appDataDirectory?: string | null;
@@ -41,6 +44,8 @@ type ResolveSkillCatalogRootsOptions = {
 
 const SKILL_FRONTMATTER_READ_CHUNK_BYTES = 4 * 1024;
 const SKILL_FRONTMATTER_READ_MAX_BYTES = 128 * 1024;
+const fsConstants = nodeFs.constants;
+type Dirent = import("node:fs").Dirent;
 
 export function resolveSkillCatalogRoots(
   options: ResolveSkillCatalogRootsOptions,
@@ -49,11 +54,13 @@ export function resolveSkillCatalogRoots(
     resolveCodexHomeDirectory(options.codexHome),
     AGENT_SKILLS_DIRECTORY_NAME,
   );
-  const configuredFoundryDirectory =
-    typeof options.foundryConfigDirectory === "string" ? options.foundryConfigDirectory.trim() : "";
-  const foundrySkillsRoot = resolveAppDataSkillsRoot({
+  const configuredWorkspaceStorageDirectory =
+    typeof options.workspaceStorageDirectory === "string"
+      ? options.workspaceStorageDirectory.trim()
+      : "";
+  const appDataSkillsRoot = resolveAppDataSkillsRoot({
     workspaceUserId: options.workspaceUserId,
-    configuredFoundryDirectory,
+    configuredWorkspaceStorageDirectory,
     platform: options.platform,
     homeDirectory: options.homeDirectory,
     appDataDirectory: options.appDataDirectory,
@@ -61,7 +68,7 @@ export function resolveSkillCatalogRoots(
 
   const roots: SkillCatalogRoot[] = [
     { path: codexHomeRoot, source: "codex_home", createIfMissing: false },
-    { path: foundrySkillsRoot, source: "app_data", createIfMissing: true },
+    { path: appDataSkillsRoot, source: "app_data", createIfMissing: true },
   ];
 
   const dedupe = new Set<string>();
@@ -92,26 +99,36 @@ export async function discoverSkillCatalog(
 
   for (const root of roots) {
     if (root.createIfMissing) {
-      await mkdir(root.path, { recursive: true }).catch((error) => {
-        warnings.push(`Failed to prepare Skills directory (${root.path}): ${readErrorMessage(error)}`);
-      });
+      await nodeFsPromises
+        .mkdir(root.path, { recursive: true })
+        .catch((error) => {
+          warnings.push(
+            `Failed to prepare Skills directory (${root.path}): ${readErrorMessage(error)}`,
+          );
+        });
     }
 
     const skillFileCandidates = await readSkillFileCandidates(root.path);
     for (const filePath of skillFileCandidates) {
-      const canonicalLocation = await realpath(filePath).catch(() => path.resolve(filePath));
+      const canonicalLocation = await nodeFsPromises
+        .realpath(filePath)
+        .catch(() => path.resolve(filePath));
       if (seenCanonicalLocations.has(canonicalLocation)) {
         continue;
       }
 
-      const frontmatterResult = await readSkillFrontmatterForDiscovery(canonicalLocation);
+      const frontmatterResult =
+        await readSkillFrontmatterForDiscovery(canonicalLocation);
       if (!frontmatterResult.ok) {
         warnings.push(frontmatterResult.error);
         continue;
       }
 
       const directoryName = path.basename(path.dirname(canonicalLocation));
-      const validationError = validateSkillFrontmatter(frontmatterResult.frontmatter, directoryName);
+      const validationError = validateSkillFrontmatter(
+        frontmatterResult.frontmatter,
+        directoryName,
+      );
       if (validationError) {
         warnings.push(`${canonicalLocation}: ${validationError}`);
         continue;
@@ -146,16 +163,23 @@ export async function readSkillMarkdown(
   location: string,
   maxBytes = AGENT_SKILL_FILE_MAX_BYTES,
 ): Promise<string> {
-  const normalizedLocation = await validateSkillMarkdownLocation(location, maxBytes);
-  return await readFile(normalizedLocation, "utf8");
+  const normalizedLocation = await validateSkillMarkdownLocation(
+    location,
+    maxBytes,
+  );
+  return await nodeFsPromises.readFile(normalizedLocation, "utf8");
 }
 
 export async function readSkillFrontmatter(
   location: string,
   maxBytes = AGENT_SKILL_FILE_MAX_BYTES,
 ): Promise<SkillFrontmatter> {
-  const normalizedLocation = await validateSkillMarkdownLocation(location, maxBytes);
-  const headerContent = await readSkillMarkdownHeaderContent(normalizedLocation);
+  const normalizedLocation = await validateSkillMarkdownLocation(
+    location,
+    maxBytes,
+  );
+  const headerContent =
+    await readSkillMarkdownHeaderContent(normalizedLocation);
   const frontmatter = parseSkillFrontmatter(headerContent);
   if (!frontmatter) {
     throw new Error("Skill frontmatter is missing or invalid.");
@@ -171,12 +195,14 @@ export function resolveCodexHomeDirectory(codexHome?: string): string {
   }
 
   const envConfigured =
-    typeof process.env.CODEX_HOME === "string" ? process.env.CODEX_HOME.trim() : "";
+    typeof process.env.CODEX_HOME === "string"
+      ? process.env.CODEX_HOME.trim()
+      : "";
   if (envConfigured) {
     return path.resolve(envConfigured);
   }
 
-  return path.resolve(homedir(), ".codex");
+  return path.resolve(nodeOs.homedir(), ".codex");
 }
 
 const SKILL_DISCOVERY_MAX_DEPTH = 4;
@@ -188,7 +214,9 @@ async function readSkillFileCandidates(rootPath: string): Promise<string[]> {
 
   const candidates = new Set<string>();
   await collectSkillFileCandidates(rootPath, 0, candidates);
-  return Array.from(candidates).sort((left, right) => left.localeCompare(right));
+  return Array.from(candidates).sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 async function collectSkillFileCandidates(
@@ -211,7 +239,9 @@ async function collectSkillFileCandidates(
 
   let entries: Dirent[];
   try {
-    entries = await readdir(directoryPath, { withFileTypes: true });
+    entries = await nodeFsPromises.readdir(directoryPath, {
+      withFileTypes: true,
+    });
   } catch {
     // Ignore unreadable directories so one permission issue does not block full catalog discovery.
     return;
@@ -243,7 +273,10 @@ async function readSkillFrontmatterForDiscovery(location: string): Promise<
     }
 > {
   try {
-    const parsed = await readSkillFrontmatter(location, AGENT_SKILL_FILE_MAX_BYTES);
+    const parsed = await readSkillFrontmatter(
+      location,
+      AGENT_SKILL_FILE_MAX_BYTES,
+    );
     return {
       ok: true,
       frontmatter: parsed,
@@ -269,7 +302,7 @@ async function validateSkillMarkdownLocation(
     throw new Error("Skill location must point to SKILL.md.");
   }
 
-  const fileStats = await stat(normalizedLocation);
+  const fileStats = await nodeFsPromises.stat(normalizedLocation);
   if (!fileStats.isFile()) {
     throw new Error("Skill location is not a file.");
   }
@@ -281,8 +314,10 @@ async function validateSkillMarkdownLocation(
   return normalizedLocation;
 }
 
-async function readSkillMarkdownHeaderContent(location: string): Promise<string> {
-  const fileHandle = await open(location, "r");
+async function readSkillMarkdownHeaderContent(
+  location: string,
+): Promise<string> {
+  const fileHandle = await nodeFsPromises.open(location, "r");
   const chunks: Buffer[] = [];
   let totalBytesRead = 0;
 
@@ -332,7 +367,7 @@ function hasCompleteFrontmatterHeader(content: string): boolean {
 
 async function directoryExists(location: string): Promise<boolean> {
   try {
-    const stats = await stat(location);
+    const stats = await nodeFsPromises.stat(location);
     return stats.isDirectory();
   } catch {
     return false;
@@ -341,8 +376,8 @@ async function directoryExists(location: string): Promise<boolean> {
 
 async function fileExists(location: string): Promise<boolean> {
   try {
-    await access(location, fsConstants.R_OK);
-    const fileStats = await stat(location);
+    await nodeFsPromises.access(location, fsConstants.R_OK);
+    const fileStats = await nodeFsPromises.stat(location);
     return fileStats.isFile();
   } catch {
     return false;
@@ -355,7 +390,7 @@ function readErrorMessage(error: unknown): string {
 
 function resolveAppDataSkillsRoot(options: {
   workspaceUserId: number;
-  configuredFoundryDirectory: string;
+  configuredWorkspaceStorageDirectory: string;
   platform?: NodeJS.Platform;
   homeDirectory?: string;
   appDataDirectory?: string | null;
@@ -364,10 +399,10 @@ function resolveAppDataSkillsRoot(options: {
     options.workspaceUserId,
   );
 
-  if (options.configuredFoundryDirectory) {
+  if (options.configuredWorkspaceStorageDirectory) {
     return path.resolve(
-      options.configuredFoundryDirectory,
-      FOUNDRY_USERS_DIRECTORY_NAME,
+      options.configuredWorkspaceStorageDirectory,
+      WORKSPACE_USERS_DIRECTORY_NAME,
       workspaceUserSkillsDirectoryName,
       AGENT_SKILLS_DIRECTORY_NAME,
     );
@@ -379,14 +414,14 @@ function resolveAppDataSkillsRoot(options: {
     if (sqliteFilePath) {
       return path.resolve(
         path.dirname(sqliteFilePath),
-        FOUNDRY_USERS_DIRECTORY_NAME,
+        WORKSPACE_USERS_DIRECTORY_NAME,
         workspaceUserSkillsDirectoryName,
         AGENT_SKILLS_DIRECTORY_NAME,
       );
     }
   }
 
-  return resolveFoundryWorkspaceUserSkillsDirectory({
+  return resolveWorkspaceUserSkillsDirectory({
     workspaceUserId: options.workspaceUserId,
     platform: options.platform,
     homeDirectory: options.homeDirectory,
@@ -429,7 +464,7 @@ function resolveSqliteDatabaseFilePath(databaseUrl: string): string | null {
 
   try {
     if (databaseUrl.startsWith("file://")) {
-      return fileURLToPath(databaseUrl);
+      return nodeUrl.fileURLToPath(databaseUrl);
     }
   } catch {
     return null;
@@ -437,7 +472,9 @@ function resolveSqliteDatabaseFilePath(databaseUrl: string): string | null {
 
   const withoutPrefix = databaseUrl.slice("file:".length);
   const queryIndex = withoutPrefix.indexOf("?");
-  const rawPath = (queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix).trim();
+  const rawPath = (
+    queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix
+  ).trim();
   if (!rawPath || rawPath === ":memory:") {
     return null;
   }

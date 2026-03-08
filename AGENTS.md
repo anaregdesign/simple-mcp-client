@@ -1,384 +1,112 @@
 # Commit Messages
 
-- Write commit messages following the Conventional Commits specification: https://www.conventionalcommits.org/
-- Use this format: `<type>[optional scope]: <description>`
-- Common `type` examples: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+- Write commit messages with Conventional Commits: `<type>[optional scope]: <description>`.
+- Common `type`: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
 # Skill Prerequisite
 
-- Before starting development, install the project skill with Codex standard setup by placing it under `$CODEX_HOME/skills/`.
-- If `CODEX_HOME` is not set, set it first (example: `export CODEX_HOME="$HOME/.codex"`).
-- Recommended setup command:
+- Before development, enable the repository skill:
   - `export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" && npm run skill:enable`
-- Restart Codex (or start a new session) after installing/updating the skill.
+- Restart Codex after installing or updating the skill.
 
-# Implementation Policy
+# Development Mode
 
-## Development Phase Rule
+- This repository is in active development.
+- Do not add backward compatibility shims, dual-path contracts, or fallback behavior unless explicitly requested.
+- Prefer direct replacement of old contracts and terminology.
 
-- Current phase is active development.
-- Do not add backward compatibility shims or fallback behavior unless explicitly requested.
-- Prefer clean replacement of old contracts over dual-path support.
+# Architecture Baseline
 
-## Domain Vocabulary and Naming Source of Truth
+- Treat [`docs/architecture/client-clean-architecture.md`](docs/architecture/client-clean-architecture.md) as the architecture source of truth.
+- `app/lib` top-level directories are restricted to:
+  - `app/lib/client/`
+  - `app/lib/contracts/`
+  - `app/lib/constants/`
+  - `app/lib/domain/`
+  - `app/lib/server/`
+- Do not create new top-level feature roots under `app/lib/`.
+- Do not recreate obsolete roots:
+  - `app/lib/azure/`
+  - `app/lib/foundry/`
+  - `app/lib/mcp/`
+  - `app/lib/observability/`
+  - `app/welcome/`
+- Place reusable code by responsibility:
+  - SPA runtime and view orchestration -> `app/lib/client/`
+  - shared request/response contracts and parsing -> `app/lib/contracts/`
+  - shared static configuration -> `app/lib/constants/`
+  - framework-independent model behavior and policy -> `app/lib/domain/`
+  - server use cases, integrations, and server-only utilities -> `app/lib/server/`
+- Under `app/lib/server/`, prefer `application/`, `infrastructure/`, and `shared/`. Existing peer directories outside these buckets are migration residue and should shrink, not grow.
 
-- Treat Prisma schema entity/table/field names as the canonical domain vocabulary.
-- Use the same term for the same entity across:
-  - Prisma schema
-  - server/client TypeScript identifiers
-  - API route names and payload keys
-  - component names and UI labels when practical
-  - tests, mocks, fixtures, and documentation
-- Do not keep parallel aliases for a single entity (for example, `Message` vs `Dialogue`).
-- When naming drift is found, rename code to Prisma vocabulary rather than introducing adapters.
-- In development phase, remove legacy names directly instead of keeping compatibility aliases.
-- When terminology is updated, apply the rename end-to-end in one pass (schema references, code identifiers, API contracts, UI text, tests, docs) to avoid mixed vocabulary states.
+# Naming and Modeling
 
-## Data Modeling and Normalization
+- Prisma schema entity and field names are the canonical domain vocabulary.
+- Use one name for one concept across schema references, runtime code, API contracts, tests, and docs.
+- When a rename is needed, apply it end-to-end in one pass.
+- Legacy prefixes and historical names may still exist in the codebase. Treat them as migration residue, not as naming guidance for new code.
+- Do not introduce new `home`-prefixed identifiers, `HOME_*` constants, or similar historical aliases for new work unless they are part of an external compatibility boundary that the user explicitly asked to preserve.
+- Use `class` when identity, invariants, lifecycle, or orchestration behavior matter.
+- Keep DTO, response envelopes, join rows, log rows, cache rows, and pure transforms as `type`/function-based modules.
 
-- Prefer normalized relational structures over JSON blobs when data has stable entity boundaries.
-- Introduce and use master tables for reusable entities (for example, Workspace-level skill and registry masters).
-- Reference master entities from thread/message linkage tables instead of duplicating denormalized payloads.
-- Keep per-user persisted resources user-scoped by default (DB ownership and storage directory partitioning).
-- For log-like entities, persist explicit timestamps and preserve insertion order semantics.
+# API and Module Boundaries
 
-## Prisma Schema and MCP Debug Metadata Sync
-
-- When `prisma/schema.prisma` changes for persisted models/fields, update `/mcp/debug` schema design descriptions in `app/lib/server/persistence/mcp-debug-database.ts` in the same implementation pass.
-- Keep `/mcp/debug` metadata aligned end-to-end:
-  - metadata definition rows (role/field/type/nullability entries)
-  - latest-thread description schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
-  - any affected MCP debug tool descriptions generated from metadata
-- Verify sync with `app/lib/server/persistence/mcp-debug-database.test.ts`.
-- After Prisma schema updates that affect persisted models/fields, run:
-  - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
-- Keep table metadata definitions modular:
-  - `app/lib/server/persistence/mcp-debug-database-metadata.ts` is the source of table metadata rows.
-  - `app/lib/server/persistence/mcp-debug-database-types.ts` is the source of metadata types.
-  - `app/lib/server/persistence/mcp-debug-database.ts` should consume metadata definitions, not re-inline a large metadata array.
-- When metadata definitions change, update metadata module and tests in the same pass.
-
-## Ordering Field Semantics
-
-- Use order field names that encode their purpose, not generic sorting intent.
-- Reuse one field name per ordering semantic across entities (same behavior -> same name).
-- Use different field names for different ordering semantics (different behavior -> different name).
-- Do not overload one field name to represent multiple ordering concepts.
-- Prefer names that describe user-facing behavior (timeline order, selection order, configuration order), not implementation detail.
-
-## REST API Contract Standards (`api.*`)
-
-- Design resource-first endpoints:
-  - collection routes for list/create
-  - item routes for read/update/delete/restore on identified resources
-- Use noun-based resource paths; avoid verb-style mutation paths unless the endpoint is an explicit command-style exception.
-- Put resource identifiers in path params, not mutation query params.
-- Reserve query params for read concerns only (filtering, pagination, sorting, projection).
-- Keep `GET` handlers side-effect free (no persistent writes).
-- Keep HTTP method semantics and idempotency consistent:
-  - `POST`: create or non-idempotent operations
-  - `PUT`/`PATCH`: update semantics on identified resources
-  - `DELETE`: idempotent delete semantics
-- Use status codes consistently:
-  - `200` for successful reads/updates with response body
-  - `201` with `Location` for resource creation
-  - `204` for successful no-content operations
-  - `400` malformed request, `401` unauthenticated, `403` unauthorized, `404` not found
-  - `405` via `methodNotAllowedResponse` so `Allow` is always present
-  - `409` for state conflicts, `422` for validation failures
-- Return structured JSON errors with stable machine-readable codes and concise human-readable messages.
-- Remove superseded contracts instead of keeping dual API paths unless explicitly requested.
-
-## REST Compliance Gate for `api/*` Changes
-
-- Whenever any `app/routes/api.*` file is modified, explicitly verify REST best-practice compliance before finalizing.
-- Required static audit:
-  - raw `405` search in `api.*` implementations (must use `methodNotAllowedResponse`)
-  - mutation query-contract search (resource IDs passed by query for mutations)
-  - status-code audit for `200`/`201`/`204`/`409`/`422` usage consistency
-- Required dynamic audit:
-  - `npm run test:core -- app/routes/api.*.test.ts`
-  - `npm run typecheck:core`
-
-## API Service Boundaries
-
-- Do not import one route module from another in `app/routes/api.*` implementations.
-- Shared route logic must live in `app/lib/server/*-service.ts` (or a feature subdirectory under `app/lib/server/`).
-- Route modules should own HTTP concerns (method dispatch, status code, response shape, request validation) and delegate reusable domain logic to service modules.
-- For any `api.*` refactor, run a static audit that route-to-route import findings are zero.
-
-## Agents SDK Command API Exceptions
-
-- Keep command-style APIs where they are required for Agents SDK runtime behavior:
+- Route modules own HTTP concerns only:
+  - method dispatch
+  - request validation
+  - status codes
+  - response shape
+- Shared route logic must live under `app/lib/server/`.
+- Do not import one route module from another in `app/routes/api.*`.
+- Do not introduce new `app/lib/server` -> `app/lib/client` imports.
+- Standard APIs should be resource-first and noun-based.
+- Command-style exceptions are limited to:
   - `/api/chat`
   - `/api/instruction-patches`
   - `/api/threads/title-suggestions`
-- For these endpoints, prioritize streaming/turn control/context management efficiency over REST purity.
-- Document command-style exceptions explicitly when auditing REST compliance.
+- Use `methodNotAllowedResponse` for `405`.
+- Keep structured JSON error payloads with stable machine-readable codes and concise messages.
 
-## Refactor Verification Loop
+# Client and UI Boundaries
 
-- Run a static audit after each rename/refactor batch:
-  - old term search (`rg`) for deprecated entity names and payload keys
-  - raw `405` search in `api.*` implementations
-  - old query-contract search (resource IDs passed by query for mutations)
-  - route-to-route import search in `app/routes/api.*` implementations
-  - duplicated local `*Like` type search in Home UI modules when shared view models were changed
-  - duplicated Thread selector pattern search in controller hotspots:
-    - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
-  - duplicated Home API auth/error branch search in controller hotspots:
-    - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
-  - `api.chat` helper concentration search:
-    - `rg -n "^function " app/routes/api.chat.ts`
-- Run dynamic validation after static cleanup:
-  - `npm run test:core -- app/routes/api.*.test.ts`
-  - `npm run typecheck:core`
-  - `npm run quality:gate`
-- Repeat static + dynamic audit until new findings are zero.
-
-## Product Identity
-
-- App name is `Local Playground`.
-- Keep terminology consistent in UI/docs: `Playground`, `Threads`, `MCP Servers`, `Skills`, `Settings`.
-- Keep a desktop-first UX while preserving responsive behavior.
-
-## Layout / UX
-
-- Main layout is two-pane:
-  - Left pane: always-visible `Playground` chat area.
-  - Right pane: tabbed side panel (`Threads`, `MCP Servers`, `Skills`, `Settings`).
-- Keep the vertical splitter between left/right panes resizable.
-- Keep right-pane width bounded for desktop usability:
-  - right pane minimum: `320px`
-  - left pane minimum: `560px`
-- On narrow screens (`<= 980px`), switch to stacked layout:
-  - top: chat
-  - bottom: side panel
-  - hide vertical splitter
-- Keep `Added MCP Servers` visible in the chat footer as bubble chips under the composer (not in the right pane).
-- Keep chat attachment bubbles visible under the composer while drafting.
-- Keep thread controls in the Playground header:
-  - editable active thread name
-  - new thread action
-- Use Fluent UI components and patterns as default. Apply custom CSS only where needed for layout clarity, splitter behavior, and compact desktop spacing.
-
-## Frontend Component Architecture
-
-- Keep component boundaries aligned with the real DOM tree.
-- For `home` UI, preserve this directory structure:
-  - `app/components/home/authorize/` for auth-only top-level panel(s) rendered when sign-in is required
-  - `app/components/home/playground/` for left-pane Playground panel and renderers
-  - `app/components/home/config/` for right-pane configuration panel
-  - `app/components/home/config/threads/` for Threads tab and its sections
-  - `app/components/home/config/mcp/` for MCP Servers tab and its sections
-  - `app/components/home/config/skills/` for Skills tab and its sections
-  - `app/components/home/config/settings/` for Settings tab and its sections
-  - `app/components/home/shared/` for reusable UI primitives and shared types
-- Naming conventions:
-  - `*Panel`: top-level pane container (`UnauthenticatedPanel`, `PlaygroundPanel`, `ConfigPanel`)
-  - `*Tab`: tab content root under a panel (`ThreadsTab`, `McpServersTab`, `SkillsTab`, `SettingsTab`)
-  - `*Section`: vertically segmented form/content block inside a tab (`InstructionSection`, `ThreadsManageSection`, `SkillsSection`, `McpAddServerSection`)
-  - Shared primitives should use purpose-based names (`ConfigSection`, `StatusMessageList`, `AutoDismissStatusMessageList`, `LabeledTooltip`, `CopyIconButton`)
-- Place top-level panel components as siblings under `app/components/home/*` according to DOM hierarchy.
-  - Do not place one top-level panel inside another panel directory (for example, auth panel under `playground/`).
-- Home route modules under `app/routes/` should stay as visual composition only (layout + panel wiring), not runtime state/effects.
+- Keep route components under `app/routes/` focused on visual composition.
+- Keep SPA runtime state and side effects in `app/lib/client/`.
+- Reuse `app/components/client/shared/` before adding repeated UI patterns.
 - Prefer one-directional dependencies:
   - panel -> tab -> section -> shared
-  - avoid cross-importing siblings when a shared primitive is appropriate.
+- Keep product terminology consistent:
+  - `Playground`
+  - `Threads`
+  - `MCP Servers`
+  - `Skills`
+  - `Settings`
+- Preserve desktop-first behavior while keeping the UI responsive.
 
-## Home Runtime Structure
+# Persistence, Auth, and Debug
 
-- Keep Home runtime state, effects, and API handlers centralized in `app/lib/home/controller/`.
-- Do not split primary state ownership across multiple hooks/files unless there is a clear technical need.
-- Keep message/MCP renderer helpers outside route modules, under `app/components/home/playground/`.
-- Home route modules under `app/routes/` must not re-grow into large logic files; they should compose layout and panel wiring only.
-- Prefer extracting pure data transforms into `app/lib/home/*` modules (no React state there).
-- Keep per-thread state ownership in the controller:
-  - messages
-  - active MCP servers
-  - thread-scoped execution logs
-  - agent instruction
-  - thread request status (send/progress/error)
-- Keep a single source of truth for active Thread runtime state:
-  - canonical state is `threads + activeThreadId`
-  - avoid mirrored controller-level state for data already represented in thread snapshots (`messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`)
-- Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/home/thread/*` over ad-hoc duplicated mutation code in controller handlers.
-- When `use-workspace-controller.ts` needs Thread lookup by ID, use shared selector helpers (for example `findThreadSnapshotById`) instead of repeating inline `threadsRef.current.find(...)`.
-- Use phase-based Thread operation state (`ThreadOperationPhase`) with shared guard helpers instead of many independent busy booleans.
-- Apply Thread operation phase updates through transition APIs in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation` / `canTransition`) instead of direct phase mutation.
-- Keep `sendMessage` orchestration thin by delegating precondition checks, request payload composition, stream consumption, and result application to `app/lib/home/controller/send-message-usecase.ts`.
-- Centralize shared Home API auth/error handling in `app/lib/home/controller/api-client.ts` (`requestHomeApi`, `resolveAuthRequired`, `mapApiError`) instead of duplicating 401/authRequired/network branches per handler.
-- For Home controller fetch calls that read JSON payload and map auth/error branches, use `requestHomeApi` by default and keep per-handler logic limited to domain-specific state updates.
-- Keep persistent interactive state in React/controller runtime first.
-- Persist controller state to SQLite with delayed writes (debounced/autosave), not eager write-on-every-change.
-- Treat SQLite as durable snapshot storage; treat React/controller state as the immediate source of truth during interaction.
+- Treat controller/runtime state as the immediate source of truth during interaction.
+- Treat persisted storage as the durable snapshot layer.
+- Use `DefaultAzureCredential` for Azure authentication flows.
+- Keep user-scoped persisted resources user-scoped in both DB records and filesystem layout.
+- `/mcp/debug` is a development/debug workflow, not a production access path.
+- When `prisma/schema.prisma` changes for persisted models or fields, update `/mcp/debug` metadata in the same batch and run:
+  - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
 
-## Constants / Imports
+# Verification
 
-- Define shared static constants in constants modules under `app/lib/`.
-- Do not add new `UPPER_SNAKE_CASE` constants in feature files unless they are truly file-local and non-shared.
-- Import constants directly from the owning constants module under `~/lib/` with the same exported name.
-  - Avoid alias renaming (`as`) for constants.
-- Avoid re-export-only type/constant passthrough files; import from the source module directly.
-- For Home UI and controller boundaries, shared view/domain types belong in `app/lib/home/shared/view-types.ts`.
-  - Avoid reintroducing duplicated component-local `*Like` types when the same shape is used in multiple modules.
+- Run naming and structure drift checks after each meaningful refactor batch.
+- Recommended static audits:
+  - deprecated term search with `rg`
+  - route-to-route import search
+  - `server -> client` import search
+  - raw `405` search in `app/routes/api.*`
+- If any `app/routes/api.*` file changed, run:
+  - `npm run test:core -- app/routes/api.*.test.ts`
+  - `npm run typecheck:core`
+- Run `npm run quality:gate` after broader refactors and before finalizing substantial changes.
 
-## Visual Style Baseline (Current UI)
+# Documentation
 
-- Theme direction: light Fluent-like desktop UI with compact spacing and flat surfaces.
-- Keep root design tokens in `app/app.css` as the style source of truth (font, background, text, accent, danger, bubbles).
-- Keep Home-specific shape/typography tokens in `:root` (`--home-*`) and reuse them across components.
-- Avoid duplicating hard-coded values for radius/font size/line-height when a token already exists.
-- Keep page background as a soft gradient blend (`radial + linear`), not a flat solid color.
-- Keep shell surfaces mostly flat:
-  - white surfaces
-  - minimal/no card shadows
-  - tight borders using `--surface-border`
-  - square-to-small radii (avoid oversized rounded cards)
-- Keep typography stack:
-  - UI text: `"Segoe UI", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif`
-  - code/JSON: `"IBM Plex Mono", "SFMono-Regular", Menlo, monospace`
-- Chat styling rules:
-  - user messages are right-aligned tinted bubbles (`--bubble-user`)
-  - assistant messages stay visually light/flat to prioritize content readability
-  - markdown is rendered with compact spacing; JSON is syntax-highlighted
-  - keep copy affordances (`⎘`) on messages and MCP logs
-- MCP styling rules:
-  - MCP Operation Log is inline per turn and collapsed by default (`<details>`)
-  - nested MCP entries stay compact, with clear `ok`/`error` state coloring
-  - keep request/response JSON blocks readable in constrained height areas
-- Tab/side-panel styling rules:
-  - use compact subtle tabs with clear selected-state border/background
-  - keep setting groups vertically segmented with thin separators
-  - preserve compact desktop-first spacing density
-
-## Azure / Auth
-
-- Use `DefaultAzureCredential` for Azure authentication.
-- Do not rely on environment variables for Azure project/deployment selection.
-- Discover accessible Azure OpenAI projects dynamically from Azure Resource Manager.
-- Reload deployments when selected project changes.
-- Show only Agents SDK-compatible deployments.
-- Use Azure OpenAI v1 endpoint format (`.../openai/v1/`).
-- Keep Playground locked while auth is unavailable and guide users to `Settings` login.
-- Persist last-used Azure project/deployment per `tenantId` + `principalId`:
-  - SQLite database: `local-playground.sqlite`
-  - macOS/Linux default location: `~/.foundry_local_playground/local-playground.sqlite`
-  - Windows default location: `%APPDATA%\\FoundryLocalPlayground\\local-playground.sqlite`
-  - Windows fallback when `APPDATA` is unavailable: `%USERPROFILE%\\.foundry_local_playground\\local-playground.sqlite`
-
-## Agents SDK / Chat Runtime
-
-- Implement chat execution with Agents SDK (`@openai/agents` + `@openai/agents-openai`).
-- Keep API error messages concise and in English.
-- Preserve IME safety: Enter during composition must not submit.
-- Do not expose `temperature` in UI settings; keep it optional at API boundary only.
-- Render Markdown responses and apply syntax highlighting to JSON responses.
-- Show concrete streaming progress states (not only generic `Thinking...`).
-- Support chat attachments for Code Interpreter-compatible files with current validation limits from constants modules under `app/lib/`.
-- Keep `app/routes/api.chat.ts` orchestration-focused.
-  - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live under `app/lib/server/chat/*`.
-- Do not add reusable low-level runtime utilities directly in `app/routes/api.chat.ts` (for example stdio command/path resolution, environment shaping, retry helpers); place them under `app/lib/server/chat/*` with dedicated unit tests.
-- On stream disconnect/cancel, propagate `AbortSignal` through chat execution and ensure MCP/session/container cleanup paths always execute.
-- Classify stream disconnect as cancellation (not upstream failure): do not emit stream error payload on client disconnect, and log cancellation as info-level (`chat_stream_canceled`).
-
-## Threads / Instruction Behavior
-
-- Keep `Threads` as the default right-pane tab.
-- Keep thread switching in `Threads` tab and quick new-thread flow in Playground header.
-- Persist each thread snapshot in SQLite with:
-  - thread metadata
-  - instruction
-  - messages
-  - connected MCP servers
-  - execution logs linked to thread turns
-- Save active thread changes from controller logic (debounced/autosave where implemented).
-- Agent instruction workflow lives in `Threads` tab and supports:
-  - text edit
-  - clear
-  - load file (`.md`, `.txt`, `.xml`, `.json`, max `1MB`)
-  - save on client side using save picker/download flow
-  - AI enhancement using currently selected Azure project/deployment
-  - diff review (adopt enhanced vs keep original)
-- Skill discovery roots for the app runtime:
-  - CODEX_HOME shared skills: `$CODEX_HOME/skills/`
-  - app-data shared skills: `<foundry-config-dir>/skills/` (same parent directory as `local-playground.sqlite`)
-
-## MCP Server Management
-
-- Support transports: `streamable_http`, `sse`, `stdio`.
-- Persist saved MCP profiles:
-  - SQLite database: `local-playground.sqlite`
-  - macOS/Linux default location: `~/.foundry_local_playground/local-playground.sqlite`
-  - Windows default location: `%APPDATA%\\FoundryLocalPlayground\\local-playground.sqlite`
-  - Windows fallback when `APPDATA` is unavailable: `%USERPROFILE%\\.foundry_local_playground\\local-playground.sqlite`
-- Saved MCP profiles are selectable in `MCP Servers` tab and can be connected directly to the current thread.
-- Adding a new MCP server should:
-  - validate inputs by transport
-  - save/update profile in DB
-  - connect the resulting server to the active thread
-- Detect duplicate configurations when saving:
-  - reuse existing config
-  - emit warning
-  - allow rename behavior when incoming name differs
-- For HTTP MCP:
-  - always include `Content-Type: application/json`
-  - allow additional custom headers
-  - support per-server timeout and per-server Azure token scope
-  - when Azure auth is enabled, inject `Authorization: Bearer <token>` at request time from `DefaultAzureCredential`
-- Share MCP input validation between frontend and backend via `app/lib/mcp/validation.ts`; UI and route parsers may format context-specific error messages but should not duplicate validation rules.
-- Share MCP server config parsing across chat and MCP routes via `app/lib/mcp/server-config-parser.ts`; keep context-specific error prefixes/messages at the call site, not duplicated parser logic.
-- For MCP session pool contention, prefer bounded wait-and-reuse before ephemeral fallback to improve session reuse and reduce connection churn.
-- Register runtime shutdown cleanup hooks once (idempotent) and close all Thread MCP sessions during process shutdown.
-- For session pool idle cleanup, close MCP sessions with best-effort safe close and warning logs so close failures never surface as unhandled rejections.
-
-## MCP Debugging UX
-
-- Keep MCP visibility high; this app is an MCP debugging workbench.
-- During local development, the web server `/mcp/debug` endpoint hosts an MCP server and may be used for debugging, including inspecting all SQLite tables.
-- Treat `/mcp/debug` database-table inspection as a development/debug workflow, not a production access pattern.
-- Show MCP Operation Log inline in Playground per dialog turn.
-- Do not render MCP log blocks when a turn has no MCP operations.
-- Default MCP log panels to collapsed.
-- Preserve request/response order and show JSON-RPC payloads.
-- Show MCP communication logs on success and error paths.
-- Provide copy actions for:
-  - dialog content
-  - whole MCP operation entry
-  - request/response payload parts
-- Use shared copy UI primitives for copy affordances to keep behavior and appearance consistent.
-
-## Shared UI Primitives
-
-- Reuse shared components in `app/components/home/shared/` instead of duplicating markup:
-  - `ConfigSection` for section header/title/description shell
-  - `StatusMessageList` for grouped status/error/success bars
-  - `AutoDismissStatusMessageList` for timed dismissible status bars
-  - `LabeledTooltip` for titled multiline tooltips
-  - `CopyIconButton` for copy icon action buttons
-- When adding new repeated UI patterns, extract to `shared` first if used in 2+ places.
-
-## Build / Release
-
-- Release trigger is tag push: `v*.*.*`.
-- GitHub Actions should build OS installers and attach them to GitHub Release assets:
-  - macOS (`.dmg`, `.zip`)
-  - Windows (`.exe` via NSIS)
-- Keep local packaging scripts aligned with workflow (`desktop:package*`).
-
-## Documentation
-
-- Keep `README.md` aligned with implemented behavior and script names.
-- Keep screenshot assets in `docs/images/` current with the latest UI.
-- When layout/UX changes are introduced, refresh screenshot files referenced by README.
-- Prefer screenshots that show realistic usage value (meaningful prompt/response and relevant panel state), not empty UI.
-
-## Quality Gates
-
-- After UI/API changes, run:
-  - `npm run quality:gate`
-  - (`quality:gate` runs `npm audit --omit=dev`, `npm run prisma:generate`, `npm run typecheck:core`, `npm run test:core`, `npm run build:core`)
-- After refactors, remove dead code:
-  - unused components/files
-  - unused CSS selectors in `app/app.css`
-  - stale/obsolete tests or old-name references
+- Keep `README.md`, architecture docs, and the repository skill aligned with implemented architecture.
+- Prefer stable rules and durable concepts over exhaustive implementation inventories.
+- Remove or simplify documentation sections that are likely to become stale quickly.

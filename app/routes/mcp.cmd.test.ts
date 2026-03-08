@@ -5,7 +5,7 @@ import fs from "node:fs";
 import nodeOs from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants";
+import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants/mcp";
 
 const {
   readAzureArmUserContextMock,

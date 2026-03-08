@@ -2,7 +2,7 @@
  * Test module verifying POST /api/threads behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadSnapshot } from "~/lib/home/thread/types";
+import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
 
 const {
   readAzureArmUserContextMock,
@@ -26,7 +26,7 @@ vi.mock("~/lib/server/persistence/user", () => ({
   getOrCreateUserByIdentity: getOrCreateUserByIdentityMock,
 }));
 
-vi.mock("~/lib/home/thread/parsers", () => ({
+vi.mock("~/lib/contracts/threads/parsers", () => ({
   readThreadSnapshotFromUnknown: readThreadSnapshotFromUnknownMock,
 }));
 

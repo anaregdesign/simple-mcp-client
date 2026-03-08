@@ -54,10 +54,22 @@ describe("readBlobEntriesFromTreePayload", () => {
     const result = readBlobEntriesFromTreePayload({
       truncated: false,
       tree: [
-        { type: "blob", path: "skills/.curated/gh-fix-ci/SKILL.md", sha: "sha-skill" },
-        { type: "blob", path: "skills/.curated/gh-fix-ci/scripts/run.mjs", sha: "sha-script" },
+        {
+          type: "blob",
+          path: "skills/.curated/gh-fix-ci/SKILL.md",
+          sha: "sha-skill",
+        },
+        {
+          type: "blob",
+          path: "skills/.curated/gh-fix-ci/scripts/run.mjs",
+          sha: "sha-script",
+        },
         { type: "tree", path: "skills/.curated/gh-fix-ci/scripts" },
-        { type: "blob", path: "skills/.curated/gh-fix-ci/SKILL.md", sha: "sha-skill" },
+        {
+          type: "blob",
+          path: "skills/.curated/gh-fix-ci/SKILL.md",
+          sha: "sha-skill",
+        },
       ],
     });
 
@@ -65,7 +77,10 @@ describe("readBlobEntriesFromTreePayload", () => {
     expect(result).toEqual(
       expect.arrayContaining([
         { path: "skills/.curated/gh-fix-ci/SKILL.md", sha: "sha-skill" },
-        { path: "skills/.curated/gh-fix-ci/scripts/run.mjs", sha: "sha-script" },
+        {
+          path: "skills/.curated/gh-fix-ci/scripts/run.mjs",
+          sha: "sha-script",
+        },
       ]),
     );
   });
@@ -255,15 +270,18 @@ describe("resolveAppDataSkillsRoot", () => {
   it("resolves a user-scoped path from configured Foundry directory", () => {
     const rootPath = resolveAppDataSkillsRoot({
       workspaceUserId: 42,
-      foundryConfigDirectory: "/Users/hiroki/.foundry_local_playground",
+      workspaceStorageDirectory: "/Users/hiroki/.foundry_local_playground",
     });
 
-    expect(rootPath).toBe("/Users/hiroki/.foundry_local_playground/users/42/skills");
+    expect(rootPath).toBe(
+      "/Users/hiroki/.foundry_local_playground/users/42/skills",
+    );
   });
 
   it("resolves a user-scoped path from DATABASE_URL", () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
-    const previousLocalPlaygroundDatabaseUrl = process.env.LOCAL_PLAYGROUND_DATABASE_URL;
+    const previousLocalPlaygroundDatabaseUrl =
+      process.env.LOCAL_PLAYGROUND_DATABASE_URL;
     process.env.DATABASE_URL = "file:/tmp/local-playground.sqlite";
     delete process.env.LOCAL_PLAYGROUND_DATABASE_URL;
 
@@ -283,7 +301,8 @@ describe("resolveAppDataSkillsRoot", () => {
       if (previousLocalPlaygroundDatabaseUrl === undefined) {
         delete process.env.LOCAL_PLAYGROUND_DATABASE_URL;
       } else {
-        process.env.LOCAL_PLAYGROUND_DATABASE_URL = previousLocalPlaygroundDatabaseUrl;
+        process.env.LOCAL_PLAYGROUND_DATABASE_URL =
+          previousLocalPlaygroundDatabaseUrl;
       }
     }
   });

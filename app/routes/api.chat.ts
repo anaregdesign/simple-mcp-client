@@ -23,12 +23,7 @@ import {
   codeInterpreterTool,
 } from "@openai/agents-openai";
 import { toFile } from "openai";
-import { getAzureDependencies } from "~/lib/azure/dependencies";
-import {
-  resolveFoundryWorkspaceThreadDirectory,
-  resolveFoundryWorkspaceUserDirectory,
-} from "~/lib/foundry/config";
-import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
+import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
   type ThreadMcpServerSession,
@@ -47,33 +42,29 @@ import {
 } from "~/lib/server/http";
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
-  CHAT_CLEANUP_TIMEOUT_MS,
-  CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
-  CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS,
-  CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH,
   CHAT_ATTACHMENT_MAX_FILES,
+  CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH,
   CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES,
   CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES,
   CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES,
   CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES,
+  CHAT_CLEANUP_TIMEOUT_MS,
+  CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
   CHAT_MAX_CONSECUTIVE_IDENTICAL_SKILL_OPERATIONS,
   CHAT_MAX_IDENTICAL_SKILL_OPERATION_CALLS_PER_SIGNATURE,
   CHAT_MAX_IDENTICAL_SKILL_RUN_SCRIPT_CALLS_PER_SIGNATURE,
-  CHAT_MAX_SKILL_OPERATION_CALLS_PER_SERVER_METHOD,
-  CHAT_MAX_SKILL_RUN_SCRIPT_CALLS_PER_SERVER_METHOD,
-  CHAT_MAX_SKILL_OPERATION_ERRORS,
   CHAT_MAX_RUN_TURNS,
+  CHAT_MAX_SKILL_OPERATION_CALLS_PER_SERVER_METHOD,
+  CHAT_MAX_SKILL_OPERATION_ERRORS,
+  CHAT_MAX_SKILL_RUN_SCRIPT_CALLS_PER_SERVER_METHOD,
   CHAT_MODEL_RUN_TIMEOUT_MS,
+  CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS,
   DEFAULT_AGENT_INSTRUCTION,
-  AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES,
-  AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
-  AGENT_SKILL_READ_TEXT_MAX_CHARS,
-  AGENT_SKILL_SCRIPT_ARG_MAX_LENGTH,
-  AGENT_SKILL_SCRIPT_MAX_ARGS,
-  AGENT_SKILL_SCRIPT_OUTPUT_MAX_CHARS,
-  AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS,
-  AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
-  AGENT_SKILL_NAME_MAX_LENGTH,
+  THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
+  THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
+  THREAD_ENVIRONMENT_VARIABLES_MAX,
+} from "~/lib/constants/chat";
+import {
   ENV_KEY_PATTERN,
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_HTTP_HEADERS,
@@ -83,20 +74,25 @@ import {
   MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
   MCP_SERVER_NAME_MAX_LENGTH,
   THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS,
-  THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VARIABLES_MAX,
-} from "~/lib/constants";
-import type { AzureDependencies } from "~/lib/azure/dependencies";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+} from "~/lib/constants/mcp";
+import {
+  AGENT_SKILL_NAME_MAX_LENGTH,
+  AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES,
+  AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
+  AGENT_SKILL_READ_TEXT_MAX_CHARS,
+  AGENT_SKILL_SCRIPT_ARG_MAX_LENGTH,
+  AGENT_SKILL_SCRIPT_MAX_ARGS,
+  AGENT_SKILL_SCRIPT_OUTPUT_MAX_CHARS,
+  AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS,
+  AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
+} from "~/lib/constants/skills";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import {
   cloneThreadEnvironment,
   parseThreadEnvironmentFromUnknown,
   type ThreadEnvironment,
-} from "~/lib/home/thread/environment";
-import {
-  type ThreadInstructionContextToggles,
-} from "~/lib/home/thread/instruction-context";
+} from "~/lib/contracts/threads/environment";
+import { type ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import {
   isDeploymentReasoningEffortCompatible,
   isWebSearchCompatibleReasoningEffort,
@@ -120,9 +116,10 @@ import {
   readAzureArmUserContext,
   type AzurePrincipalType,
 } from "~/lib/server/auth/azure-user";
-import { ensurePersistenceDatabaseReady, prisma } from "~/lib/server/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
-import { readSkillFrontmatter, readSkillMarkdown } from "~/lib/server/skills/catalog";
+import {
+  readSkillFrontmatter,
+  readSkillMarkdown,
+} from "~/lib/server/skills/catalog";
 import {
   inspectSkillResourceManifest,
   readSkillResourceBuffer,
@@ -145,9 +142,20 @@ import {
   type WebSearchPreviewUserLocation,
 } from "~/lib/server/chat/request-metadata";
 import {
+  readLatestThreadNameForInstruction,
+  readPlaygroundSelectionForInstruction,
+  resolveThreadDirectoryContext,
+  resolveThreadDirectoryPath,
+} from "~/lib/server/chat/instruction-context-enrichment";
+import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,
 } from "~/lib/server/chat/stdio-runtime-path";
+import {
+  createAzureOpenAIClient,
+  getAzureBearerTokenForScope,
+  type AzureOpenAIClient,
+} from "~/lib/server/application/azure/azure-openai-service";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 const chatTransientTerminationRetryMaxAttempts = 2;
@@ -216,7 +224,11 @@ type SystemInstructionContextPayload = {
   azureContext: {
     principalDisplayName: string | null;
     principalName: string | null;
-    principalType: "User" | "Service Principal" | "Managed Identity" | "Unknown";
+    principalType:
+      | "User"
+      | "Service Principal"
+      | "Managed Identity"
+      | "Unknown";
     tenantId: string | null;
     principalId: string | null;
     playgroundProject: string | null;
@@ -438,7 +450,10 @@ export async function action({ request }: Route.ActionArgs) {
     turnId,
     userId: threadDirectoryContext?.userId ?? null,
     clientUserAgent: readOptionalRequestHeaderValue(request, "user-agent"),
-    clientPlatform: readOptionalRequestHeaderValue(request, "sec-ch-ua-platform"),
+    clientPlatform: readOptionalRequestHeaderValue(
+      request,
+      "sec-ch-ua-platform",
+    ),
     message,
     attachments,
     history,
@@ -459,7 +474,9 @@ export async function action({ request }: Route.ActionArgs) {
   await logServerRouteEvent({
     request,
     route: "/api/chat",
-    eventName: streamRequested ? "chat_stream_request_received" : "chat_request_received",
+    eventName: streamRequested
+      ? "chat_stream_request_received"
+      : "chat_request_received",
     action: streamRequested ? "stream_chat" : "execute_chat",
     level: "info",
     statusCode: 200,
@@ -490,7 +507,10 @@ export async function action({ request }: Route.ActionArgs) {
       threadEnvironment: result.threadEnvironment,
     });
   } catch (error) {
-    const upstreamError = buildUpstreamErrorPayload(error, azureConfig.deploymentName);
+    const upstreamError = buildUpstreamErrorPayload(
+      error,
+      azureConfig.deploymentName,
+    );
     await logServerRouteEvent({
       request,
       route: "/api/chat",
@@ -524,11 +544,9 @@ async function executeChat(
   abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
   throwIfAborted(abortSignal);
-  const azureDependencies = getAzureDependencies();
-  const azureOpenAIClient = getAzureOpenAIClient(
+  const azureOpenAIClient = createAzureOpenAIClient(
     options.azureConfig.baseUrl,
     options.azureConfig.tenantId,
-    azureDependencies,
   );
   const connectedMcpServers: MCPServer[] = [];
   const connectedMcpServerLeases: ThreadMcpServerSessionLease[] = [];
@@ -536,7 +554,10 @@ async function executeChat(
   const toolNameByCallId = new Map<string, string>();
   let operationLogSequence = 0;
   const hasMcpServers = options.mcpServers.length > 0;
-  const azureMcpAuthorizationTokenPromiseByScope = new Map<string, Promise<string>>();
+  const azureMcpAuthorizationTokenPromiseByScope = new Map<
+    string,
+    Promise<string>
+  >();
   const mcpRuntimeMetrics = createInitialChatMcpRuntimeMetrics();
   const mcpRequestContext: McpRequestContext = {
     threadId: options.threadId,
@@ -580,7 +601,10 @@ async function executeChat(
         });
 
         const connectSequence = nextThreadOperationLogSequence();
-        const connectRequestId = buildThreadOperationLogRequestId(serverConfig.name, connectSequence);
+        const connectRequestId = buildThreadOperationLogRequestId(
+          serverConfig.name,
+          connectSequence,
+        );
         const connectStartedAtMs = Date.now();
         const connectStartedAt = new Date(connectStartedAtMs).toISOString();
         const connectRequest: JsonRpcRequestPayload = {
@@ -598,7 +622,8 @@ async function executeChat(
               requestContext: mcpRequestContext,
               getAzureAuthorizationToken: (scope) => {
                 const normalizedScope = scope.trim();
-                const current = azureMcpAuthorizationTokenPromiseByScope.get(normalizedScope);
+                const current =
+                  azureMcpAuthorizationTokenPromiseByScope.get(normalizedScope);
                 if (current) {
                   return current;
                 }
@@ -606,9 +631,11 @@ async function executeChat(
                 const created = getAzureMcpAuthorizationToken(
                   normalizedScope,
                   options.azureConfig.tenantId,
-                  azureDependencies,
                 );
-                azureMcpAuthorizationTokenPromiseByScope.set(normalizedScope, created);
+                azureMcpAuthorizationTokenPromiseByScope.set(
+                  normalizedScope,
+                  created,
+                );
                 return created;
               },
               logHandlers: {
@@ -629,13 +656,17 @@ async function executeChat(
             startedAt: connectStartedAt,
             completedAt: new Date().toISOString(),
             request: connectRequest,
-            response: buildMcpConnectSuccessResponse(connectRequestId, lease.status),
+            response: buildMcpConnectSuccessResponse(
+              connectRequestId,
+              lease.status,
+            ),
             isError: false,
           });
           emitProgress({
-            message: lease.status === "reused"
-              ? `Reused MCP server: ${serverConfig.name}`
-              : `Connected MCP server: ${serverConfig.name}`,
+            message:
+              lease.status === "reused"
+                ? `Reused MCP server: ${serverConfig.name}`
+                : `Connected MCP server: ${serverConfig.name}`,
             isMcp: true,
           });
 
@@ -683,16 +714,23 @@ async function executeChat(
       createExecutionContext: (skillRuntime) =>
         skillRuntime.activeSkills.length > 0
           ? {
-              threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
+              threadEnvironment: cloneThreadEnvironment(
+                options.threadEnvironment,
+              ),
             }
           : null,
       emitActivationLogs: (skillRuntime, skillExecutionContext) => {
-        emitSkillActivationOperationLogs(skillRuntime, {
-          nextSequence: nextThreadOperationLogSequence,
-          onRecord: emitThreadOperationLogRecord,
-        }, skillExecutionContext);
+        emitSkillActivationOperationLogs(
+          skillRuntime,
+          {
+            nextSequence: nextThreadOperationLogSequence,
+            onRecord: emitThreadOperationLogRecord,
+          },
+          skillExecutionContext,
+        );
       },
-      collectWarnings: (skillRuntime) => collectSkillRuntimeWarnings(skillRuntime),
+      collectWarnings: (skillRuntime) =>
+        collectSkillRuntimeWarnings(skillRuntime),
     });
     const skillRuntime = preparedSkillRuntime.runtime;
     const skillExecutionContext = preparedSkillRuntime.executionContext;
@@ -702,7 +740,8 @@ async function executeChat(
         message: `Skill loading warnings: ${skillWarnings.slice(0, 2).join(" / ")}`,
       });
     }
-    const implicitSystemInstructionContext = options.instructionContextToggles.system
+    const implicitSystemInstructionContext = options.instructionContextToggles
+      .system
       ? await buildSystemInstructionContextPayload(options)
       : null;
 
@@ -721,10 +760,13 @@ async function executeChat(
     const useCodeInterpreter = shouldEnableCodeInterpreter(options);
     let codeInterpreterEnabledForRun = false;
     if (useCodeInterpreter) {
-      emitProgress({ message: "Enabling Code Interpreter for non-PDF attachments..." });
+      emitProgress({
+        message: "Enabling Code Interpreter for non-PDF attachments...",
+      });
       const nonPdfAttachments = collectNonPdfAttachments(options);
       if (nonPdfAttachments.length > 0) {
-        const cachedAvailability = readCodeInterpreterAttachmentAvailabilityCache();
+        const cachedAvailability =
+          readCodeInterpreterAttachmentAvailabilityCache();
         if (cachedAvailability && !cachedAvailability.supported) {
           emitProgress({
             message:
@@ -735,10 +777,11 @@ async function executeChat(
             message: `Uploading attachments for Code Interpreter (${nonPdfAttachments.length})...`,
           });
           try {
-            codeInterpreterContainerId = await createCodeInterpreterContainerWithAttachments(
-              nonPdfAttachments,
-              azureOpenAIClient,
-            );
+            codeInterpreterContainerId =
+              await createCodeInterpreterContainerWithAttachments(
+                nonPdfAttachments,
+                azureOpenAIClient,
+              );
             codeInterpreterEnabledForRun = true;
             markCodeInterpreterAttachmentAvailabilitySupported();
           } catch (error) {
@@ -757,22 +800,34 @@ async function executeChat(
     const enableCodeInterpreterTool =
       codeInterpreterEnabledForRun && codeInterpreterContainerId.length > 0;
     const skillTools = skillExecutionContext
-      ? buildSkillTools(skillRuntime.activeSkills, {
-          nextSequence: nextThreadOperationLogSequence,
-          onRecord: emitThreadOperationLogRecord,
-        }, skillExecutionContext)
+      ? buildSkillTools(
+          skillRuntime.activeSkills,
+          {
+            nextSequence: nextThreadOperationLogSequence,
+            onRecord: emitThreadOperationLogRecord,
+          },
+          skillExecutionContext,
+        )
       : [];
 
     const agent = new Agent({
       name: "LocalPlaygroundAgent",
-      instructions: buildAgentInstructionWithSkills(options.agentInstruction, skillRuntime, {
-        instructionContextToggles: options.instructionContextToggles,
-        systemInstructionContext: implicitSystemInstructionContext,
-      }),
+      instructions: buildAgentInstructionWithSkills(
+        options.agentInstruction,
+        skillRuntime,
+        {
+          instructionContextToggles: options.instructionContextToggles,
+          systemInstructionContext: implicitSystemInstructionContext,
+        },
+      ),
       model,
       modelSettings: {
-        ...(options.temperature !== null ? { temperature: options.temperature } : {}),
-        ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+        ...(options.temperature !== null
+          ? { temperature: options.temperature }
+          : {}),
+        ...(options.reasoningEffort
+          ? { reasoning: { effort: options.reasoningEffort } }
+          : {}),
       },
       tools: [
         ...webSearchTools,
@@ -795,9 +850,13 @@ async function executeChat(
           })
         : assistant(entry.content),
     );
-    const currentInput = buildUserMessageInput(options.message, options.attachments, {
-      useCodeInterpreter: enableCodeInterpreterTool,
-    });
+    const currentInput = buildUserMessageInput(
+      options.message,
+      options.attachments,
+      {
+        useCodeInterpreter: enableCodeInterpreterTool,
+      },
+    );
     const compactionSession = await initializeCompactionSession({
       client: azureOpenAIClient,
       deploymentName: options.azureConfig.deploymentName,
@@ -851,7 +910,9 @@ async function executeChat(
         runTimeoutMessage,
       );
 
-      const assistantMessage = extractAgentFinalOutput(streamedResult.finalOutput);
+      const assistantMessage = extractAgentFinalOutput(
+        streamedResult.finalOutput,
+      );
       if (!assistantMessage) {
         throw new Error("Azure OpenAI returned an empty message.");
       }
@@ -915,7 +976,11 @@ async function executeChatWithTransientRetry(
   onEvent?: (event: ChatExecutionEvent) => void,
   abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
-  for (let attempt = 1; attempt <= chatTransientTerminationRetryMaxAttempts; attempt += 1) {
+  for (
+    let attempt = 1;
+    attempt <= chatTransientTerminationRetryMaxAttempts;
+    attempt += 1
+  ) {
     try {
       throwIfAborted(abortSignal);
       return await executeChat(options, onEvent, abortSignal);
@@ -958,21 +1023,25 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         message: "Preparing request...",
       });
 
-      const result = await executeChatWithTransientRetry(options, (event) => {
-        if (event.type === "progress") {
-          sendPayload({
-            type: "progress",
-            message: event.message,
-            ...(event.isMcp ? { isMcp: true } : {}),
-          });
-          return;
-        }
+      const result = await executeChatWithTransientRetry(
+        options,
+        (event) => {
+          if (event.type === "progress") {
+            sendPayload({
+              type: "progress",
+              message: event.message,
+              ...(event.isMcp ? { isMcp: true } : {}),
+            });
+            return;
+          }
 
-        sendPayload({
-          type: "operation_log",
-          record: event.record,
-        });
-      }, signal);
+          sendPayload({
+            type: "operation_log",
+            record: event.record,
+          });
+        },
+        signal,
+      );
 
       sendPayload({
         type: "final",
@@ -1032,7 +1101,9 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
   });
 }
 
-function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<string, unknown> {
+function buildChatExecutionLogContext(
+  options: ChatExecutionOptions,
+): Record<string, unknown> {
   return {
     turnId: options.turnId,
     tenantId: options.azureConfig.tenantId,
@@ -1043,7 +1114,8 @@ function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<str
     threadEnvironmentKeyCount: Object.keys(options.threadEnvironment).length,
     reasoningEffort: options.reasoningEffort,
     webSearchEnabled: options.webSearchEnabled,
-    webSearchUserLocationCountry: options.webSearchUserLocation?.country ?? null,
+    webSearchUserLocationCountry:
+      options.webSearchUserLocation?.country ?? null,
     systemInstructionContextEnabled: options.instructionContextToggles.system,
     mcpServerCount: options.mcpServers.length,
     skillCount: options.skills.length,
@@ -1063,7 +1135,9 @@ function buildChatExecutionSuccessLogContext(
   };
 }
 
-function buildWebSearchPreviewTool(userLocation: WebSearchPreviewUserLocation | null) {
+function buildWebSearchPreviewTool(
+  userLocation: WebSearchPreviewUserLocation | null,
+) {
   return {
     type: "hosted_tool" as const,
     name: WEB_SEARCH_PREVIEW_TOOL_NAME,
@@ -1087,10 +1161,14 @@ function shouldEnableCodeInterpreter(options: ChatExecutionOptions): boolean {
 }
 
 function hasNonPdfAttachments(attachments: ClientAttachment[]): boolean {
-  return attachments.some((attachment) => readFileExtension(attachment.name) !== "pdf");
+  return attachments.some(
+    (attachment) => readFileExtension(attachment.name) !== "pdf",
+  );
 }
 
-function collectNonPdfAttachments(options: ChatExecutionOptions): ClientAttachment[] {
+function collectNonPdfAttachments(
+  options: ChatExecutionOptions,
+): ClientAttachment[] {
   const dedupedByKey = new Map<string, ClientAttachment>();
 
   const register = (attachment: ClientAttachment) => {
@@ -1117,7 +1195,7 @@ function collectNonPdfAttachments(options: ChatExecutionOptions): ClientAttachme
 
 async function createCodeInterpreterContainerWithAttachments(
   attachments: ClientAttachment[],
-  client: ReturnType<AzureDependencies["getAzureOpenAIClient"]>,
+  client: AzureOpenAIClient,
 ): Promise<string> {
   const container = await awaitWithTimeout(
     client.containers.create({
@@ -1126,7 +1204,8 @@ async function createCodeInterpreterContainerWithAttachments(
     CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
     "Timed out while creating a Code Interpreter container.",
   );
-  const containerId = typeof container.id === "string" ? container.id.trim() : "";
+  const containerId =
+    typeof container.id === "string" ? container.id.trim() : "";
   if (!containerId) {
     throw new Error("Failed to initialize a Code Interpreter container.");
   }
@@ -1141,13 +1220,17 @@ async function createCodeInterpreterContainerWithAttachments(
         throw new Error(parsedAttachmentDataUrl.error);
       }
 
-      const base64Payload = readDataUrlBase64Payload(parsedAttachmentDataUrl.value.dataUrl);
+      const base64Payload = readDataUrlBase64Payload(
+        parsedAttachmentDataUrl.value.dataUrl,
+      );
       const attachmentBuffer = Buffer.from(base64Payload, "base64");
       const normalizedMimeType =
         attachment.mimeType ||
         parsedAttachmentDataUrl.value.mimeType ||
         "application/octet-stream";
-      const file = await toFile(attachmentBuffer, attachment.name, { type: normalizedMimeType });
+      const file = await toFile(attachmentBuffer, attachment.name, {
+        type: normalizedMimeType,
+      });
       try {
         await awaitWithTimeout(
           client.containers.files.create(containerId, { file }),
@@ -1185,18 +1268,21 @@ function buildCodeInterpreterAttachmentUploadError(
     );
   }
 
-  return new Error(`Failed to upload attachment "${fileName}" for Code Interpreter: ${message}`);
+  return new Error(
+    `Failed to upload attachment "${fileName}" for Code Interpreter: ${message}`,
+  );
 }
 
-function readCodeInterpreterAttachmentAvailabilityCache():
-  | CodeInterpreterAttachmentAvailabilityCache
-  | null {
+function readCodeInterpreterAttachmentAvailabilityCache(): CodeInterpreterAttachmentAvailabilityCache | null {
   const cache = codeInterpreterAttachmentAvailabilityCache;
   if (!cache) {
     return null;
   }
 
-  if (Date.now() - cache.checkedAt > CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS) {
+  if (
+    Date.now() - cache.checkedAt >
+    CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS
+  ) {
     codeInterpreterAttachmentAvailabilityCache = null;
     return null;
   }
@@ -1212,7 +1298,9 @@ function markCodeInterpreterAttachmentAvailabilitySupported(): void {
   };
 }
 
-function markCodeInterpreterAttachmentAvailabilityUnavailable(reason: string): void {
+function markCodeInterpreterAttachmentAvailabilityUnavailable(
+  reason: string,
+): void {
   codeInterpreterAttachmentAvailabilityCache = {
     supported: false,
     checkedAt: Date.now(),
@@ -1227,7 +1315,9 @@ function truncateProgressMessage(message: string): string {
   }
 
   const maxLength = 120;
-  return trimmed.length <= maxLength ? trimmed : `${trimmed.slice(0, maxLength - 1)}...`;
+  return trimmed.length <= maxLength
+    ? trimmed
+    : `${trimmed.slice(0, maxLength - 1)}...`;
 }
 
 function buildUserMessageInput(
@@ -1249,7 +1339,10 @@ function buildUserMessageInput(
     .filter(() => options.useCodeInterpreter)
     .map((attachment) => attachment.name);
 
-  if (pdfAttachments.length === 0 && codeInterpreterAttachmentNames.length === 0) {
+  if (
+    pdfAttachments.length === 0 &&
+    codeInterpreterAttachmentNames.length === 0
+  ) {
     return user(content);
   }
 
@@ -1294,16 +1387,8 @@ function extractAgentFinalOutput(finalOutput: unknown): string {
   return "";
 }
 
-function getAzureOpenAIClient(
-  baseUrl: string,
-  tenantId: string,
-  dependencies: AzureDependencies,
-) {
-  return dependencies.getAzureOpenAIClient(baseUrl, tenantId);
-}
-
 async function initializeCompactionSession(options: {
-  client: ReturnType<AzureDependencies["getAzureOpenAIClient"]>;
+  client: AzureOpenAIClient;
   deploymentName: string;
   historyInput: AgentInputItem[];
   onCompactionUnavailable: () => void;
@@ -1421,7 +1506,9 @@ function parseAttachmentDataUrl(
     .split(";")
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
-  const hasBase64 = metadataParts.some((part) => part.toLowerCase() === "base64");
+  const hasBase64 = metadataParts.some(
+    (part) => part.toLowerCase() === "base64",
+  );
   if (!hasBase64) {
     return {
       ok: false,
@@ -1480,14 +1567,17 @@ function applyDefaultThreadDirectoryToStdioServers(
     return mcpServers;
   }
 
-  const normalizedUserDirectoryPath = normalizePathForComparison(userDirectoryPath);
+  const normalizedUserDirectoryPath =
+    normalizePathForComparison(userDirectoryPath);
   const dedupeKeys = new Set<string>();
   const normalized: ClientMcpServerConfig[] = [];
   for (const server of mcpServers) {
     let nextServer: ClientMcpServerConfig = server;
     if (server.transport === "stdio") {
-      const hasExplicitCwd = typeof server.cwd === "string" && server.cwd.trim().length > 0;
-      const isLegacyWorkspaceRootCwd = hasExplicitCwd &&
+      const hasExplicitCwd =
+        typeof server.cwd === "string" && server.cwd.trim().length > 0;
+      const isLegacyWorkspaceRootCwd =
+        hasExplicitCwd &&
         normalizePathForComparison(server.cwd) === normalizedUserDirectoryPath;
       if (!hasExplicitCwd || isLegacyWorkspaceRootCwd) {
         nextServer = {
@@ -1549,23 +1639,24 @@ async function createMcpServerSession(
   const requestInit: RequestInit = {
     headers: {},
   };
-  const server = config.transport === "sse"
-    ? new MCPServerSSE({
-        name: config.name,
-        url: config.url,
-        clientSessionTimeoutSeconds: config.timeoutSeconds,
-        timeout: config.timeoutSeconds * 1000,
-        fetch: fetchWithMcpMetaNormalization,
-        requestInit,
-      })
-    : new MCPServerStreamableHttp({
-        name: config.name,
-        url: config.url,
-        clientSessionTimeoutSeconds: config.timeoutSeconds,
-        timeout: config.timeoutSeconds * 1000,
-        fetch: fetchWithMcpMetaNormalization,
-        requestInit,
-      });
+  const server =
+    config.transport === "sse"
+      ? new MCPServerSSE({
+          name: config.name,
+          url: config.url,
+          clientSessionTimeoutSeconds: config.timeoutSeconds,
+          timeout: config.timeoutSeconds * 1000,
+          fetch: fetchWithMcpMetaNormalization,
+          requestInit,
+        })
+      : new MCPServerStreamableHttp({
+          name: config.name,
+          url: config.url,
+          clientSessionTimeoutSeconds: config.timeoutSeconds,
+          timeout: config.timeoutSeconds * 1000,
+          fetch: fetchWithMcpMetaNormalization,
+          requestInit,
+        });
   return {
     server,
     refreshBeforeUse: async (refreshState) => {
@@ -1581,12 +1672,17 @@ async function buildMcpHttpRuntimeHeaders(
   refreshState: McpServerSessionRefreshState,
 ): Promise<Record<string, string>> {
   const headers = buildMcpHttpRequestHeaders(config.headers);
-  const contextHeaders = buildMcpContextRequestHeaders(config, refreshState.requestContext);
+  const contextHeaders = buildMcpContextRequestHeaders(
+    config,
+    refreshState.requestContext,
+  );
   for (const [key, value] of Object.entries(contextHeaders)) {
     headers[key] = value;
   }
   if (config.useAzureAuth) {
-    const token = await refreshState.getAzureAuthorizationToken(config.azureAuthScope);
+    const token = await refreshState.getAzureAuthorizationToken(
+      config.azureAuthScope,
+    );
     headers.Authorization = `Bearer ${token}`;
   }
 
@@ -1598,7 +1694,9 @@ async function fetchWithMcpMetaNormalization(
   init?: RequestInit,
 ): Promise<Response> {
   const response = await fetch(input, init);
-  const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+  const contentType = (
+    response.headers.get("content-type") ?? ""
+  ).toLowerCase();
   if (!contentType.includes("application/json")) {
     return response;
   }
@@ -1611,9 +1709,17 @@ async function fetchWithMcpMetaNormalization(
   }
 
   const normalizedMetaBody = normalizeMcpMetaNulls(parsedBody);
-  const normalizedInitializeBody = normalizeMcpInitializeNullOptionals(normalizedMetaBody.value);
-  const normalizedToolsBody = normalizeMcpListToolsNullOptionals(normalizedInitializeBody.value);
-  if (!normalizedMetaBody.changed && !normalizedInitializeBody.changed && !normalizedToolsBody.changed) {
+  const normalizedInitializeBody = normalizeMcpInitializeNullOptionals(
+    normalizedMetaBody.value,
+  );
+  const normalizedToolsBody = normalizeMcpListToolsNullOptionals(
+    normalizedInitializeBody.value,
+  );
+  if (
+    !normalizedMetaBody.changed &&
+    !normalizedInitializeBody.changed &&
+    !normalizedToolsBody.changed
+  ) {
     return response;
   }
 
@@ -1640,7 +1746,9 @@ function normalizeMcpMetaNulls(value: unknown): {
       return normalized.value;
     });
 
-    return changed ? { value: normalizedArray, changed: true } : { value, changed: false };
+    return changed
+      ? { value: normalizedArray, changed: true }
+      : { value, changed: false };
   }
 
   if (!isRecord(value)) {
@@ -1663,7 +1771,9 @@ function normalizeMcpMetaNulls(value: unknown): {
     }
   }
 
-  return changed ? { value: normalizedObject, changed: true } : { value, changed: false };
+  return changed
+    ? { value: normalizedObject, changed: true }
+    : { value, changed: false };
 }
 
 function normalizeMcpInitializeNullOptionals(value: unknown): {
@@ -1680,7 +1790,9 @@ function normalizeMcpInitializeNullOptionals(value: unknown): {
       return normalized.value;
     });
 
-    return changed ? { value: normalizedArray, changed: true } : { value, changed: false };
+    return changed
+      ? { value: normalizedArray, changed: true }
+      : { value, changed: false };
   }
 
   if (!isRecord(value)) {
@@ -1720,7 +1832,9 @@ function normalizeMcpListToolsNullOptionals(value: unknown): {
       return normalized.value;
     });
 
-    return changed ? { value: normalizedArray, changed: true } : { value, changed: false };
+    return changed
+      ? { value: normalizedArray, changed: true }
+      : { value, changed: false };
   }
 
   if (!isRecord(value)) {
@@ -1788,7 +1902,9 @@ function stripNullFieldsRecursively(value: unknown): {
       normalizedArray.push(normalizedEntry.value);
     }
 
-    return changed ? { value: normalizedArray, changed: true } : { value, changed: false };
+    return changed
+      ? { value: normalizedArray, changed: true }
+      : { value, changed: false };
   }
 
   if (!isRecord(value)) {
@@ -1810,7 +1926,9 @@ function stripNullFieldsRecursively(value: unknown): {
     normalizedObject[key] = normalizedEntry.value;
   }
 
-  return changed ? { value: normalizedObject, changed: true } : { value, changed: false };
+  return changed
+    ? { value: normalizedObject, changed: true }
+    : { value, changed: false };
 }
 
 type InstrumentMcpServerHandlers = {
@@ -1823,7 +1941,9 @@ type InstrumentedMcpServerState = {
   resetListToolsCache: () => void;
 };
 
-const instrumentedMcpServerStateSymbol = Symbol("local-playground.instrumented-mcp-server-state");
+const instrumentedMcpServerStateSymbol = Symbol(
+  "local-playground.instrumented-mcp-server-state",
+);
 
 function instrumentMcpServer(
   server: MCPServer,
@@ -1842,10 +1962,12 @@ function instrumentMcpServer(
   const originalCallTool = server.callTool.bind(server);
   const originalInvalidateToolsCache = server.invalidateToolsCache.bind(server);
   let hasCachedListToolsResult = false;
-  let cachedListToolsResult: Awaited<ReturnType<typeof originalListTools>> | null = null;
-  let pendingListToolsResult:
-    | Promise<Awaited<ReturnType<typeof originalListTools>>>
-    | null = null;
+  let cachedListToolsResult: Awaited<
+    ReturnType<typeof originalListTools>
+  > | null = null;
+  let pendingListToolsResult: Promise<
+    Awaited<ReturnType<typeof originalListTools>>
+  > | null = null;
   const state: InstrumentedMcpServerState = {
     handlers,
     resetListToolsCache: () => {
@@ -2004,19 +2126,30 @@ function instrumentMcpServer(
   return server;
 }
 
-function buildThreadOperationLogRequestId(serverName: string, sequence: number): string {
-  const normalizedName = serverName.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "mcp";
+function buildThreadOperationLogRequestId(
+  serverName: string,
+  sequence: number,
+): string {
+  const normalizedName =
+    serverName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-") || "mcp";
   return `${normalizedName}-${Date.now()}-${sequence}`;
 }
 
-function buildMcpConnectParams(serverConfig: ClientMcpServerConfig): Record<string, unknown> {
+function buildMcpConnectParams(
+  serverConfig: ClientMcpServerConfig,
+): Record<string, unknown> {
   if (serverConfig.transport === "stdio") {
     return {
       transport: "stdio",
       command: serverConfig.command,
       args: serverConfig.args,
       cwd: serverConfig.cwd ?? "",
-      envKeys: Object.keys(serverConfig.env).sort((left, right) => left.localeCompare(right)),
+      envKeys: Object.keys(serverConfig.env).sort((left, right) =>
+        left.localeCompare(right),
+      ),
       env: toSerializableValue(serverConfig.env),
     };
   }
@@ -2024,7 +2157,9 @@ function buildMcpConnectParams(serverConfig: ClientMcpServerConfig): Record<stri
   return {
     transport: serverConfig.transport,
     url: serverConfig.url,
-    headerKeys: Object.keys(serverConfig.headers).sort((left, right) => left.localeCompare(right)),
+    headerKeys: Object.keys(serverConfig.headers).sort((left, right) =>
+      left.localeCompare(right),
+    ),
     useAzureAuth: serverConfig.useAzureAuth,
     azureAuthScope: serverConfig.azureAuthScope,
     timeoutSeconds: serverConfig.timeoutSeconds,
@@ -2060,7 +2195,9 @@ function normalizeObjectKeyOrder(value: unknown): unknown {
   }
 
   const normalized: Record<string, unknown> = {};
-  const sortedEntries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
+  const sortedEntries = Object.entries(value).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
   for (const [key, entryValue] of sortedEntries) {
     normalized[key] = normalizeObjectKeyOrder(entryValue);
   }
@@ -2090,7 +2227,10 @@ function updateSkillOperationErrorLoopState(
   nextSignature: string,
   nextErrorSignature: string,
 ): SkillOperationErrorLoopState {
-  if (current.signature === nextSignature && current.errorSignature === nextErrorSignature) {
+  if (
+    current.signature === nextSignature &&
+    current.errorSignature === nextErrorSignature
+  ) {
     return {
       signature: nextSignature,
       errorSignature: nextErrorSignature,
@@ -2113,7 +2253,9 @@ function buildSkillOperationErrorSignature(value: unknown): string {
       return "unknown";
     }
 
-    return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength)}...` : trimmed;
+    return trimmed.length > maxLength
+      ? `${trimmed.slice(0, maxLength)}...`
+      : trimmed;
   };
 
   if (typeof value === "string") {
@@ -2146,12 +2288,16 @@ function buildSkillOperationErrorSignature(value: unknown): string {
     }
 
     if (Object.keys(narrowed).length > 0) {
-      const serializedNarrowed = JSON.stringify(normalizeObjectKeyOrder(narrowed));
+      const serializedNarrowed = JSON.stringify(
+        normalizeObjectKeyOrder(narrowed),
+      );
       return normalize(serializedNarrowed ?? "unknown");
     }
   }
 
-  const serialized = JSON.stringify(normalizeObjectKeyOrder(toSerializableValue(value)));
+  const serialized = JSON.stringify(
+    normalizeObjectKeyOrder(toSerializableValue(value)),
+  );
   return normalize(serialized ?? "unknown");
 }
 
@@ -2163,7 +2309,10 @@ function buildRepeatedSkillOperationLoopMessage(options: {
   return `Detected a repeated Skill operation loop for ${options.serverName}.${options.method} (${options.consecutiveCount} identical consecutive calls). Stopped early to avoid exceeding max turns.`;
 }
 
-function buildSkillOperationCountKey(serverName: string, method: string): string {
+function buildSkillOperationCountKey(
+  serverName: string,
+  method: string,
+): string {
   return `${serverName}::${method}`;
 }
 
@@ -2225,7 +2374,9 @@ function shouldCacheSkillOperationResult(method: string): boolean {
   return false;
 }
 
-function buildMcpHttpRequestHeaders(headers: Record<string, string>): Record<string, string> {
+function buildMcpHttpRequestHeaders(
+  headers: Record<string, string>,
+): Record<string, string> {
   const mergedHeaders: Record<string, string> = { ...MCP_DEFAULT_HTTP_HEADERS };
   for (const [key, value] of Object.entries(headers)) {
     if (key.toLowerCase() === "content-type") {
@@ -2241,22 +2392,28 @@ function buildMcpContextRequestHeaders(
   serverConfig: ClientMcpServerConfig,
   requestContext: McpRequestContext,
 ): Record<string, string> {
-  if (serverConfig.transport === "stdio" || !isLocalPlaygroundMcpContextUrl(serverConfig.url)) {
+  if (
+    serverConfig.transport === "stdio" ||
+    !isLocalPlaygroundMcpContextUrl(serverConfig.url)
+  ) {
     return {};
   }
 
   const contextHeaders: Record<string, string> = {};
   if (requestContext.threadId) {
-    contextHeaders[MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER] = requestContext.threadId;
+    contextHeaders[MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER] =
+      requestContext.threadId;
   }
   if (requestContext.turnId) {
     contextHeaders[MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER] = requestContext.turnId;
   }
   if (requestContext.clientUserAgent) {
-    contextHeaders[MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER] = requestContext.clientUserAgent;
+    contextHeaders[MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER] =
+      requestContext.clientUserAgent;
   }
   if (requestContext.clientPlatform) {
-    contextHeaders[MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER] = requestContext.clientPlatform;
+    contextHeaders[MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER] =
+      requestContext.clientPlatform;
   }
   return contextHeaders;
 }
@@ -2275,7 +2432,10 @@ function isLocalPlaygroundMcpContextUrl(rawUrl: string): boolean {
       return false;
     }
 
-    const normalizedRelativePath = parsedRelativeUrl.pathname.replace(/\/+$/, "");
+    const normalizedRelativePath = parsedRelativeUrl.pathname.replace(
+      /\/+$/,
+      "",
+    );
     return normalizedRelativePath === "/mcp/cmd";
   }
 
@@ -2304,10 +2464,9 @@ function isLocalPlaygroundMcpContextUrl(rawUrl: string): boolean {
 async function getAzureMcpAuthorizationToken(
   scope: string,
   tenantId: string,
-  dependencies: AzureDependencies,
 ): Promise<string> {
   try {
-    return await dependencies.getAzureBearerToken(scope, tenantId);
+    return await getAzureBearerTokenForScope(scope, tenantId);
   } catch {
     throw new Error(
       `Azure credential failed to acquire token for MCP Authorization header (scope: ${scope}). Run Azure Login and try again.`,
@@ -2352,19 +2511,27 @@ async function buildSkillRuntimeContext(
   for (const selectedSkill of selectedSkills) {
     try {
       const frontmatter = await readSkillFrontmatter(selectedSkill.location);
-      const shouldPreloadGuide = explicitSkillLocationSet.has(selectedSkill.location);
+      const shouldPreloadGuide = explicitSkillLocationSet.has(
+        selectedSkill.location,
+      );
       let preloadedGuideMarkdown: string | null = null;
       let preloadedGuideErrorMessage: string | null = null;
       if (shouldPreloadGuide) {
         try {
-          preloadedGuideMarkdown = await readSkillMarkdown(selectedSkill.location);
+          preloadedGuideMarkdown = await readSkillMarkdown(
+            selectedSkill.location,
+          );
         } catch (error) {
           preloadedGuideErrorMessage = readErrorMessage(error);
-          warnings.push(`Failed to preload full Skill guide for ${frontmatter.name}: ${preloadedGuideErrorMessage}`);
+          warnings.push(
+            `Failed to preload full Skill guide for ${frontmatter.name}: ${preloadedGuideErrorMessage}`,
+          );
         }
       }
 
-      const resources = await inspectSkillResourceManifest(selectedSkill.location).catch((error) => {
+      const resources = await inspectSkillResourceManifest(
+        selectedSkill.location,
+      ).catch((error) => {
         warnings.push(
           `Failed to inspect Skill resources for ${frontmatter.name}: ${readErrorMessage(error)}`,
         );
@@ -2387,7 +2554,9 @@ async function buildSkillRuntimeContext(
         assetsTruncated: resources.assetsTruncated,
       });
     } catch (error) {
-      warnings.push(`Failed to load Skill ${selectedSkill.name}: ${readErrorMessage(error)}`);
+      warnings.push(
+        `Failed to load Skill ${selectedSkill.name}: ${readErrorMessage(error)}`,
+      );
     }
   }
 
@@ -2397,7 +2566,9 @@ async function buildSkillRuntimeContext(
   };
 }
 
-function buildEmptySkillResourceManifest(skillLocation: string): ReturnType<typeof buildSkillResourceManifestFallback> {
+function buildEmptySkillResourceManifest(
+  skillLocation: string,
+): ReturnType<typeof buildSkillResourceManifestFallback> {
   return buildSkillResourceManifestFallback(path.dirname(skillLocation));
 }
 
@@ -2434,7 +2605,9 @@ function buildSkillTools(
     options: {
       allowAllWhenMissing: boolean;
     },
-  ): { ok: true; skills: ActiveSkillRuntimeEntry[] } | { ok: false; error: string } => {
+  ):
+    | { ok: true; skills: ActiveSkillRuntimeEntry[] }
+    | { ok: false; error: string } => {
     const selector = readTrimmedString(selectorValue);
     if (!selector) {
       if (options.allowAllWhenMissing) {
@@ -2447,11 +2620,14 @@ function buildSkillTools(
 
       return {
         ok: false,
-        error: "Multiple Skills are active. Provide `skill` by name or location.",
+        error:
+          "Multiple Skills are active. Provide `skill` by name or location.",
       };
     }
 
-    const byLocation = activeSkills.find((skill) => skill.location === selector);
+    const byLocation = activeSkills.find(
+      (skill) => skill.location === selector,
+    );
     if (byLocation) {
       return { ok: true, skills: [byLocation] };
     }
@@ -2492,8 +2668,12 @@ function buildSkillTools(
   const readCurrentThreadEnvironment = (): ThreadEnvironment =>
     cloneThreadEnvironment(executionContext.threadEnvironment);
 
-  const readSkillOperationParams = (input: unknown): Record<string, unknown> => {
-    const threadEnvironment = cloneThreadEnvironment(executionContext.threadEnvironment);
+  const readSkillOperationParams = (
+    input: unknown,
+  ): Record<string, unknown> => {
+    const threadEnvironment = cloneThreadEnvironment(
+      executionContext.threadEnvironment,
+    );
     if (!isRecord(input)) {
       return {
         input: toSerializableValue(input),
@@ -2534,7 +2714,10 @@ function buildSkillTools(
     byServerMethod: new Map<string, number>(),
     errorCount: 0,
   };
-  const skillOperationCachedResultBySignature = new Map<string, SkillOperationCachedResult>();
+  const skillOperationCachedResultBySignature = new Map<
+    string,
+    SkillOperationCachedResult
+  >();
 
   const resetSkillOperationErrorLoopState = () => {
     skillOperationErrorLoopState = {
@@ -2550,14 +2733,21 @@ function buildSkillTools(
     operationSignature: string;
     errorPayload: unknown;
   }): void => {
-    const errorSignature = buildSkillOperationErrorSignature(options.errorPayload);
+    const errorSignature = buildSkillOperationErrorSignature(
+      options.errorPayload,
+    );
     skillOperationErrorLoopState = updateSkillOperationErrorLoopState(
       skillOperationErrorLoopState,
       options.operationSignature,
       errorSignature,
     );
-    const operationSignatureCallLimit = readSkillOperationSignatureCallLimit(options.method);
-    if (skillOperationErrorLoopState.consecutiveCount > operationSignatureCallLimit) {
+    const operationSignatureCallLimit = readSkillOperationSignatureCallLimit(
+      options.method,
+    );
+    if (
+      skillOperationErrorLoopState.consecutiveCount >
+      operationSignatureCallLimit
+    ) {
       throw new Error(
         buildSkillOperationSignatureCountExceededMessage({
           serverName: options.serverName,
@@ -2600,11 +2790,12 @@ function buildSkillTools(
     );
     const operationCallLimit = readSkillOperationCallLimit(method);
     if (operationCountForServerMethod > operationCallLimit) {
-      const operationCountErrorMessage = buildSkillOperationCountExceededMessage({
-        serverName,
-        method,
-        count: operationCountForServerMethod,
-      });
+      const operationCountErrorMessage =
+        buildSkillOperationCountExceededMessage({
+          serverName,
+          method,
+          count: operationCountForServerMethod,
+        });
       const responsePayload: JsonRpcResponsePayload = {
         jsonrpc: "2.0",
         id: requestId,
@@ -2636,7 +2827,8 @@ function buildSkillTools(
       operationSignature,
     );
     if (
-      skillOperationLoopState.consecutiveCount > CHAT_MAX_CONSECUTIVE_IDENTICAL_SKILL_OPERATIONS
+      skillOperationLoopState.consecutiveCount >
+      CHAT_MAX_CONSECUTIVE_IDENTICAL_SKILL_OPERATIONS
     ) {
       const loopErrorMessage = buildRepeatedSkillOperationLoopMessage({
         serverName,
@@ -2665,7 +2857,8 @@ function buildSkillTools(
       throw new Error(loopErrorMessage);
     }
 
-    const cachedResult = skillOperationCachedResultBySignature.get(operationSignature);
+    const cachedResult =
+      skillOperationCachedResultBySignature.get(operationSignature);
     if (cachedResult) {
       const responsePayload: JsonRpcResponsePayload = {
         jsonrpc: "2.0",
@@ -2834,7 +3027,8 @@ function buildSkillTools(
       properties: {
         skill: {
           type: "string" as const,
-          description: "Optional active Skill name or location. Required when multiple Skills are active.",
+          description:
+            "Optional active Skill name or location. Required when multiple Skills are active.",
         },
         startLine: {
           type: "integer" as const,
@@ -2879,11 +3073,18 @@ function buildSkillTools(
 
         const startLine = readInteger(input.startLine);
         const endLine = readInteger(input.endLine);
-        if ((startLine !== null && startLine <= 0) || (endLine !== null && endLine <= 0)) {
-          return buildSkillToolErrorResult("startLine and endLine must be positive integers.");
+        if (
+          (startLine !== null && startLine <= 0) ||
+          (endLine !== null && endLine <= 0)
+        ) {
+          return buildSkillToolErrorResult(
+            "startLine and endLine must be positive integers.",
+          );
         }
         if (startLine !== null && endLine !== null && endLine < startLine) {
-          return buildSkillToolErrorResult("endLine must be greater than or equal to startLine.");
+          return buildSkillToolErrorResult(
+            "endLine must be greater than or equal to startLine.",
+          );
         }
 
         const maxChars = normalizeSkillReadMaxChars(input.maxChars);
@@ -2892,7 +3093,9 @@ function buildSkillTools(
         const begin = Math.max(1, startLine ?? 1);
         const end = Math.min(lines.length, endLine ?? lines.length);
         const lineWindowText =
-          lines.length === 0 || end < begin ? "" : lines.slice(begin - 1, end).join("\n");
+          lines.length === 0 || end < begin
+            ? ""
+            : lines.slice(begin - 1, end).join("\n");
         const clipped = clipTextForSkillTool(lineWindowText, maxChars);
 
         return buildSkillToolResult({
@@ -2918,11 +3121,13 @@ function buildSkillTools(
       properties: {
         skill: {
           type: "string" as const,
-          description: "Optional active Skill name or location. Required when multiple Skills are active.",
+          description:
+            "Optional active Skill name or location. Required when multiple Skills are active.",
         },
         path: {
           type: "string" as const,
-          description: "Relative file path inside the selected Skill's references directory.",
+          description:
+            "Relative file path inside the selected Skill's references directory.",
         },
         startLine: {
           type: "integer" as const,
@@ -2976,11 +3181,18 @@ function buildSkillTools(
 
         const startLine = readInteger(input.startLine);
         const endLine = readInteger(input.endLine);
-        if ((startLine !== null && startLine <= 0) || (endLine !== null && endLine <= 0)) {
-          return buildSkillToolErrorResult("startLine and endLine must be positive integers.");
+        if (
+          (startLine !== null && startLine <= 0) ||
+          (endLine !== null && endLine <= 0)
+        ) {
+          return buildSkillToolErrorResult(
+            "startLine and endLine must be positive integers.",
+          );
         }
         if (startLine !== null && endLine !== null && endLine < startLine) {
-          return buildSkillToolErrorResult("endLine must be greater than or equal to startLine.");
+          return buildSkillToolErrorResult(
+            "endLine must be greater than or equal to startLine.",
+          );
         }
 
         const maxChars = normalizeSkillReadMaxChars(input.maxChars);
@@ -2989,7 +3201,9 @@ function buildSkillTools(
         const begin = Math.max(1, startLine ?? 1);
         const end = Math.min(lines.length, endLine ?? lines.length);
         const lineWindowText =
-          lines.length === 0 || end < begin ? "" : lines.slice(begin - 1, end).join("\n");
+          lines.length === 0 || end < begin
+            ? ""
+            : lines.slice(begin - 1, end).join("\n");
         const clipped = clipTextForSkillTool(lineWindowText, maxChars);
 
         return buildSkillToolResult({
@@ -3015,11 +3229,13 @@ function buildSkillTools(
       properties: {
         skill: {
           type: "string" as const,
-          description: "Optional active Skill name or location. Required when multiple Skills are active.",
+          description:
+            "Optional active Skill name or location. Required when multiple Skills are active.",
         },
         path: {
           type: "string" as const,
-          description: "Relative file path inside the selected Skill's assets directory.",
+          description:
+            "Relative file path inside the selected Skill's assets directory.",
         },
         encoding: {
           type: "string" as const,
@@ -3073,7 +3289,9 @@ function buildSkillTools(
 
         const maxChars = normalizeSkillReadMaxChars(input.maxChars);
         const payload =
-          encoding === "base64" ? buffer.toString("base64") : buffer.toString("utf8");
+          encoding === "base64"
+            ? buffer.toString("base64")
+            : buffer.toString("utf8");
         const clipped = clipTextForSkillTool(payload, maxChars);
 
         return buildSkillToolResult({
@@ -3098,11 +3316,13 @@ function buildSkillTools(
       properties: {
         skill: {
           type: "string" as const,
-          description: "Optional active Skill name or location. Required when multiple Skills are active.",
+          description:
+            "Optional active Skill name or location. Required when multiple Skills are active.",
         },
         path: {
           type: "string" as const,
-          description: "Relative script path inside the selected Skill's scripts directory.",
+          description:
+            "Relative script path inside the selected Skill's scripts directory.",
         },
         args: {
           type: "array" as const,
@@ -3193,7 +3413,8 @@ function buildSkillTools(
 
   const getEnvironmentTool = tool({
     name: "skill_get_environment",
-    description: "Read thread-scoped environment variables shared across turns.",
+    description:
+      "Read thread-scoped environment variables shared across turns.",
     parameters: {
       type: "object" as const,
       properties: {},
@@ -3219,8 +3440,7 @@ function buildSkillTools(
       properties: {
         variables: {
           type: "object" as const,
-          description:
-            `Optional environment key-value map. Keys must match ${ENV_KEY_PATTERN.toString()} and be ${THREAD_ENVIRONMENT_KEY_MAX_LENGTH} characters or fewer.`,
+          description: `Optional environment key-value map. Keys must match ${ENV_KEY_PATTERN.toString()} and be ${THREAD_ENVIRONMENT_KEY_MAX_LENGTH} characters or fewer.`,
           additionalProperties: {
             type: "string" as const,
           },
@@ -3243,10 +3463,13 @@ function buildSkillTools(
           return buildSkillToolErrorResult("Invalid tool input.");
         }
 
-        const variablesResult = parseThreadEnvironmentFromUnknown(input.variables, {
-          strict: true,
-          pathLabel: "variables",
-        });
+        const variablesResult = parseThreadEnvironmentFromUnknown(
+          input.variables,
+          {
+            strict: true,
+            pathLabel: "variables",
+          },
+        );
         if (!variablesResult.ok) {
           return buildSkillToolErrorResult(variablesResult.error);
         }
@@ -3256,7 +3479,9 @@ function buildSkillTools(
           return buildSkillToolErrorResult(unsetResult.error);
         }
 
-        const nextKeys = new Set(Object.keys(executionContext.threadEnvironment));
+        const nextKeys = new Set(
+          Object.keys(executionContext.threadEnvironment),
+        );
         for (const key of Object.keys(variablesResult.value)) {
           nextKeys.add(key);
         }
@@ -3383,7 +3608,9 @@ function buildSkillActivateOperationRecord(
       params: {
         name: skill.name,
         location: skill.location,
-        preloadMode: skill.guidePreloadRequested ? "full_guide" : "frontmatter_only",
+        preloadMode: skill.guidePreloadRequested
+          ? "full_guide"
+          : "frontmatter_only",
         threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
       },
     },
@@ -3450,7 +3677,10 @@ function buildSkillGuideReadOperationRecord(
 
   const lineNormalized = skill.preloadedGuideMarkdown.replace(/\r\n?/g, "\n");
   const lines = lineNormalized.split("\n");
-  const clipped = clipTextForSkillTool(lineNormalized, AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS);
+  const clipped = clipTextForSkillTool(
+    lineNormalized,
+    AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
+  );
 
   return {
     id: requestId,
@@ -3524,10 +3754,14 @@ function buildAgentInstructionWithSkills(
     systemInstructionContext: SystemInstructionContextPayload | null;
   },
 ): string {
-  const normalizedBaseInstruction = baseInstruction.trim() || DEFAULT_AGENT_INSTRUCTION;
+  const normalizedBaseInstruction =
+    baseInstruction.trim() || DEFAULT_AGENT_INSTRUCTION;
   const lines: string[] = [normalizedBaseInstruction];
 
-  if (options.instructionContextToggles.system && options.systemInstructionContext) {
+  if (
+    options.instructionContextToggles.system &&
+    options.systemInstructionContext
+  ) {
     lines.push(
       "",
       "<implicit_instruction_contexts>",
@@ -3563,16 +3797,25 @@ function buildAgentInstructionWithSkills(
     "Follow each SKILL.md guide and use the needed paths from skill_list_resources with skill_read_guide, skill_read_reference, skill_read_asset, and skill_run_script.",
   );
 
-  if (preloadedGuideSkillCount > 0 && preloadedGuideSkillCount < runtime.activeSkills.length) {
-    lines.push("Other active skills are preloaded with frontmatter only (name + description).");
+  if (
+    preloadedGuideSkillCount > 0 &&
+    preloadedGuideSkillCount < runtime.activeSkills.length
+  ) {
+    lines.push(
+      "Other active skills are preloaded with frontmatter only (name + description).",
+    );
   }
   lines.push("<active_skills>");
   for (const skill of runtime.activeSkills) {
-    lines.push(`<<<ACTIVE_SKILL_FRONTMATTER name="${skill.name}" location="${skill.location}">>>`);
+    lines.push(
+      `<<<ACTIVE_SKILL_FRONTMATTER name="${skill.name}" location="${skill.location}">>>`,
+    );
     lines.push(`description: ${truncateSkillDescription(skill.description)}`);
     lines.push("<<<END_ACTIVE_SKILL_FRONTMATTER>>>");
     if (skill.preloadedGuideMarkdown !== null) {
-      lines.push(`<<<ACTIVE_SKILL_GUIDE name="${skill.name}" location="${skill.location}">>>`);
+      lines.push(
+        `<<<ACTIVE_SKILL_GUIDE name="${skill.name}" location="${skill.location}">>>`,
+      );
       lines.push(skill.preloadedGuideMarkdown);
       lines.push("<<<END_ACTIVE_SKILL_GUIDE>>>");
     }
@@ -3635,15 +3878,24 @@ async function buildSystemInstructionContextPayload(
       principalType: "Unknown",
       tenantId: normalizeOptionalInstructionLabel(options.azureConfig.tenantId),
       principalId: null,
-      playgroundProject: normalizeOptionalInstructionLabel(options.azureConfig.projectName),
+      playgroundProject: normalizeOptionalInstructionLabel(
+        options.azureConfig.projectName,
+      ),
       playgroundProjectId: null,
-      playgroundDeployment: normalizeOptionalInstructionLabel(options.azureConfig.deploymentName),
+      playgroundDeployment: normalizeOptionalInstructionLabel(
+        options.azureConfig.deploymentName,
+      ),
       endpoint: normalizeOptionalInstructionLabel(options.azureConfig.baseUrl),
-      apiVersion: normalizeOptionalInstructionLabel(options.azureConfig.apiVersion),
+      apiVersion: normalizeOptionalInstructionLabel(
+        options.azureConfig.apiVersion,
+      ),
     },
   };
 
-  const azureContext = await readAzureArmUserContext(undefined, options.azureConfig.tenantId);
+  const azureContext = await readAzureArmUserContext(
+    undefined,
+    options.azureConfig.tenantId,
+  );
   if (!azureContext) {
     return basePayload;
   }
@@ -3652,8 +3904,12 @@ async function buildSystemInstructionContextPayload(
     ...basePayload,
     azureContext: {
       ...basePayload.azureContext,
-      principalDisplayName: normalizeOptionalInstructionLabel(azureContext.displayName),
-      principalName: normalizeOptionalInstructionLabel(azureContext.principalName),
+      principalDisplayName: normalizeOptionalInstructionLabel(
+        azureContext.displayName,
+      ),
+      principalName: normalizeOptionalInstructionLabel(
+        azureContext.principalName,
+      ),
       principalType: formatInstructionPrincipalType(azureContext.principalType),
       tenantId: normalizeOptionalInstructionLabel(azureContext.tenantId),
       principalId: normalizeOptionalInstructionLabel(azureContext.principalId),
@@ -3674,7 +3930,6 @@ async function buildSystemInstructionContextPayload(
       }),
     };
 
-    await ensurePersistenceDatabaseReady();
     const [latestThreadName, selection] = await Promise.all([
       readLatestThreadNameForInstruction(userId),
       readPlaygroundSelectionForInstruction(userId),
@@ -3693,100 +3948,12 @@ async function buildSystemInstructionContextPayload(
   return payload;
 }
 
-function resolveThreadDirectoryPath(options: {
-  userId: number;
-  threadId: string | null;
-}): string | null {
-  if (!options.threadId) {
-    return null;
-  }
-
-  try {
-    return resolveFoundryWorkspaceThreadDirectory({
-      workspaceUserId: options.userId,
-      threadId: options.threadId,
-    });
-  } catch {
-    return null;
-  }
-}
-
-async function resolveThreadDirectoryContext(options: {
-  threadId: string | null;
-  tenantId: string;
-}): Promise<{
-  userId: number;
-  userDirectoryPath: string;
-  threadDirectoryPath: string | null;
-} | null> {
-  try {
-    const azureContext = await readAzureArmUserContext(undefined, options.tenantId);
-    if (!azureContext) {
-      return null;
-    }
-
-    const user = await getOrCreateUserByIdentity({
-      tenantId: azureContext.tenantId,
-      principalId: azureContext.principalId,
-    });
-    return {
-      userId: user.id,
-      userDirectoryPath: resolveFoundryWorkspaceUserDirectory({
-        workspaceUserId: user.id,
-      }),
-      threadDirectoryPath: resolveThreadDirectoryPath({
-        userId: user.id,
-        threadId: options.threadId,
-      }),
-    };
-  } catch {
-    return null;
-  }
-}
-
 function normalizePathForComparison(value: string | null | undefined): string {
   if (typeof value !== "string") {
     return "";
   }
 
   return value.trim().replaceAll("\\", "/").toLowerCase();
-}
-
-async function readLatestThreadNameForInstruction(userId: number): Promise<string | null> {
-  const latestThread = await prisma.thread.findFirst({
-    where: {
-      userId,
-      deletedAt: null,
-    },
-    orderBy: [
-      { updatedAt: "desc" },
-    ],
-    select: {
-      name: true,
-    },
-  });
-
-  return normalizeOptionalInstructionLabel(latestThread?.name);
-}
-
-async function readPlaygroundSelectionForInstruction(userId: number): Promise<{
-  projectId: string | null;
-  deploymentName: string | null;
-}> {
-  const selection = await prisma.azureSelectionPreference.findUnique({
-    where: {
-      userId,
-    },
-    select: {
-      projectId: true,
-      deploymentName: true,
-    },
-  });
-
-  return {
-    projectId: normalizeOptionalInstructionLabel(selection?.projectId),
-    deploymentName: normalizeOptionalInstructionLabel(selection?.deploymentName),
-  };
 }
 
 function normalizeOptionalInstructionLabel(value: unknown): string | null {
@@ -3825,7 +3992,8 @@ function buildInstructionClientOperatingSystemContext(
     };
   }
 
-  const normalizedUserAgent = normalizeOptionalInstructionLabel(clientUserAgent);
+  const normalizedUserAgent =
+    normalizeOptionalInstructionLabel(clientUserAgent);
   if (!normalizedUserAgent) {
     return {
       name: "Unknown",
@@ -3834,9 +4002,8 @@ function buildInstructionClientOperatingSystemContext(
     };
   }
 
-  const parsedFromUserAgent = parseInstructionOperatingSystemFromUserAgent(
-    normalizedUserAgent,
-  );
+  const parsedFromUserAgent =
+    parseInstructionOperatingSystemFromUserAgent(normalizedUserAgent);
   if (!parsedFromUserAgent) {
     return {
       name: "Unknown",
@@ -3883,7 +4050,10 @@ function parseInstructionOperatingSystemFromUserAgent(
     };
   }
 
-  if (lowerUserAgent.includes("mac os x") || lowerUserAgent.includes("macintosh")) {
+  if (
+    lowerUserAgent.includes("mac os x") ||
+    lowerUserAgent.includes("macintosh")
+  ) {
     return {
       name: "macOS",
       version: normalizeInstructionOperatingSystemVersion(
@@ -3916,7 +4086,9 @@ function extractInstructionUserAgentVersion(
   return normalized.length > 0 ? normalized : null;
 }
 
-function normalizeInstructionOperatingSystemVersion(value: string | null): string | null {
+function normalizeInstructionOperatingSystemVersion(
+  value: string | null,
+): string | null {
   if (!value) {
     return null;
   }
@@ -3925,7 +4097,10 @@ function normalizeInstructionOperatingSystemVersion(value: string | null): strin
 }
 
 function normalizeInstructionClientHintPlatform(value: string): string {
-  const unquoted = value.trim().replace(/^"(.*)"$/, "$1").trim();
+  const unquoted = value
+    .trim()
+    .replace(/^"(.*)"$/, "$1")
+    .trim();
   return unquoted.length > 0 ? unquoted : "Unknown";
 }
 
@@ -3939,7 +4114,9 @@ function buildInstructionServerOperatingSystemContext(): InstructionServerOperat
   };
 }
 
-function mapInstructionNodePlatformToOperatingSystemName(platform: NodeJS.Platform): string {
+function mapInstructionNodePlatformToOperatingSystemName(
+  platform: NodeJS.Platform,
+): string {
   if (platform === "darwin") {
     return "macOS";
   }
@@ -3973,7 +4150,10 @@ function buildSkillPromptResourcePreview(options: {
     return lines;
   }
 
-  const previewFiles = options.files.slice(0, AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES);
+  const previewFiles = options.files.slice(
+    0,
+    AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES,
+  );
   for (const entry of previewFiles) {
     lines.push(`- ${entry.path} (${entry.sizeBytes} bytes)`);
   }
@@ -4006,7 +4186,10 @@ function buildSkillResourcePreview(
         : category === "references"
           ? skill.references
           : skill.assets;
-    const previewEntries = sourceEntries.slice(0, AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES);
+    const previewEntries = sourceEntries.slice(
+      0,
+      AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
+    );
     const categoryTruncated =
       category === "scripts"
         ? skill.scriptsTruncated
@@ -4080,11 +4263,17 @@ function isSkillOperationErrorResult(value: unknown): boolean {
 }
 
 function readSkillToolCategory(value: unknown): SkillToolCategory | null {
-  return value === "scripts" || value === "references" || value === "assets" ? value : null;
+  return value === "scripts" || value === "references" || value === "assets"
+    ? value
+    : null;
 }
 
 function readInteger(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isSafeInteger(value)) {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isSafeInteger(value)
+  ) {
     return null;
   }
 
@@ -4167,7 +4356,9 @@ function normalizeSkillScriptTimeout(value: unknown): number | undefined {
   return Math.min(parsedValue, AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS);
 }
 
-function buildSkillScriptEnvironment(threadEnvironment: ThreadEnvironment): Record<string, string> {
+function buildSkillScriptEnvironment(
+  threadEnvironment: ThreadEnvironment,
+): Record<string, string> {
   const baseEnvironment: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value === "string") {
@@ -4228,7 +4419,10 @@ function applySkillScriptEnvironmentChanges(
     }
 
     const alreadyExists = key in threadEnvironment;
-    if (!alreadyExists && threadEnvironmentEntryCount >= THREAD_ENVIRONMENT_VARIABLES_MAX) {
+    if (
+      !alreadyExists &&
+      threadEnvironmentEntryCount >= THREAD_ENVIRONMENT_VARIABLES_MAX
+    ) {
       ignoredKeys.push(key);
       continue;
     }
@@ -4312,15 +4506,18 @@ function expandThreadEnvironmentTemplate(
   value: string,
   environment: ThreadEnvironment,
 ): string {
-  return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_match, variableName: string) => {
-    const threadValue = environment[variableName];
-    if (typeof threadValue === "string") {
-      return threadValue;
-    }
+  return value.replace(
+    /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
+    (_match, variableName: string) => {
+      const threadValue = environment[variableName];
+      if (typeof threadValue === "string") {
+        return threadValue;
+      }
 
-    const processValue = process.env[variableName];
-    return typeof processValue === "string" ? processValue : "";
-  });
+      const processValue = process.env[variableName];
+      return typeof processValue === "string" ? processValue : "";
+    },
+  );
 }
 
 function readProgressEventFromRunStreamEvent(
@@ -4362,7 +4559,10 @@ function readProgressEventFromRunStreamEvent(
       toolNameByCallId.delete(callId);
     }
 
-    const toolName = knownToolName || readToolNameFromRunItem(item) || shortenToolCallId(callId);
+    const toolName =
+      knownToolName ||
+      readToolNameFromRunItem(item) ||
+      shortenToolCallId(callId);
     const toolErrorMessage = readToolErrorMessageFromRunItem(item);
     if (toolErrorMessage) {
       return {
@@ -4436,7 +4636,12 @@ function readToolErrorMessageFromRunItem(item: unknown): string {
     return "";
   }
 
-  const output = "output" in item ? item.output : isRecord(item.rawItem) ? item.rawItem.output : null;
+  const output =
+    "output" in item
+      ? item.output
+      : isRecord(item.rawItem)
+        ? item.rawItem.output
+        : null;
   return readSkillOperationErrorMessageFromToolOutput(output);
 }
 
@@ -4457,7 +4662,8 @@ function readSkillOperationErrorMessageFromToolOutput(value: unknown): string {
 
   if (Object.hasOwn(parsedValue, "exitCode")) {
     const exitCode =
-      typeof parsedValue.exitCode === "number" && Number.isFinite(parsedValue.exitCode)
+      typeof parsedValue.exitCode === "number" &&
+      Number.isFinite(parsedValue.exitCode)
         ? parsedValue.exitCode
         : null;
     if (exitCode !== 0) {
@@ -4530,7 +4736,11 @@ async function runAgentWithTimeout<T>(
   const controller = new AbortController();
   const removeAbortRelay = relayAbortSignal(upstreamAbortSignal, controller);
   try {
-    return await awaitWithTimeout(runTask(controller.signal), timeoutMs, timeoutMessage);
+    return await awaitWithTimeout(
+      runTask(controller.signal),
+      timeoutMs,
+      timeoutMessage,
+    );
   } catch (error) {
     controller.abort();
     throw error;
@@ -4569,7 +4779,10 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   throw new RequestCanceledError();
 }
 
-function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
+function buildUpstreamErrorPayload(
+  error: unknown,
+  deploymentName: string,
+): {
   payload: UpstreamErrorPayload;
   status: number;
 } {
@@ -4588,7 +4801,7 @@ function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
       payload: {
         code: "auth_required",
         error:
-          "Azure authentication failed. Click \"Azure Login\", complete sign-in, and try again.",
+          'Azure authentication failed. Click "Azure Login", complete sign-in, and try again.',
         errorCode: "azure_login_required",
       },
       status: 401,
@@ -4613,7 +4826,10 @@ function isRequestCanceledError(error: unknown): boolean {
   );
 }
 
-function buildUpstreamErrorMessage(error: unknown, deploymentName: string): string {
+function buildUpstreamErrorMessage(
+  error: unknown,
+  deploymentName: string,
+): string {
   if (!(error instanceof Error)) {
     return "Could not connect to Azure OpenAI.";
   }
@@ -4652,7 +4868,10 @@ function isTransientNetworkTerminationError(error: unknown): boolean {
   }
 
   const normalizedMessage = error.message.trim().toLowerCase();
-  if (normalizedMessage === "terminated" || normalizedMessage.includes("socket closed")) {
+  if (
+    normalizedMessage === "terminated" ||
+    normalizedMessage.includes("socket closed")
+  ) {
     return true;
   }
 

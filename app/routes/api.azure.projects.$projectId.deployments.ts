@@ -1,7 +1,6 @@
 /**
  * API route module for /api/azure/projects/:projectId/deployments.
  */
-import { getAzureDependencies } from "~/lib/azure/dependencies";
 import {
   authRequiredResponse,
   errorResponse,
@@ -13,13 +12,13 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
 import {
+  azureProjectQueryService,
   getArmAccessToken,
   isLikelyAzureAuthError,
-  listProjectDeployments,
   parseProjectId,
   readErrorMessage,
   resolveAzurePrincipalProfile,
-} from "~/lib/server/azure/azure-project-service";
+} from "~/lib/server/application/azure/azure-project-service";
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
@@ -31,8 +30,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return methodNotAllowedResponse(AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS);
   }
 
-  const dependencies = getAzureDependencies();
-  const tokenResult = await getArmAccessToken(dependencies);
+  const tokenResult = await getArmAccessToken();
   if (!tokenResult.ok) {
     return authRequiredResponse();
   }
@@ -56,10 +54,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return validationErrorResponse("invalid_project_id", "Invalid projectId.");
   }
 
-  const principal = await resolveAzurePrincipalProfile(tokenResult, dependencies);
+  const principal = await resolveAzurePrincipalProfile(tokenResult);
 
   try {
-    const deployments = await listProjectDeployments(tokenResult.token, projectRef);
+    const deployments = await azureProjectQueryService.listProjectDeployments(
+      tokenResult.token,
+      projectRef,
+    );
     return Response.json({
       deployments,
       principal,

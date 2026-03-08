@@ -3,21 +3,20 @@
  */
 import type { Route } from "./+types/api.threads.title-suggestions";
 import { Agent, run, user } from "@openai/agents";
-import { OpenAIResponsesModel } from "@openai/agents-openai";
 import {
-  getAzureDependencies,
+  createAzureResponsesModel,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/azure/dependencies";
+} from "~/lib/server/application/azure/azure-openai-service";
 import {
   CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
-  HOME_REASONING_EFFORT_OPTIONS,
+  REASONING_EFFORT_OPTIONS,
   THREAD_AUTO_TITLE_SYSTEM_PROMPT,
-} from "~/lib/constants";
+} from "~/lib/constants/chat";
 import {
   buildThreadAutoTitleRequestMessage,
   normalizeThreadAutoTitle,
-} from "~/lib/home/thread/title";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+} from "~/lib/contracts/threads/title";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -97,7 +96,10 @@ export async function action({ request }: Route.ActionArgs) {
       message: playgroundContentResult.error,
     });
 
-    return validationErrorResponse("invalid_playground_content", playgroundContentResult.error);
+    return validationErrorResponse(
+      "invalid_playground_content",
+      playgroundContentResult.error,
+    );
   }
   const playgroundContent = playgroundContentResult.value;
 
@@ -117,7 +119,10 @@ export async function action({ request }: Route.ActionArgs) {
         message: reasoningEffortResult.error,
       });
 
-      return validationErrorResponse("invalid_reasoning_effort", reasoningEffortResult.error);
+      return validationErrorResponse(
+        "invalid_reasoning_effort",
+        reasoningEffortResult.error,
+      );
     }
     reasoningEffort = reasoningEffortResult.value;
   }
@@ -134,12 +139,18 @@ export async function action({ request }: Route.ActionArgs) {
       message: azureConfigResult.error,
     });
 
-    return validationErrorResponse("invalid_azure_config", azureConfigResult.error);
+    return validationErrorResponse(
+      "invalid_azure_config",
+      azureConfigResult.error,
+    );
   }
   const azureConfig = azureConfigResult.value;
 
   if (!azureConfig.baseUrl) {
-    return validationErrorResponse("missing_azure_base_url", "Azure OpenAI base URL is missing.");
+    return validationErrorResponse(
+      "missing_azure_base_url",
+      "Azure OpenAI base URL is missing.",
+    );
   }
 
   if (!azureConfig.deploymentName) {
@@ -165,7 +176,10 @@ export async function action({ request }: Route.ActionArgs) {
     });
     return Response.json({ title });
   } catch (error) {
-    const upstreamError = buildUpstreamErrorPayload(error, azureConfig.deploymentName);
+    const upstreamError = buildUpstreamErrorPayload(
+      error,
+      azureConfig.deploymentName,
+    );
     await logServerRouteEvent({
       request,
       route: "/api/threads/title-suggestions",
@@ -192,22 +206,23 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-async function generateThreadTitle(options: ThreadTitleOptions): Promise<string> {
-  const azureDependencies = getAzureDependencies();
-  const model = new OpenAIResponsesModel(
-    azureDependencies.getAzureOpenAIClient(
-      options.azureConfig.baseUrl,
-      options.azureConfig.tenantId,
-    ),
-    options.azureConfig.deploymentName,
-  );
+async function generateThreadTitle(
+  options: ThreadTitleOptions,
+): Promise<string> {
+  const model = createAzureResponsesModel({
+    baseUrl: options.azureConfig.baseUrl,
+    tenantId: options.azureConfig.tenantId,
+    deploymentName: options.azureConfig.deploymentName,
+  });
 
   const agent = new Agent({
     name: "LocalPlaygroundThreadTitleAgent",
     instructions: THREAD_AUTO_TITLE_SYSTEM_PROMPT,
     model,
     modelSettings: {
-      ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+      ...(options.reasoningEffort
+        ? { reasoning: { effort: options.reasoningEffort } }
+        : {}),
     },
   });
 
@@ -286,7 +301,9 @@ function readInstruction(payload: unknown): string {
   return payload.instruction.trim().slice(0, CHAT_MAX_AGENT_INSTRUCTION_LENGTH);
 }
 
-export function parseThreadTitleReasoningEffort(payload: unknown): ParseResult<ReasoningEffort> {
+export function parseThreadTitleReasoningEffort(
+  payload: unknown,
+): ParseResult<ReasoningEffort> {
   if (!isRecord(payload)) {
     return { ok: true, value: "high" };
   }
@@ -300,13 +317,13 @@ export function parseThreadTitleReasoningEffort(payload: unknown): ParseResult<R
   }
 
   const normalized = value.trim();
-  if (HOME_REASONING_EFFORT_OPTIONS.includes(normalized as ReasoningEffort)) {
+  if (REASONING_EFFORT_OPTIONS.includes(normalized as ReasoningEffort)) {
     return { ok: true, value: normalized as ReasoningEffort };
   }
 
   return {
     ok: false,
-    error: `\`reasoningEffort\` must be one of: ${HOME_REASONING_EFFORT_OPTIONS.join(", ")}.`,
+    error: `\`reasoningEffort\` must be one of: ${REASONING_EFFORT_OPTIONS.join(", ")}.`,
   };
 }
 
@@ -332,7 +349,10 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     return { ok: false, error: "`azureConfig` must be an object." };
   }
 
-  if (value.projectName !== undefined && typeof value.projectName !== "string") {
+  if (
+    value.projectName !== undefined &&
+    typeof value.projectName !== "string"
+  ) {
     return { ok: false, error: "`azureConfig.projectName` must be a string." };
   }
 
@@ -348,14 +368,22 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     return { ok: false, error: "`azureConfig.apiVersion` must be a string." };
   }
 
-  if (value.deploymentName !== undefined && typeof value.deploymentName !== "string") {
-    return { ok: false, error: "`azureConfig.deploymentName` must be a string." };
+  if (
+    value.deploymentName !== undefined &&
+    typeof value.deploymentName !== "string"
+  ) {
+    return {
+      ok: false,
+      error: "`azureConfig.deploymentName` must be a string.",
+    };
   }
 
   const tenantId =
     typeof value.tenantId === "string" ? value.tenantId.trim() : "";
   const baseUrl =
-    typeof value.baseUrl === "string" ? normalizeAzureOpenAIBaseURL(value.baseUrl) : "";
+    typeof value.baseUrl === "string"
+      ? normalizeAzureOpenAIBaseURL(value.baseUrl)
+      : "";
   const apiVersion =
     typeof value.apiVersion === "string" && value.apiVersion.trim()
       ? value.apiVersion.trim()
@@ -379,7 +407,8 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     ok: true,
     value: {
       tenantId,
-      projectName: typeof value.projectName === "string" ? value.projectName.trim() : "",
+      projectName:
+        typeof value.projectName === "string" ? value.projectName.trim() : "",
       baseUrl,
       apiVersion,
       deploymentName,
@@ -395,7 +424,10 @@ function parseJson(value: string): unknown {
   }
 }
 
-function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
+function buildUpstreamErrorPayload(
+  error: unknown,
+  deploymentName: string,
+): {
   payload: UpstreamErrorPayload;
   status: number;
 } {
@@ -418,7 +450,10 @@ function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
   };
 }
 
-function buildUpstreamErrorMessage(error: unknown, deploymentName: string): string {
+function buildUpstreamErrorMessage(
+  error: unknown,
+  deploymentName: string,
+): string {
   if (!(error instanceof Error)) {
     return "Could not connect to Azure OpenAI.";
   }

@@ -11,8 +11,8 @@ import * as z from "zod/v4";
 import {
   MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER,
   MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
-} from "~/lib/constants";
-import { resolveFoundryWorkspaceThreadDirectory } from "~/lib/foundry/config";
+} from "~/lib/constants/mcp";
+import { resolveWorkspaceThreadDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   installGlobalServerErrorLogging,
@@ -30,7 +30,7 @@ const MCP_CMD_TOOL_DESCRIPTION = [
   "Security policy: critical destructive command patterns are blocked.",
   "Security policy: sensitive credential/system path references are blocked.",
   "Security policy: command environment is sanitized and scoped to the thread directory.",
-  "Default working directory is ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/.",
+  "Default working directory is the workspace thread directory under the Local Playground storage root.",
   "threadContext.threadId is required for secure command execution.",
 ].join("\n");
 
@@ -98,7 +98,7 @@ const cmdExecuteInputSchema = {
     .min(1)
     .optional()
     .describe(
-      "Optional working directory. Relative paths are resolved from the Local Playground process current directory. When omitted, uses ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/.",
+      "Optional working directory. Relative paths are resolved from the Local Playground process current directory. When omitted, uses the workspace thread directory under the Local Playground storage root.",
     ),
   timeoutSeconds: z
     .number()
@@ -203,7 +203,10 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     );
   }
 
-  const requestContext = readMcpCmdRequestContext(request, authenticatedContext);
+  const requestContext = readMcpCmdRequestContext(
+    request,
+    authenticatedContext,
+  );
   const server = createCmdMcpServer(requestContext);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
@@ -242,10 +245,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
       { status: 500 },
     );
   } finally {
-    await Promise.allSettled([
-      transport.close(),
-      server.close(),
-    ]);
+    await Promise.allSettled([transport.close(), server.close()]);
   }
 }
 
@@ -264,14 +264,17 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
     async (args) => {
       const parsedArguments = parseCmdExecuteArguments(args);
       if (!parsedArguments.ok) {
-        return buildToolResponse({
-          executed: false,
-          error: parsedArguments.error,
-          threadContext: {
-            threadId: requestContext.threadId,
-            turnId: requestContext.turnId,
+        return buildToolResponse(
+          {
+            executed: false,
+            error: parsedArguments.error,
+            threadContext: {
+              threadId: requestContext.threadId,
+              turnId: requestContext.turnId,
+            },
           },
-        }, { isError: true });
+          { isError: true },
+        );
       }
 
       const commandArgs = parsedArguments.value;
@@ -287,14 +290,17 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         commandArgs.workingDirectory,
       );
       if (!directoryScopeResult.ok) {
-        return buildToolResponse({
-          executed: false,
-          error: directoryScopeResult.error,
-          threadContext: {
-            threadId: effectiveThreadId,
-            turnId: requestContext.turnId,
+        return buildToolResponse(
+          {
+            executed: false,
+            error: directoryScopeResult.error,
+            threadContext: {
+              threadId: effectiveThreadId,
+              turnId: requestContext.turnId,
+            },
           },
-        }, { isError: true });
+          { isError: true },
+        );
       }
       const directoryScope = directoryScopeResult.value;
 
@@ -302,29 +308,35 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         command: commandArgs.command,
       });
       if (!commandSecurityResult.ok) {
-        return buildToolResponse({
-          executed: false,
-          error: commandSecurityResult.error,
-          command: commandArgs.command,
-          workingDirectory: directoryScope.workingDirectory,
-          threadContext: {
-            threadId: effectiveThreadId,
-            turnId: requestContext.turnId,
+        return buildToolResponse(
+          {
+            executed: false,
+            error: commandSecurityResult.error,
+            command: commandArgs.command,
+            workingDirectory: directoryScope.workingDirectory,
+            threadContext: {
+              threadId: effectiveThreadId,
+              turnId: requestContext.turnId,
+            },
           },
-        }, { isError: true });
+          { isError: true },
+        );
       }
 
       const shellExecutionContext = resolveShellExecutionContext();
       if (!shellExecutionContext) {
-        return buildToolResponse({
-          executed: false,
-          error:
-            "No available shell environment was found for this operating system. Configure SHELL/ComSpec and retry.",
-          threadContext: {
-            threadId: effectiveThreadId,
-            turnId: requestContext.turnId,
+        return buildToolResponse(
+          {
+            executed: false,
+            error:
+              "No available shell environment was found for this operating system. Configure SHELL/ComSpec and retry.",
+            threadContext: {
+              threadId: effectiveThreadId,
+              turnId: requestContext.turnId,
+            },
           },
-        }, { isError: true });
+          { isError: true },
+        );
       }
 
       try {
@@ -365,24 +377,27 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
           },
         });
       } catch (error) {
-        return buildToolResponse({
-          executed: false,
-          command: commandArgs.command,
-          workingDirectory: directoryScope.workingDirectory,
-          timeoutSeconds: commandArgs.timeoutSeconds,
-          threadContext: {
-            threadId: effectiveThreadId,
-            turnId: requestContext.turnId,
+        return buildToolResponse(
+          {
+            executed: false,
+            command: commandArgs.command,
+            workingDirectory: directoryScope.workingDirectory,
+            timeoutSeconds: commandArgs.timeoutSeconds,
+            threadContext: {
+              threadId: effectiveThreadId,
+              turnId: requestContext.turnId,
+            },
+            shell: {
+              executable: shellExecutionContext.executable,
+              argsPrefix: shellExecutionContext.argsPrefix,
+              family: shellExecutionContext.family,
+              source: shellExecutionContext.source,
+              platform: process.platform,
+            },
+            error: `Failed to execute command: ${readErrorMessage(error)}`,
           },
-          shell: {
-            executable: shellExecutionContext.executable,
-            argsPrefix: shellExecutionContext.argsPrefix,
-            family: shellExecutionContext.family,
-            source: shellExecutionContext.source,
-            platform: process.platform,
-          },
-          error: `Failed to execute command: ${readErrorMessage(error)}`,
-        }, { isError: true });
+          { isError: true },
+        );
       }
     },
   );
@@ -390,7 +405,9 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
   return server;
 }
 
-function parseCmdExecuteArguments(value: unknown): ParseResult<ParsedCmdToolArguments> {
+function parseCmdExecuteArguments(
+  value: unknown,
+): ParseResult<ParsedCmdToolArguments> {
   if (!isRecord(value)) {
     return { ok: false, error: "Tool arguments must be a JSON object." };
   }
@@ -414,7 +431,10 @@ function parseCmdExecuteArguments(value: unknown): ParseResult<ParsedCmdToolArgu
   let workingDirectory: string | null = null;
   if (rawWorkingDirectory !== undefined && rawWorkingDirectory !== null) {
     if (typeof rawWorkingDirectory !== "string") {
-      return { ok: false, error: "`workingDirectory` must be a string when provided." };
+      return {
+        ok: false,
+        error: "`workingDirectory` must be a string when provided.",
+      };
     }
 
     const normalizedWorkingDirectory = rawWorkingDirectory.trim();
@@ -466,11 +486,17 @@ function parseTimeoutSeconds(rawTimeoutSeconds: unknown): ParseResult<number> {
     return { ok: true, value: MCP_CMD_DEFAULT_TIMEOUT_SECONDS };
   }
 
-  if (typeof rawTimeoutSeconds !== "number" || !Number.isSafeInteger(rawTimeoutSeconds)) {
+  if (
+    typeof rawTimeoutSeconds !== "number" ||
+    !Number.isSafeInteger(rawTimeoutSeconds)
+  ) {
     return { ok: false, error: "`timeoutSeconds` must be an integer." };
   }
 
-  if (rawTimeoutSeconds < 1 || rawTimeoutSeconds > MCP_CMD_MAX_TIMEOUT_SECONDS) {
+  if (
+    rawTimeoutSeconds < 1 ||
+    rawTimeoutSeconds > MCP_CMD_MAX_TIMEOUT_SECONDS
+  ) {
     return {
       ok: false,
       error: `\`timeoutSeconds\` must be between 1 and ${MCP_CMD_MAX_TIMEOUT_SECONDS}.`,
@@ -556,7 +582,7 @@ function ensureThreadWorkingDirectory(
 ): ParseResult<string> {
   let resolved: string;
   try {
-    resolved = resolveFoundryWorkspaceThreadDirectory({
+    resolved = resolveWorkspaceThreadDirectory({
       workspaceUserId: userId,
       threadId,
     });
@@ -602,21 +628,25 @@ function evaluateCommandSecurityPolicy(options: {
     };
   }
 
-  const criticalPatternMatch = readMatchedPattern(command, MCP_CMD_CRITICAL_COMMAND_PATTERNS);
+  const criticalPatternMatch = readMatchedPattern(
+    command,
+    MCP_CMD_CRITICAL_COMMAND_PATTERNS,
+  );
   if (criticalPatternMatch) {
     return {
       ok: false,
-      error:
-        `Command matches blocked critical operation pattern '${criticalPatternMatch}' in /mcp/cmd security policy.`,
+      error: `Command matches blocked critical operation pattern '${criticalPatternMatch}' in /mcp/cmd security policy.`,
     };
   }
 
-  const sensitivePathPatternMatch = readMatchedPattern(command, MCP_CMD_SENSITIVE_PATH_PATTERNS);
+  const sensitivePathPatternMatch = readMatchedPattern(
+    command,
+    MCP_CMD_SENSITIVE_PATH_PATTERNS,
+  );
   if (sensitivePathPatternMatch) {
     return {
       ok: false,
-      error:
-        `Command references a sensitive path pattern '${sensitivePathPatternMatch}' blocked by /mcp/cmd security policy.`,
+      error: `Command references a sensitive path pattern '${sensitivePathPatternMatch}' blocked by /mcp/cmd security policy.`,
     };
   }
 
@@ -649,7 +679,7 @@ function tokenizeShellCommand(command: string): ParseResult<string[]> {
       continue;
     }
 
-    if (character === "'" || character === "\"") {
+    if (character === "'" || character === '"') {
       quote = character;
       continue;
     }
@@ -692,11 +722,16 @@ function readExecutableName(token: string): string | null {
   if (!trimmed) {
     return null;
   }
-  const executable = path.win32.basename(path.posix.basename(trimmed)).toLowerCase();
+  const executable = path.win32
+    .basename(path.posix.basename(trimmed))
+    .toLowerCase();
   return executable.length > 0 ? executable : null;
 }
 
-function readMatchedPattern(command: string, patterns: RegExp[]): string | null {
+function readMatchedPattern(
+  command: string,
+  patterns: RegExp[],
+): string | null {
   for (const pattern of patterns) {
     if (pattern.test(command)) {
       return pattern.source;
@@ -776,11 +811,17 @@ function readClosestExistingPath(inputPath: string): ParseResult<string> {
   }
 }
 
-function isPathInsideBoundary(targetPath: string, boundaryPath: string): boolean {
+function isPathInsideBoundary(
+  targetPath: string,
+  boundaryPath: string,
+): boolean {
   const normalizedBoundary = normalizeComparisonPath(boundaryPath);
   const normalizedTarget = normalizeComparisonPath(targetPath);
   const relative = path.relative(normalizedBoundary, normalizedTarget);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  return (
+    relative === "" ||
+    (!relative.startsWith("..") && !path.isAbsolute(relative))
+  );
 }
 
 function normalizeComparisonPath(inputPath: string): string {
@@ -826,19 +867,30 @@ function buildShellCandidates(): ShellExecutionContext[] {
 
   if (process.platform === "win32") {
     if (processShell) {
-      addCandidate(createPosixShellExecutionContext(processShell, "process.env.SHELL"));
+      addCandidate(
+        createPosixShellExecutionContext(processShell, "process.env.SHELL"),
+      );
     }
 
     if (userInfoShell) {
-      addCandidate(createPosixShellExecutionContext(userInfoShell, "nodeOs.userInfo().shell"));
+      addCandidate(
+        createPosixShellExecutionContext(
+          userInfoShell,
+          "nodeOs.userInfo().shell",
+        ),
+      );
     }
 
     addCandidate(createPowerShellExecutionContext("pwsh.exe", "pwsh"));
-    addCandidate(createPowerShellExecutionContext("powershell.exe", "powershell"));
+    addCandidate(
+      createPowerShellExecutionContext("powershell.exe", "powershell"),
+    );
 
     const comspec = normalizeOptionalString(process.env.ComSpec);
     if (comspec) {
-      addCandidate(createCmdShellExecutionContext(comspec, "process.env.ComSpec"));
+      addCandidate(
+        createCmdShellExecutionContext(comspec, "process.env.ComSpec"),
+      );
     }
     addCandidate(createCmdShellExecutionContext("cmd.exe", "default"));
 
@@ -846,11 +898,18 @@ function buildShellCandidates(): ShellExecutionContext[] {
   }
 
   if (processShell) {
-    addCandidate(createPosixShellExecutionContext(processShell, "process.env.SHELL"));
+    addCandidate(
+      createPosixShellExecutionContext(processShell, "process.env.SHELL"),
+    );
   }
 
   if (userInfoShell) {
-    addCandidate(createPosixShellExecutionContext(userInfoShell, "nodeOs.userInfo().shell"));
+    addCandidate(
+      createPosixShellExecutionContext(
+        userInfoShell,
+        "nodeOs.userInfo().shell",
+      ),
+    );
   }
 
   addCandidate(createPosixShellExecutionContext("/bin/bash", "fallback"));
@@ -883,7 +942,13 @@ function createPowerShellExecutionContext(
   return {
     executable,
     argsPrefix: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
-    probeArgs: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "exit 0"],
+    probeArgs: [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "exit 0",
+    ],
     family: "powershell",
     source,
   };
@@ -902,7 +967,9 @@ function createCmdShellExecutionContext(
   };
 }
 
-function isShellCandidateAvailable(shellExecutionContext: ShellExecutionContext): boolean {
+function isShellCandidateAvailable(
+  shellExecutionContext: ShellExecutionContext,
+): boolean {
   try {
     const probeResult = childProcess.spawnSync(
       shellExecutionContext.executable,
@@ -1042,7 +1109,10 @@ function createOutputCollector(): OutputCollector {
   };
 }
 
-function appendOutputChunk(collector: OutputCollector, chunk: Buffer | string): void {
+function appendOutputChunk(
+  collector: OutputCollector,
+  chunk: Buffer | string,
+): void {
   const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
   if (collector.size >= MCP_CMD_OUTPUT_MAX_BYTES) {
     collector.truncated = true;
@@ -1075,8 +1145,14 @@ function readMcpCmdRequestContext(
 ): McpCmdRequestContext {
   return {
     ...authenticatedContext,
-    threadId: readOptionalHeaderValue(request, MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER),
-    turnId: readOptionalHeaderValue(request, MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER),
+    threadId: readOptionalHeaderValue(
+      request,
+      MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER,
+    ),
+    turnId: readOptionalHeaderValue(
+      request,
+      MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
+    ),
   };
 }
 
@@ -1098,7 +1174,10 @@ async function readAuthenticatedMcpCmdContext(): Promise<AuthenticatedMcpCmdCont
   };
 }
 
-function readOptionalHeaderValue(request: Request, headerName: string): string | null {
+function readOptionalHeaderValue(
+  request: Request,
+  headerName: string,
+): string | null {
   const raw = request.headers.get(headerName);
   if (typeof raw !== "string") {
     return null;
@@ -1140,9 +1219,10 @@ function buildToolResponse(
     text?: string;
   } = {},
 ) {
-  const text = typeof options.text === "string"
-    ? options.text
-    : JSON.stringify(payload, null, 2);
+  const text =
+    typeof options.text === "string"
+      ? options.text
+      : JSON.stringify(payload, null, 2);
   return {
     content: [
       {

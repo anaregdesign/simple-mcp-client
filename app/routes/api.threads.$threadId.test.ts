@@ -25,7 +25,7 @@ const {
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("./api.threads", () => ({
+vi.mock("~/lib/server/application/threads/thread-service", () => ({
   readAuthenticatedUser,
   readJsonPayload,
   updateThreadSnapshot,
@@ -35,7 +35,7 @@ vi.mock("./api.threads", () => ({
   readErrorMessage,
 }));
 
-vi.mock("~/lib/home/thread/parsers", () => ({
+vi.mock("~/lib/contracts/threads/parsers", () => ({
   readThreadSnapshotFromUnknown,
 }));
 

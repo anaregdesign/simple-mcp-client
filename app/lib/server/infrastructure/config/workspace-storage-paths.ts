@@ -1,0 +1,275 @@
+/**
+ * Workspace storage path module.
+ */
+import nodeOs from "node:os";
+import path from "node:path";
+import nodeUrl from "node:url";
+import {
+  LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+  WORKSPACE_SKILLS_DIRECTORY_NAME,
+  LOCAL_PLAYGROUND_SQLITE_DATABASE_FILE_NAME,
+  WORKSPACE_THREADS_DIRECTORY_NAME,
+  WORKSPACE_USERS_DIRECTORY_NAME,
+  WINDOWS_WORKSPACE_STORAGE_DIRECTORY_NAME,
+} from "~/lib/constants/persistence";
+
+type ResolveWorkspaceStorageDirectoryOptions = {
+  platform?: NodeJS.Platform;
+  homeDirectory?: string;
+  appDataDirectory?: string | null;
+  xdgDataHomeDirectory?: string | null;
+};
+
+type ResolveWorkspaceDatabaseUrlOptions =
+  ResolveWorkspaceStorageDirectoryOptions & {
+    envDatabaseUrl?: string | null;
+    cwd?: string;
+  };
+
+type ResolveWorkspaceUserDirectoryOptions =
+  ResolveWorkspaceStorageDirectoryOptions & {
+    workspaceUserId: number;
+  };
+
+type ResolveWorkspaceThreadDirectoryOptions =
+  ResolveWorkspaceUserDirectoryOptions & {
+    threadId: string;
+  };
+
+type NormalizePrismaSqliteDatabaseUrlOptions = {
+  cwd?: string;
+  platform: NodeJS.Platform;
+};
+
+export function resolveLegacyWorkspaceStorageDirectory(
+  options: ResolveWorkspaceStorageDirectoryOptions = {},
+): string {
+  const platform = options.platform ?? process.platform;
+  const homeDirectory = options.homeDirectory ?? nodeOs.homedir();
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    homeDirectory,
+    LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+  );
+}
+
+export function resolveWorkspaceStorageDirectory(
+  options: ResolveWorkspaceStorageDirectoryOptions = {},
+): string {
+  const platform = options.platform ?? process.platform;
+  const homeDirectory = options.homeDirectory ?? nodeOs.homedir();
+
+  if (platform === "win32") {
+    const appDataDirectory = (
+      options.appDataDirectory ??
+      process.env.APPDATA ??
+      ""
+    ).trim();
+    if (!appDataDirectory) {
+      return path.win32.join(
+        homeDirectory,
+        LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+      );
+    }
+
+    return path.win32.join(
+      appDataDirectory,
+      WINDOWS_WORKSPACE_STORAGE_DIRECTORY_NAME,
+    );
+  }
+
+  if (platform === "darwin" || platform === "linux") {
+    return path.posix.join(
+      homeDirectory,
+      LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+    );
+  }
+
+  return resolveLegacyWorkspaceStorageDirectory(options);
+}
+
+export function resolveWorkspaceDatabaseFilePath(
+  options: ResolveWorkspaceStorageDirectoryOptions = {},
+): string {
+  const primaryDirectoryPath = resolveWorkspaceStorageDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    primaryDirectoryPath,
+    LOCAL_PLAYGROUND_SQLITE_DATABASE_FILE_NAME,
+  );
+}
+
+export function resolveWorkspaceUserDirectory(
+  options: ResolveWorkspaceUserDirectoryOptions,
+): string {
+  const primaryDirectoryPath = resolveWorkspaceStorageDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    primaryDirectoryPath,
+    WORKSPACE_USERS_DIRECTORY_NAME,
+    readWorkspaceUserDirectoryName(options.workspaceUserId),
+  );
+}
+
+export function resolveWorkspaceUserSkillsDirectory(
+  options: ResolveWorkspaceUserDirectoryOptions,
+): string {
+  const workspaceUserDirectoryPath = resolveWorkspaceUserDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    workspaceUserDirectoryPath,
+    WORKSPACE_SKILLS_DIRECTORY_NAME,
+  );
+}
+
+export function resolveWorkspaceThreadDirectory(
+  options: ResolveWorkspaceThreadDirectoryOptions,
+): string {
+  const workspaceUserDirectoryPath = resolveWorkspaceUserDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    workspaceUserDirectoryPath,
+    WORKSPACE_THREADS_DIRECTORY_NAME,
+    readWorkspaceThreadDirectoryName(options.threadId),
+  );
+}
+
+export function resolveWorkspaceDatabaseUrl(
+  options: ResolveWorkspaceDatabaseUrlOptions = {},
+): string {
+  const platform = options.platform ?? process.platform;
+  const configuredUrl =
+    typeof options.envDatabaseUrl === "string"
+      ? options.envDatabaseUrl.trim()
+      : "";
+  if (configuredUrl) {
+    return normalizePrismaSqliteDatabaseUrl(configuredUrl, {
+      cwd: options.cwd,
+      platform,
+    });
+  }
+
+  const resolvedPath = resolveWorkspaceDatabaseFilePath(options);
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  const fallbackPath =
+    resolvedPath.trim() ||
+    pathModule.resolve(options.cwd ?? process.cwd(), "local-playground.sqlite");
+  return buildPrismaSqliteDatabaseUrl(fallbackPath, platform);
+}
+
+function normalizePrismaSqliteDatabaseUrl(
+  databaseUrl: string,
+  options: NormalizePrismaSqliteDatabaseUrlOptions,
+): string {
+  const trimmedUrl = databaseUrl.trim();
+  if (!trimmedUrl) {
+    return trimmedUrl;
+  }
+
+  if (
+    !trimmedUrl.startsWith("file:") ||
+    isInMemorySqliteDatabaseUrl(trimmedUrl)
+  ) {
+    const pathModule = options.platform === "win32" ? path.win32 : path.posix;
+    if (pathModule.isAbsolute(trimmedUrl)) {
+      return buildPrismaSqliteDatabaseUrl(
+        pathModule.normalize(trimmedUrl),
+        options.platform,
+      );
+    }
+
+    return trimmedUrl;
+  }
+
+  const absoluteDatabasePath = resolveSqliteDatabaseFilePath(
+    trimmedUrl,
+    options,
+  );
+  if (!absoluteDatabasePath) {
+    return trimmedUrl;
+  }
+
+  const queryIndex = trimmedUrl.indexOf("?");
+  const query = queryIndex >= 0 ? trimmedUrl.slice(queryIndex) : "";
+  return `${buildPrismaSqliteDatabaseUrl(absoluteDatabasePath, options.platform)}${query}`;
+}
+
+function readWorkspaceUserDirectoryName(workspaceUserId: number): string {
+  if (!Number.isInteger(workspaceUserId) || workspaceUserId <= 0) {
+    throw new Error("`workspaceUserId` must be a positive integer.");
+  }
+
+  return String(workspaceUserId);
+}
+
+function readWorkspaceThreadDirectoryName(threadId: string): string {
+  const normalizedThreadId = threadId.trim();
+  if (!normalizedThreadId) {
+    throw new Error("`threadId` must be a non-empty string.");
+  }
+
+  if (normalizedThreadId.includes("/") || normalizedThreadId.includes("\\")) {
+    throw new Error("`threadId` must not contain path separators.");
+  }
+
+  return normalizedThreadId;
+}
+
+function isInMemorySqliteDatabaseUrl(databaseUrl: string): boolean {
+  return (
+    databaseUrl === "file:memory" ||
+    databaseUrl === "file::memory:" ||
+    /[?&]mode=memory(?:&|$)/i.test(databaseUrl)
+  );
+}
+
+function resolveSqliteDatabaseFilePath(
+  databaseUrl: string,
+  options: NormalizePrismaSqliteDatabaseUrlOptions,
+): string | null {
+  const pathModule = options.platform === "win32" ? path.win32 : path.posix;
+
+  try {
+    if (databaseUrl.startsWith("file://")) {
+      return nodeUrl.fileURLToPath(databaseUrl);
+    }
+  } catch {
+    return null;
+  }
+
+  const withoutPrefix = databaseUrl.slice("file:".length);
+  const queryIndex = withoutPrefix.indexOf("?");
+  const rawPath = (
+    queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix
+  ).trim();
+  if (!rawPath || rawPath === ":memory:") {
+    return null;
+  }
+
+  const decodedPath = decodeURIComponent(rawPath);
+  if (pathModule.isAbsolute(decodedPath)) {
+    return pathModule.normalize(decodedPath);
+  }
+
+  return pathModule.resolve(options.cwd ?? process.cwd(), decodedPath);
+}
+
+function buildPrismaSqliteDatabaseUrl(
+  databaseFilePath: string,
+  platform: NodeJS.Platform,
+): string {
+  if (platform === "win32") {
+    const normalizedPath = databaseFilePath.replaceAll("\\", "/");
+    if (/^[A-Za-z]:\//.test(normalizedPath)) {
+      return `file:${normalizedPath}`;
+    }
+
+    return `file:${normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`}`;
+  }
+
+  return `file:${databaseFilePath}`;
+}

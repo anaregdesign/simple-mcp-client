@@ -28,14 +28,13 @@ const { SSRProvider } = FluentUI;
 
 export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
-  { rel: "icon", href: "/foundry-symbol.svg", type: "image/svg+xml" },
+  { rel: "icon", href: "/local-playground-symbol.svg", type: "image/svg+xml" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
 ];
 
 export async function loader({}: Route.LoaderArgs) {
-  const { installGlobalServerErrorLogging } = await import(
-    "~/lib/server/observability/runtime-event-log"
-  );
+  const { installGlobalServerErrorLogging } =
+    await import("~/lib/server/observability/runtime-event-log");
   installGlobalServerErrorLogging();
   return null;
 }

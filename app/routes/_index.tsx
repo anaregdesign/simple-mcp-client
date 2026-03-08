@@ -2,15 +2,15 @@
  * Route composition module.
  */
 import type { CSSProperties } from "react";
-import { ConfigPanel } from "~/components/home/config/ConfigPanel";
-import { UnauthenticatedPanel } from "~/components/home/authorize/UnauthenticatedPanel";
-import { PlaygroundPanel } from "~/components/home/playground/PlaygroundPanel";
+import { ConfigPanel } from "~/components/client/config/ConfigPanel";
+import { UnauthenticatedPanel } from "~/components/client/authorize/UnauthenticatedPanel";
+import { PlaygroundPanel } from "~/components/client/playground/PlaygroundPanel";
 import {
   renderMessageContent,
   renderTurnOperationLog,
-} from "~/components/home/playground/PlaygroundRenderers";
-import { FluentUI } from "~/components/home/shared/fluent";
-import { useWorkspaceController } from "~/lib/home/controller/use-workspace-controller";
+} from "~/components/client/playground/PlaygroundRenderers";
+import { FluentUI } from "~/components/client/shared/fluent";
+import { useWorkspaceClientController } from "~/lib/client/controller/use-workspace-client-controller";
 import type { Route } from "./+types/_index";
 
 const { FluentProvider, webDarkTheme, webLightTheme } = FluentUI;
@@ -29,13 +29,13 @@ export default function Home() {
     isMainSplitterResizing,
     onMainSplitterPointerDown,
     isAzureAuthRequired,
-    homeTheme,
+    theme,
     unauthenticatedPanelProps,
     configPanelProps,
     playgroundPanelProps,
-  } = useWorkspaceController();
+  } = useWorkspaceClientController();
 
-  const fluentTheme = homeTheme === "dark" ? webDarkTheme : webLightTheme;
+  const fluentTheme = theme === "dark" ? webDarkTheme : webLightTheme;
 
   if (isAzureAuthRequired) {
     return (
