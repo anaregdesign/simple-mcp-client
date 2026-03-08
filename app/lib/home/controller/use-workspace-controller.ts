@@ -197,6 +197,12 @@ import {
   buildThreadListOptions,
   mergeSkillSelections,
 } from "~/lib/home/controller/thread-runtime";
+import {
+  applySendResult,
+  buildChatRequestPayload,
+  consumeChatResponseStream,
+  validateSendPreconditions,
+} from "~/lib/home/controller/send-message-usecase";
 import { readJsonPayload } from "~/lib/home/controller/http";
 import {
   type AzureActionApiResponse,
@@ -4033,75 +4039,42 @@ export function useWorkspaceController() {
   async function sendMessage() {
     const threadId = activeThreadIdRef.current.trim();
     const content = draft.trim();
-    if (!content) {
-      return;
-    }
-
-    if (!threadId) {
-      setThreadError("Select or create a thread before sending.");
-      setActiveMainTab("threads");
-      return;
-    }
-    if (isArchivedThread(threadId)) {
-      setThreadError("Archived thread is read-only. Restore it from Archives to continue.");
-      setActiveMainTab("threads");
-      return;
-    }
-
-    if (readThreadRequestState(threadId).isSending) {
-      return;
-    }
-
-    if (isThreadPhaseBlockingSend(threadOperationPhase)) {
-      setThreadError("Thread state is updating. Please wait.");
-      setActiveMainTab("threads");
-      return;
-    }
-
-    if (isChatLocked) {
-      setActiveMainTab("settings");
-      setUiError("Playground is unavailable while logged out. Open ⚙️ Settings and sign in.");
-      return;
-    }
-
-    if (!activePlaygroundAzureConnection) {
-      setUiError(
-        isAzureAuthRequired
-          ? "Azure login is required. Click Project or Deployment and sign in."
-          : "No Azure project is available. Check your Azure account permissions.",
-      );
-      return;
-    }
-
     const deploymentName = selectedPlaygroundAzureDeploymentName.trim();
-    if (isLoadingPlaygroundAzureDeployments) {
-      setUiError("Deployment list is loading. Please wait.");
+    const preconditionViolation = validateSendPreconditions({
+      content,
+      threadId,
+      isArchivedThread: isArchivedThread(threadId),
+      isThreadSending: readThreadRequestState(threadId).isSending,
+      isThreadPhaseBlockingSend: isThreadPhaseBlockingSend(threadOperationPhase),
+      isChatLocked,
+      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+      isAzureAuthRequired,
+      isLoadingPlaygroundAzureDeployments,
+      deploymentName,
+      isSelectedDeploymentValid: includesAzureDeploymentName(playgroundAzureDeployments, deploymentName),
+      isPlaygroundReasoningEffortSupported,
+      isSelectedPlaygroundReasoningEffortOptionAvailable:
+        effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort),
+      webSearchEnabled,
+      isPlaygroundReasoningEffortWebSearchCompatible:
+        !webSearchEnabled ||
+        !isPlaygroundReasoningEffortSupported ||
+        isWebSearchCompatibleReasoningEffort(reasoningEffort),
+    });
+    if (preconditionViolation) {
+      if (preconditionViolation.type === "thread_error" && preconditionViolation.message) {
+        setThreadError(preconditionViolation.message);
+      }
+      if (preconditionViolation.type === "ui_error") {
+        setUiError(preconditionViolation.message);
+      }
+      if (preconditionViolation.targetTab) {
+        setActiveMainTab(preconditionViolation.targetTab);
+      }
       return;
     }
 
-    if (!deploymentName || !includesAzureDeploymentName(playgroundAzureDeployments, deploymentName)) {
-      setUiError("Select an Azure deployment before sending.");
-      return;
-    }
-
-    if (
-      isPlaygroundReasoningEffortSupported &&
-      !effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort)
-    ) {
-      setUiError(
-        "Select a Reasoning Effort value available for the selected deployment before sending.",
-      );
-      return;
-    }
-
-    if (
-      webSearchEnabled &&
-      isPlaygroundReasoningEffortSupported &&
-      !isWebSearchCompatibleReasoningEffort(reasoningEffort)
-    ) {
-      setUiError(
-        "Selected Reasoning Effort cannot be used with Web Search. Choose a Web Search-compatible value.",
-      );
+    if (!content || !threadId || !activePlaygroundAzureConnection || !deploymentName) {
       return;
     }
 
@@ -4160,14 +4133,12 @@ export function useWorkspaceController() {
     setUiError(null);
     setSystemNotice(null);
     setAzureLoginError(null);
-    updateThreadRequestState(threadId, (current) => ({
-      ...current,
-      isSending: true,
-      sendProgressMessages: ["Preparing request..."],
-      activeTurnId: turnId,
-      lastErrorTurnId: null,
-      error: null,
-    }));
+    updateThreadRequestState(threadId, (current) =>
+      applySendResult(current, {
+        status: "optimistic",
+        turnId,
+      }),
+    );
     logHomeInfo("send_message_started", "Thread message request started.", {
       action: "send_message",
       context: {
@@ -4190,8 +4161,31 @@ export function useWorkspaceController() {
     const sendAbortController = new AbortController();
     assignThreadSendAbortController(threadId, sendAbortController);
 
-    let receivedOperationLogCount = 0;
     try {
+      const requestPayload = buildChatRequestPayload({
+        threadId,
+        turnId,
+        message: content,
+        attachments: requestAttachments,
+        history,
+        azureConfig: {
+          tenantId: activeAzureTenantIdRef.current,
+          projectName: activePlaygroundAzureConnection.projectName,
+          baseUrl: activePlaygroundAzureConnection.baseUrl,
+          apiVersion: activePlaygroundAzureConnection.apiVersion,
+          deploymentName,
+        },
+        supportsReasoningEffort: isPlaygroundReasoningEffortSupported,
+        reasoningEffort,
+        webSearchEnabled,
+        agentInstruction: requestAgentInstruction,
+        instructionContextToggles: requestInstructionContextToggles,
+        threadEnvironment: requestThreadEnvironment,
+        skills: requestSkillSelections,
+        explicitSkillLocations: requestExplicitSkillLocations,
+        mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
+      });
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -4199,53 +4193,24 @@ export function useWorkspaceController() {
           Accept: "text/event-stream, application/json",
         },
         signal: sendAbortController.signal,
-        body: JSON.stringify({
-          threadId,
-          turnId,
-          message: content,
-          attachments: requestAttachments,
-          history,
-          azureConfig: {
-            tenantId: activeAzureTenantIdRef.current,
-            projectName: activePlaygroundAzureConnection.projectName,
-            baseUrl: activePlaygroundAzureConnection.baseUrl,
-            apiVersion: activePlaygroundAzureConnection.apiVersion,
-            deploymentName,
-          },
-          supportsReasoningEffort: isPlaygroundReasoningEffortSupported,
-          ...(isPlaygroundReasoningEffortSupported
-            ? { reasoningEffort }
-            : {}),
-          webSearchEnabled,
-          agentInstruction: requestAgentInstruction,
-          instructionContextToggles: requestInstructionContextToggles,
-          threadEnvironment: requestThreadEnvironment,
-          skills: requestSkillSelections,
-          explicitSkillLocations: requestExplicitSkillLocations,
-          mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
-      const contentType = response.headers.get("content-type") ?? "";
-      const isEventStream = contentType.toLowerCase().includes("text/event-stream");
-
-      let payload: ChatApiResponse;
-      if (isEventStream) {
-        payload = await readChatEventStreamPayload(response, {
-          onProgress: (message) => {
-            appendThreadProgressMessage(threadId, message);
-          },
-          onOperationLogRecord: (entry) => {
-            receivedOperationLogCount += 1;
-            appendThreadOperationLogToThreadState(threadId, {
-              ...entry,
-              turnId,
-            });
-          },
-        });
-      } else {
-        payload = await readJsonPayload<ChatApiResponse>(response, "chat");
-      }
+      const { payload, isEventStream, operationLogCount } = await consumeChatResponseStream({
+        response,
+        readChatEventStreamPayload: (streamResponse, handlers) =>
+          readChatEventStreamPayload(streamResponse, handlers),
+        readJsonPayload: (jsonResponse) => readJsonPayload<ChatApiResponse>(jsonResponse, "chat"),
+        onProgress: (message) => {
+          appendThreadProgressMessage(threadId, message);
+        },
+        onOperationLogRecord: (entry) => {
+          appendThreadOperationLogToThreadState(threadId, {
+            ...entry,
+            turnId,
+          });
+        },
+      });
 
       if (!response.ok || payload.error) {
         if (payload.errorCode === "azure_login_required") {
@@ -4264,21 +4229,18 @@ export function useWorkspaceController() {
       );
       const assistantMessage = createThreadMessage("assistant", payload.message, turnId);
       appendMessageToThreadState(threadId, assistantMessage);
-      updateThreadRequestState(threadId, (current) => ({
-        ...current,
-        isSending: false,
-        sendProgressMessages: [],
-        activeTurnId: null,
-        lastErrorTurnId: null,
-        error: null,
-      }));
+      updateThreadRequestState(threadId, (current) =>
+        applySendResult(current, {
+          status: "succeeded",
+        }),
+      );
       logHomeInfo("send_message_succeeded", "Thread message request completed.", {
         action: "send_message",
         context: {
           threadId,
           turnId,
           responseLength: payload.message.length,
-          operationLogCount: receivedOperationLogCount,
+          operationLogCount,
           usedEventStream: isEventStream,
         },
       });
@@ -4290,17 +4252,13 @@ export function useWorkspaceController() {
           context: {
             threadId,
             turnId,
-            operationLogCount: receivedOperationLogCount,
           },
         });
-        updateThreadRequestState(threadId, (current) => ({
-          ...current,
-          isSending: false,
-          sendProgressMessages: [],
-          activeTurnId: null,
-          lastErrorTurnId: null,
-          error: null,
-        }));
+        updateThreadRequestState(threadId, (current) =>
+          applySendResult(current, {
+            status: "canceled",
+          }),
+        );
         return;
       }
 
@@ -4314,14 +4272,13 @@ export function useWorkspaceController() {
           skillSelectionCount: requestSkillSelections.length,
         },
       });
-      updateThreadRequestState(threadId, (current) => ({
-        ...current,
-        isSending: false,
-        sendProgressMessages: [],
-        activeTurnId: null,
-        lastErrorTurnId: turnId,
-        error: sendError instanceof Error ? sendError.message : "Could not reach the server.",
-      }));
+      updateThreadRequestState(threadId, (current) =>
+        applySendResult(current, {
+          status: "failed",
+          turnId,
+          error: sendError,
+        }),
+      );
     } finally {
       clearThreadSendAbortController(threadId, sendAbortController);
       window.setTimeout(() => {
