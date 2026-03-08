@@ -138,6 +138,19 @@ git diff --name-only
    - metadata rows in `app/lib/server/persistence/mcp-debug-database-metadata.ts`
    - shared metadata types in `app/lib/server/persistence/mcp-debug-database-types.ts`
    - runtime helper module consumes metadata definitions instead of re-inlining a large array
+18. If `app/routes/api.chat.ts` changed, verify cancellation classification behavior:
+   - stream disconnect path logs `chat_stream_canceled` at info level
+   - disconnect does not emit upstream-failure error payload to stream clients
+19. If MCP server parser behavior changed, verify shared parser module usage:
+   - `app/lib/mcp/server-config-parser.ts` is the parser source for both chat payload entries and MCP server routes
+   - route/request modules do not reintroduce duplicated MCP parser blocks
+20. If `app/lib/home/controller/use-workspace-controller.ts` changed, verify operation and send boundaries:
+   - Thread operation phase updates flow through `thread-operation-phase.ts` transition helpers
+   - send-message pipeline boundaries remain delegated to `send-message-usecase.ts`
+   - Home API auth/error branches are centralized via `api-client.ts`
+21. If `app/lib/server/mcp/thread-mcp-server-session-pool.ts` changed, verify close-safety:
+   - idle cleanup close failures are handled by best-effort safe close + warning log
+   - tests cover close-reject behavior without unhandled rejection
 
 ### Pass Criteria
 
@@ -149,6 +162,7 @@ git diff --name-only
 - No route-to-route production import findings remain for changed API handlers.
 - REST best-practice compliance was re-validated whenever `app/routes/api.*` changed.
 - Prisma schema and `/mcp/debug` metadata/test sync is confirmed when Prisma persisted models/fields changed.
+- New guardrail checks (18-21) pass for the modules touched in this change batch.
 
 ## 3) Route vs Controller Ownership
 
@@ -181,6 +195,19 @@ git diff --name-only | rg "^app/lib/home/controller/"
    - avoid parallel mirrored state for `messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`
 
 5. For controller operation flags, prefer phase-based state (`ThreadOperationPhase`) and shared guard helpers over multiple independent booleans.
+6. For controller phase updates, avoid direct string assignment drift:
+   - no new `setThreadOperationPhase(\"...\")` calls outside transition helper wrappers
+   ```bash
+   rg -n "setThreadOperationPhase\\(\\\"(loading|switching|creating|deleting|clearing|restoring|idle)\\\"\\)" app/lib/home/controller
+   ```
+7. For Home send pipeline changes, verify use-case delegation stays modular:
+   ```bash
+   rg -n "validateSendPreconditions|buildChatRequestPayload|consumeChatResponseStream|applySendResult" app/lib/home/controller/use-workspace-controller.ts app/lib/home/controller/send-message-usecase.ts
+   ```
+8. For Home API request handling changes, verify shared API client usage:
+   ```bash
+   rg -n "requestHomeApi|resolveAuthRequired|mapApiError" app/lib/home/controller/use-workspace-controller.ts app/lib/home/controller/api-client.ts
+   ```
 
 ### Pass Criteria
 

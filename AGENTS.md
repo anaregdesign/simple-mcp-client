@@ -198,6 +198,9 @@
   - avoid mirrored controller-level state for data already represented in thread snapshots (`messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`)
 - Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/home/thread/*` over ad-hoc duplicated mutation code in controller handlers.
 - Use phase-based Thread operation state (`ThreadOperationPhase`) with shared guard helpers instead of many independent busy booleans.
+- Apply Thread operation phase updates through transition APIs in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation` / `canTransition`) instead of direct phase mutation.
+- Keep `sendMessage` orchestration thin by delegating precondition checks, request payload composition, stream consumption, and result application to `app/lib/home/controller/send-message-usecase.ts`.
+- Centralize shared Home API auth/error handling in `app/lib/home/controller/api-client.ts` (`requestHomeApi`, `resolveAuthRequired`, `mapApiError`) instead of duplicating 401/authRequired/network branches per handler.
 - Keep persistent interactive state in React/controller runtime first.
 - Persist controller state to SQLite with delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat SQLite as durable snapshot storage; treat React/controller state as the immediate source of truth during interaction.
@@ -268,6 +271,7 @@
 - Keep `app/routes/api.chat.ts` orchestration-focused.
   - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live under `app/lib/server/chat/*`.
 - On stream disconnect/cancel, propagate `AbortSignal` through chat execution and ensure MCP/session/container cleanup paths always execute.
+- Classify stream disconnect as cancellation (not upstream failure): do not emit stream error payload on client disconnect, and log cancellation as info-level (`chat_stream_canceled`).
 
 ## Threads / Instruction Behavior
 
@@ -314,8 +318,10 @@
   - support per-server timeout and per-server Azure token scope
   - when Azure auth is enabled, inject `Authorization: Bearer <token>` at request time from `DefaultAzureCredential`
 - Share MCP input validation between frontend and backend via `app/lib/mcp/validation.ts`; UI and route parsers may format context-specific error messages but should not duplicate validation rules.
+- Share MCP server config parsing across chat and MCP routes via `app/lib/mcp/server-config-parser.ts`; keep context-specific error prefixes/messages at the call site, not duplicated parser logic.
 - For MCP session pool contention, prefer bounded wait-and-reuse before ephemeral fallback to improve session reuse and reduce connection churn.
 - Register runtime shutdown cleanup hooks once (idempotent) and close all Thread MCP sessions during process shutdown.
+- For session pool idle cleanup, close MCP sessions with best-effort safe close and warning logs so close failures never surface as unhandled rejections.
 
 ## MCP Debugging UX
 
