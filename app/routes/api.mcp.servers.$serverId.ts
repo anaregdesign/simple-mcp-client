@@ -21,7 +21,7 @@ import {
   readWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
   writeWorkspaceMcpServerProfiles,
-} from "./api.mcp.servers";
+} from "~/lib/server/mcp/mcp-server-profile-service";
 import type { Route } from "./+types/api.mcp.servers.$serverId";
 
 const MCP_SERVER_ITEM_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
