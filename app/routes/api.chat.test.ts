@@ -63,9 +63,13 @@ const {
   buildInitialSkillOperationRecords,
   instrumentMcpServer,
   buildUpstreamErrorMessage,
+  buildUpstreamErrorPayload,
   isTransientNetworkTerminationError,
+  isRequestCanceledError,
   shouldRetryChatExecution,
+  throwIfAborted,
   runAgentWithTimeout,
+  RequestCanceledError,
   resolveThreadDirectoryPath,
   applyDefaultThreadDirectoryToStdioServers,
 } = chatRouteTestUtils;
@@ -537,6 +541,29 @@ describe("buildUpstreamErrorMessage", () => {
     expect(buildUpstreamErrorMessage(new TypeError("terminated"), "gpt-5.2")).toBe(
       "Connection to Azure OpenAI was interrupted before completion. Please retry.",
     );
+  });
+});
+
+describe("stream cancellation classification", () => {
+  it("treats canceled requests as non-upstream failures", () => {
+    const canceledError = new RequestCanceledError();
+    expect(isRequestCanceledError(canceledError)).toBe(true);
+    expect(
+      buildUpstreamErrorPayload(canceledError, "gpt-5.2"),
+    ).toEqual({
+      payload: {
+        code: "request_canceled",
+        error: "Request was canceled by client disconnect.",
+      },
+      status: 499,
+    });
+  });
+
+  it("throws RequestCanceledError when abort signal is already canceled", () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    expect(() => throwIfAborted(controller.signal)).toThrow(RequestCanceledError);
   });
 });
 

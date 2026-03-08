@@ -159,6 +159,12 @@ type UpstreamErrorPayload = {
   error: string;
   errorCode?: "azure_login_required";
 };
+class RequestCanceledError extends Error {
+  constructor(message = "Request was canceled.") {
+    super(message);
+    this.name = "RequestCanceledError";
+  }
+}
 type ChatExecutionOptions = {
   threadId: string | null;
   turnId: string | null;
@@ -988,6 +994,20 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         context: buildChatExecutionSuccessLogContext(options, result),
       });
     } catch (error) {
+      if (signal.aborted || isRequestCanceledError(error)) {
+        await logServerRouteEvent({
+          route: "/api/chat",
+          eventName: "chat_stream_canceled",
+          action: "stream_chat",
+          level: "info",
+          statusCode: 200,
+          message: "Chat stream canceled by client disconnect.",
+          threadId: options.threadId,
+          context: buildChatExecutionLogContext(options),
+        });
+        return;
+      }
+
       const upstreamError = buildUpstreamErrorPayload(
         error,
         options.azureConfig.deploymentName,
@@ -4550,13 +4570,23 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
     return;
   }
 
-  throw new Error("Request was canceled.");
+  throw new RequestCanceledError();
 }
 
 function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
   payload: UpstreamErrorPayload;
   status: number;
 } {
+  if (isRequestCanceledError(error)) {
+    return {
+      payload: {
+        code: "request_canceled",
+        error: "Request was canceled by client disconnect.",
+      },
+      status: 499,
+    };
+  }
+
   if (isAzureCredentialError(error)) {
     return {
       payload: {
@@ -4574,6 +4604,17 @@ function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
     payload: { code: "upstream_service_error", error: message },
     status: 502,
   };
+}
+
+function isRequestCanceledError(error: unknown): boolean {
+  if (error instanceof RequestCanceledError) {
+    return true;
+  }
+
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.message === "Request was canceled.")
+  );
 }
 
 function buildUpstreamErrorMessage(error: unknown, deploymentName: string): string {
@@ -4959,9 +5000,13 @@ export const chatRouteTestUtils = {
   buildInitialSkillOperationRecords,
   instrumentMcpServer,
   buildUpstreamErrorMessage,
+  buildUpstreamErrorPayload,
   isTransientNetworkTerminationError,
+  isRequestCanceledError,
   shouldRetryChatExecution,
   runAgentWithTimeout,
+  throwIfAborted,
+  RequestCanceledError,
   resolveThreadDirectoryPath,
   applyDefaultThreadDirectoryToStdioServers,
 };
