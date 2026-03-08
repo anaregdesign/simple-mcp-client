@@ -176,8 +176,13 @@ import {
   readDesktopUpdaterStatusFromUnknown,
 } from "~/lib/home/controller/desktop-updater";
 import {
+  buildAzureProjectsLoadResult,
+  isAzureProjectsLoadReady,
+  resolveAzureAuthRequiredState,
   resolveAzureTenantOptions,
   resolveInitialAzureProjectId,
+  shouldUseCachedAzureProjectCatalog,
+  type AzureProjectsLoadResult,
 } from "~/lib/home/controller/azure-runtime";
 import { serializeMcpServersForChatRequest } from "~/lib/home/controller/mcp-runtime";
 import { deriveInstructionRuntimeUiState } from "~/lib/home/controller/instruction-runtime";
@@ -259,6 +264,8 @@ type LoadAzureProjectsOptions = {
 type LoadAzureDeploymentsOptions = {
   force?: boolean;
 };
+
+type LoadAzureProjectsResult = AzureProjectsLoadResult;
 
 /**
  * Home runtime controller.
@@ -983,8 +990,8 @@ export function useWorkspaceController() {
       }
 
       void (async () => {
-        const stillAuthRequired = await loadAzureProjects();
-        if (!stillAuthRequired) {
+        const loadResult = await loadAzureProjects();
+        if (isAzureProjectsLoadReady(loadResult)) {
           setAzureLoginError(null);
           setUiError(null);
         }
@@ -1562,7 +1569,13 @@ export function useWorkspaceController() {
         return;
       }
 
-      setIsAzureAuthRequired(false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: false,
+          source: "background_success",
+        }),
+      );
       applySkillsApiPayload(payload);
       setSkillRegistrySuccess(null);
     } catch (loadError) {
@@ -1637,7 +1650,13 @@ export function useWorkspaceController() {
         },
       });
 
-      setIsAzureAuthRequired(false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: false,
+          source: "background_success",
+        }),
+      );
       applySkillsApiPayload(payload);
       const message = typeof payload.message === "string" ? payload.message.trim() : "";
       setSkillRegistrySuccess(message || null);
@@ -2436,7 +2455,7 @@ export function useWorkspaceController() {
       const payload = (await response.json()) as ThreadTitleApiResponse;
       if (!response.ok || payload.error) {
         if (payload.errorCode === "azure_login_required") {
-          if (options.reason === "utility_deployment_update") {
+          if (options.reason === "utility_deployment_update" && isSwitchingAzureTenant) {
             setAzureTenantSwitchError(
               "Azure tenant switch is still applying. Retry Azure Login if this persists.",
             );
@@ -3471,16 +3490,22 @@ export function useWorkspaceController() {
     void reloadState();
   }
 
-  async function loadAzureProjects(options: LoadAzureProjectsOptions = {}): Promise<boolean> {
+  async function loadAzureProjects(
+    options: LoadAzureProjectsOptions = {},
+  ): Promise<LoadAzureProjectsResult> {
     const forceReload = options.force === true;
     const preferredTenantId = options.preferredTenantId?.trim() ?? "";
     const waitForWorkspaceStateReload = options.waitForWorkspaceStateReload === true;
+    const useCachedProjectCatalog = shouldUseCachedAzureProjectCatalog({
+      forceReload,
+      isAzureAuthRequired,
+    });
     const requestSeq = azureConnectionsRequestSeqRef.current + 1;
     azureConnectionsRequestSeqRef.current = requestSeq;
     setIsLoadingAzureConnections(true);
 
     try {
-      if (!forceReload) {
+      if (useCachedProjectCatalog) {
         const tenantIdForCache = preferredTenantId || activeAzureTenantIdRef.current.trim();
         const cachedCatalog = readCachedAzureProjectCatalog(tenantIdForCache);
         if (cachedCatalog) {
@@ -3520,7 +3545,10 @@ export function useWorkspaceController() {
                 )
               : null;
           if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-            return false;
+            return {
+              authRequired: false,
+              tenantSwitchPending: false,
+            };
           }
           preferredAzureSelectionRef.current = preferredSelection;
           if (preferredSelection?.homeTheme) {
@@ -3552,14 +3580,16 @@ export function useWorkspaceController() {
           setActiveAzurePrincipal(cachedCatalog.principal ? { ...cachedCatalog.principal } : null);
           setPlaygroundAzureDeployments([]);
           setUtilityAzureDeployments([]);
-          setIsAzureAuthRequired(false);
           setAzureConnectionError(null);
           setPlaygroundAzureDeploymentError(null);
           setUtilityAzureDeploymentError(null);
           setUtilityReasoningEffort(preferredUtilityReasoningEffort);
           setSelectedPlaygroundAzureConnectionId(nextPlaygroundProjectId);
           setSelectedUtilityAzureConnectionId(nextUtilityProjectId);
-          return false;
+          return {
+            authRequired: false,
+            tenantSwitchPending: false,
+          };
         }
       }
 
@@ -3580,17 +3610,21 @@ export function useWorkspaceController() {
         authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
       });
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return isAzureAuthRequired;
+        return {
+          authRequired: isAzureAuthRequired,
+          tenantSwitchPending: false,
+        };
       }
 
       const parsedProjects = readAzureProjectList(payload.projects);
       const tenantId = readTenantIdFromUnknown(payload.tenantId);
       const principalId = readPrincipalIdFromUnknown(payload.principalId);
-      if (
-        preferredTenantId &&
-        tenantId &&
-        preferredTenantId.toLowerCase() !== tenantId.toLowerCase()
-      ) {
+      const loadResult = buildAzureProjectsLoadResult({
+        authRequired: payload.authRequired === true,
+        preferredTenantId,
+        resolvedTenantId: tenantId,
+      });
+      if (loadResult.tenantSwitchPending) {
         logHomeWarning(
           "azure_tenant_switch_verification_pending",
           "Resolved tenant does not match requested tenant yet.",
@@ -3602,7 +3636,7 @@ export function useWorkspaceController() {
             },
           },
         );
-        return true;
+        return loadResult;
       }
       const parsedTenants = resolveAzureTenantOptions(readAzureTenantList(payload.tenants), tenantId);
       const parsedPrincipal =
@@ -3641,7 +3675,10 @@ export function useWorkspaceController() {
           ? await loadAzureSelectionPreference(tenantId, principalId)
           : null;
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return payload.authRequired === true;
+        return {
+          authRequired: payload.authRequired === true,
+          tenantSwitchPending: false,
+        };
       }
       preferredAzureSelectionRef.current = preferredSelection;
       if (preferredSelection?.homeTheme) {
@@ -3682,17 +3719,26 @@ export function useWorkspaceController() {
       setActiveAzurePrincipal(parsedPrincipal);
       setPlaygroundAzureDeployments([]);
       setUtilityAzureDeployments([]);
-      setIsAzureAuthRequired(payload.authRequired === true ? true : false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: loadResult.authRequired,
+          source: "projects_response",
+        }),
+      );
       setAzureConnectionError(null);
       setPlaygroundAzureDeploymentError(null);
       setUtilityAzureDeploymentError(null);
       setUtilityReasoningEffort(preferredUtilityReasoningEffort);
       setSelectedPlaygroundAzureConnectionId(nextPlaygroundProjectId);
       setSelectedUtilityAzureConnectionId(nextUtilityProjectId);
-      return payload.authRequired === true;
+      return loadResult;
     } catch (loadError) {
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return isAzureAuthRequired;
+        return {
+          authRequired: isAzureAuthRequired,
+          tenantSwitchPending: false,
+        };
       }
       logHomeError("load_azure_projects_failed", loadError, {
         action: "load_azure_projects",
@@ -3723,7 +3769,10 @@ export function useWorkspaceController() {
       setAzureConnectionError(nextAuthRequired ? null : errorMessage);
       setPlaygroundAzureDeploymentError(null);
       setUtilityAzureDeploymentError(null);
-      return nextAuthRequired;
+      return {
+        authRequired: nextAuthRequired,
+        tenantSwitchPending: false,
+      };
     } finally {
       if (requestSeq === azureConnectionsRequestSeqRef.current) {
         setIsLoadingAzureConnections(false);
@@ -3765,7 +3814,13 @@ export function useWorkspaceController() {
               : preferredSelection.utility?.deploymentName) ?? ""
           : "";
 
-      setIsAzureAuthRequired(false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: false,
+          source: "background_success",
+        }),
+      );
       if (target === "playground") {
         setPlaygroundAzureDeployments(deployments);
         setSelectedPlaygroundAzureDeploymentName((current) =>
@@ -4305,7 +4360,7 @@ export function useWorkspaceController() {
   }
 
   // UI event handlers bound to panel props.
-  async function runAzureLoginFlow(targetTenantIdRaw = ""): Promise<boolean> {
+  async function runAzureLoginFlow(targetTenantIdRaw = ""): Promise<LoadAzureProjectsResult> {
     const targetTenantId = targetTenantIdRaw.trim();
     const waitForWorkspaceStateReload = targetTenantId.length > 0;
     const requestInit: RequestInit = {
@@ -4331,14 +4386,23 @@ export function useWorkspaceController() {
         ? "Azure tenant switched. Azure projects were refreshed."
         : payload.message || "Azure login completed.",
     );
-    setIsAzureAuthRequired(false);
+    setIsAzureAuthRequired((currentAuthRequired) =>
+      resolveAzureAuthRequiredState({
+        currentAuthRequired,
+        nextAuthRequired: false,
+        source: "interactive_login",
+      }),
+    );
     setAzureConnectionError(null);
     setPlaygroundAzureDeploymentError(null);
     setUtilityAzureDeploymentError(null);
 
-    let stillAuthRequired = true;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      stillAuthRequired = await loadAzureProjects(
+    let loadResult: LoadAzureProjectsResult = {
+      authRequired: true,
+      tenantSwitchPending: false,
+    };
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      loadResult = await loadAzureProjects(
         targetTenantId
           ? {
               preferredTenantId: targetTenantId,
@@ -4350,7 +4414,7 @@ export function useWorkspaceController() {
               waitForWorkspaceStateReload,
             },
       );
-      if (!stillAuthRequired) {
+      if (isAzureProjectsLoadReady(loadResult)) {
         break;
       }
 
@@ -4358,11 +4422,11 @@ export function useWorkspaceController() {
         window.setTimeout(resolve, 500);
       });
     }
-    if (stillAuthRequired) {
+    if (loadResult.authRequired) {
       setIsAzureAuthRequired(true);
     }
 
-    return stillAuthRequired;
+    return loadResult;
   }
 
   async function handleAzureLogin() {
@@ -4410,8 +4474,12 @@ export function useWorkspaceController() {
     setIsSwitchingAzureTenant(true);
 
     try {
-      const stillAuthRequired = await runAzureLoginFlow(nextTenantId);
-      if (stillAuthRequired) {
+      const loadResult = await runAzureLoginFlow(nextTenantId);
+      if (loadResult.tenantSwitchPending) {
+        setAzureTenantSwitchError(
+          "Azure tenant switch is still applying. Retry Azure Login if this persists.",
+        );
+      } else if (loadResult.authRequired) {
         setAzureTenantSwitchError("Failed to switch Azure tenant. Retry Azure Login.");
       }
     } catch (switchError) {
@@ -4487,8 +4555,8 @@ export function useWorkspaceController() {
 
     try {
       clearAzureCatalogCacheByTenant(activeAzureTenantIdRef.current);
-      const stillAuthRequired = await loadAzureProjects({ force: true });
-      if (!stillAuthRequired) {
+      const loadResult = await loadAzureProjects({ force: true });
+      if (isAzureProjectsLoadReady(loadResult)) {
         setSystemNotice("Azure catalog reloaded.");
       }
     } finally {

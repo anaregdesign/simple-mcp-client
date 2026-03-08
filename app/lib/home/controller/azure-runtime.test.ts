@@ -3,8 +3,12 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  buildAzureProjectsLoadResult,
+  isAzureProjectsLoadReady,
+  resolveAzureAuthRequiredState,
   resolveAzureTenantOptions,
   resolveInitialAzureProjectId,
+  shouldUseCachedAzureProjectCatalog,
 } from "~/lib/home/controller/azure-runtime";
 
 describe("resolveAzureTenantOptions", () => {
@@ -118,5 +122,130 @@ describe("resolveInitialAzureProjectId", () => {
         defaultProjectId: "project-a",
       }),
     ).toBe("project-a");
+  });
+});
+
+describe("shouldUseCachedAzureProjectCatalog", () => {
+  it("uses cache when not forcing reload and auth is healthy", () => {
+    expect(
+      shouldUseCachedAzureProjectCatalog({
+        forceReload: false,
+        isAzureAuthRequired: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("skips cache during auth recovery polling", () => {
+    expect(
+      shouldUseCachedAzureProjectCatalog({
+        forceReload: false,
+        isAzureAuthRequired: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("skips cache when force reload is requested", () => {
+    expect(
+      shouldUseCachedAzureProjectCatalog({
+        forceReload: true,
+        isAzureAuthRequired: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("resolveAzureAuthRequiredState", () => {
+  it("keeps auth lock during passive background success", () => {
+    expect(
+      resolveAzureAuthRequiredState({
+        currentAuthRequired: true,
+        nextAuthRequired: false,
+        source: "background_success",
+      }),
+    ).toBe(true);
+  });
+
+  it("allows projects response to unlock auth", () => {
+    expect(
+      resolveAzureAuthRequiredState({
+        currentAuthRequired: true,
+        nextAuthRequired: false,
+        source: "projects_response",
+      }),
+    ).toBe(false);
+  });
+
+  it("allows interactive login to unlock auth", () => {
+    expect(
+      resolveAzureAuthRequiredState({
+        currentAuthRequired: true,
+        nextAuthRequired: false,
+        source: "interactive_login",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("buildAzureProjectsLoadResult", () => {
+  it("marks auth required when auth flag is true", () => {
+    expect(
+      buildAzureProjectsLoadResult({
+        authRequired: true,
+        preferredTenantId: "tenant-a",
+        resolvedTenantId: "tenant-a",
+      }),
+    ).toEqual({
+      authRequired: true,
+      tenantSwitchPending: false,
+    });
+  });
+
+  it("marks tenant switch pending when resolved tenant mismatches preferred tenant", () => {
+    expect(
+      buildAzureProjectsLoadResult({
+        authRequired: false,
+        preferredTenantId: "tenant-a",
+        resolvedTenantId: "tenant-b",
+      }),
+    ).toEqual({
+      authRequired: false,
+      tenantSwitchPending: true,
+    });
+  });
+
+  it("marks ready state when auth is healthy and tenant is aligned", () => {
+    expect(
+      buildAzureProjectsLoadResult({
+        authRequired: false,
+        preferredTenantId: "tenant-a",
+        resolvedTenantId: "tenant-a",
+      }),
+    ).toEqual({
+      authRequired: false,
+      tenantSwitchPending: false,
+    });
+  });
+});
+
+describe("isAzureProjectsLoadReady", () => {
+  it("returns true only when both auth required and tenant pending are false", () => {
+    expect(
+      isAzureProjectsLoadReady({
+        authRequired: false,
+        tenantSwitchPending: false,
+      }),
+    ).toBe(true);
+    expect(
+      isAzureProjectsLoadReady({
+        authRequired: true,
+        tenantSwitchPending: false,
+      }),
+    ).toBe(false);
+    expect(
+      isAzureProjectsLoadReady({
+        authRequired: false,
+        tenantSwitchPending: true,
+      }),
+    ).toBe(false);
   });
 });

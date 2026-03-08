@@ -3,6 +3,16 @@
  */
 import type { AzureTenantOption } from "~/lib/home/azure/parsers";
 
+export type AzureAuthStateUpdateSource =
+  | "background_success"
+  | "interactive_login"
+  | "projects_response";
+
+export type AzureProjectsLoadResult = {
+  authRequired: boolean;
+  tenantSwitchPending: boolean;
+};
+
 export function resolveAzureTenantOptions(
   tenants: AzureTenantOption[],
   activeTenantIdRaw: string,
@@ -67,4 +77,63 @@ export function resolveInitialAzureProjectId(options: {
   }
 
   return options.defaultProjectId?.trim() ?? "";
+}
+
+export function shouldUseCachedAzureProjectCatalog(options: {
+  forceReload: boolean;
+  isAzureAuthRequired: boolean;
+}): boolean {
+  if (options.forceReload) {
+    return false;
+  }
+
+  // When auth is required we must revalidate against the server to avoid stale cache-based unlocks.
+  return !options.isAzureAuthRequired;
+}
+
+export function resolveAzureAuthRequiredState(options: {
+  currentAuthRequired: boolean;
+  nextAuthRequired: boolean;
+  source: AzureAuthStateUpdateSource;
+}): boolean {
+  if (
+    options.source === "background_success" &&
+    options.currentAuthRequired &&
+    options.nextAuthRequired === false
+  ) {
+    return true;
+  }
+
+  return options.nextAuthRequired;
+}
+
+export function buildAzureProjectsLoadResult(options: {
+  authRequired: boolean;
+  preferredTenantId: string;
+  resolvedTenantId: string;
+}): AzureProjectsLoadResult {
+  if (options.authRequired) {
+    return {
+      authRequired: true,
+      tenantSwitchPending: false,
+    };
+  }
+
+  const preferredTenantId = options.preferredTenantId.trim().toLowerCase();
+  const resolvedTenantId = options.resolvedTenantId.trim().toLowerCase();
+  if (preferredTenantId && resolvedTenantId && preferredTenantId !== resolvedTenantId) {
+    return {
+      authRequired: false,
+      tenantSwitchPending: true,
+    };
+  }
+
+  return {
+    authRequired: false,
+    tenantSwitchPending: false,
+  };
+}
+
+export function isAzureProjectsLoadReady(result: AzureProjectsLoadResult): boolean {
+  return !result.authRequired && !result.tenantSwitchPending;
 }
