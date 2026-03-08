@@ -124,6 +124,7 @@ describe("requestHomeApi", () => {
     ).rejects.toMatchObject({
       kind: "auth_required",
       message: "Please sign in.",
+      status: 401,
     } satisfies Partial<HomeApiError>);
   });
 

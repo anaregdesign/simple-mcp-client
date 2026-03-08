@@ -2202,27 +2202,29 @@ export function useWorkspaceController() {
     }
 
     try {
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: endpoint,
+        init: {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(snapshot),
         },
-        body: JSON.stringify(snapshot),
-      });
-
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        if (authRequired) {
+        readPayload: (response) => readJsonPayload<ThreadsApiResponse>(response, "Threads"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to save thread.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to continue.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
           if (reportError) {
             setThreadError("Azure login is required. Open Settings and sign in to continue.");
           }
-          return false;
-        }
-
-        throw new Error(payload.error || "Failed to save thread.");
-      }
+        },
+      });
 
       const savedThread = readThreadSnapshotFromUnknown(payload.thread, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
@@ -2256,6 +2258,9 @@ export function useWorkspaceController() {
       });
       return true;
     } catch (saveError) {
+      if (saveError instanceof HomeApiError && saveError.kind === "auth_required") {
+        return false;
+      }
       logHomeError("save_thread_snapshot_failed", saveError, {
         action: "save_thread_snapshot",
         statusCode: 500,
@@ -2264,7 +2269,7 @@ export function useWorkspaceController() {
         },
       });
       if (reportError) {
-        setThreadError(saveError instanceof Error ? saveError.message : "Failed to save thread.");
+        setThreadError(mapApiError(saveError, "Failed to save thread."));
       }
       return false;
     } finally {
