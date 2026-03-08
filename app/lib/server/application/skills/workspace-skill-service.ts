@@ -5,6 +5,7 @@ import {
   isSkillRegistryId,
   parseSkillRegistrySkillName,
   readSkillRegistrySkillNameValidationMessage,
+  readSkillRegistryOptionById,
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
@@ -14,6 +15,7 @@ import type {
   SkillRegistryCatalog,
 } from "~/lib/contracts/skills/types";
 import { WorkspaceSkillProfile } from "~/lib/domain/skills/workspace-skill-profile";
+import { WorkspaceSkillRegistryProfile } from "~/lib/domain/skills/workspace-skill-registry-profile";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
@@ -33,16 +35,7 @@ export type SkillDiscoveryResult = {
 
 type WorkspaceSkillProfilesSnapshot = {
   workspaceSkillProfiles: WorkspaceSkillProfile[];
-  workspaceSkillRegistryProfiles: Array<{
-    id: number;
-    registryId: string;
-    registryLabel: string;
-    registryDescription: string;
-    repository: string;
-    repositoryUrl: string;
-    sourcePath: string;
-    installDirectoryName: string;
-  }>;
+  workspaceSkillRegistryProfiles: WorkspaceSkillRegistryProfile[];
 };
 
 type WorkspaceSkillProfileReconcilePayload = {
@@ -226,13 +219,20 @@ export async function syncWorkspaceSkillMasters(options: {
     const registryProfileIdByInstallDirectory = new Map<string, number>();
 
     for (const registry of options.registries) {
-      const registryOption = SKILL_REGISTRY_OPTIONS.find(
-        (option) => option.id === registry.registryId,
-      );
-      const installDirectoryName = registryOption?.installDirectoryName ?? "";
+      const registryOption = readSkillRegistryOptionById(registry.registryId);
+      if (!registryOption) {
+        continue;
+      }
+      const installDirectoryName = registryOption.installDirectoryName;
       if (!installDirectoryName) {
         continue;
       }
+
+      const registryProfileModel = WorkspaceSkillRegistryProfile.fromCatalog(
+        registry,
+        registryOption,
+      );
+      const registryProfileRecord = registryProfileModel.toPersistenceRecord(options.userId);
 
       const registryProfile = await transaction.workspaceSkillRegistryProfile.upsert({
         where: {
@@ -241,23 +241,14 @@ export async function syncWorkspaceSkillMasters(options: {
             registryId: registry.registryId,
           },
         },
-        create: {
-          userId: options.userId,
-          registryId: registry.registryId,
-          registryLabel: registry.registryLabel,
-          registryDescription: registry.registryDescription,
-          repository: registry.repository,
-          repositoryUrl: registry.repositoryUrl,
-          sourcePath: registry.sourcePath,
-          installDirectoryName,
-        },
+        create: registryProfileRecord,
         update: {
-          registryLabel: registry.registryLabel,
-          registryDescription: registry.registryDescription,
-          repository: registry.repository,
-          repositoryUrl: registry.repositoryUrl,
-          sourcePath: registry.sourcePath,
-          installDirectoryName,
+          registryLabel: registryProfileRecord.registryLabel,
+          registryDescription: registryProfileRecord.registryDescription,
+          repository: registryProfileRecord.repository,
+          repositoryUrl: registryProfileRecord.repositoryUrl,
+          sourcePath: registryProfileRecord.sourcePath,
+          installDirectoryName: registryProfileRecord.installDirectoryName,
         },
         select: {
           id: true,
@@ -373,7 +364,9 @@ async function readWorkspaceSkillProfiles(
         source: profile.source as SkillCatalogSource,
       }),
     ),
-    workspaceSkillRegistryProfiles,
+    workspaceSkillRegistryProfiles: workspaceSkillRegistryProfiles.map((profile) =>
+      WorkspaceSkillRegistryProfile.fromSnapshot(profile),
+    ),
   };
 }
 

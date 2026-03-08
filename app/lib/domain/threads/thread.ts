@@ -1,11 +1,11 @@
-import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
 import { DomainError } from "~/lib/domain/shared/domain-error";
+import { ThreadMcpConnection } from "~/lib/domain/threads/thread-mcp-connection";
+import { ThreadMessage } from "~/lib/domain/threads/thread-message";
 
 export class Thread {
   readonly id: string;
@@ -19,7 +19,7 @@ export class Thread {
   readonly instructionContextToggles: ThreadInstructionContextToggles;
   readonly threadEnvironment: ThreadEnvironment;
   readonly messages: ThreadMessage[];
-  readonly mcpServers: McpServerConfig[];
+  readonly mcpServers: ThreadMcpConnection[];
   readonly mcpRpcLogs: ThreadOperationLogEntry[];
   readonly skillSelections: ThreadSkillActivation[];
 
@@ -56,8 +56,8 @@ export class Thread {
     this.agentInstruction = snapshot.agentInstruction;
     this.instructionContextToggles = { ...snapshot.instructionContextToggles };
     this.threadEnvironment = { ...snapshot.threadEnvironment };
-    this.messages = [...snapshot.messages];
-    this.mcpServers = [...snapshot.mcpServers];
+    this.messages = snapshot.messages.map((message) => ThreadMessage.fromSnapshot(message));
+    this.mcpServers = snapshot.mcpServers.map((server) => ThreadMcpConnection.fromSnapshot(server));
     this.mcpRpcLogs = [...snapshot.mcpRpcLogs];
     this.skillSelections = [...snapshot.skillSelections];
   }
@@ -82,8 +82,8 @@ export class Thread {
       agentInstruction: this.agentInstruction,
       instructionContextToggles: { ...this.instructionContextToggles },
       threadEnvironment: { ...this.threadEnvironment },
-      messages: [...this.messages],
-      mcpServers: [...this.mcpServers],
+      messages: this.messages.map((message) => message.toSnapshot()),
+      mcpServers: this.mcpServers.map((server) => server.toSnapshot()),
       mcpRpcLogs: [...this.mcpRpcLogs],
       skillSelections: [...this.skillSelections],
     };
