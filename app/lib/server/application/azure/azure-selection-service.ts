@@ -8,6 +8,11 @@ import {
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
+import {
+  AzureSelectionPreference,
+  type AzureSelectionTargetPreference,
+  type AzureUtilitySelectionTargetPreference,
+} from "~/lib/domain/azure/azure-selection-preference";
 import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import type { ThemeMode } from "~/lib/domain/shared/theme-mode";
 import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
@@ -21,23 +26,6 @@ type AzureSelectionPreferencePayload = {
 };
 
 type AzureSelectionTarget = "playground" | "utility";
-
-type AzureSelectionTargetPreference = {
-  projectId: string;
-  deploymentName: string;
-};
-
-type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreference & {
-  reasoningEffort: ReasoningEffort;
-};
-
-export type AzureSelectionPreference = {
-  tenantId: string;
-  principalId: string;
-  theme: ThemeMode;
-  playground: AzureSelectionTargetPreference | null;
-  utility: AzureUtilitySelectionTargetPreference | null;
-};
 
 export class AzureSelectionService {
   async readStoredSelection(identity: {
@@ -66,6 +54,7 @@ export class AzureSelectionService {
 }
 
 export const azureSelectionService = new AzureSelectionService();
+export { AzureSelectionPreference };
 
 export function parseAzureSelectionPreference(value: unknown): AzureSelectionPreferencePayload | null {
   if (!isRecord(value)) {
@@ -267,7 +256,7 @@ function mapSelectionRecord(
     utilityReasoningEffort: string;
   },
 ): AzureSelectionPreference {
-  return {
+  return new AzureSelectionPreference({
     tenantId: user.tenantId,
     principalId: user.principalId,
     theme: readThemeModeFromUnknown(selection.theme) ?? HOME_DEFAULT_THEME,
@@ -277,7 +266,7 @@ function mapSelectionRecord(
       selection.utilityDeploymentName,
       selection.utilityReasoningEffort,
     ),
-  };
+  });
 }
 
 function mapSelectionTarget(

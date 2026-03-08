@@ -3,8 +3,15 @@
  */
 import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
-import type { ThemeMode, ReasoningEffort } from "~/lib/client/shared/view-types";
+import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
+import type {
+  AzureSelectionPreferenceSnapshot,
+  AzureSelectionTargetPreference,
+  AzureUtilitySelectionTargetPreference,
+} from "~/lib/domain/azure/azure-selection-preference";
+
+export type AzureSelectionPreference = AzureSelectionPreferenceSnapshot;
 
 export type AzureProjectOption = {
   id: string;
@@ -30,23 +37,6 @@ export type AzurePrincipalProfile = {
   displayName: string;
   principalName: string;
   principalType: "user" | "servicePrincipal" | "managedIdentity" | "unknown";
-};
-
-export type AzureSelectionPreference = {
-  tenantId: string;
-  principalId: string;
-  theme: ThemeMode;
-  playground: AzureSelectionTargetPreference | null;
-  utility: AzureUtilitySelectionTargetPreference | null;
-};
-
-export type AzureSelectionTargetPreference = {
-  projectId: string;
-  deploymentName: string;
-};
-
-export type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreference & {
-  reasoningEffort: ReasoningEffort;
 };
 
 export function readTenantIdFromUnknown(value: unknown): string {

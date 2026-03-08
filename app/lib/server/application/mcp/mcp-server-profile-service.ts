@@ -4,6 +4,10 @@
 import { HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS, MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES } from "~/lib/constants/mcp";
 import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
+  WorkspaceMcpServerProfile,
+  type WorkspaceMcpServerProfileSnapshot,
+} from "~/lib/domain/mcp/workspace-mcp-server-profile";
+import {
   parseIncomingMcpServer,
   readTransport,
   type McpTransport,
@@ -20,32 +24,9 @@ import {
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 
-export { parseIncomingMcpServer };
+export { parseIncomingMcpServer, WorkspaceMcpServerProfile };
 
-type WorkspaceMcpServerProfileHttpConfig = {
-  id: string;
-  name: string;
-  connectOnThreadCreate: boolean;
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string;
-  timeoutSeconds: number;
-};
-
-type WorkspaceMcpServerProfileStdioConfig = {
-  id: string;
-  name: string;
-  connectOnThreadCreate: boolean;
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-};
-
-export type WorkspaceMcpServerProfileConfig = WorkspaceMcpServerProfileHttpConfig | WorkspaceMcpServerProfileStdioConfig;
+export type WorkspaceMcpServerProfileConfig = WorkspaceMcpServerProfileSnapshot;
 export type IncomingMcpServerConfig = ParsedIncomingMcpServerConfig;
 const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
@@ -199,7 +180,7 @@ function buildDefaultMcpServerProfiles(
   const defaultStdioWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
   return HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile) => {
     if (defaultProfile.transport === "stdio") {
-      return {
+      return new WorkspaceMcpServerProfile({
         id: createRandomId(),
         name: defaultProfile.name,
         connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
@@ -209,10 +190,10 @@ function buildDefaultMcpServerProfiles(
         cwd:
           defaultProfile.cwd === "default" ? defaultStdioWorkingDirectory : undefined,
         env: { ...defaultProfile.env },
-      };
+      }).toSnapshot();
     }
 
-    return {
+    return new WorkspaceMcpServerProfile({
       id: createRandomId(),
       name: defaultProfile.name,
       connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
@@ -222,7 +203,7 @@ function buildDefaultMcpServerProfiles(
       useAzureAuth: defaultProfile.useAzureAuth,
       azureAuthScope: defaultProfile.azureAuthScope,
       timeoutSeconds: defaultProfile.timeoutSeconds,
-    };
+    }).toSnapshot();
   });
 }
 
@@ -259,7 +240,7 @@ function normalizeLegacyDefaultProfiles(
 function isLegacyDefaultMermaidProfile(
   profile: WorkspaceMcpServerProfileConfig,
   legacyDefaultWorkingDirectory: string,
-): profile is WorkspaceMcpServerProfileStdioConfig {
+): profile is Extract<WorkspaceMcpServerProfileConfig, { transport: "stdio" }> {
   if (profile.transport !== "stdio" || !defaultMermaidWorkspaceMcpServerProfile) {
     return false;
   }
@@ -276,7 +257,7 @@ function isLegacyDefaultMermaidProfile(
 function isLegacyDefaultFilesystemProfile(
   profile: WorkspaceMcpServerProfileConfig,
   legacyDefaultWorkingDirectory: string,
-): profile is WorkspaceMcpServerProfileStdioConfig {
+): profile is Extract<WorkspaceMcpServerProfileConfig, { transport: "stdio" }> {
   if (profile.transport !== "stdio" || !defaultFilesystemWorkspaceMcpServerProfile) {
     return false;
   }
@@ -359,7 +340,7 @@ export function upsertWorkspaceMcpServerProfile(
     previousProfile?.connectOnThreadCreate ??
     false;
 
-  const profile: WorkspaceMcpServerProfileConfig =
+  const profile: WorkspaceMcpServerProfileConfig = new WorkspaceMcpServerProfile(
     incoming.transport === "stdio"
       ? {
           id: profileId,
@@ -381,7 +362,8 @@ export function upsertWorkspaceMcpServerProfile(
           useAzureAuth: incoming.useAzureAuth,
           azureAuthScope: incoming.azureAuthScope,
           timeoutSeconds: incoming.timeoutSeconds,
-        };
+        },
+  ).toSnapshot();
 
   const profiles =
     index >= 0
@@ -425,28 +407,30 @@ function normalizeStoredMcpServer(entry: unknown): WorkspaceMcpServerProfileConf
       ? entry.connectOnThreadCreate
       : parsed.value.connectOnThreadCreate === true;
 
-  return parsed.value.transport === "stdio"
-    ? {
-        id,
-        name: parsed.value.name,
-        connectOnThreadCreate,
-        transport: parsed.value.transport,
-        command: parsed.value.command,
-        args: parsed.value.args,
-        cwd: parsed.value.cwd,
-        env: parsed.value.env,
-      }
-    : {
-        id,
-        name: parsed.value.name,
-        connectOnThreadCreate,
-        transport: parsed.value.transport,
-        url: parsed.value.url,
-        headers: parsed.value.headers,
-        useAzureAuth: parsed.value.useAzureAuth,
-        azureAuthScope: parsed.value.azureAuthScope,
-        timeoutSeconds: parsed.value.timeoutSeconds,
-      };
+  return new WorkspaceMcpServerProfile(
+    parsed.value.transport === "stdio"
+      ? {
+          id,
+          name: parsed.value.name,
+          connectOnThreadCreate,
+          transport: parsed.value.transport,
+          command: parsed.value.command,
+          args: parsed.value.args,
+          cwd: parsed.value.cwd,
+          env: parsed.value.env,
+        }
+      : {
+          id,
+          name: parsed.value.name,
+          connectOnThreadCreate,
+          transport: parsed.value.transport,
+          url: parsed.value.url,
+          headers: parsed.value.headers,
+          useAzureAuth: parsed.value.useAzureAuth,
+          azureAuthScope: parsed.value.azureAuthScope,
+          timeoutSeconds: parsed.value.timeoutSeconds,
+        },
+  ).toSnapshot();
 }
 
 function normalizeStoredMcpServerRecord(entry: {

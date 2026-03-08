@@ -23,6 +23,7 @@ import {
 } from "~/lib/contracts/threads/snapshot-state";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
 import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
+import { Thread } from "~/lib/domain/threads/thread";
 
 export class ThreadQueryService {
   async readUserThreads(userId: number): Promise<ThreadSnapshot[]> {
@@ -122,18 +123,18 @@ async function readUserThreads(userId: number): Promise<ThreadSnapshot[]> {
 
   const threads: ThreadSnapshot[] = [];
   for (const record of records) {
-    const snapshot = mapStoredThreadToSnapshot(record);
-    if (!snapshot) {
+    const thread = mapStoredThreadToSnapshot(record);
+    if (!thread) {
       continue;
     }
 
-    threads.push(snapshot);
+    threads.push(thread.toSnapshot());
   }
 
   return threads;
 }
 
-async function readThreadById(userId: number, threadId: string): Promise<ThreadSnapshot | null> {
+async function readThreadById(userId: number, threadId: string): Promise<Thread | null> {
   await ensurePersistenceDatabaseReady();
 
   const record = await prisma.thread.findFirst({
@@ -296,10 +297,11 @@ export async function saveThreadSnapshot(
 ): Promise<{ thread: ThreadSnapshot; created: boolean } | null> {
   await ensurePersistenceDatabaseReady();
   let created = false;
+  const thread = Thread.fromSnapshot(snapshot);
 
   let existing = await prisma.thread.findFirst({
     where: {
-      id: snapshot.id,
+      id: thread.id,
       userId,
     },
     select: {
@@ -310,41 +312,41 @@ export async function saveThreadSnapshot(
   });
 
   if (!existing) {
-    if (!hasThreadPersistableState(snapshot)) {
+    if (!hasThreadPersistableState(thread.toSnapshot())) {
       return null;
     }
     created = true;
 
     const now = new Date().toISOString();
-    const createdAt = snapshot.createdAt || now;
-    const nextName = normalizeThreadName(snapshot.name) || THREAD_DEFAULT_NAME;
+    const createdAt = thread.createdAt || now;
+    const nextName = normalizeThreadName(thread.name) || THREAD_DEFAULT_NAME;
 
     await prisma.$transaction(async (transaction) => {
       await transaction.thread.create({
         data: {
-          id: snapshot.id,
+          id: thread.id,
           userId,
           name: nextName,
           createdAt,
           updatedAt: now,
           deletedAt: null,
-          reasoningEffort: snapshot.reasoningEffort,
-          webSearchEnabled: snapshot.webSearchEnabled,
-          threadEnvironmentJson: JSON.stringify(snapshot.threadEnvironment),
-          instructionContextTogglesJson: JSON.stringify(snapshot.instructionContextToggles),
+          reasoningEffort: thread.reasoningEffort,
+          webSearchEnabled: thread.webSearchEnabled,
+          threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
+          instructionContextTogglesJson: JSON.stringify(thread.instructionContextToggles),
         },
       });
 
       await transaction.threadInstruction.create({
         data: {
-          threadId: snapshot.id,
-          content: snapshot.agentInstruction,
+          threadId: thread.id,
+          content: thread.agentInstruction,
         },
       });
     });
 
     existing = {
-      id: snapshot.id,
+      id: thread.id,
       name: nextName,
       deletedAt: null,
     };
@@ -355,7 +357,7 @@ export async function saveThreadSnapshot(
   }
 
   const updatedAt = new Date().toISOString();
-  const nextName = normalizeThreadName(snapshot.name) || existing.name;
+  const nextName = normalizeThreadName(thread.name) || existing.name;
 
   await prisma.$transaction(async (transaction) => {
     await transaction.thread.update({
@@ -365,10 +367,10 @@ export async function saveThreadSnapshot(
       data: {
         name: nextName,
         updatedAt,
-        reasoningEffort: snapshot.reasoningEffort,
-        webSearchEnabled: snapshot.webSearchEnabled,
-        threadEnvironmentJson: JSON.stringify(snapshot.threadEnvironment),
-        instructionContextTogglesJson: JSON.stringify(snapshot.instructionContextToggles),
+        reasoningEffort: thread.reasoningEffort,
+        webSearchEnabled: thread.webSearchEnabled,
+        threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
+        instructionContextTogglesJson: JSON.stringify(thread.instructionContextToggles),
       },
     });
 
@@ -378,10 +380,10 @@ export async function saveThreadSnapshot(
       },
       create: {
         threadId: existing.id,
-        content: snapshot.agentInstruction,
+        content: thread.agentInstruction,
       },
       update: {
-        content: snapshot.agentInstruction,
+        content: thread.agentInstruction,
       },
     });
 
@@ -391,9 +393,9 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (snapshot.messages.length > 0) {
+    if (thread.messages.length > 0) {
       await transaction.threadMessage.createMany({
-        data: snapshot.messages.map((message, index) => ({
+        data: thread.messages.map((message, index) => ({
           id: message.id,
           threadId: existing.id,
           conversationOrder: index,
@@ -412,9 +414,9 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (snapshot.mcpServers.length > 0) {
+    if (thread.mcpServers.length > 0) {
       await transaction.threadMcpConnection.createMany({
-        data: snapshot.mcpServers.map((server, index) =>
+        data: thread.mcpServers.map((server, index) =>
           server.transport === "stdio"
             ? {
                 id: buildThreadMcpServerRowId(existing.id, server.id, index),
@@ -458,9 +460,9 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (snapshot.mcpRpcLogs.length > 0) {
+    if (thread.mcpRpcLogs.length > 0) {
       await transaction.threadOperationLog.createMany({
-        data: snapshot.mcpRpcLogs.map((entry, index) => ({
+        data: thread.mcpRpcLogs.map((entry, index) => ({
           rowId: buildThreadOperationLogRowId(existing.id, entry.id, index),
           sourceRpcId: entry.id,
           threadId: existing.id,
@@ -483,8 +485,8 @@ export async function saveThreadSnapshot(
       transaction,
       userId,
       skillSelections: [
-        ...snapshot.skillSelections,
-        ...snapshot.messages.flatMap((message) => message.skillActivations),
+        ...thread.skillSelections,
+        ...thread.messages.flatMap((message) => message.skillActivations),
       ],
     });
 
@@ -494,9 +496,9 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (snapshot.skillSelections.length > 0) {
+    if (thread.skillSelections.length > 0) {
       await transaction.threadSkillActivation.createMany({
-        data: snapshot.skillSelections.map((selection, index) => {
+        data: thread.skillSelections.map((selection, index) => {
           const skillProfileId = skillProfileIdsByLocation.get(selection.location);
           if (!skillProfileId) {
             throw new Error(
@@ -522,7 +524,7 @@ export async function saveThreadSnapshot(
       },
     });
 
-    const messageSkillActivations = snapshot.messages.flatMap((message) =>
+    const messageSkillActivations = thread.messages.flatMap((message) =>
       message.skillActivations.map((selection, index) => {
         const skillProfileId = skillProfileIdsByLocation.get(selection.location);
         if (!skillProfileId) {
@@ -547,13 +549,13 @@ export async function saveThreadSnapshot(
     }
   });
 
-  const thread = await readThreadById(userId, existing.id);
-  if (!thread) {
+  const persistedThread = await readThreadById(userId, existing.id);
+  if (!persistedThread) {
     return null;
   }
 
   return {
-    thread,
+    thread: persistedThread.toSnapshot(),
     created,
   };
 }
@@ -623,7 +625,7 @@ export async function logicalDeleteThread(
 
   return {
     status: "ok",
-    thread: deleted,
+    thread: deleted.toSnapshot(),
   };
 }
 
@@ -667,7 +669,7 @@ export async function logicalRestoreThread(
 
   return {
     status: "ok",
-    thread: restored,
+    thread: restored.toSnapshot(),
   };
 }
 
@@ -926,7 +928,7 @@ function mapStoredThreadToSnapshot(value: {
       } | null;
     };
   }>;
-}): ThreadSnapshot | null {
+}): Thread | null {
   const parsed = readThreadSnapshotFromUnknown(
     {
       id: value.id,
@@ -996,7 +998,7 @@ function mapStoredThreadToSnapshot(value: {
     },
   );
 
-  return parsed;
+  return parsed ? Thread.fromSnapshot(parsed) : null;
 }
 
 function readJsonValue<T>(value: string | null, fallback: T): T {

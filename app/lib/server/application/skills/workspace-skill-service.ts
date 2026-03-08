@@ -8,7 +8,12 @@ import {
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
-import type { SkillCatalogEntry, SkillRegistryCatalog } from "~/lib/contracts/skills/types";
+import type {
+  SkillCatalogEntry,
+  SkillCatalogSource,
+  SkillRegistryCatalog,
+} from "~/lib/contracts/skills/types";
+import { WorkspaceSkillProfile } from "~/lib/domain/skills/workspace-skill-profile";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
@@ -27,13 +32,7 @@ export type SkillDiscoveryResult = {
 };
 
 type WorkspaceSkillProfilesSnapshot = {
-  workspaceSkillProfiles: Array<{
-    id: number;
-    registryProfileId: number | null;
-    name: string;
-    location: string;
-    source: string;
-  }>;
+  workspaceSkillProfiles: WorkspaceSkillProfile[];
   workspaceSkillRegistryProfiles: Array<{
     id: number;
     registryId: string;
@@ -368,7 +367,12 @@ async function readWorkspaceSkillProfiles(
   ]);
 
   return {
-    workspaceSkillProfiles,
+    workspaceSkillProfiles: workspaceSkillProfiles.map((profile) =>
+      WorkspaceSkillProfile.fromSnapshot({
+        ...profile,
+        source: profile.source as SkillCatalogSource,
+      }),
+    ),
     workspaceSkillRegistryProfiles,
   };
 }
