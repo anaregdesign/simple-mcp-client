@@ -91,7 +91,10 @@ export async function closeAllThreadMcpServerSessions(): Promise<void> {
     entries.map(async (entry) => {
       clearThreadMcpServerSessionCleanupTimer(entry);
       if (entry.session) {
-        await entry.session.server.close();
+        await closeThreadMcpServerSessionSafely(entry.session, {
+          reason: "close_all",
+          key: entry.key,
+        });
       }
     }),
   );
@@ -204,10 +207,23 @@ async function createAndConnectThreadMcpServerSession<RefreshState>(
 async function closeThreadMcpServerSession<RefreshState>(
   session: ThreadMcpServerSession<RefreshState>,
 ): Promise<void> {
+  await closeThreadMcpServerSessionSafely(session, {
+    reason: "create_or_ephemeral_release",
+    key: "",
+  });
+}
+
+async function closeThreadMcpServerSessionSafely<RefreshState>(
+  session: ThreadMcpServerSession<RefreshState>,
+  context: {
+    reason: "idle_cleanup" | "close_all" | "create_or_ephemeral_release";
+    key: string;
+  },
+): Promise<void> {
   try {
     await session.server.close();
-  } catch {
-    // Best-effort close when session creation or refresh fails.
+  } catch (error) {
+    reportThreadMcpServerSessionCloseWarning(error, context);
   }
 }
 
@@ -294,7 +310,10 @@ async function closeIdleThreadMcpServerSession(
 
   clearThreadMcpServerSessionCleanupTimer(current);
   threadMcpServerSessionEntryByKey.delete(key);
-  await current.session.server.close();
+  await closeThreadMcpServerSessionSafely(current.session, {
+    reason: "idle_cleanup",
+    key,
+  });
 }
 
 function hasUnrefTimer(timer: unknown): timer is { unref: () => void } {
@@ -310,6 +329,20 @@ function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);
   });
+}
+
+function reportThreadMcpServerSessionCloseWarning(
+  error: unknown,
+  context: {
+    reason: "idle_cleanup" | "close_all" | "create_or_ephemeral_release";
+    key: string;
+  },
+): void {
+  const errorMessage = error instanceof Error ? error.message : "Unknown close error.";
+  const contextKey = context.key ? ` key=${context.key}` : "";
+  console.warn(
+    `[thread-mcp-session-pool] Failed to close MCP session (${context.reason})${contextKey}: ${errorMessage}`,
+  );
 }
 
 export const threadMcpServerSessionPoolTestUtils = {

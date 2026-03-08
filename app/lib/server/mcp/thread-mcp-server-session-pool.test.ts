@@ -225,15 +225,48 @@ describe("acquireThreadMcpServerSession", () => {
     expect(counters.connectCalls).toBe(2);
     expect(counters.closeCalls).toBe(1);
   });
+
+  it("keeps pool state consistent when idle cleanup close rejects", async () => {
+    const counters: MockServerCounters = { connectCalls: 0, closeCalls: 0 };
+    const unhandledRejections: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandledRejection);
+
+    try {
+      const lease = await acquireThreadMcpServerSession({
+        threadId: "thread-close-error",
+        sessionKey: "filesystem",
+        refreshState: { turnId: "turn-1" },
+        createSession: async () => ({
+          server: createMockServer(counters, { closeErrorMessage: "close failed" }),
+          refreshBeforeUse: async () => {},
+        }),
+        idleTtlMs: 20,
+      });
+      await lease.release();
+      await waitFor(60);
+
+      expect(counters.connectCalls).toBe(1);
+      expect(counters.closeCalls).toBe(1);
+      expect(threadMcpServerSessionPoolTestUtils.readSessionCount()).toBe(0);
+      expect(unhandledRejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+  });
 });
 
 function createMockServer(
   counters: MockServerCounters,
   options: {
     connectErrorMessage?: string | null;
+    closeErrorMessage?: string | null;
   } = {},
 ): MCPServer {
   const connectErrorMessage = options.connectErrorMessage ?? null;
+  const closeErrorMessage = options.closeErrorMessage ?? null;
   const server = {
     name: "mock",
     connect: async () => {
@@ -244,6 +277,9 @@ function createMockServer(
     },
     close: async () => {
       counters.closeCalls += 1;
+      if (closeErrorMessage) {
+        throw new Error(closeErrorMessage);
+      }
     },
     listTools: async () => [],
     callTool: async () => [],
