@@ -1528,38 +1528,37 @@ export function useWorkspaceController() {
     setIsLoadingSkills(true);
 
     try {
-      const response = await fetch("/api/skills", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { payload } = await requestHomeApi<SkillsApiResponse>({
+        url: "/api/skills",
+        init: {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            forceRefresh: options.forceRefresh === true,
+          }),
         },
-        body: JSON.stringify({
-          forceRefresh: options.forceRefresh === true,
-        }),
+        readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load Skills.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load Skills.",
+        onAuthRequired: () => {
+          setIsAzureAuthRequired(true);
+          setAvailableSkills([]);
+          setSkillRegistryCatalogs([]);
+          setSkillsError("Azure login is required. Open Settings and sign in to load Skills.");
+          setSkillRegistryError("Azure login is required. Open Settings and sign in to load Skills.");
+        },
       });
-      const payload = await readJsonPayload<SkillsApiResponse>(response, "Skills");
       if (requestSeq !== skillsRequestSeqRef.current) {
         return;
       }
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
-      }
-
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        if (authRequired) {
-          setIsAzureAuthRequired(true);
-          setAvailableSkills([]);
-          setSkillRegistryCatalogs([]);
-          setSkillsError(
-            "Azure login is required. Open Settings and sign in to load Skills.",
-          );
-          setSkillRegistryError(
-            "Azure login is required. Open Settings and sign in to load Skills.",
-          );
-          return;
-        }
-        throw new Error(payload.error || "Failed to load Skills.");
       }
 
       setIsAzureAuthRequired(false);
@@ -1572,17 +1571,18 @@ export function useWorkspaceController() {
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
       }
+      if (loadError instanceof HomeApiError && loadError.kind === "auth_required") {
+        return;
+      }
 
       logHomeError("load_skills_failed", loadError, {
         action: "load_skills",
       });
       setAvailableSkills([]);
       setSkillRegistryCatalogs([]);
-      setSkillsError(loadError instanceof Error ? loadError.message : "Failed to load Skills.");
+      setSkillsError(mapApiError(loadError, "Failed to load Skills."));
       setSkillRegistryError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Failed to load Skill registries.",
+        mapApiError(loadError, "Failed to load Skill registries."),
       );
     } finally {
       if (requestSeq === skillsRequestSeqRef.current) {
@@ -1618,26 +1618,33 @@ export function useWorkspaceController() {
 
     try {
       const mutationMethod = options.action === "install_registry_skill" ? "PUT" : "DELETE";
-      const response = await fetch(buildSkillRegistrySkillApiPath(options), {
-        method: mutationMethod,
-      });
-      const payload = await readJsonPayload<SkillsApiResponse>(response, "Skills");
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        if (authRequired) {
+      const { payload } = await requestHomeApi<SkillsApiResponse>({
+        url: buildSkillRegistrySkillApiPath(options),
+        init: {
+          method: mutationMethod,
+        },
+        readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to update Skill registry.",
+        authRequiredMessage:
+          "Azure login is required. Open Settings and sign in to update Skill registries.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
-          throw new Error(
-            "Azure login is required. Open Settings and sign in to update Skill registries.",
-          );
-        }
-        throw new Error(payload.error || "Failed to update Skill registry.");
-      }
+        },
+      });
 
       setIsAzureAuthRequired(false);
       applySkillsApiPayload(payload);
       const message = typeof payload.message === "string" ? payload.message.trim() : "";
       setSkillRegistrySuccess(message || null);
     } catch (error) {
+      if (error instanceof HomeApiError && error.kind === "auth_required") {
+        setSkillRegistryError(error.message);
+        return;
+      }
       logHomeError("update_skill_registry_failed", error, {
         action: options.action,
         context: {
@@ -1645,9 +1652,7 @@ export function useWorkspaceController() {
           skillName: options.skillName,
         },
       });
-      setSkillRegistryError(
-        error instanceof Error ? error.message : "Failed to update Skill registry.",
-      );
+      setSkillRegistryError(mapApiError(error, "Failed to update Skill registry."));
     } finally {
       setIsMutatingSkillRegistries(false);
     }
