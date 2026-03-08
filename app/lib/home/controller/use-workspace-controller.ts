@@ -182,8 +182,9 @@ import {
 import { serializeMcpServersForChatRequest } from "~/lib/home/controller/mcp-runtime";
 import { deriveInstructionRuntimeUiState } from "~/lib/home/controller/instruction-runtime";
 import {
+  canTransition,
   canStartThreadOperation,
-  completeThreadOperationPhase,
+  transitionThreadOperation,
   type ThreadOperationPhase,
 } from "~/lib/home/controller/thread-operation-phase";
 import {
@@ -1788,7 +1789,7 @@ export function useWorkspaceController() {
     setActiveThreadId("");
     setActiveThreadNameInput("");
     setThreadError(nextError);
-    setThreadOperationPhase("idle");
+    resetThreadOperationPhase();
     setIsSavingThread(false);
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(HOME_DEFAULT_REASONING_EFFORT);
@@ -1814,8 +1815,42 @@ export function useWorkspaceController() {
     setIsComposing(false);
   }
 
+  function beginThreadOperation(
+    phase: Exclude<ThreadOperationPhase, "idle">,
+  ): boolean {
+    if (
+      !canTransition(threadOperationPhase, {
+        type: "start",
+        phase,
+      })
+    ) {
+      return false;
+    }
+
+    setThreadOperationPhase((current) =>
+      transitionThreadOperation(current, {
+        type: "start",
+        phase,
+      }).to,
+    );
+    return true;
+  }
+
+  function resetThreadOperationPhase(): void {
+    setThreadOperationPhase((current) =>
+      transitionThreadOperation(current, {
+        type: "reset",
+      }).to,
+    );
+  }
+
   function endThreadOperation(expectedPhase: Exclude<ThreadOperationPhase, "idle">): void {
-    setThreadOperationPhase((current) => completeThreadOperationPhase(current, expectedPhase));
+    setThreadOperationPhase((current) =>
+      transitionThreadOperation(current, {
+        type: "complete",
+        phase: expectedPhase,
+      }).to,
+    );
   }
 
   // Thread request-state helpers.
@@ -2110,7 +2145,7 @@ export function useWorkspaceController() {
     setThreadRequestStateById({});
     applyThreadSnapshotToState(localThread);
     setThreadError(null);
-    setThreadOperationPhase("loading");
+    beginThreadOperation("loading");
   }
 
   // Thread persistence and title-refresh orchestration.
@@ -2435,7 +2470,7 @@ export function useWorkspaceController() {
 
     const requestSeq = threadLoadRequestSeqRef.current + 1;
     threadLoadRequestSeqRef.current = requestSeq;
-    setThreadOperationPhase("loading");
+    beginThreadOperation("loading");
     setThreadError(null);
 
     try {
@@ -2525,12 +2560,11 @@ export function useWorkspaceController() {
   async function createThreadAndSwitch(options: {
     name?: string;
   } = {}): Promise<boolean> {
-    if (!canStartThreadOperation(threadOperationPhase)) {
+    if (!beginThreadOperation("creating")) {
       return false;
     }
 
     setThreadError(null);
-    setThreadOperationPhase("creating");
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2607,7 +2641,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (!canStartThreadOperation(threadOperationPhase)) {
+    if (!beginThreadOperation("clearing")) {
       return;
     }
 
@@ -2704,7 +2738,6 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setThreadOperationPhase("clearing");
 
     try {
       const targetThreadForSave =
@@ -2783,7 +2816,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (!canStartThreadOperation(threadOperationPhase)) {
+    if (!beginThreadOperation("deleting")) {
       return;
     }
 
@@ -2803,7 +2836,6 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setThreadOperationPhase("deleting");
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2873,7 +2905,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (!canStartThreadOperation(threadOperationPhase)) {
+    if (!beginThreadOperation("restoring")) {
       return;
     }
 
@@ -2884,7 +2916,6 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setThreadOperationPhase("restoring");
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2949,9 +2980,6 @@ export function useWorkspaceController() {
   async function handleThreadChange(nextThreadIdRaw: string) {
     const nextThreadId = nextThreadIdRaw.trim();
     setThreadError(null);
-    if (!canStartThreadOperation(threadOperationPhase)) {
-      return;
-    }
     if (!nextThreadId || nextThreadId === activeThreadIdRef.current) {
       return;
     }
@@ -2961,7 +2989,9 @@ export function useWorkspaceController() {
       setThreadError("Selected thread is not available.");
       return;
     }
-    setThreadOperationPhase("switching");
+    if (!beginThreadOperation("switching")) {
+      return;
+    }
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
       if (!readThreadRequestState(currentThreadId).isSending) {
