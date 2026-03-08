@@ -1,6 +1,9 @@
 /**
  * Test module verifying /mcp/cmd behavior.
  */
+import fs from "node:fs";
+import nodeOs from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants";
 
@@ -169,7 +172,7 @@ describe("mcp cmd route", () => {
     );
     expect(defaultWorkingDirectoryResult.ok).toBe(true);
     const expectedWorkingDirectory =
-      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value : "";
+      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value.workingDirectory : "";
 
     const response = await callShellExecuteTool({
       threadId: "thread-2",
@@ -209,7 +212,7 @@ describe("mcp cmd route", () => {
     });
   });
 
-  it("requires explicit workingDirectory when thread context is missing", async () => {
+  it("requires thread context for secure execution", async () => {
     const response = await callShellExecuteTool({
       argumentsValue: {
         command: "echo no-thread",
@@ -221,13 +224,112 @@ describe("mcp cmd route", () => {
     expect(body.result?.isError).toBe(true);
     expect(body.result?.structuredContent).toEqual({
       executed: false,
-      error:
-        "threadContext.threadId is required when workingDirectory is omitted. Provide `workingDirectory` explicitly for threadless requests.",
+      error: "threadContext.threadId is required for secure command execution.",
       threadContext: {
         threadId: null,
         turnId: null,
       },
     });
+  });
+
+  it("allows compound shell commands", async () => {
+    const response = await callShellExecuteTool({
+      threadId: "thread-secure-operator",
+      argumentsValue: {
+        command: "echo one && echo two",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.result?.isError).toBeUndefined();
+    expect(body.error).toBeUndefined();
+    const payload = body.result?.structuredContent;
+    expect(payload.executed).toBe(true);
+    expect(payload.stdout).toContain("one");
+    expect(payload.stdout).toContain("two");
+  });
+
+  it("blocks critical destructive command patterns", async () => {
+    const response = await callShellExecuteTool({
+      threadId: "thread-secure-executable",
+      argumentsValue: {
+        command: "rm -rf /",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.result?.isError).toBe(true);
+    const payload = body.result?.structuredContent;
+    expect(payload.executed).toBe(false);
+    expect(payload.error).toContain("critical operation pattern");
+  });
+
+  it("blocks sensitive path references", async () => {
+    const response = await callShellExecuteTool({
+      threadId: "thread-secure-sensitive-path",
+      argumentsValue: {
+        command: "cat ~/.ssh/id_rsa",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.result?.isError).toBe(true);
+    const payload = body.result?.structuredContent;
+    expect(payload.executed).toBe(false);
+    expect(payload.error).toContain("sensitive path pattern");
+  });
+
+  it("rejects workingDirectory outside thread directory", async () => {
+    const outsideDirectory = fs.mkdtempSync(
+      path.join(nodeOs.tmpdir(), "local-playground-mcp-cmd-outside-working-dir-"),
+    );
+    try {
+      const response = await callShellExecuteTool({
+        threadId: "thread-secure-working-dir",
+        argumentsValue: {
+          command: "echo denied",
+          workingDirectory: outsideDirectory,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.result?.isError).toBe(true);
+      const payload = body.result?.structuredContent;
+      expect(payload.executed).toBe(false);
+      expect(payload.error).toContain("workingDirectory must be inside thread directory");
+    } finally {
+      fs.rmSync(outsideDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("allows non-critical commands that target paths outside thread directory", async () => {
+    const outsideDirectory = fs.mkdtempSync(
+      path.join(nodeOs.tmpdir(), "local-playground-mcp-cmd-outside-path-"),
+    );
+    const outsideFilePath = path.join(outsideDirectory, "allowed.txt");
+    try {
+      const response = await callShellExecuteTool({
+        threadId: "thread-secure-path-argument",
+        argumentsValue: {
+          command:
+            `node -e "require('node:fs').writeFileSync(process.argv[1], 'ok')" ${JSON.stringify(outsideFilePath)}`,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.result?.isError).toBeUndefined();
+      const payload = body.result?.structuredContent;
+      expect(payload.executed).toBe(true);
+      expect(payload.exitCode).toBe(0);
+      expect(fs.readFileSync(outsideFilePath, "utf8")).toBe("ok");
+    } finally {
+      fs.rmSync(outsideDirectory, { recursive: true, force: true });
+    }
   });
 
   it("uses client-provided threadId from tool arguments", async () => {
@@ -238,7 +340,7 @@ describe("mcp cmd route", () => {
     );
     expect(defaultWorkingDirectoryResult.ok).toBe(true);
     const expectedWorkingDirectory =
-      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value : "";
+      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value.workingDirectory : "";
 
     const response = await callShellExecuteTool({
       argumentsValue: {

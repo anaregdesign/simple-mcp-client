@@ -27,14 +27,56 @@ const MCP_CMD_TOOL_NAME = "shell_execute_command";
 const MCP_CMD_TOOL_DESCRIPTION = [
   "Executes an arbitrary shell command on the Local Playground host.",
   "Returns stdout/stderr, exit status, timeout state, execution duration, and resolved shell metadata.",
+  "Security policy: critical destructive command patterns are blocked.",
+  "Security policy: sensitive credential/system path references are blocked.",
+  "Security policy: command environment is sanitized and scoped to the thread directory.",
   "Default working directory is ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/.",
-  "When threadContext.threadId is missing, workingDirectory must be provided explicitly.",
+  "threadContext.threadId is required for secure command execution.",
 ].join("\n");
 
 const MCP_CMD_DEFAULT_TIMEOUT_SECONDS = 120;
 const MCP_CMD_MAX_TIMEOUT_SECONDS = 600;
 const MCP_CMD_OUTPUT_MAX_BYTES = 1_000_000;
 const MCP_CMD_MAX_COMMAND_LENGTH = 32_000;
+const MCP_CMD_CRITICAL_COMMAND_PATTERNS = [
+  /\brm\s+-rf\s+\/($|\s)/i,
+  /\bmkfs(\.[a-z0-9]+)?\b/i,
+  /\bfdisk\b/i,
+  /\bdiskutil\s+erase/i,
+  /\bshutdown\b/i,
+  /\breboot\b/i,
+  /\bpoweroff\b/i,
+  /\bhalt\b/i,
+  /\bformat\s+[a-z]:/i,
+];
+
+const MCP_CMD_SENSITIVE_PATH_PATTERNS = [
+  /(^|[\\/])\.ssh([\\/]|$)/i,
+  /(^|[\\/])\.aws([\\/]|$)/i,
+  /(^|[\\/])\.azure([\\/]|$)/i,
+  /(^|[\\/])\.gnupg([\\/]|$)/i,
+  /(^|[\\/])\.kube([\\/]|$)/i,
+  /(^|[\\/])\.git-credentials([\\/]|$)/i,
+  /(^|[\\/])\.config[\\/]gcloud([\\/]|$)/i,
+  /(^|[\\/])Library[\\/]Keychains([\\/]|$)/i,
+  /(^|[\\/])AppData[\\/]Roaming[\\/]Microsoft[\\/]Credentials([\\/]|$)/i,
+  /(^|[\\/])etc[\\/](passwd|shadow|sudoers)\b/i,
+  /(^|[\\/])var[\\/]run([\\/]|$)/i,
+  /(^|[\\/])proc([\\/]|$)/i,
+  /(^|[\\/])sys([\\/]|$)/i,
+];
+
+const MCP_CMD_ALLOWED_ENVIRONMENT_KEYS = new Set([
+  "COMSPEC",
+  "LANG",
+  "LC_ALL",
+  "PATH",
+  "PATHEXT",
+  "SHELL",
+  "SYSTEMROOT",
+  "TERM",
+  "WINDIR",
+]);
 
 const cmdExecuteInputSchema = {
   threadId: z
@@ -88,6 +130,11 @@ type ParsedCmdToolArguments = {
 };
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
+
+type CommandDirectoryScope = {
+  threadDirectory: string;
+  workingDirectory: string;
+};
 
 type ShellFamily = "posix" | "powershell" | "cmd";
 
@@ -234,15 +281,32 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         threadId: effectiveThreadId,
       };
 
-      const workingDirectoryResult = resolveWorkingDirectory(
+      const directoryScopeResult = resolveWorkingDirectory(
         effectiveRequestContext.userId,
         effectiveRequestContext.threadId,
         commandArgs.workingDirectory,
       );
-      if (!workingDirectoryResult.ok) {
+      if (!directoryScopeResult.ok) {
         return buildToolResponse({
           executed: false,
-          error: workingDirectoryResult.error,
+          error: directoryScopeResult.error,
+          threadContext: {
+            threadId: effectiveThreadId,
+            turnId: requestContext.turnId,
+          },
+        }, { isError: true });
+      }
+      const directoryScope = directoryScopeResult.value;
+
+      const commandSecurityResult = evaluateCommandSecurityPolicy({
+        command: commandArgs.command,
+      });
+      if (!commandSecurityResult.ok) {
+        return buildToolResponse({
+          executed: false,
+          error: commandSecurityResult.error,
+          command: commandArgs.command,
+          workingDirectory: directoryScope.workingDirectory,
           threadContext: {
             threadId: effectiveThreadId,
             turnId: requestContext.turnId,
@@ -267,14 +331,18 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         const executionResult = await runShellCommand({
           shellExecutionContext,
           command: commandArgs.command,
-          workingDirectory: workingDirectoryResult.value,
+          workingDirectory: directoryScope.workingDirectory,
+          environment: buildSecureCommandEnvironment({
+            threadDirectory: directoryScope.threadDirectory,
+            workingDirectory: directoryScope.workingDirectory,
+          }),
           timeoutSeconds: commandArgs.timeoutSeconds,
         });
 
         return buildToolResponse({
           executed: true,
           command: commandArgs.command,
-          workingDirectory: workingDirectoryResult.value,
+          workingDirectory: directoryScope.workingDirectory,
           timeoutSeconds: commandArgs.timeoutSeconds,
           threadContext: {
             threadId: effectiveThreadId,
@@ -300,7 +368,7 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         return buildToolResponse({
           executed: false,
           command: commandArgs.command,
-          workingDirectory: workingDirectoryResult.value,
+          workingDirectory: directoryScope.workingDirectory,
           timeoutSeconds: commandArgs.timeoutSeconds,
           threadContext: {
             threadId: effectiveThreadId,
@@ -416,44 +484,76 @@ function resolveWorkingDirectory(
   userId: number,
   threadId: string | null,
   workingDirectory: string | null,
-): ParseResult<string> {
-  if (!workingDirectory) {
-    return ensureThreadWorkingDirectory(userId, threadId);
+): ParseResult<CommandDirectoryScope> {
+  if (!threadId) {
+    return {
+      ok: false,
+      error: "threadContext.threadId is required for secure command execution.",
+    };
   }
 
-  const resolved = path.resolve(workingDirectory);
+  const threadDirectoryResult = ensureThreadWorkingDirectory(userId, threadId);
+  if (!threadDirectoryResult.ok) {
+    return threadDirectoryResult;
+  }
+  const threadDirectory = threadDirectoryResult.value;
+
+  if (!workingDirectory) {
+    return {
+      ok: true,
+      value: {
+        threadDirectory,
+        workingDirectory: threadDirectory,
+      },
+    };
+  }
+
+  const targetWorkingDirectory = path.isAbsolute(workingDirectory)
+    ? path.resolve(workingDirectory)
+    : path.resolve(threadDirectory, workingDirectory);
   let stats: fs.Stats;
   try {
-    stats = fs.statSync(resolved);
+    stats = fs.statSync(targetWorkingDirectory);
   } catch {
     return {
       ok: false,
-      error: `workingDirectory does not exist: ${resolved}`,
+      error: `workingDirectory does not exist: ${targetWorkingDirectory}`,
     };
   }
-
   if (!stats.isDirectory()) {
     return {
       ok: false,
-      error: `workingDirectory must be a directory: ${resolved}`,
+      error: `workingDirectory must be a directory: ${targetWorkingDirectory}`,
     };
   }
 
-  return { ok: true, value: resolved };
+  const workingDirectoryBoundaryResult = isPathWithinThreadDirectoryBoundary(
+    targetWorkingDirectory,
+    threadDirectory,
+  );
+  if (!workingDirectoryBoundaryResult.ok) {
+    return workingDirectoryBoundaryResult;
+  }
+  if (!workingDirectoryBoundaryResult.value) {
+    return {
+      ok: false,
+      error: `workingDirectory must be inside thread directory: ${threadDirectory}`,
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      threadDirectory,
+      workingDirectory: targetWorkingDirectory,
+    },
+  };
 }
 
 function ensureThreadWorkingDirectory(
   userId: number,
-  threadId: string | null,
+  threadId: string,
 ): ParseResult<string> {
-  if (!threadId) {
-    return {
-      ok: false,
-      error:
-        "threadContext.threadId is required when workingDirectory is omitted. Provide `workingDirectory` explicitly for threadless requests.",
-    };
-  }
-
   let resolved: string;
   try {
     resolved = resolveFoundryWorkspaceThreadDirectory({
@@ -476,6 +576,216 @@ function ensureThreadWorkingDirectory(
   }
 
   return { ok: true, value: resolved };
+}
+
+function evaluateCommandSecurityPolicy(options: {
+  command: string;
+}): ParseResult<true> {
+  const { command } = options;
+
+  const tokensResult = tokenizeShellCommand(command);
+  if (!tokensResult.ok) {
+    return tokensResult;
+  }
+  const tokens = tokensResult.value;
+  if (tokens.length === 0) {
+    return {
+      ok: false,
+      error: "Command must include an executable name.",
+    };
+  }
+
+  if (!readExecutableName(tokens[0])) {
+    return {
+      ok: false,
+      error: "Command executable is invalid.",
+    };
+  }
+
+  const criticalPatternMatch = readMatchedPattern(command, MCP_CMD_CRITICAL_COMMAND_PATTERNS);
+  if (criticalPatternMatch) {
+    return {
+      ok: false,
+      error:
+        `Command matches blocked critical operation pattern '${criticalPatternMatch}' in /mcp/cmd security policy.`,
+    };
+  }
+
+  const sensitivePathPatternMatch = readMatchedPattern(command, MCP_CMD_SENSITIVE_PATH_PATTERNS);
+  if (sensitivePathPatternMatch) {
+    return {
+      ok: false,
+      error:
+        `Command references a sensitive path pattern '${sensitivePathPatternMatch}' blocked by /mcp/cmd security policy.`,
+    };
+  }
+
+  return { ok: true, value: true };
+}
+
+function tokenizeShellCommand(command: string): ParseResult<string[]> {
+  const tokens: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | null = null;
+  let escaping = false;
+
+  for (const character of command) {
+    if (escaping) {
+      current += character;
+      escaping = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaping = true;
+      continue;
+    }
+
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (character === "'" || character === "\"") {
+      quote = character;
+      continue;
+    }
+
+    if (/\s/.test(character)) {
+      if (current.length > 0) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += character;
+  }
+
+  if (escaping) {
+    return {
+      ok: false,
+      error: "Command has an invalid trailing escape character.",
+    };
+  }
+  if (quote) {
+    return {
+      ok: false,
+      error: "Command has an unmatched quote.",
+    };
+  }
+  if (current.length > 0) {
+    tokens.push(current);
+  }
+
+  return {
+    ok: true,
+    value: tokens,
+  };
+}
+
+function readExecutableName(token: string): string | null {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const executable = path.win32.basename(path.posix.basename(trimmed)).toLowerCase();
+  return executable.length > 0 ? executable : null;
+}
+
+function readMatchedPattern(command: string, patterns: RegExp[]): string | null {
+  for (const pattern of patterns) {
+    if (pattern.test(command)) {
+      return pattern.source;
+    }
+  }
+  return null;
+}
+
+function isPathWithinThreadDirectoryBoundary(
+  targetPath: string,
+  threadDirectory: string,
+): ParseResult<boolean> {
+  const threadDirectoryRealPathResult = readRealPath(threadDirectory);
+  if (!threadDirectoryRealPathResult.ok) {
+    return threadDirectoryRealPathResult;
+  }
+
+  const existingAncestorResult = readClosestExistingPath(targetPath);
+  if (!existingAncestorResult.ok) {
+    return existingAncestorResult;
+  }
+  const existingAncestor = existingAncestorResult.value;
+  const ancestorRealPathResult = readRealPath(existingAncestor);
+  if (!ancestorRealPathResult.ok) {
+    return ancestorRealPathResult;
+  }
+
+  const relativeFromAncestor = path.relative(
+    path.resolve(existingAncestor),
+    path.resolve(targetPath),
+  );
+  const normalizedTargetFromRealAncestor = path.resolve(
+    ancestorRealPathResult.value,
+    relativeFromAncestor,
+  );
+
+  return {
+    ok: true,
+    value: isPathInsideBoundary(
+      normalizedTargetFromRealAncestor,
+      threadDirectoryRealPathResult.value,
+    ),
+  };
+}
+
+function readRealPath(inputPath: string): ParseResult<string> {
+  try {
+    return {
+      ok: true,
+      value: path.resolve(fs.realpathSync(inputPath)),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Failed to resolve path '${inputPath}': ${readErrorMessage(error)}`,
+    };
+  }
+}
+
+function readClosestExistingPath(inputPath: string): ParseResult<string> {
+  let current = path.resolve(inputPath);
+  while (true) {
+    if (fs.existsSync(current)) {
+      return {
+        ok: true,
+        value: current,
+      };
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return {
+        ok: false,
+        error: `Unable to resolve an existing ancestor for path '${inputPath}'.`,
+      };
+    }
+    current = parent;
+  }
+}
+
+function isPathInsideBoundary(targetPath: string, boundaryPath: string): boolean {
+  const normalizedBoundary = normalizeComparisonPath(boundaryPath);
+  const normalizedTarget = normalizeComparisonPath(targetPath);
+  const relative = path.relative(normalizedBoundary, normalizedTarget);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function normalizeComparisonPath(inputPath: string): string {
+  const normalized = path.resolve(inputPath);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 function resolveShellExecutionContext(): ShellExecutionContext | null {
@@ -617,12 +927,14 @@ async function runShellCommand(options: {
   shellExecutionContext: ShellExecutionContext;
   command: string;
   workingDirectory: string;
+  environment: NodeJS.ProcessEnv;
   timeoutSeconds: number;
 }): Promise<CommandExecutionResult> {
   const {
     shellExecutionContext,
     command,
     workingDirectory,
+    environment,
     timeoutSeconds,
   } = options;
 
@@ -637,7 +949,7 @@ async function runShellCommand(options: {
       [...shellExecutionContext.argsPrefix, command],
       {
         cwd: workingDirectory,
-        env: process.env,
+        env: environment,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
       },
@@ -681,6 +993,45 @@ async function runShellCommand(options: {
       });
     });
   });
+}
+
+function buildSecureCommandEnvironment(options: {
+  threadDirectory: string;
+  workingDirectory: string;
+}): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    if (!MCP_CMD_ALLOWED_ENVIRONMENT_KEYS.has(key.toUpperCase())) {
+      continue;
+    }
+    environment[key] = value;
+  }
+
+  const processPath = process.env.PATH ?? process.env.Path;
+  if (typeof processPath === "string" && processPath.length > 0) {
+    environment.PATH = processPath;
+  }
+
+  const tempDirectory = path.join(options.threadDirectory, ".tmp");
+  const xdgConfigHome = path.join(options.threadDirectory, ".config");
+  const xdgCacheHome = path.join(options.threadDirectory, ".cache");
+  fs.mkdirSync(tempDirectory, { recursive: true });
+  fs.mkdirSync(xdgConfigHome, { recursive: true });
+  fs.mkdirSync(xdgCacheHome, { recursive: true });
+
+  environment.HOME = options.threadDirectory;
+  environment.USERPROFILE = options.threadDirectory;
+  environment.PWD = options.workingDirectory;
+  environment.TMPDIR = tempDirectory;
+  environment.TMP = tempDirectory;
+  environment.TEMP = tempDirectory;
+  environment.XDG_CONFIG_HOME = xdgConfigHome;
+  environment.XDG_CACHE_HOME = xdgCacheHome;
+
+  return environment;
 }
 
 function createOutputCollector(): OutputCollector {
