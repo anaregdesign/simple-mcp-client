@@ -1,196 +1,90 @@
 ---
 name: local-playground-dev
-description: Mandatory policy compliance workflow for Local Playground implementation tasks. Use only for development work in the local-playground repository, and use for every code change in that repository to run repeated AGENTS.md and client clean architecture conformance checks before, during, and after implementation.
+description: Mandatory workflow for development work in the Local Playground repository. Use it to enforce architecture, naming, and verification rules during implementation.
 ---
 
-# Local Playground Compliance Workflow
+# Local Playground Development Skill
 
-## 0) Enforce Scope and Mandatory Invocation
+## Scope
 
-- Use this skill only for Local Playground development work in this repository.
-- Invoke this skill for every development task before editing code.
-- Keep this skill active through implementation and final verification.
-- Do not apply this skill to other repositories; stop and switch skills if repository scope differs.
+- Use this skill only for development work in this repository.
+- Keep this skill active for the full task, not only at the start.
 
-## 1) Run Mandatory Compliance Loop
+## Required Inputs
 
-Run this loop for every implementation task.
+Before editing:
 
-1. Pre-change gate:
-   - Read `AGENTS.md`.
-   - Read `docs/architecture/client-clean-architecture.md`.
-   - Map expected policy constraints before editing.
-   - Run quick checks from `references/review-checklist.md` sections 0-4.
-2. In-change gate:
-   - Implement in small batches.
-   - Re-run sections 0-4 after each batch that touches UI/runtime architecture.
-   - Fix policy drift immediately before continuing.
-3. Final gate:
-   - Run full checklist (`references/review-checklist.md` sections 0-7).
-   - Run required quality gates before final response.
-4. Report gate:
-   - Report policy conformance status explicitly.
-   - If a rule is intentionally violated, explain reason and scope.
-   - For naming/API refactors, include whether static drift checks reached zero findings.
+1. Read [`AGENTS.md`](../../../../AGENTS.md).
+2. Read [`client-clean-architecture.md`](../../../../docs/architecture/client-clean-architecture.md).
+3. Use [`review-checklist.md`](references/review-checklist.md) as the implementation gate.
 
-### Development Phase Override
+## Core Rules
 
-- This repository is currently in active development mode.
-- Do not introduce backward compatibility layers or fallback paths unless the user explicitly asks for them.
-- Prefer replacing old contracts and state shapes directly.
+- This repository is in active development mode.
+- Do not add backward compatibility layers unless explicitly requested.
+- Treat Prisma schema vocabulary as the naming source of truth.
+- Do not treat legacy prefixes or historical names as canonical naming guidance.
+- Keep `app/lib` restricted to:
+  - `client`
+  - `contracts`
+  - `constants`
+  - `domain`
+  - `server`
+- Do not recreate obsolete roots such as legacy `azure`, `foundry`, `mcp`, `observability`, or `welcome` folders under `app/lib` or `app/`.
+- New shared parser/validation logic goes to `contracts`.
+- New framework-independent model behavior goes to `domain`.
+- New server-only integrations go to `server/infrastructure`.
+- New route-shared logic goes to `server/application` or `server/shared`.
+- Do not introduce new `server -> client` imports.
+- Do not import one API route module from another.
 
-## 2) Enforce Core Architecture Constraints
+## Modeling Rules
 
-- Treat `docs/architecture/client-clean-architecture.md` as the contributor architecture source of truth.
-- Keep `app/lib` top-level layout restricted to:
-  - `app/lib/client/`
-  - `app/lib/contracts/`
-  - `app/lib/constants/`
-  - `app/lib/domain/`
-  - `app/lib/server/`
-- Do not create new top-level feature roots under `app/lib/`.
-- Do not recreate obsolete roots:
-  - `app/lib/azure/`
-  - `app/lib/foundry/`
-  - `app/lib/mcp/`
-  - `app/lib/observability/`
-  - `app/welcome/`
-- Keep UI terminology consistent: `Playground`, `Threads`, `MCP Servers`, `Skills`, `Settings`.
-- Treat Prisma schema entity/field terminology as the canonical domain vocabulary.
-- Keep a single term per domain concept across schema references, runtime types, API contracts, component props, tests, and docs.
-- When terminology changes, perform an end-to-end rename in one batch and remove legacy aliases (unless explicitly requested).
-- Enforce REST API contract standards for `app/routes/api.*`:
-  - resource-first collection/item routing
-  - noun-based resource paths (verb paths only for explicit command-style exceptions)
-  - mutation resource IDs in path params (not query params)
-  - query params only for read concerns (filtering/pagination/sorting/projection)
-  - side-effect-free `GET` handlers
-  - method semantics: `POST` create/non-idempotent, `PUT`/`PATCH` updates, `DELETE` idempotent delete
-  - status codes: `200`/`201`/`204` success semantics, `409` state conflicts, `422` validation failures
-  - `methodNotAllowedResponse` for `405` responses with `Allow`
-  - structured JSON error payloads with stable machine-readable code and concise message
-- Enforce API service boundary for route implementations:
-  - avoid route-to-route imports inside `app/routes/api.*` production modules
-  - extract shared route logic to `app/lib/server/application/*` or `app/lib/server/shared/*`
-  - if touching a legacy `app/lib/server/*` directory outside those buckets, prefer moving code toward the target buckets instead of expanding the legacy directory
-- Keep `api.chat` orchestration-focused:
-  - request parsing/metadata helpers and SSE/runtime helpers may remain in `app/lib/server/chat/*` during migration, but new reusable logic should prefer the approved target buckets when placement is clear
-  - reusable low-level runtime helpers (for example stdio command/path resolution and environment shaping) should be extracted from the route file and tested in dedicated server modules
-  - stream disconnect/cancel must propagate `AbortSignal` and trigger cleanup paths
-  - stream disconnect should be classified as cancellation (`chat_stream_canceled` info log) and must not emit upstream-failure error payloads
-- Keep MCP validation logic centralized in `app/lib/contracts/mcp/validation.ts` and reused by both frontend input parsers and backend route parsers.
-- Keep MCP server config parser logic centralized in `app/lib/contracts/mcp/server-config-parser.ts`; route-specific prefixes/messages may vary but parser behavior must stay shared.
-- Keep MCP session lifecycle disciplined:
-  - prefer bounded wait-and-reuse before ephemeral fallback on session-pool contention
-  - register shutdown cleanup hooks idempotently and close all thread MCP sessions on runtime shutdown
-  - idle cleanup close must use safe close (best-effort + warning log) to avoid unhandled rejections
-- Keep command-style API exceptions scoped to Agents SDK runtime endpoints only:
-  - `/api/chat`
-  - `/api/instruction-patches`
-  - `/api/threads/title-suggestions`
-- When any `app/routes/api.*` file changes, run REST compliance verification in the same batch:
-  - static checks for raw `405`, mutation query-contract drift, and status-code usage consistency
+- Use `class` for:
+  - domain models with invariants or behavior
+  - controllers and stores
+  - API clients
+  - services, repositories, gateways, mappers
+- Keep the following as `type`/function-based code unless there is a strong reason otherwise:
+  - DTO
+  - API payloads
+  - response envelopes
+  - join rows
+  - log rows
+  - cache rows
+  - pure transforms
+
+## Implementation Workflow
+
+1. Audit
+   - Check changed areas for naming drift, layer violations, and obsolete roots.
+2. Implement
+   - Work in small batches.
+   - Keep reusable logic out of hotspot files when extraction is possible.
+3. Verify
+   - Run the review checklist.
+   - Run route-specific checks when API routes changed.
+   - Run persistence metadata checks when Prisma changed.
+4. Report
+   - State whether naming drift remains.
+   - State whether the new code follows the approved layer direction.
+
+## Verification Minimums
+
+- If `app/routes/api.*` changed:
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
-- When `prisma/schema.prisma` changes for persisted models/fields, update `/mcp/debug` schema design descriptions in `app/lib/server/persistence/mcp-debug-database.ts` in the same change batch:
-  - metadata definitions (`app/lib/server/persistence/mcp-debug-database-metadata.ts`)
-  - latest-thread schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
-  - affected MCP debug tool descriptions derived from metadata
-- Keep `app/lib/server/persistence/mcp-debug-database.test.ts` aligned with metadata changes.
-- Do not introduce new `app/lib/server` -> `app/lib/client` imports. When server code needs a shared helper or type, move it to `contracts`, `domain`, or `constants`.
-- Keep shared Client view/domain types centralized in `app/lib/client/shared/view-types.ts`; avoid duplicated local `*Like` aliases across components.
-- Use semantic naming for ordering and log concepts:
-  - same behavior -> same identifier family
-  - different behavior -> different identifier family
-  - avoid protocol- or storage-specific names when the app-level concept is broader
-- Keep Client route modules in `app/routes/` as visual composition and panel wiring only.
-- Keep Client runtime ownership in `app/lib/client/controller/`.
-- Keep `use-workspace-client-controller.ts` on a shrinking path. Prefer extracting new orchestration into `WorkspaceController`, `WorkspaceStore`, feature `ApiClient`, and selector/helper modules instead of growing the hook.
-- Map each change to the approved `client` structure:
-  - `app/components/client/authorize/`: auth-only top-level panel(s) for sign-in-required states.
-  - `app/components/client/playground/`: left-pane Playground panel and renderers.
-  - `app/components/client/config/`: right-pane panel shell and tab wiring.
-  - `app/components/client/config/threads/`: Threads tab and sections.
-  - `app/components/client/config/mcp/`: MCP Servers tab and sections.
-  - `app/components/client/config/skills/`: Skills tab and sections.
-  - `app/components/client/config/settings/`: Settings tab and sections.
-  - `app/components/client/shared/`: reusable primitives and shared types.
-  - `app/lib/client/*`: runtime helpers and pure transforms.
-- Keep top-level panels as siblings under `app/components/client/` to match DOM hierarchy.
-  - Never place one top-level panel under another panel directory.
-- Preserve dependency direction: panel -> tab -> section -> shared.
-
-## 3) Enforce State Persistence Policy
-
-- Keep persistent application state in React runtime first (controller-owned state in `app/lib/client/controller/`).
-- Keep active thread runtime state single-sourced in controller (`threads + activeThreadId`) and avoid mirrored state fields for snapshot-owned data.
-- Prefer pure selector/update helpers for Thread snapshot read/write flows (`app/lib/client/threads/*`) over duplicated ad-hoc state mutation paths.
-- For `use-workspace-client-controller.ts`, avoid repeating inline `threadsRef.current.find(...)` for Thread ID lookup; use a shared selector helper (for example `findThreadSnapshotById`).
-- Prefer phase-based operation state (`ThreadOperationPhase`) and guard helpers instead of many independent boolean busy flags.
-- Apply operation phase updates via transition helpers in `app/lib/client/controller/thread-operation-phase.ts` (for example `transitionThreadOperation`) instead of direct string assignments.
-- Keep send-message pipeline module boundaries explicit in `app/lib/client/controller/send-message-usecase.ts` (`validateSendPreconditions`, `buildChatRequestPayload`, `consumeChatResponseStream`, `applySendResult`).
-- Reuse `app/lib/client/controller/api-client.ts` for Client API auth/error handling; avoid per-handler duplication of 401/authRequired/network mapping.
-- For Client controller network handlers that parse JSON and branch on auth/error, default to `requestClientApi` and keep handler code focused on domain state transitions.
-- Persist that state to SQLite via delayed writes (debounced/autosave), not eager write-on-every-change.
-- Treat DB as durable snapshot storage; treat React state as the immediate source of truth during interaction.
-- Implement persistence from controller logic under `app/lib/client/controller/`.
-- Local development debugging may use the web server MCP endpoint at `/mcp/debug`, including DB table inspection, but keep that workflow development-only.
-
-## 4) Enforce Shared-Component-First Policy
-
-- Check `app/components/client/shared/` before creating new UI wrappers or repeated markup.
-- Reuse existing shared primitives from `app/components/client/shared/` first.
-- If a pattern is used or expected in 2+ places, extract it to `shared` instead of duplicating.
-- Keep shared static constants centralized under `app/lib/` (constants modules).
-- Import constants directly from the project constants module under `~/lib/` without alias renaming.
-
-## 5) Execute Compliance Checklist Every Time
-
-- Use `references/review-checklist.md` at pre-change, in-change, and final gates.
-- Treat sections 0-4 as continuous guardrails during implementation.
-- For naming/contract refactors, run repeated static drift checks plus dynamic gates until findings are zero.
-- For controller/chat hotspot files, include focused drift checks in each refactor batch:
-  - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/client/controller/use-workspace-client-controller.ts`
-  - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/client/controller/use-workspace-client-controller.ts`
-  - `rg -n "^function " app/routes/api.chat.ts`
-
-## 6) Run Mandatory Quality Gates
-
-After UI/API changes, run:
-
-```bash
-npm run quality:gate
-```
-
-Equivalent expanded checks for troubleshooting:
-
-```bash
-npm audit --omit=dev
-npm run prisma:generate
-npm run typecheck:core
-npm run test:core
-npm run build:core
-```
-
-After refactors:
-
-- Remove dead files, selectors, and stale tests.
-- Refresh `README.md` and `docs/images/` when user-facing UX/layout changes.
-- Run static drift checks to zero for:
-  - route-to-route imports in `app/routes/api.*` production modules
-  - duplicated Client local `*Like` view types after shared type refactors
-  - deprecated terms/keys replaced by the refactor batch
-- If `app/routes/api.*` changed, run:
-  - `npm run test:core -- app/routes/api.*.test.ts`
-  - REST static checks from `references/review-checklist.md` section 2 API contract items
-- If persisted Prisma models/fields changed, run:
+- If persisted Prisma models or fields changed:
   - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
+- After broader refactors:
+  - `npm run quality:gate`
 
-## 7) Keep Commits Consistent
+## Documentation Rule
 
-- Use Conventional Commits: `<type>[optional scope]: <description>`.
-- Keep scope aligned with the subsystem being changed (`client`, `threads`, `mcp`, `settings`, `docs`).
+- Keep `README.md`, `AGENTS.md`, and this skill aligned with the implemented architecture.
+- Prefer stable principles over exhaustive implementation inventories.
+- Remove documentation that is likely to become stale quickly.
 
-## References
+## Reference
 
-- `references/review-checklist.md`
+- [`review-checklist.md`](references/review-checklist.md)
