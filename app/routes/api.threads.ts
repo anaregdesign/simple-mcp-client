@@ -21,19 +21,19 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
-import { readThreadSnapshotFromUnknown } from "~/lib/home/thread/parsers";
+import { readThreadSnapshotFromUnknown } from "~/lib/client/threads/parsers";
 import {
   buildThreadMessageSkillActivationRowId,
   buildThreadOperationLogRowId,
   buildThreadMcpServerRowId,
   buildThreadSkillActivationRowId,
-} from "~/lib/home/thread/server-ids";
+} from "~/lib/client/threads/server-ids";
 import {
   hasThreadInteraction,
   hasThreadPersistableState,
-} from "~/lib/home/thread/snapshot-state";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/home/skills/registry";
-import type { ThreadSnapshot } from "~/lib/home/thread/types";
+} from "~/lib/client/threads/snapshot-state";
+import { SKILL_REGISTRY_OPTIONS } from "~/lib/client/skills/registry";
+import type { ThreadSnapshot } from "~/lib/client/threads/types";
 import type { Route } from "./+types/api.threads";
 
 const THREADS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;

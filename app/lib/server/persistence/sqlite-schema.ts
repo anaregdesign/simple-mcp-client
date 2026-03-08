@@ -113,11 +113,11 @@ async function ensureAzureSelectionSchema(prisma: PrismaClient): Promise<void> {
   const hasThemeColumn = columns.some(
     (column) => typeof column.name === "string" && column.name.trim().toLowerCase() === "theme",
   );
-  const hasLegacyHomeThemeColumn = columns.some(
+  const hasLegacyThemeModeColumn = columns.some(
     (column) =>
       typeof column.name === "string" && column.name.trim().toLowerCase() === "hometheme",
   );
-  if (!hasThemeColumn && hasLegacyHomeThemeColumn) {
+  if (!hasThemeColumn && hasLegacyThemeModeColumn) {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "AzureSelectionPreference"
       RENAME COLUMN "homeTheme" TO "theme"

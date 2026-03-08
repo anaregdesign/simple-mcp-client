@@ -4,16 +4,16 @@
 import { normalizeAzureOpenAIBaseURL } from "~/lib/azure/dependencies";
 import { CHAT_ATTACHMENT_ALLOWED_EXTENSIONS, CHAT_ATTACHMENT_MAX_FILES, CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH, CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES, CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES, CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES, CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES, CHAT_MAX_AGENT_INSTRUCTION_LENGTH, CHAT_MAX_MCP_SERVERS, DEFAULT_AGENT_INSTRUCTION, HOME_REASONING_EFFORT_OPTIONS, TEMPERATURE_MAX, TEMPERATURE_MIN } from "~/lib/constants/chat";
 import { AGENT_SKILL_NAME_MAX_LENGTH, CHAT_MAX_ACTIVE_SKILLS } from "~/lib/constants/skills";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
-import type { ThreadSkillActivation } from "~/lib/home/skills/types";
+import type { ReasoningEffort } from "~/lib/client/shared/view-types";
+import type { ThreadSkillActivation } from "~/lib/client/skills/types";
 import {
   parseThreadEnvironmentFromUnknown,
   type ThreadEnvironment,
-} from "~/lib/home/thread/environment";
+} from "~/lib/client/threads/environment";
 import {
   readThreadInstructionContextTogglesFromUnknown,
   type ThreadInstructionContextToggles,
-} from "~/lib/home/thread/instruction-context";
+} from "~/lib/client/threads/instruction-context";
 import { parseChatMcpServerEntry } from "~/lib/mcp/server-config-parser";
 import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
 

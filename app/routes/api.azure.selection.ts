@@ -19,8 +19,8 @@ import {
 } from "~/lib/server/http";
 import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
-import type { HomeTheme, ReasoningEffort } from "~/lib/home/shared/view-types";
-import { readHomeThemeFromUnknown } from "~/lib/home/theme/preference";
+import type { ThemeMode, ReasoningEffort } from "~/lib/client/shared/view-types";
+import { readThemeModeFromUnknown } from "~/lib/client/settings/theme-mode";
 import type { Route } from "./+types/api.azure.selection";
 
 const AZURE_SELECTION_ALLOWED_METHODS = ["GET", "PATCH", "DELETE"] as const;
@@ -30,7 +30,7 @@ type AzureSelectionPreferencePayload = {
   projectId: string;
   deploymentName: string;
   reasoningEffort: ReasoningEffort | null;
-  theme: HomeTheme | null;
+  theme: ThemeMode | null;
 };
 
 type AzureSelectionTarget = "playground" | "utility";
@@ -47,7 +47,7 @@ type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreference & {
 type AzureSelectionPreference = {
   tenantId: string;
   principalId: string;
-  theme: HomeTheme;
+  theme: ThemeMode;
   playground: AzureSelectionTargetPreference | null;
   utility: AzureUtilitySelectionTargetPreference | null;
 };
@@ -223,7 +223,7 @@ export function parseAzureSelectionPreference(value: unknown): AzureSelectionPre
     typeof value.reasoningEffort === "string"
       ? readReasoningEffortFromUnknown(value.reasoningEffort)
       : null;
-  const theme = readHomeThemeFromUnknown(value.theme);
+  const theme = readThemeModeFromUnknown(value.theme);
   const hasSelectionInput =
     value.target !== undefined ||
     value.projectId !== undefined ||
@@ -411,7 +411,7 @@ function mapSelectionRecord(
   return {
     tenantId: user.tenantId,
     principalId: user.principalId,
-    theme: readHomeThemeFromUnknown(selection.theme) ?? HOME_DEFAULT_THEME,
+    theme: readThemeModeFromUnknown(selection.theme) ?? HOME_DEFAULT_THEME,
     playground: mapSelectionTarget(selection.projectId, selection.deploymentName),
     utility: mapUtilitySelectionTarget(
       selection.utilityProjectId,

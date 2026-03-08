@@ -13,8 +13,8 @@ import {
   parseSkillFrontmatter,
   type SkillFrontmatter,
   validateSkillFrontmatter,
-} from "~/lib/home/skills/frontmatter";
-import type { SkillCatalogEntry, SkillCatalogSource } from "~/lib/home/skills/types";
+} from "~/lib/client/skills/frontmatter";
+import type { SkillCatalogEntry, SkillCatalogSource } from "~/lib/client/skills/types";
 
 type SkillCatalogRoot = {
   path: string;

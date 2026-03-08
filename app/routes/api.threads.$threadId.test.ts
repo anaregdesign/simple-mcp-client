@@ -35,7 +35,7 @@ vi.mock("./api.threads", () => ({
   readErrorMessage,
 }));
 
-vi.mock("~/lib/home/thread/parsers", () => ({
+vi.mock("~/lib/client/threads/parsers", () => ({
   readThreadSnapshotFromUnknown,
 }));
 

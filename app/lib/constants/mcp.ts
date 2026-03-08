@@ -31,7 +31,7 @@ export const MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES = [
   "@modelcontextprotocol/server-playwright",
 ] as const;
 
-type HomeDefaultWorkspaceMcpServerProfileHttpRow = {
+type DefaultWorkspaceMcpServerProfileHttpRow = {
   name: string;
   transport: "streamable_http" | "sse";
   url: string;
@@ -42,7 +42,7 @@ type HomeDefaultWorkspaceMcpServerProfileHttpRow = {
   connectOnThreadCreate: boolean;
 };
 
-type HomeDefaultWorkspaceMcpServerProfileStdioRow = {
+type DefaultWorkspaceMcpServerProfileStdioRow = {
   name: string;
   transport: "stdio";
   command: string;
@@ -52,9 +52,9 @@ type HomeDefaultWorkspaceMcpServerProfileStdioRow = {
   connectOnThreadCreate: boolean;
 };
 
-export type HomeDefaultWorkspaceMcpServerProfileRow =
-  | HomeDefaultWorkspaceMcpServerProfileHttpRow
-  | HomeDefaultWorkspaceMcpServerProfileStdioRow;
+export type DefaultWorkspaceMcpServerProfileRow =
+  | DefaultWorkspaceMcpServerProfileHttpRow
+  | DefaultWorkspaceMcpServerProfileStdioRow;
 
 export const HOME_DEFAULT_MCP_TRANSPORT = "streamable_http" as const;
 export const HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS = [
@@ -160,7 +160,7 @@ export const HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS = [
     env: {},
     connectOnThreadCreate: false,
   },
-] as const satisfies readonly HomeDefaultWorkspaceMcpServerProfileRow[];
+] as const satisfies readonly DefaultWorkspaceMcpServerProfileRow[];
 
 export const ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export const HTTP_HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;

@@ -14,14 +14,14 @@ const {
   mergeDefaultWorkspaceMcpServerProfiles,
   resolveDefaultFilesystemWorkingDirectory,
 } = mcpServersRouteTestUtils;
-type HomeDefaultWorkspaceMcpServerProfileRow =
+type DefaultWorkspaceMcpServerProfileRow =
   (typeof HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
-type HomeDefaultWorkspaceMcpServerProfileStdioRow = Extract<
-  HomeDefaultWorkspaceMcpServerProfileRow,
+type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
+  DefaultWorkspaceMcpServerProfileRow,
   { transport: "stdio" }
 >;
-type HomeDefaultWorkspaceMcpServerProfileHttpRow = Extract<
-  HomeDefaultWorkspaceMcpServerProfileRow,
+type DefaultWorkspaceMcpServerProfileHttpRow = Extract<
+  DefaultWorkspaceMcpServerProfileRow,
   { transport: "streamable_http" | "sse" }
 >;
 const defaultOpenaiDocsMcpServerProfile = readDefaultHttpMcpServerProfile("openai-docs");
@@ -37,9 +37,9 @@ const defaultDrawioMcpServerProfile = readDefaultStdioMcpServerProfile("drawio")
 const defaultMermaidMcpServerProfile = readDefaultStdioMcpServerProfile("mcp-mermaid");
 const defaultWorkspaceUserId = 42;
 
-function readDefaultStdioMcpServerProfile(name: string): HomeDefaultWorkspaceMcpServerProfileStdioRow {
+function readDefaultStdioMcpServerProfile(name: string): DefaultWorkspaceMcpServerProfileStdioRow {
   const profile = HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
-    (entry): entry is HomeDefaultWorkspaceMcpServerProfileStdioRow =>
+    (entry): entry is DefaultWorkspaceMcpServerProfileStdioRow =>
       entry.transport === "stdio" && entry.name === name,
   );
   if (!profile) {
@@ -49,9 +49,9 @@ function readDefaultStdioMcpServerProfile(name: string): HomeDefaultWorkspaceMcp
   return profile;
 }
 
-function readDefaultHttpMcpServerProfile(name: string): HomeDefaultWorkspaceMcpServerProfileHttpRow {
+function readDefaultHttpMcpServerProfile(name: string): DefaultWorkspaceMcpServerProfileHttpRow {
   const profile = HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
-    (entry): entry is HomeDefaultWorkspaceMcpServerProfileHttpRow =>
+    (entry): entry is DefaultWorkspaceMcpServerProfileHttpRow =>
       entry.transport !== "stdio" && entry.name === name,
   );
   if (!profile) {

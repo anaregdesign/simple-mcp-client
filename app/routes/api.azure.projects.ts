@@ -21,7 +21,7 @@ import {
   methodNotAllowedResponse,
 } from "~/lib/server/http";
 import type { AzureDependencies } from "~/lib/azure/dependencies";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 import type { Route } from "./+types/api.azure.projects";
 
 const AZURE_PROJECTS_ALLOWED_METHODS = ["GET"] as const;

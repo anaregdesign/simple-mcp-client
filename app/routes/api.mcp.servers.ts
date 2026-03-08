@@ -62,20 +62,20 @@ export type IncomingMcpServerConfig = ParsedIncomingMcpServerConfig;
 const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
 );
-type HomeDefaultWorkspaceMcpServerProfileRow =
+type DefaultWorkspaceMcpServerProfileRow =
   (typeof HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
-type HomeDefaultWorkspaceMcpServerProfileStdioRow = Extract<
-  HomeDefaultWorkspaceMcpServerProfileRow,
+type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
+  DefaultWorkspaceMcpServerProfileRow,
   { transport: "stdio" }
 >;
 const defaultMermaidWorkspaceMcpServerProfile =
   HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
-    (profile): profile is HomeDefaultWorkspaceMcpServerProfileStdioRow =>
+    (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
       profile.transport === "stdio" && profile.name === "mcp-mermaid",
   ) ?? null;
 const defaultFilesystemWorkspaceMcpServerProfile =
   HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
-    (profile): profile is HomeDefaultWorkspaceMcpServerProfileStdioRow =>
+    (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
       profile.transport === "stdio" && profile.name === "filesystem",
   ) ?? null;
 const MCP_SERVERS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;

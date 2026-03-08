@@ -12,8 +12,8 @@ import { CHAT_MAX_AGENT_INSTRUCTION_LENGTH, HOME_REASONING_EFFORT_OPTIONS, THREA
 import {
   buildThreadAutoTitleRequestMessage,
   normalizeThreadAutoTitle,
-} from "~/lib/home/thread/title";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+} from "~/lib/client/threads/title";
+import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

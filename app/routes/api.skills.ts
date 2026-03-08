@@ -7,8 +7,8 @@ import {
   readSkillRegistrySkillNameValidationMessage,
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
-} from "~/lib/home/skills/registry";
-import type { SkillCatalogEntry, SkillRegistryCatalog } from "~/lib/home/skills/types";
+} from "~/lib/client/skills/registry";
+import type { SkillCatalogEntry, SkillRegistryCatalog } from "~/lib/client/skills/types";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   authRequiredResponse,

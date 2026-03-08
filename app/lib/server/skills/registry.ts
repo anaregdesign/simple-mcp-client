@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { FOUNDRY_SKILLS_DIRECTORY_NAME, FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
 import { AGENT_SKILL_NAME_PATTERN, SKILL_REGISTRY_LIST_CACHE_TTL_MS, SKILL_REGISTRY_TREE_CACHE_TTL_MS } from "~/lib/constants/skills";
 import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/foundry/config";
-import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/home/skills/frontmatter";
+import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/client/skills/frontmatter";
 import {
   parseSkillRegistrySkillName,
   readSkillRegistryOptionById,
@@ -17,8 +17,8 @@ import {
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
   type SkillRegistryOption,
-} from "~/lib/home/skills/registry";
-import type { SkillRegistryCatalog } from "~/lib/home/skills/types";
+} from "~/lib/client/skills/registry";
+import type { SkillRegistryCatalog } from "~/lib/client/skills/types";
 import {
   ensurePersistenceDatabaseReady,
   prisma,

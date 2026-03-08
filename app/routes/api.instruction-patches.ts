@@ -20,7 +20,7 @@ import {
 } from "~/lib/server/http";
 import { CHAT_MAX_AGENT_INSTRUCTION_LENGTH, HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { INSTRUCTION_DIFF_PATCH_FILE_NAME_PATTERN, INSTRUCTION_DIFF_PATCH_MAX_HUNKS, INSTRUCTION_DIFF_PATCH_MAX_HUNK_LINES, INSTRUCTION_DIFF_PATCH_MAX_LINE_TEXT_LENGTH, INSTRUCTION_DIFF_PATCH_OUTPUT_TYPE, INSTRUCTION_ENHANCE_SYSTEM_PROMPT, PROMPT_ALLOWED_FILE_EXTENSIONS, PROMPT_DEFAULT_FILE_EXTENSION, PROMPT_DEFAULT_FILE_STEM, PROMPT_MAX_CONTENT_BYTES, PROMPT_MAX_FILE_NAME_LENGTH, PROMPT_MAX_FILE_STEM_LENGTH } from "~/lib/constants/instruction";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 const INSTRUCTION_PATCHES_ALLOWED_METHODS = ["POST"] as const;
