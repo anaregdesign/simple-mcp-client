@@ -73,9 +73,6 @@ import {
 import type { McpServerConfig } from "~/lib/client/mcp/profile";
 import {
   buildMcpServerKey,
-  readMcpServerFromUnknown,
-  readMcpServerList,
-  serializeMcpServerForSave,
   upsertMcpServer,
 } from "~/lib/client/mcp/profile";
 import {
@@ -85,7 +82,6 @@ import {
 import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
-  isMcpServersAuthRequired,
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/mcp/workspace-mcp-server-profiles";
 import {
@@ -188,13 +184,14 @@ import {
   requestClientApi,
   resolveAuthRequired,
 } from "~/lib/client/controller/api-client";
+import { mcpServersApiClient } from "~/lib/client/api/mcp-servers-api-client";
+import { skillsApiClient } from "~/lib/client/api/skills-api-client";
 import { readJsonPayload } from "~/lib/client/controller/http";
 import {
   type AzureActionApiResponse,
   type AzureProjectsApiResponse,
   type AzureSelectionApiResponse,
   type InstructionEnhanceComparison,
-  type McpServersApiResponse,
   type SkillsApiResponse,
   type ThreadRequestState,
   type ThreadTitleApiResponse,
@@ -1432,20 +1429,7 @@ export function useWorkspaceClientController() {
     setIsLoadingWorkspaceMcpServerProfiles(true);
 
     try {
-      const { payload } = await requestClientApi<McpServersApiResponse>({
-        url: "/api/mcp/servers",
-        init: {
-          method: "GET",
-        },
-        readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload, (rawPayload) =>
-            isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
-          ),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string" ? responsePayload.error : null,
-        fallbackErrorMessage: "Failed to load saved MCP servers.",
-        authRequiredMessage: "Azure login is required. Open Settings and sign in to load MCP servers.",
+      const result = await mcpServersApiClient.loadProfiles({
         onAuthRequired: () => {
           setIsAzureAuthRequired(true);
           clearWorkspaceMcpServerProfilesState(
@@ -1460,7 +1444,7 @@ export function useWorkspaceClientController() {
         return;
       }
 
-      const parsedServers = readMcpServerList(payload.profiles);
+      const parsedServers = result.profiles;
       workspaceMcpServerProfilesRef.current = parsedServers;
       setWorkspaceMcpServerProfiles(parsedServers);
       setWorkspaceMcpServerProfileError(null);
@@ -1509,20 +1493,8 @@ export function useWorkspaceClientController() {
     setIsLoadingSkills(true);
 
     try {
-      const skillsRequestUrl =
-        options.forceRefresh === true ? "/api/skills?refresh=1" : "/api/skills";
-      const { payload } = await requestClientApi<SkillsApiResponse>({
-        url: skillsRequestUrl,
-        init: {
-          method: "GET",
-        },
-        readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string" ? responsePayload.error : null,
-        fallbackErrorMessage: "Failed to load Skills.",
-        authRequiredMessage: "Azure login is required. Open Settings and sign in to load Skills.",
+      const result = await skillsApiClient.loadSkills({
+        forceRefresh: options.forceRefresh,
         onAuthRequired: () => {
           setIsAzureAuthRequired(true);
           setAvailableSkills([]);
@@ -1545,7 +1517,7 @@ export function useWorkspaceClientController() {
           source: "background_success",
         }),
       );
-      applySkillsApiPayload(payload);
+      applySkillsApiPayload(result.payload);
       setSkillRegistrySuccess(null);
     } catch (loadError) {
       if (requestSeq !== skillsRequestSeqRef.current) {
@@ -1600,20 +1572,10 @@ export function useWorkspaceClientController() {
     setSkillRegistrySuccess(null);
 
     try {
-      const mutationMethod = options.action === "install_registry_skill" ? "PUT" : "DELETE";
-      const { payload } = await requestClientApi<SkillsApiResponse>({
-        url: buildSkillRegistrySkillApiPath(options),
-        init: {
-          method: mutationMethod,
-        },
-        readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string" ? responsePayload.error : null,
-        fallbackErrorMessage: "Failed to update Skill registry.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to update Skill registries.",
+      const result = await skillsApiClient.updateRegistrySkill({
+        action: options.action,
+        registryId: options.registryId,
+        skillName: options.skillName,
         onAuthRequired: () => {
           setIsAzureAuthRequired(true);
         },
@@ -1626,9 +1588,8 @@ export function useWorkspaceClientController() {
           source: "background_success",
         }),
       );
-      applySkillsApiPayload(payload);
-      const message = typeof payload.message === "string" ? payload.message.trim() : "";
-      setSkillRegistrySuccess(message || null);
+      applySkillsApiPayload(result.payload);
+      setSkillRegistrySuccess(result.message);
     } catch (error) {
       if (error instanceof ClientApiError && error.kind === "auth_required") {
         setSkillRegistryError(error.message);
@@ -1645,17 +1606,6 @@ export function useWorkspaceClientController() {
     } finally {
       setIsMutatingSkillRegistries(false);
     }
-  }
-
-  function buildSkillRegistrySkillApiPath(options: {
-    registryId: SkillRegistryId;
-    skillName: string;
-  }): string {
-    const encodedSkillPath = options.skillName
-      .split("/")
-      .map((segment) => encodeURIComponent(segment))
-      .join("/");
-    return `/api/skills/registries/${encodeURIComponent(options.registryId)}/skills/${encodedSkillPath}`;
   }
 
   // Timer and reset helpers.
@@ -3977,39 +3927,19 @@ export function useWorkspaceClientController() {
       : "/api/mcp/servers";
     const method = isUpdate ? "PUT" : "POST";
 
-    const { payload } = await requestClientApi<McpServersApiResponse>({
-      url: endpoint,
-      init: {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(
-          serializeMcpServerForSave(server, {
-            includeId: false,
-          }),
-        ),
-      },
-      readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
-      resolveAuthRequired: (status, responsePayload) =>
-        resolveAuthRequired(status, responsePayload, (rawPayload) =>
-          isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
-        ),
-      readErrorMessage: (responsePayload) =>
-        typeof responsePayload.error === "string" ? responsePayload.error : null,
-      fallbackErrorMessage: "Failed to save MCP server.",
-      authRequiredMessage: "Azure login is required. Open Settings and sign in to save MCP servers.",
+    const result = await mcpServersApiClient.saveProfile(server, {
+      isUpdate,
       onAuthRequired: () => {
         setIsAzureAuthRequired(true);
       },
     });
 
-    const profile = readMcpServerFromUnknown(payload.profile);
+    const profile = result.profile;
     if (!profile) {
       throw new Error("Saved MCP server response is invalid.");
     }
 
-    const profiles = readMcpServerList(payload.profiles);
+    const profiles = result.profiles;
     if (profiles.length > 0) {
       workspaceMcpServerProfilesRef.current = profiles;
       setWorkspaceMcpServerProfiles(profiles);
@@ -4024,31 +3954,18 @@ export function useWorkspaceClientController() {
 
     return {
       profile,
-      warning: typeof payload.warning === "string" ? payload.warning : null,
+      warning: result.warning,
     };
   }
 
   async function deleteWorkspaceMcpServerProfileFromConfig(serverId: string): Promise<McpServerConfig[]> {
-    const { payload } = await requestClientApi<McpServersApiResponse>({
-      url: `/api/mcp/servers/${encodeURIComponent(serverId)}`,
-      init: {
-        method: "DELETE",
-      },
-      readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
-      resolveAuthRequired: (status, responsePayload) =>
-        resolveAuthRequired(status, responsePayload, (rawPayload) =>
-          isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
-        ),
-      readErrorMessage: (responsePayload) =>
-        typeof responsePayload.error === "string" ? responsePayload.error : null,
-      fallbackErrorMessage: "Failed to delete MCP server.",
-      authRequiredMessage: "Azure login is required. Open Settings and sign in to edit MCP servers.",
+    const result = await mcpServersApiClient.deleteProfile(serverId, {
       onAuthRequired: () => {
         setIsAzureAuthRequired(true);
       },
     });
 
-    return readMcpServerList(payload.profiles);
+    return result.profiles;
   }
 
   function connectMcpServerToAgent(serverToConnect: McpServerConfig) {
