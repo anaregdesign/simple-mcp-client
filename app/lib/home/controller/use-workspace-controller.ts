@@ -175,6 +175,12 @@ import {
   readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
 } from "~/lib/home/controller/desktop-updater";
+import {
+  canStartThreadOperation,
+  completeThreadOperationPhase,
+  isThreadOperationPhaseBusy,
+  type ThreadOperationPhase,
+} from "~/lib/home/controller/thread-operation-phase";
 import { readJsonPayload } from "~/lib/home/controller/http";
 import {
   type AzureActionApiResponse,
@@ -332,13 +338,8 @@ export function useWorkspaceController() {
   const [threads, setThreads] = useState<ThreadSnapshot[]>([]);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [activeThreadNameInput, setActiveThreadNameInput] = useState("");
-  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
   const [isSavingThread, setIsSavingThread] = useState(false);
-  const [isSwitchingThread, setIsSwitchingThread] = useState(false);
-  const [isCreatingThread, setIsCreatingThread] = useState(false);
-  const [isDeletingThread, setIsDeletingThread] = useState(false);
-  const [isClearingThread, setIsClearingThread] = useState(false);
-  const [isRestoringThread, setIsRestoringThread] = useState(false);
+  const [threadOperationPhase, setThreadOperationPhase] = useState<ThreadOperationPhase>("idle");
   const [threadError, setThreadError] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<SkillCatalogEntry[]>([]);
   const [selectedMessageSkillActivations, setSelectedMessageSkillActivations] = useState<ThreadSkillActivation[]>([]);
@@ -356,6 +357,13 @@ export function useWorkspaceController() {
   const [isApplyingDesktopUpdate, setIsApplyingDesktopUpdate] = useState(false);
   const [rightPaneWidth, setRightPaneWidth] = useState(420);
   const [activeResizeHandle, setActiveResizeHandle] = useState<"main" | null>(null);
+  const isLoadingThreads = threadOperationPhase === "loading";
+  const isSwitchingThread = threadOperationPhase === "switching";
+  const isCreatingThread = threadOperationPhase === "creating";
+  const isDeletingThread = threadOperationPhase === "deleting";
+  const isClearingThread = threadOperationPhase === "clearing";
+  const isRestoringThread = threadOperationPhase === "restoring";
+  const isThreadOperationBusy = isThreadOperationPhaseBusy(threadOperationPhase);
 
   // Mutable refs for request sequencing, optimistic state, and debounce timers.
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
@@ -1323,14 +1331,7 @@ export function useWorkspaceController() {
     if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
       return;
     }
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
@@ -1378,14 +1379,7 @@ export function useWorkspaceController() {
     if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
       return;
     }
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
     if (isChatLocked || isLoadingUtilityAzureDeployments) {
@@ -1791,12 +1785,7 @@ export function useWorkspaceController() {
     setActiveThreadId("");
     setActiveThreadNameInput("");
     setThreadError(nextError);
-    setIsLoadingThreads(false);
-    setIsSwitchingThread(false);
-    setIsCreatingThread(false);
-    setIsDeletingThread(false);
-    setIsClearingThread(false);
-    setIsRestoringThread(false);
+    setThreadOperationPhase("idle");
     setIsSavingThread(false);
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(HOME_DEFAULT_REASONING_EFFORT);
@@ -1820,6 +1809,10 @@ export function useWorkspaceController() {
     setSystemNotice(null);
     setThreadRequestStateById({});
     setIsComposing(false);
+  }
+
+  function endThreadOperation(expectedPhase: Exclude<ThreadOperationPhase, "idle">): void {
+    setThreadOperationPhase((current) => completeThreadOperationPhase(current, expectedPhase));
   }
 
   // Thread request-state helpers.
@@ -2114,7 +2107,7 @@ export function useWorkspaceController() {
     setThreadRequestStateById({});
     applyThreadSnapshotToState(localThread);
     setThreadError(null);
-    setIsLoadingThreads(true);
+    setThreadOperationPhase("loading");
   }
 
   // Thread persistence and title-refresh orchestration.
@@ -2439,7 +2432,7 @@ export function useWorkspaceController() {
 
     const requestSeq = threadLoadRequestSeqRef.current + 1;
     threadLoadRequestSeqRef.current = requestSeq;
-    setIsLoadingThreads(true);
+    setThreadOperationPhase("loading");
     setThreadError(null);
 
     try {
@@ -2521,7 +2514,7 @@ export function useWorkspaceController() {
       setThreadError(loadError instanceof Error ? loadError.message : "Failed to load threads.");
     } finally {
       if (requestSeq === threadLoadRequestSeqRef.current) {
-        setIsLoadingThreads(false);
+        endThreadOperation("loading");
       }
     }
   }
@@ -2529,19 +2522,12 @@ export function useWorkspaceController() {
   async function createThreadAndSwitch(options: {
     name?: string;
   } = {}): Promise<boolean> {
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return false;
     }
 
     setThreadError(null);
-    setIsCreatingThread(true);
+    setThreadOperationPhase("creating");
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2588,7 +2574,7 @@ export function useWorkspaceController() {
       setThreadError(createError instanceof Error ? createError.message : "Failed to create thread.");
       return false;
     } finally {
-      setIsCreatingThread(false);
+      endThreadOperation("creating");
     }
   }
 
@@ -2618,14 +2604,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
@@ -2702,14 +2681,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
@@ -2729,7 +2701,7 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setIsClearingThread(true);
+    setThreadOperationPhase("clearing");
 
     try {
       const targetThreadForSave =
@@ -2793,7 +2765,7 @@ export function useWorkspaceController() {
       });
       setThreadError(clearError instanceof Error ? clearError.message : "Failed to clear thread.");
     } finally {
-      setIsClearingThread(false);
+      endThreadOperation("clearing");
     }
   }
 
@@ -2808,14 +2780,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
@@ -2835,7 +2800,7 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setIsDeletingThread(true);
+    setThreadOperationPhase("deleting");
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2890,7 +2855,7 @@ export function useWorkspaceController() {
       });
       setThreadError(deleteError instanceof Error ? deleteError.message : "Failed to delete thread.");
     } finally {
-      setIsDeletingThread(false);
+      endThreadOperation("deleting");
     }
   }
 
@@ -2905,14 +2870,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
@@ -2923,7 +2881,7 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setIsRestoringThread(true);
+    setThreadOperationPhase("restoring");
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2981,21 +2939,14 @@ export function useWorkspaceController() {
       });
       setThreadError(restoreError instanceof Error ? restoreError.message : "Failed to restore thread.");
     } finally {
-      setIsRestoringThread(false);
+      endThreadOperation("restoring");
     }
   }
 
   async function handleThreadChange(nextThreadIdRaw: string) {
     const nextThreadId = nextThreadIdRaw.trim();
     setThreadError(null);
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
     if (!nextThreadId || nextThreadId === activeThreadIdRef.current) {
@@ -3007,7 +2958,7 @@ export function useWorkspaceController() {
       setThreadError("Selected thread is not available.");
       return;
     }
-    setIsSwitchingThread(true);
+    setThreadOperationPhase("switching");
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
       if (!readThreadRequestState(currentThreadId).isSending) {
@@ -3026,7 +2977,7 @@ export function useWorkspaceController() {
         },
       });
     } finally {
-      setIsSwitchingThread(false);
+      endThreadOperation("switching");
     }
   }
 
@@ -6127,14 +6078,6 @@ export function useWorkspaceController() {
       setMcpFormWarning(null);
     },
   };
-
-  const isThreadOperationBusy =
-    isLoadingThreads ||
-    isSwitchingThread ||
-    isCreatingThread ||
-    isDeletingThread ||
-    isClearingThread ||
-    isRestoringThread;
 
   const threadsTabProps = {
     instructionSectionProps: {
