@@ -203,6 +203,12 @@ import {
   consumeChatResponseStream,
   validateSendPreconditions,
 } from "~/lib/home/controller/send-message-usecase";
+import {
+  HomeApiError,
+  mapApiError,
+  requestHomeApi,
+  resolveAuthRequired,
+} from "~/lib/home/controller/api-client";
 import { readJsonPayload } from "~/lib/home/controller/http";
 import {
   type AzureActionApiResponse,
@@ -1445,31 +1451,32 @@ export function useWorkspaceController() {
     setIsLoadingWorkspaceMcpServerProfiles(true);
 
     try {
-      const response = await fetch("/api/mcp/servers", {
-        method: "GET",
+      const { payload } = await requestHomeApi<McpServersApiResponse>({
+        url: "/api/mcp/servers",
+        init: {
+          method: "GET",
+        },
+        readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload, (rawPayload) =>
+            isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
+          ),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load saved MCP servers.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load MCP servers.",
+        onAuthRequired: () => {
+          setIsAzureAuthRequired(true);
+          clearWorkspaceMcpServerProfilesState(
+            "Azure login is required. Open Settings and sign in to load MCP servers.",
+          );
+        },
       });
-
-      const payload = await readJsonPayload<McpServersApiResponse>(
-        response,
-        "saved MCP servers",
-      );
       if (requestSeq !== workspaceMcpServerProfileRequestSeqRef.current) {
         return;
       }
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
-      }
-
-      if (!response.ok) {
-        const authRequired = isMcpServersAuthRequired(response.status, payload);
-        if (authRequired) {
-          setIsAzureAuthRequired(true);
-          clearWorkspaceMcpServerProfilesState(
-            "Azure login is required. Open Settings and sign in to load MCP servers.",
-          );
-          return;
-        }
-        throw new Error(payload.error || "Failed to load saved MCP servers.");
       }
 
       const parsedServers = readMcpServerList(payload.profiles);
@@ -1483,12 +1490,15 @@ export function useWorkspaceController() {
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
       }
+      if (loadError instanceof HomeApiError && loadError.kind === "auth_required") {
+        return;
+      }
       logHomeError("load_saved_mcp_servers_failed", loadError, {
         action: "load_saved_mcp_servers",
         statusCode: 500,
       });
       setWorkspaceMcpServerProfileError(
-        loadError instanceof Error ? loadError.message : "Failed to load saved MCP servers.",
+        mapApiError(loadError, "Failed to load saved MCP servers."),
       );
     } finally {
       if (
@@ -1536,7 +1546,7 @@ export function useWorkspaceController() {
       }
 
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         if (authRequired) {
           setIsAzureAuthRequired(true);
           setAvailableSkills([]);
@@ -1613,7 +1623,7 @@ export function useWorkspaceController() {
       });
       const payload = await readJsonPayload<SkillsApiResponse>(response, "Skills");
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         if (authRequired) {
           setIsAzureAuthRequired(true);
           throw new Error(
@@ -2196,7 +2206,7 @@ export function useWorkspaceController() {
 
       const payload = (await response.json()) as ThreadsApiResponse;
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         if (authRequired) {
           setIsAzureAuthRequired(true);
           if (reportError) {
@@ -2480,20 +2490,23 @@ export function useWorkspaceController() {
     setThreadError(null);
 
     try {
-      const response = await fetch("/api/threads", {
-        method: "GET",
-      });
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: "/api/threads",
+        init: {
+          method: "GET",
+        },
+        readPayload: async (response) => (await response.json()) as ThreadsApiResponse,
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load threads.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
           clearThreadsState("Azure login is required. Open Settings and sign in to load threads.");
-          return;
-        }
-
-        throw new Error(payload.error || "Failed to load threads.");
-      }
+        },
+      });
 
       if (requestSeq !== threadLoadRequestSeqRef.current) {
         return;
@@ -2550,12 +2563,15 @@ export function useWorkspaceController() {
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
       }
+      if (loadError instanceof HomeApiError && loadError.kind === "auth_required") {
+        return;
+      }
 
       logHomeError("load_threads_failed", loadError, {
         action: "load_threads",
         statusCode: 500,
       });
-      setThreadError(loadError instanceof Error ? loadError.message : "Failed to load threads.");
+      setThreadError(mapApiError(loadError, "Failed to load threads."));
     } finally {
       if (requestSeq === threadLoadRequestSeqRef.current) {
         endThreadOperation("loading");
@@ -2858,7 +2874,7 @@ export function useWorkspaceController() {
 
       const payload = (await response.json()) as ThreadsApiResponse;
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         if (authRequired) {
           setIsAzureAuthRequired(true);
           throw new Error("Azure login is required. Open Settings and sign in to continue.");
@@ -2944,7 +2960,7 @@ export function useWorkspaceController() {
 
       const payload = (await response.json()) as ThreadsApiResponse;
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         if (authRequired) {
           setIsAzureAuthRequired(true);
           throw new Error("Azure login is required. Open Settings and sign in to continue.");
@@ -3536,7 +3552,7 @@ export function useWorkspaceController() {
         return isAzureAuthRequired;
       }
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         clearActiveAzureIdentity();
         clearWorkspaceMcpServerProfilesState();
         clearThreadsState(
@@ -3826,7 +3842,7 @@ export function useWorkspaceController() {
       }
 
       if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
+        const authRequired = resolveAuthRequired(response.status, payload);
         if (authRequired) {
           clearActiveAzureIdentity();
           clearWorkspaceMcpServerProfilesState();
@@ -3945,27 +3961,32 @@ export function useWorkspaceController() {
       : "/api/mcp/servers";
     const method = isUpdate ? "PUT" : "POST";
 
-    const response = await fetch(endpoint, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
+    const { payload } = await requestHomeApi<McpServersApiResponse>({
+      url: endpoint,
+      init: {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          serializeMcpServerForSave(server, {
+            includeId: false,
+          }),
+        ),
       },
-      body: JSON.stringify(
-        serializeMcpServerForSave(server, {
-          includeId: false,
-        }),
-      ),
-    });
-
-    const payload = await readJsonPayload<McpServersApiResponse>(response, "saved MCP servers");
-    if (!response.ok) {
-      const authRequired = isMcpServersAuthRequired(response.status, payload);
-      if (authRequired) {
+      readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
+      resolveAuthRequired: (status, responsePayload) =>
+        resolveAuthRequired(status, responsePayload, (rawPayload) =>
+          isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
+        ),
+      readErrorMessage: (responsePayload) =>
+        typeof responsePayload.error === "string" ? responsePayload.error : null,
+      fallbackErrorMessage: "Failed to save MCP server.",
+      authRequiredMessage: "Azure login is required. Open Settings and sign in to save MCP servers.",
+      onAuthRequired: () => {
         setIsAzureAuthRequired(true);
-        throw new Error("Azure login is required. Open Settings and sign in to save MCP servers.");
-      }
-      throw new Error(payload.error || "Failed to save MCP server.");
-    }
+      },
+    });
 
     const profile = readMcpServerFromUnknown(payload.profile);
     if (!profile) {
@@ -3992,20 +4013,24 @@ export function useWorkspaceController() {
   }
 
   async function deleteWorkspaceMcpServerProfileFromConfig(serverId: string): Promise<McpServerConfig[]> {
-    const response = await fetch(`/api/mcp/servers/${encodeURIComponent(serverId)}`, {
-      method: "DELETE",
-    });
-
-    const payload = await readJsonPayload<McpServersApiResponse>(response, "saved MCP servers");
-    if (!response.ok) {
-      const authRequired = isMcpServersAuthRequired(response.status, payload);
-      if (authRequired) {
+    const { payload } = await requestHomeApi<McpServersApiResponse>({
+      url: `/api/mcp/servers/${encodeURIComponent(serverId)}`,
+      init: {
+        method: "DELETE",
+      },
+      readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
+      resolveAuthRequired: (status, responsePayload) =>
+        resolveAuthRequired(status, responsePayload, (rawPayload) =>
+          isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
+        ),
+      readErrorMessage: (responsePayload) =>
+        typeof responsePayload.error === "string" ? responsePayload.error : null,
+      fallbackErrorMessage: "Failed to delete MCP server.",
+      authRequiredMessage: "Azure login is required. Open Settings and sign in to edit MCP servers.",
+      onAuthRequired: () => {
         setIsAzureAuthRequired(true);
-        throw new Error("Azure login is required. Open Settings and sign in to edit MCP servers.");
-      }
-
-      throw new Error(payload.error || "Failed to delete MCP server.");
-    }
+      },
+    });
 
     return readMcpServerList(payload.profiles);
   }
