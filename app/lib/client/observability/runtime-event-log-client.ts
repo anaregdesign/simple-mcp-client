@@ -5,7 +5,7 @@ import { CLIENT_EVENT_LOG_DEDUPE_WINDOW_MS } from "~/lib/constants/client";
 import {
   readErrorDetails,
   type ClientRuntimeEventLogPayload,
-} from "~/lib/observability/runtime-event-log";
+} from "~/lib/contracts/shared/runtime-event-log";
 
 type ClientRuntimeContextProvider = () => Record<string, unknown>;
 type GlobalClientLoggerState = {

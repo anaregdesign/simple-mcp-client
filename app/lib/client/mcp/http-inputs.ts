@@ -9,7 +9,7 @@ import {
   normalizeAndValidateMcpAzureAuthScope,
   validateMcpHeaderKey,
   validateMcpTimeoutSeconds,
-} from "~/lib/mcp/validation";
+} from "~/lib/contracts/mcp/validation";
 
 export function parseHttpHeadersInput(input: string): ParseResult<Record<string, string>> {
   const trimmed = input.trim();

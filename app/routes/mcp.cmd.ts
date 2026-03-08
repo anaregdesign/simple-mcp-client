@@ -9,7 +9,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import * as z from "zod/v4";
 import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER, MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER } from "~/lib/constants/mcp";
-import { resolveFoundryWorkspaceThreadDirectory } from "~/lib/foundry/config";
+import { resolveFoundryWorkspaceThreadDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   installGlobalServerErrorLogging,

@@ -14,8 +14,8 @@ import {
   readThreadInstructionContextTogglesFromUnknown,
   type ThreadInstructionContextToggles,
 } from "~/lib/client/threads/instruction-context";
-import { parseChatMcpServerEntry } from "~/lib/mcp/server-config-parser";
-import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
+import { parseChatMcpServerEntry } from "~/lib/contracts/mcp/server-config-parser";
+import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 
 export type ThreadMessageRole = "user" | "assistant";
 

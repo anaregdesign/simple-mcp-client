@@ -14,7 +14,7 @@ import {
   resolveFoundryWorkspaceThreadDirectory,
   resolveFoundryWorkspaceUserDirectory,
   resolveFoundryWorkspaceUserSkillsDirectory,
-} from "./config";
+} from "./workspace-storage-paths";
 
 describe("resolveFoundryConfigDirectory", () => {
   it("uses APPDATA on Windows when available", () => {

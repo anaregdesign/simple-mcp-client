@@ -7,7 +7,7 @@ import {
   normalizeAndValidateMcpAzureAuthScope,
   validateMcpHeaderKey,
   validateMcpTimeoutSeconds,
-} from "~/lib/mcp/validation";
+} from "~/lib/contracts/mcp/validation";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 export type McpTransport = "streamable_http" | "sse" | "stdio";

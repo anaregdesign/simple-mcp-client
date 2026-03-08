@@ -4,7 +4,7 @@
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
 import { HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS } from "~/lib/constants/mcp";
-import { resolveFoundryConfigDirectory } from "~/lib/foundry/config";
+import { resolveFoundryConfigDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import { mcpServersRouteTestUtils } from "./api.mcp.servers";
 
 const {

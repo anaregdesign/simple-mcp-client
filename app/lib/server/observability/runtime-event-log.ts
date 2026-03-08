@@ -19,7 +19,7 @@ import {
   serializeRuntimeEventContext,
   type RuntimeEventLogInput,
   type RuntimeEventLogLevel,
-} from "~/lib/observability/runtime-event-log";
+} from "~/lib/contracts/shared/runtime-event-log";
 import {
   ensurePersistenceDatabaseReady,
   prisma,

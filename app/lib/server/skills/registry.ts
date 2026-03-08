@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FOUNDRY_SKILLS_DIRECTORY_NAME, FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
 import { AGENT_SKILL_NAME_PATTERN, SKILL_REGISTRY_LIST_CACHE_TTL_MS, SKILL_REGISTRY_TREE_CACHE_TTL_MS } from "~/lib/constants/skills";
-import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/foundry/config";
+import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/client/skills/frontmatter";
 import {
   parseSkillRegistrySkillName,

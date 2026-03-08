@@ -1,7 +1,7 @@
 /**
  * Persistence database configuration helpers.
  */
-import { resolveFoundryDatabaseUrl } from "~/lib/foundry/config";
+import { resolveFoundryDatabaseUrl } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 
 export type PersistenceDatabaseProvider =
   | "sqlite"

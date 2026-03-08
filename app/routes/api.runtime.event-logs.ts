@@ -1,7 +1,7 @@
 /**
  * API route module for /api/runtime/event-logs.
  */
-import { readClientRuntimeEventLogPayload } from "~/lib/observability/runtime-event-log";
+import { readClientRuntimeEventLogPayload } from "~/lib/contracts/shared/runtime-event-log";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   installGlobalServerErrorLogging,

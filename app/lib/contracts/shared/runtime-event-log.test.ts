@@ -6,7 +6,7 @@ import {
   readClientRuntimeEventLogPayload,
   readErrorDetails,
   serializeRuntimeEventContext,
-} from "~/lib/observability/runtime-event-log";
+} from "~/lib/contracts/shared/runtime-event-log";
 
 describe("readClientRuntimeEventLogPayload", () => {
   it("parses a valid payload and normalizes optional fields", () => {

@@ -6,7 +6,7 @@ import { MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS } from "~/lib
 import {
   parseChatMcpServerEntry,
   parseIncomingMcpServer,
-} from "~/lib/mcp/server-config-parser";
+} from "~/lib/contracts/mcp/server-config-parser";
 
 describe("parseIncomingMcpServer", () => {
   it("parses stdio payloads", () => {

@@ -27,8 +27,8 @@ import { getAzureDependencies } from "~/lib/azure/dependencies";
 import {
   resolveFoundryWorkspaceThreadDirectory,
   resolveFoundryWorkspaceUserDirectory,
-} from "~/lib/foundry/config";
-import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
+} from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
   type ThreadMcpServerSession,
