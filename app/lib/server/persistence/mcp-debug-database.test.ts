@@ -26,8 +26,17 @@ import {
   normalizeDatabaseDebugReadOptions,
   readDatabaseDebugTableByToolName,
 } from "./mcp-debug-database";
+import { databaseDebugTableDefinitions } from "./mcp-debug-database-metadata";
 
 describe("mcp-debug-database metadata", () => {
+  it("publishes the same table catalog from metadata module definitions", () => {
+    expect(listDatabaseDebugTables()).toEqual(databaseDebugTableDefinitions);
+
+    const toolNames = databaseDebugTableDefinitions.map((table) => table.toolName);
+    expect(new Set(toolNames).size).toBe(toolNames.length);
+    expect(databaseDebugTableDefinitions.every((table) => table.fields.length > 0)).toBe(true);
+  });
+
   it("publishes table catalog with role and field definitions", () => {
     const tables = listDatabaseDebugTables();
     expect(tables).toHaveLength(14);
