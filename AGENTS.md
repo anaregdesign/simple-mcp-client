@@ -20,6 +20,27 @@
 - Do not add backward compatibility shims or fallback behavior unless explicitly requested.
 - Prefer clean replacement of old contracts over dual-path support.
 
+## Approved Architecture Baseline
+
+- Treat `docs/architecture/client-clean-architecture.md` as the contributor architecture source of truth for layer placement and migration direction.
+- `app/lib` top-level directories are restricted to:
+  - `app/lib/client/`
+  - `app/lib/contracts/`
+  - `app/lib/constants/`
+  - `app/lib/domain/`
+  - `app/lib/server/`
+- Do not create new top-level feature directories under `app/lib/`.
+- The former roots `app/lib/azure/`, `app/lib/foundry/`, `app/lib/mcp/`, `app/lib/observability/`, and `app/welcome/` are obsolete and must not be recreated.
+- Server-only integrations belong under `app/lib/server/infrastructure/`.
+- Shared parser/validation/DTO helper code belongs under `app/lib/contracts/`.
+- Domain policy and framework-independent model behavior belong under `app/lib/domain/`.
+- SPA orchestration belongs under `app/lib/client/` and `app/components/client/`.
+- Under `app/lib/server/`, new reusable code should target `application/`, `infrastructure/`, or `shared/`; legacy peer directories are migration residue and should shrink, not grow.
+- Do not introduce new `app/lib/server` -> `app/lib/client` imports. When server code needs a shared shape/helper, move it to `contracts`, `domain`, or `constants`.
+- Keep `app/lib/client/controller/use-workspace-client-controller.ts` and `app/routes/api.chat.ts` on a shrinking path. Do not add new reusable logic there when an extracted module is possible.
+- `class` is for models with invariants/behavior and for orchestration objects such as controllers, stores, API clients, services, repositories, gateways, and mappers.
+- DTO, API payloads, join rows, log rows, cache rows, and pure transforms should stay as `type`/function-based modules.
+
 ## Domain Vocabulary and Naming Source of Truth
 
 - Treat Prisma schema entity/table/field names as the canonical domain vocabulary.
@@ -277,8 +298,8 @@
 - Show concrete streaming progress states (not only generic `Thinking...`).
 - Support chat attachments for Code Interpreter-compatible files with current validation limits from constants modules under `app/lib/`.
 - Keep `app/routes/api.chat.ts` orchestration-focused.
-  - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live under `app/lib/server/chat/*`.
-- Do not add reusable low-level runtime utilities directly in `app/routes/api.chat.ts` (for example stdio command/path resolution, environment shaping, retry helpers); place them under `app/lib/server/chat/*` with dedicated unit tests.
+  - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live in dedicated server modules and be extracted from the route when reusable.
+- Do not add reusable low-level runtime utilities directly in `app/routes/api.chat.ts` (for example stdio command/path resolution, environment shaping, retry helpers); place them in dedicated server modules with unit tests.
 - On stream disconnect/cancel, propagate `AbortSignal` through chat execution and ensure MCP/session/container cleanup paths always execute.
 - Classify stream disconnect as cancellation (not upstream failure): do not emit stream error payload on client disconnect, and log cancellation as info-level (`chat_stream_canceled`).
 
@@ -302,7 +323,7 @@
   - diff review (adopt enhanced vs keep original)
 - Skill discovery roots for the app runtime:
   - CODEX_HOME shared skills: `$CODEX_HOME/skills/`
-  - app-data shared skills: `<foundry-config-dir>/skills/` (same parent directory as `local-playground.sqlite`)
+  - workspace-user app-data skills: `<foundry-config-dir>/users/<user-id>/skills/`
 
 ## MCP Server Management
 
@@ -326,8 +347,8 @@
   - allow additional custom headers
   - support per-server timeout and per-server Azure token scope
   - when Azure auth is enabled, inject `Authorization: Bearer <token>` at request time from `DefaultAzureCredential`
-- Share MCP input validation between frontend and backend via `app/lib/mcp/validation.ts`; UI and route parsers may format context-specific error messages but should not duplicate validation rules.
-- Share MCP server config parsing across chat and MCP routes via `app/lib/mcp/server-config-parser.ts`; keep context-specific error prefixes/messages at the call site, not duplicated parser logic.
+- Share MCP input validation between frontend and backend via `app/lib/contracts/mcp/validation.ts`; UI and route parsers may format context-specific error messages but should not duplicate validation rules.
+- Share MCP server config parsing across chat and MCP routes via `app/lib/contracts/mcp/server-config-parser.ts`; keep context-specific error prefixes/messages at the call site, not duplicated parser logic.
 - For MCP session pool contention, prefer bounded wait-and-reuse before ephemeral fallback to improve session reuse and reduce connection churn.
 - Register runtime shutdown cleanup hooks once (idempotent) and close all Thread MCP sessions during process shutdown.
 - For session pool idle cleanup, close MCP sessions with best-effort safe close and warning logs so close failures never surface as unhandled rejections.

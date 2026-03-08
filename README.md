@@ -33,6 +33,22 @@ npm run skill:enable
 
 After updating the skill link, restart Codex (or start a new session).
 
+## Contributor Architecture Baseline
+
+For future development, the architecture source of truth is:
+
+- `AGENTS.md`
+- `docs/architecture/client-clean-architecture.md`
+- `skills/.dev/local-playground-dev/SKILL.md`
+
+Contributor guardrails:
+
+- `app/lib` top-level directories are fixed to `client`, `contracts`, `constants`, `domain`, and `server`
+- `app/lib/azure`, `app/lib/foundry`, `app/lib/mcp`, `app/lib/observability`, and `app/welcome` are obsolete and must not be reintroduced
+- new reusable server code should go to `app/lib/server/application/`, `app/lib/server/infrastructure/`, or `app/lib/server/shared/`
+- new reusable client orchestration should go to `app/lib/client/` and `app/components/client/`, not route modules
+- shared client/server parsers and validators should live in `app/lib/contracts/`
+
 ## Current Specification
 
 ### Layout and navigation
