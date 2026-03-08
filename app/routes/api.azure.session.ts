@@ -5,7 +5,7 @@ import {
   AZURE_COGNITIVE_SERVICES_SCOPE,
   getAzureDependencies,
   resetAzureDependencies,
-} from "~/lib/azure/dependencies";
+} from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 import { errorResponse, methodNotAllowedResponse } from "~/lib/server/http";
 import {

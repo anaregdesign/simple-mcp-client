@@ -4,7 +4,7 @@
 import {
   getAzureDependencies,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/azure/dependencies";
+} from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE, AZURE_COGNITIVE_API_VERSION, AZURE_GRAPH_SCOPE, AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION, AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT, AZURE_MAX_MODELS_PER_ACCOUNT, AZURE_MAX_SUBSCRIPTIONS, AZURE_MAX_TENANTS, AZURE_OPENAI_DEFAULT_API_VERSION, AZURE_SUBSCRIPTIONS_API_VERSION, AZURE_TENANTS_API_VERSION } from "~/lib/constants/azure";
 import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import {
@@ -14,7 +14,7 @@ import {
 import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
-import type { AzureDependencies } from "~/lib/azure/dependencies";
+import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";

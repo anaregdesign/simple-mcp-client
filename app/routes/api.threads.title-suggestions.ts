@@ -7,7 +7,7 @@ import { OpenAIResponsesModel } from "@openai/agents-openai";
 import {
   getAzureDependencies,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/azure/dependencies";
+} from "~/lib/server/infrastructure/azure/dependencies";
 import { CHAT_MAX_AGENT_INSTRUCTION_LENGTH, HOME_REASONING_EFFORT_OPTIONS, THREAD_AUTO_TITLE_SYSTEM_PROMPT } from "~/lib/constants/chat";
 import {
   buildThreadAutoTitleRequestMessage,

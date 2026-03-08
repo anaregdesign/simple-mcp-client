@@ -2,7 +2,7 @@
  * Test module verifying api.azure.projects behavior.
  */
 import { describe, expect, it } from "vitest";
-import type { AzureDependencies } from "~/lib/azure/dependencies";
+import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 import {
   readPrincipalDisplayNameFromAccessToken,

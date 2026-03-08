@@ -1,4 +1,4 @@
-import { getAzureDependencies } from "~/lib/azure/dependencies";
+import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import {
   azureProjectQueryService,
   getArmAccessToken,

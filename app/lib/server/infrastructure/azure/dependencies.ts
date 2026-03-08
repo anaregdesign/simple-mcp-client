@@ -1,5 +1,5 @@
 /**
- * Azure integration helper module.
+ * Server Azure infrastructure module.
  */
 import { InteractiveBrowserCredential } from "@azure/identity";
 import OpenAI from "openai";

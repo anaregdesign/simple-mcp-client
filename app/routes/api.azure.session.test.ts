@@ -33,7 +33,7 @@ const {
   ensureDefaultMcpServersForUser: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/azure/dependencies", () => ({
+vi.mock("~/lib/server/infrastructure/azure/dependencies", () => ({
   AZURE_COGNITIVE_SERVICES_SCOPE: "https://cognitiveservices.azure.com/.default",
   getAzureDependencies: () => ({
     authenticateAzure,

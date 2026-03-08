@@ -7,7 +7,7 @@ import { OpenAIResponsesModel } from "@openai/agents-openai";
 import {
   getAzureDependencies,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/azure/dependencies";
+} from "~/lib/server/infrastructure/azure/dependencies";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

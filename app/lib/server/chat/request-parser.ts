@@ -1,7 +1,7 @@
 /**
  * Server chat request parser module.
  */
-import { normalizeAzureOpenAIBaseURL } from "~/lib/azure/dependencies";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/server/infrastructure/azure/dependencies";
 import { CHAT_ATTACHMENT_ALLOWED_EXTENSIONS, CHAT_ATTACHMENT_MAX_FILES, CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH, CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES, CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES, CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES, CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES, CHAT_MAX_AGENT_INSTRUCTION_LENGTH, CHAT_MAX_MCP_SERVERS, DEFAULT_AGENT_INSTRUCTION, HOME_REASONING_EFFORT_OPTIONS, TEMPERATURE_MAX, TEMPERATURE_MIN } from "~/lib/constants/chat";
 import { AGENT_SKILL_NAME_MAX_LENGTH, CHAT_MAX_ACTIVE_SKILLS } from "~/lib/constants/skills";
 import type { ReasoningEffort } from "~/lib/client/shared/view-types";

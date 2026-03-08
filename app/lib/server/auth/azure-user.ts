@@ -1,8 +1,8 @@
 /**
  * Server runtime module.
  */
-import type { AzureDependencies } from "~/lib/azure/dependencies";
-import { getAzureDependencies } from "~/lib/azure/dependencies";
+import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
+import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
 
 export type AzurePrincipalType = "user" | "servicePrincipal" | "managedIdentity" | "unknown";
