@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import type { ThreadInstructionContextToggleKey } from "~/lib/home/thread/instruction-context";
 

@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import type { ThreadOperationLogEntry } from "~/lib/home/chat/stream";
 import type { ThreadSkillActivation } from "~/lib/home/skills/types";

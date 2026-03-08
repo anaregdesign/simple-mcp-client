@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import { SelectableCardList, type SelectableCardItem } from "~/components/home/shared/SelectableCardList";
 import { SubSection } from "~/components/home/shared/SubSection";

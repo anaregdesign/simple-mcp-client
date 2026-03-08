@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import type { ReactNode } from "react";
 import { FluentUI } from "~/components/home/shared/fluent";

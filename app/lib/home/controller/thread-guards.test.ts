@@ -1,5 +1,5 @@
 /**
- * Tests for Home thread guard selectors.
+ * Tests for Client thread guard selectors.
  */
 import { describe, expect, it } from "vitest";
 import {

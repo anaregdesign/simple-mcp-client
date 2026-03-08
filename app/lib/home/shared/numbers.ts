@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 export function clampNumber(value: number, min: number, max: number): number {
   if (Number.isNaN(value)) {

@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
   {

@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import {
   AGENT_SKILL_DESCRIPTION_MAX_LENGTH,

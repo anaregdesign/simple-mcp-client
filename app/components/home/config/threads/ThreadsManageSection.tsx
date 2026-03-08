@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { FluentUI } from "~/components/home/shared/fluent";

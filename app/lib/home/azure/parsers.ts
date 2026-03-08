@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import { HOME_DEFAULT_THEME, HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants";
 import type { HomeTheme, ReasoningEffort } from "~/lib/home/shared/view-types";

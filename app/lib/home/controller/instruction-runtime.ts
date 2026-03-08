@@ -1,5 +1,5 @@
 /**
- * Home controller instruction runtime helpers.
+ * Client controller instruction runtime helpers.
  */
 
 export type InstructionRuntimeUiState = {

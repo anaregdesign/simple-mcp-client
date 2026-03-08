@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import { useEffect, useMemo } from "react";
 import { StatusMessageList, type StatusMessage } from "~/components/home/shared/StatusMessageList";

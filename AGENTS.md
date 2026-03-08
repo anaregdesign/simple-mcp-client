@@ -123,11 +123,11 @@
   - raw `405` search in `api.*` implementations
   - old query-contract search (resource IDs passed by query for mutations)
   - route-to-route import search in `app/routes/api.*` implementations
-  - duplicated local `*Like` type search in Home UI modules when shared view models were changed
+  - duplicated local `*Like` type search in Client UI modules when shared view models were changed
   - duplicated Thread selector pattern search in controller hotspots:
-    - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
-  - duplicated Home API auth/error branch search in controller hotspots:
-    - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
+    - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/client/controller/use-workspace-client-controller.ts`
+  - duplicated Client API auth/error branch search in controller hotspots:
+    - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/client/controller/use-workspace-client-controller.ts`
   - `api.chat` helper concentration search:
     - `rg -n "^function " app/routes/api.chat.ts`
 - Run dynamic validation after static cleanup:
@@ -165,34 +165,34 @@
 ## Frontend Component Architecture
 
 - Keep component boundaries aligned with the real DOM tree.
-- For `home` UI, preserve this directory structure:
-  - `app/components/home/authorize/` for auth-only top-level panel(s) rendered when sign-in is required
-  - `app/components/home/playground/` for left-pane Playground panel and renderers
-  - `app/components/home/config/` for right-pane configuration panel
-  - `app/components/home/config/threads/` for Threads tab and its sections
-  - `app/components/home/config/mcp/` for MCP Servers tab and its sections
-  - `app/components/home/config/skills/` for Skills tab and its sections
-  - `app/components/home/config/settings/` for Settings tab and its sections
-  - `app/components/home/shared/` for reusable UI primitives and shared types
+- For `client` UI, preserve this directory structure:
+  - `app/components/client/authorize/` for auth-only top-level panel(s) rendered when sign-in is required
+  - `app/components/client/playground/` for left-pane Playground panel and renderers
+  - `app/components/client/config/` for right-pane configuration panel
+  - `app/components/client/config/threads/` for Threads tab and its sections
+  - `app/components/client/config/mcp/` for MCP Servers tab and its sections
+  - `app/components/client/config/skills/` for Skills tab and its sections
+  - `app/components/client/config/settings/` for Settings tab and its sections
+  - `app/components/client/shared/` for reusable UI primitives and shared types
 - Naming conventions:
   - `*Panel`: top-level pane container (`UnauthenticatedPanel`, `PlaygroundPanel`, `ConfigPanel`)
   - `*Tab`: tab content root under a panel (`ThreadsTab`, `McpServersTab`, `SkillsTab`, `SettingsTab`)
   - `*Section`: vertically segmented form/content block inside a tab (`InstructionSection`, `ThreadsManageSection`, `SkillsSection`, `McpAddServerSection`)
   - Shared primitives should use purpose-based names (`ConfigSection`, `StatusMessageList`, `AutoDismissStatusMessageList`, `LabeledTooltip`, `CopyIconButton`)
-- Place top-level panel components as siblings under `app/components/home/*` according to DOM hierarchy.
+- Place top-level panel components as siblings under `app/components/client/*` according to DOM hierarchy.
   - Do not place one top-level panel inside another panel directory (for example, auth panel under `playground/`).
-- Home route modules under `app/routes/` should stay as visual composition only (layout + panel wiring), not runtime state/effects.
+- Client route modules under `app/routes/` should stay as visual composition only (layout + panel wiring), not runtime state/effects.
 - Prefer one-directional dependencies:
   - panel -> tab -> section -> shared
   - avoid cross-importing siblings when a shared primitive is appropriate.
 
-## Home Runtime Structure
+## Client Runtime Structure
 
-- Keep Home runtime state, effects, and API handlers centralized in `app/lib/home/controller/`.
+- Keep Client runtime state, effects, and API handlers centralized in `app/lib/client/controller/`.
 - Do not split primary state ownership across multiple hooks/files unless there is a clear technical need.
-- Keep message/MCP renderer helpers outside route modules, under `app/components/home/playground/`.
-- Home route modules under `app/routes/` must not re-grow into large logic files; they should compose layout and panel wiring only.
-- Prefer extracting pure data transforms into `app/lib/home/*` modules (no React state there).
+- Keep message/MCP renderer helpers outside route modules, under `app/components/client/playground/`.
+- Client route modules under `app/routes/` must not re-grow into large logic files; they should compose layout and panel wiring only.
+- Prefer extracting pure data transforms into `app/lib/client/*` modules (no React state there).
 - Keep per-thread state ownership in the controller:
   - messages
   - active MCP servers
@@ -202,13 +202,13 @@
 - Keep a single source of truth for active Thread runtime state:
   - canonical state is `threads + activeThreadId`
   - avoid mirrored controller-level state for data already represented in thread snapshots (`messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`)
-- Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/home/thread/*` over ad-hoc duplicated mutation code in controller handlers.
-- When `use-workspace-controller.ts` needs Thread lookup by ID, use shared selector helpers (for example `findThreadSnapshotById`) instead of repeating inline `threadsRef.current.find(...)`.
+- Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/client/threads/*` over ad-hoc duplicated mutation code in controller handlers.
+- When `use-workspace-client-controller.ts` needs Thread lookup by ID, use shared selector helpers (for example `findThreadSnapshotById`) instead of repeating inline `threadsRef.current.find(...)`.
 - Use phase-based Thread operation state (`ThreadOperationPhase`) with shared guard helpers instead of many independent busy booleans.
-- Apply Thread operation phase updates through transition APIs in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation` / `canTransition`) instead of direct phase mutation.
-- Keep `sendMessage` orchestration thin by delegating precondition checks, request payload composition, stream consumption, and result application to `app/lib/home/controller/send-message-usecase.ts`.
-- Centralize shared Home API auth/error handling in `app/lib/home/controller/api-client.ts` (`requestHomeApi`, `resolveAuthRequired`, `mapApiError`) instead of duplicating 401/authRequired/network branches per handler.
-- For Home controller fetch calls that read JSON payload and map auth/error branches, use `requestHomeApi` by default and keep per-handler logic limited to domain-specific state updates.
+- Apply Thread operation phase updates through transition APIs in `app/lib/client/controller/thread-operation-phase.ts` (for example `transitionThreadOperation` / `canTransition`) instead of direct phase mutation.
+- Keep `sendMessage` orchestration thin by delegating precondition checks, request payload composition, stream consumption, and result application to `app/lib/client/controller/send-message-usecase.ts`.
+- Centralize shared Client API auth/error handling in `app/lib/client/controller/api-client.ts` (`requestClientApi`, `resolveAuthRequired`, `mapApiError`) instead of duplicating 401/authRequired/network branches per handler.
+- For Client controller fetch calls that read JSON payload and map auth/error branches, use `requestClientApi` by default and keep per-handler logic limited to domain-specific state updates.
 - Keep persistent interactive state in React/controller runtime first.
 - Persist controller state to SQLite with delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat SQLite as durable snapshot storage; treat React/controller state as the immediate source of truth during interaction.
@@ -220,14 +220,14 @@
 - Import constants directly from the owning constants module under `~/lib/` with the same exported name.
   - Avoid alias renaming (`as`) for constants.
 - Avoid re-export-only type/constant passthrough files; import from the source module directly.
-- For Home UI and controller boundaries, shared view/domain types belong in `app/lib/home/shared/view-types.ts`.
+- For Client UI and controller boundaries, shared view/domain types belong in `app/lib/client/shared/view-types.ts`.
   - Avoid reintroducing duplicated component-local `*Like` types when the same shape is used in multiple modules.
 
 ## Visual Style Baseline (Current UI)
 
 - Theme direction: light Fluent-like desktop UI with compact spacing and flat surfaces.
 - Keep root design tokens in `app/app.css` as the style source of truth (font, background, text, accent, danger, bubbles).
-- Keep Home-specific shape/typography tokens in `:root` (`--home-*`) and reuse them across components.
+- Keep Client-specific shape/typography tokens in `:root` (`--client-*`) and reuse them across components.
 - Avoid duplicating hard-coded values for radius/font size/line-height when a token already exists.
 - Keep page background as a soft gradient blend (`radial + linear`), not a flat solid color.
 - Keep shell surfaces mostly flat:
@@ -350,7 +350,7 @@
 
 ## Shared UI Primitives
 
-- Reuse shared components in `app/components/home/shared/` instead of duplicating markup:
+- Reuse shared components in `app/components/client/shared/` instead of duplicating markup:
   - `ConfigSection` for section header/title/description shell
   - `StatusMessageList` for grouped status/error/success bars
   - `AutoDismissStatusMessageList` for timed dismissible status bars

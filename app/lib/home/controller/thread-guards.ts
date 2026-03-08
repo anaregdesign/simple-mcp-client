@@ -1,5 +1,5 @@
 /**
- * Home controller thread guard selectors.
+ * Client controller thread guard selectors.
  */
 import {
   isThreadOperationPhaseBusy,

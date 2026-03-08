@@ -1,5 +1,5 @@
 /**
- * Home controller API client helpers.
+ * Client controller API client helpers.
  */
 
 export type HomeApiErrorKind = "auth_required" | "http_error" | "network_error";

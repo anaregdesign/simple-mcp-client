@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import type { HomeTheme } from "~/lib/home/shared/view-types";
 

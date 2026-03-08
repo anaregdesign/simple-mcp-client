@@ -1,5 +1,5 @@
 /**
- * Home controller Azure runtime helpers.
+ * Client controller Azure runtime helpers.
  */
 import type { AzureTenantOption } from "~/lib/home/azure/parsers";
 

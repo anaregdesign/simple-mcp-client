@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 export function getFileExtension(fileName: string): string {
   const parts = fileName.toLowerCase().split(".");

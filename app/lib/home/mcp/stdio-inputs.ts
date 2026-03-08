@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import type { ParseResult } from "~/lib/home/mcp/http-inputs";
 import { ENV_KEY_PATTERN } from "~/lib/constants";

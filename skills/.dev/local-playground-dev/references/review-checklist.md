@@ -45,16 +45,16 @@ Prevent duplicated UI patterns and keep behavior consistent.
 1. Inspect existing shared primitives first.
 
 ```bash
-rg --files app/components/home/shared
+rg --files app/components/client/shared
 ```
 
-2. Verify changed Home UI files import and reuse primitives from the shared directory where applicable.
+2. Verify changed Client UI files import and reuse primitives from the shared directory where applicable.
 
 ```bash
-rg -n "from ['\\\"]~/components/home/shared|from ['\\\"].*/home/shared" app/components/home
+rg -n "from ['\\\"]~/components/client/shared|from ['\\\"].*/client/shared" app/components/client
 ```
 
-3. If new markup pattern appears in 2+ places, extract to `app/components/home/shared/` immediately.
+3. If new markup pattern appears in 2+ places, extract to `app/components/client/shared/` immediately.
 4. If a new copy button, tooltip shell, or status bar was added outside `shared`, treat it as a refactor candidate.
 
 ### Pass Criteria
@@ -66,7 +66,7 @@ rg -n "from ['\\\"]~/components/home/shared|from ['\\\"].*/home/shared" app/comp
 
 ### Goal
 
-Keep the `home` component tree aligned with architecture rules.
+Keep the `client` component tree aligned with architecture rules.
 
 ### Checks
 
@@ -77,20 +77,20 @@ git diff --name-only
 ```
 
 2. Confirm each new/changed file is in the correct folder:
-   - Auth-only top-level panel(s) -> `app/components/home/authorize/`
-   - Playground panel/renderers -> `app/components/home/playground/`
-   - Config panel shell -> `app/components/home/config/`
-   - Threads tab/sections -> `app/components/home/config/threads/`
-   - MCP tab/sections -> `app/components/home/config/mcp/`
-   - Skills tab/sections -> `app/components/home/config/skills/`
-   - Settings tab/sections -> `app/components/home/config/settings/`
-   - Reusable primitives -> `app/components/home/shared/`
+   - Auth-only top-level panel(s) -> `app/components/client/authorize/`
+   - Playground panel/renderers -> `app/components/client/playground/`
+   - Config panel shell -> `app/components/client/config/`
+   - Threads tab/sections -> `app/components/client/config/threads/`
+   - MCP tab/sections -> `app/components/client/config/mcp/`
+   - Skills tab/sections -> `app/components/client/config/skills/`
+   - Settings tab/sections -> `app/components/client/config/settings/`
+   - Reusable primitives -> `app/components/client/shared/`
 3. Confirm naming conventions:
    - top-level panes: `*Panel`
    - tab roots: `*Tab`
    - tab subsections: `*Section`
 4. Confirm top-level panel directories mirror DOM hierarchy:
-   - top-level panels are siblings under `app/components/home/`
+   - top-level panels are siblings under `app/components/client/`
    - no nesting of one top-level panel inside another panel directory
 5. Validate schema-aligned terminology:
    - changed identifiers use Prisma schema vocabulary for the same domain concept
@@ -144,21 +144,21 @@ git diff --name-only
 19. If MCP server parser behavior changed, verify shared parser module usage:
    - `app/lib/mcp/server-config-parser.ts` is the parser source for both chat payload entries and MCP server routes
    - route/request modules do not reintroduce duplicated MCP parser blocks
-20. If `app/lib/home/controller/use-workspace-controller.ts` changed, verify operation and send boundaries:
+20. If `app/lib/client/controller/use-workspace-client-controller.ts` changed, verify operation and send boundaries:
    - Thread operation phase updates flow through `thread-operation-phase.ts` transition helpers
    - send-message pipeline boundaries remain delegated to `send-message-usecase.ts`
-   - Home API auth/error branches are centralized via `api-client.ts`
+   - Client API auth/error branches are centralized via `api-client.ts`
 21. If `app/lib/server/mcp/thread-mcp-server-session-pool.ts` changed, verify close-safety:
    - idle cleanup close failures are handled by best-effort safe close + warning log
    - tests cover close-reject behavior without unhandled rejection
-22. If `app/lib/home/controller/use-workspace-controller.ts` changed, run hotspot duplication checks:
+22. If `app/lib/client/controller/use-workspace-client-controller.ts` changed, run hotspot duplication checks:
    - Thread selector duplication:
    ```bash
-   rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts
+   rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/client/controller/use-workspace-client-controller.ts
    ```
    - Manual response/auth branch duplication:
    ```bash
-   rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts
+   rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/client/controller/use-workspace-client-controller.ts
    ```
 23. If `app/routes/api.chat.ts` changed, run route-helper concentration checks:
    ```bash
@@ -187,22 +187,22 @@ Keep route composition lightweight and runtime state centralized.
 
 ### Checks
 
-1. Ensure Home route entries under `app/routes/` stay composition focused.
+1. Ensure Client route entries under `app/routes/` stay composition focused.
 
 ```bash
 git diff --name-only | rg "^app/routes/"
 ```
 
-2. If Home route modules in `app/routes/` changed, verify they are composition-focused (avoid primary runtime state ownership there).
+2. If Client route modules in `app/routes/` changed, verify they are composition-focused (avoid primary runtime state ownership there).
 
 ```bash
 rg -n "useState|useReducer|useEffect|useMemo|useCallback" app/routes
 ```
 
-3. Keep thread/runtime ownership and persistence orchestration in `app/lib/home/controller/`.
+3. Keep thread/runtime ownership and persistence orchestration in `app/lib/client/controller/`.
 
 ```bash
-git diff --name-only | rg "^app/lib/home/controller/"
+git diff --name-only | rg "^app/lib/client/controller/"
 ```
 
 4. For Thread state refactors, verify single-source ownership:
@@ -213,23 +213,23 @@ git diff --name-only | rg "^app/lib/home/controller/"
 6. For controller phase updates, avoid direct string assignment drift:
    - no new `setThreadOperationPhase(\"...\")` calls outside transition helper wrappers
    ```bash
-   rg -n "setThreadOperationPhase\\(\\\"(loading|switching|creating|deleting|clearing|restoring|idle)\\\"\\)" app/lib/home/controller
+   rg -n "setThreadOperationPhase\\(\\\"(loading|switching|creating|deleting|clearing|restoring|idle)\\\"\\)" app/lib/client/controller
    ```
-7. For Home send pipeline changes, verify use-case delegation stays modular:
+7. For Client send pipeline changes, verify use-case delegation stays modular:
    ```bash
-   rg -n "validateSendPreconditions|buildChatRequestPayload|consumeChatResponseStream|applySendResult" app/lib/home/controller/use-workspace-controller.ts app/lib/home/controller/send-message-usecase.ts
+   rg -n "validateSendPreconditions|buildChatRequestPayload|consumeChatResponseStream|applySendResult" app/lib/client/controller/use-workspace-client-controller.ts app/lib/client/controller/send-message-usecase.ts
    ```
-8. For Home API request handling changes, verify shared API client usage:
+8. For Client API request handling changes, verify shared API client usage:
    ```bash
-   rg -n "requestHomeApi|resolveAuthRequired|mapApiError" app/lib/home/controller/use-workspace-controller.ts app/lib/home/controller/api-client.ts
+   rg -n "requestClientApi|resolveAuthRequired|mapApiError" app/lib/client/controller/use-workspace-client-controller.ts app/lib/client/controller/api-client.ts
    ```
 9. For controller hotspot refactors, verify duplicated Thread lookup patterns were not reintroduced:
    ```bash
-   rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts
+   rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/client/controller/use-workspace-client-controller.ts
    ```
-10. For controller hotspot refactors, verify manual auth/error branches were not reintroduced where `requestHomeApi` should be used:
+10. For controller hotspot refactors, verify manual auth/error branches were not reintroduced where `requestClientApi` should be used:
     ```bash
-    rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts
+    rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/client/controller/use-workspace-client-controller.ts
     ```
 11. For `api.chat` hotspot refactors, verify low-level helper extraction is preserved:
     ```bash
@@ -240,7 +240,7 @@ git diff --name-only | rg "^app/lib/home/controller/"
 
 ### Pass Criteria
 
-- Home route entries remain layout wiring only.
+- Client route entries remain layout wiring only.
 - Runtime state ownership is not fragmented across route-level hooks.
 - Thread runtime state does not regress into duplicated mirrored state.
 - Controller/chat hotspot duplicate patterns are not reintroduced.
@@ -255,10 +255,10 @@ Keep interactive state responsive and persistence stable.
 
 1. Confirm persistent state is held in React/controller state first.
 2. Confirm DB writes use delayed persistence (debounce/autosave), not eager write-on-every-change.
-3. Confirm persistence orchestration lives in controller code (`app/lib/home/controller/`) or controller-adjacent runtime modules.
+3. Confirm persistence orchestration lives in controller code (`app/lib/client/controller/`) or controller-adjacent runtime modules.
 4. Treat SQLite records as durable snapshots, not as the immediate interaction source.
 5. For debug tooling, `/mcp/debug` endpoint usage (including DB table inspection) is treated as development-only workflow.
-6. Confirm Thread snapshot mutations/reads use pure helper modules where practical (selectors/updaters under `app/lib/home/thread/*`) instead of repeating ad-hoc mutation logic.
+6. Confirm Thread snapshot mutations/reads use pure helper modules where practical (selectors/updaters under `app/lib/client/threads/*`) instead of repeating ad-hoc mutation logic.
 
 ### Pass Criteria
 
@@ -277,17 +277,17 @@ Avoid drift in constant ownership and import style.
 1. Confirm shared constants are centralized under `app/lib/` (constants modules).
 2. Avoid new non-local `UPPER_SNAKE_CASE` constants in feature files.
 3. Import constants directly from the project constants module under `~/lib/` with original names.
-4. For Home UI view/domain types shared across modules, define/import from `app/lib/home/shared/view-types.ts` and avoid duplicating local `*Like` aliases.
+4. For Client UI view/domain types shared across modules, define/import from `app/lib/client/shared/view-types.ts` and avoid duplicating local `*Like` aliases.
 
 ```bash
-rg -n "type .*Like|interface .*Like|\\*Like" app/components/home app/lib/home -g '*.ts' -g '*.tsx'
+rg -n "type .*Like|interface .*Like|\\*Like" app/components/client app/lib/client -g '*.ts' -g '*.tsx'
 ```
 
 ### Pass Criteria
 
 - Shared constants are centralized.
 - Constant imports are direct and unaliased.
-- Shared Home view/domain types are centralized and duplicate `*Like` aliases are removed when applicable.
+- Shared Client view/domain types are centralized and duplicate `*Like` aliases are removed when applicable.
 
 ## 6) UX and Layout Guardrails
 

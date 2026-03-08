@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/constants";
 import type { ThreadMessage } from "~/lib/home/chat/messages";

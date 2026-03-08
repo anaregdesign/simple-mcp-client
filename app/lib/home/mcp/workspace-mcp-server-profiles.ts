@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import { buildMcpServerKey, type McpServerConfig } from "~/lib/home/mcp/profile";
 import type { McpServersAuthState } from "~/lib/home/shared/view-types";

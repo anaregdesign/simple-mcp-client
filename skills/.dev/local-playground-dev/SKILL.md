@@ -81,47 +81,47 @@ Run this loop for every implementation task.
   - latest-thread schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
   - affected MCP debug tool descriptions derived from metadata
 - Keep `app/lib/server/persistence/mcp-debug-database.test.ts` aligned with metadata changes.
-- Keep shared Home view/domain types centralized in `app/lib/home/shared/view-types.ts`; avoid duplicated local `*Like` aliases across components.
+- Keep shared Client view/domain types centralized in `app/lib/client/shared/view-types.ts`; avoid duplicated local `*Like` aliases across components.
 - Use semantic naming for ordering and log concepts:
   - same behavior -> same identifier family
   - different behavior -> different identifier family
   - avoid protocol- or storage-specific names when the app-level concept is broader
-- Keep Home route modules in `app/routes/` as visual composition and panel wiring only.
-- Keep Home runtime ownership in `app/lib/home/controller/`.
-- Map each change to the approved `home` structure:
-  - `app/components/home/authorize/`: auth-only top-level panel(s) for sign-in-required states.
-  - `app/components/home/playground/`: left-pane Playground panel and renderers.
-  - `app/components/home/config/`: right-pane panel shell and tab wiring.
-  - `app/components/home/config/threads/`: Threads tab and sections.
-  - `app/components/home/config/mcp/`: MCP Servers tab and sections.
-  - `app/components/home/config/skills/`: Skills tab and sections.
-  - `app/components/home/config/settings/`: Settings tab and sections.
-  - `app/components/home/shared/`: reusable primitives and shared types.
-  - `app/lib/home/*`: runtime helpers and pure transforms.
-- Keep top-level panels as siblings under `app/components/home/` to match DOM hierarchy.
+- Keep Client route modules in `app/routes/` as visual composition and panel wiring only.
+- Keep Client runtime ownership in `app/lib/client/controller/`.
+- Map each change to the approved `client` structure:
+  - `app/components/client/authorize/`: auth-only top-level panel(s) for sign-in-required states.
+  - `app/components/client/playground/`: left-pane Playground panel and renderers.
+  - `app/components/client/config/`: right-pane panel shell and tab wiring.
+  - `app/components/client/config/threads/`: Threads tab and sections.
+  - `app/components/client/config/mcp/`: MCP Servers tab and sections.
+  - `app/components/client/config/skills/`: Skills tab and sections.
+  - `app/components/client/config/settings/`: Settings tab and sections.
+  - `app/components/client/shared/`: reusable primitives and shared types.
+  - `app/lib/client/*`: runtime helpers and pure transforms.
+- Keep top-level panels as siblings under `app/components/client/` to match DOM hierarchy.
   - Never place one top-level panel under another panel directory.
 - Preserve dependency direction: panel -> tab -> section -> shared.
 
 ## 3) Enforce State Persistence Policy
 
-- Keep persistent application state in React runtime first (controller-owned state in `app/lib/home/controller/`).
+- Keep persistent application state in React runtime first (controller-owned state in `app/lib/client/controller/`).
 - Keep active thread runtime state single-sourced in controller (`threads + activeThreadId`) and avoid mirrored state fields for snapshot-owned data.
-- Prefer pure selector/update helpers for Thread snapshot read/write flows (`app/lib/home/thread/*`) over duplicated ad-hoc state mutation paths.
-- For `use-workspace-controller.ts`, avoid repeating inline `threadsRef.current.find(...)` for Thread ID lookup; use a shared selector helper (for example `findThreadSnapshotById`).
+- Prefer pure selector/update helpers for Thread snapshot read/write flows (`app/lib/client/threads/*`) over duplicated ad-hoc state mutation paths.
+- For `use-workspace-client-controller.ts`, avoid repeating inline `threadsRef.current.find(...)` for Thread ID lookup; use a shared selector helper (for example `findThreadSnapshotById`).
 - Prefer phase-based operation state (`ThreadOperationPhase`) and guard helpers instead of many independent boolean busy flags.
-- Apply operation phase updates via transition helpers in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation`) instead of direct string assignments.
-- Keep send-message pipeline module boundaries explicit in `app/lib/home/controller/send-message-usecase.ts` (`validateSendPreconditions`, `buildChatRequestPayload`, `consumeChatResponseStream`, `applySendResult`).
-- Reuse `app/lib/home/controller/api-client.ts` for Home API auth/error handling; avoid per-handler duplication of 401/authRequired/network mapping.
-- For Home controller network handlers that parse JSON and branch on auth/error, default to `requestHomeApi` and keep handler code focused on domain state transitions.
+- Apply operation phase updates via transition helpers in `app/lib/client/controller/thread-operation-phase.ts` (for example `transitionThreadOperation`) instead of direct string assignments.
+- Keep send-message pipeline module boundaries explicit in `app/lib/client/controller/send-message-usecase.ts` (`validateSendPreconditions`, `buildChatRequestPayload`, `consumeChatResponseStream`, `applySendResult`).
+- Reuse `app/lib/client/controller/api-client.ts` for Client API auth/error handling; avoid per-handler duplication of 401/authRequired/network mapping.
+- For Client controller network handlers that parse JSON and branch on auth/error, default to `requestClientApi` and keep handler code focused on domain state transitions.
 - Persist that state to SQLite via delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat DB as durable snapshot storage; treat React state as the immediate source of truth during interaction.
-- Implement persistence from controller logic under `app/lib/home/controller/`.
+- Implement persistence from controller logic under `app/lib/client/controller/`.
 - Local development debugging may use the web server MCP endpoint at `/mcp/debug`, including DB table inspection, but keep that workflow development-only.
 
 ## 4) Enforce Shared-Component-First Policy
 
-- Check `app/components/home/shared/` before creating new UI wrappers or repeated markup.
-- Reuse existing shared primitives from `app/components/home/shared/` first.
+- Check `app/components/client/shared/` before creating new UI wrappers or repeated markup.
+- Reuse existing shared primitives from `app/components/client/shared/` first.
 - If a pattern is used or expected in 2+ places, extract it to `shared` instead of duplicating.
 - Keep shared static constants centralized under `app/lib/` (constants modules).
 - Import constants directly from the project constants module under `~/lib/` without alias renaming.
@@ -132,8 +132,8 @@ Run this loop for every implementation task.
 - Treat sections 0-4 as continuous guardrails during implementation.
 - For naming/contract refactors, run repeated static drift checks plus dynamic gates until findings are zero.
 - For controller/chat hotspot files, include focused drift checks in each refactor batch:
-  - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
-  - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
+  - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/client/controller/use-workspace-client-controller.ts`
+  - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/client/controller/use-workspace-client-controller.ts`
   - `rg -n "^function " app/routes/api.chat.ts`
 
 ## 6) Run Mandatory Quality Gates
@@ -160,7 +160,7 @@ After refactors:
 - Refresh `README.md` and `docs/images/` when user-facing UX/layout changes.
 - Run static drift checks to zero for:
   - route-to-route imports in `app/routes/api.*` production modules
-  - duplicated Home local `*Like` view types after shared type refactors
+  - duplicated Client local `*Like` view types after shared type refactors
   - deprecated terms/keys replaced by the refactor batch
 - If `app/routes/api.*` changed, run:
   - `npm run test:core -- app/routes/api.*.test.ts`
@@ -171,7 +171,7 @@ After refactors:
 ## 7) Keep Commits Consistent
 
 - Use Conventional Commits: `<type>[optional scope]: <description>`.
-- Keep scope aligned with the subsystem being changed (`home`, `threads`, `mcp`, `settings`, `docs`).
+- Keep scope aligned with the subsystem being changed (`client`, `threads`, `mcp`, `settings`, `docs`).
 
 ## References
 

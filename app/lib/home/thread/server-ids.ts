@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import {
   THREAD_OPERATION_LOG_ROW_ID_PATTERN,

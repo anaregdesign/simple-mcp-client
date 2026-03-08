@@ -1,5 +1,5 @@
 /**
- * Home controller MCP runtime helpers.
+ * Client controller MCP runtime helpers.
  */
 import type { McpServerConfig } from "~/lib/home/mcp/profile";
 

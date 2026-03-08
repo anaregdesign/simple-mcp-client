@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import type { ComponentProps } from "react";
 import { SkillRegistrySection } from "~/components/home/config/skills/SkillRegistrySection";

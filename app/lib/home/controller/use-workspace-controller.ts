@@ -1,5 +1,5 @@
 /**
- * Home controller runtime module.
+ * Client controller runtime module.
  */
 import {
   useEffect,
@@ -268,7 +268,7 @@ type LoadAzureDeploymentsOptions = {
 type LoadAzureProjectsResult = AzureProjectsLoadResult;
 
 /**
- * Home runtime controller.
+ * Client runtime controller.
  * Owns interactive state for Playground/Threads/MCP/Settings and orchestrates server API calls.
  * This hook intentionally keeps state ownership centralized while delegating pure transforms
  * to modules under `~/lib/home/*`.
@@ -765,7 +765,7 @@ export function useWorkspaceController() {
     hasDraftContent: draft.trim().length > 0,
   });
 
-  // Observability helpers for Home runtime events.
+  // Observability helpers for Client runtime events.
   function buildRuntimeLogContext(extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       activeMainTab: activeMainTabRef.current,
@@ -5980,7 +5980,7 @@ export function useWorkspaceController() {
     });
   };
 
-  // Panel prop composition for Home route rendering.
+  // Panel prop composition for Client route rendering.
   const settingsTabProps = {
     appearanceSectionProps: {
       homeTheme,

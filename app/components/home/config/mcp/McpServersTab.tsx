@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import type { MainViewTab } from "~/lib/home/shared/view-types";
 import {

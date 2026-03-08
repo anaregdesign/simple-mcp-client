@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import { InfoIconButton } from "~/components/home/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/home/shared/LabeledTooltip";

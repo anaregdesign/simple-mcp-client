@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import * as FluentUIComponents from "@fluentui/react-components";
 

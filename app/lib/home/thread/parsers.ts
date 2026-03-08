@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import type { ChatAttachment } from "~/lib/home/chat/attachments";
 import type { ThreadMessage } from "~/lib/home/chat/messages";

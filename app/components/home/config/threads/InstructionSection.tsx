@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import { useMemo } from "react";
 import type { ChangeEvent, RefObject } from "react";

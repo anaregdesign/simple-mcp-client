@@ -1,5 +1,5 @@
 /**
- * Home controller runtime module.
+ * Client controller runtime module.
  */
 import type { InstructionLanguage } from "~/lib/home/instruction/helpers";
 

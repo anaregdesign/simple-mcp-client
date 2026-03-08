@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import type { ComponentProps } from "react";
 import { CopyIconButton } from "~/components/home/shared/CopyIconButton";

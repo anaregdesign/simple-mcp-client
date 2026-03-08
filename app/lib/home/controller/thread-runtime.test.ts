@@ -1,5 +1,5 @@
 /**
- * Tests for Home controller thread runtime helpers.
+ * Tests for Client controller thread runtime helpers.
  */
 import { describe, expect, it } from "vitest";
 import type { ThreadSnapshot } from "~/lib/home/thread/types";

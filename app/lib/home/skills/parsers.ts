@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import { isSkillRegistryId } from "~/lib/home/skills/registry";
 import type {

@@ -1,5 +1,5 @@
 /**
- * Home controller send-message use-case helpers.
+ * Client controller send-message use-case helpers.
  */
 import type { ChatApiResponse, ThreadOperationLogEntry } from "~/lib/home/chat/stream";
 import type { ThreadRequestState } from "~/lib/home/controller/types";

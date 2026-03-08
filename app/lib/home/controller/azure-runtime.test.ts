@@ -1,5 +1,5 @@
 /**
- * Tests for Home controller Azure runtime helpers.
+ * Tests for Client controller Azure runtime helpers.
  */
 import { describe, expect, it } from "vitest";
 import {

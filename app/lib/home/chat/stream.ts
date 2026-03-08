@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import { readThreadEnvironmentFromUnknown } from "~/lib/home/thread/environment";
 

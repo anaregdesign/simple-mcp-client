@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 

@@ -1,5 +1,5 @@
 /**
- * Home controller thread runtime helpers.
+ * Client controller thread runtime helpers.
  */
 import { HOME_DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants";
 import type { ThreadSkillActivation } from "~/lib/home/skills/types";

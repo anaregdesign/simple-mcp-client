@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import {
   HOME_DEFAULT_REASONING_EFFORT,

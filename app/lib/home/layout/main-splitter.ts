@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import {
   HOME_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX,

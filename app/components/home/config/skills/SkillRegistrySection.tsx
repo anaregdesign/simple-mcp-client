@@ -1,5 +1,5 @@
 /**
- * Home UI component module.
+ * Client UI component module.
  */
 import { AutoDismissStatusMessageList } from "~/components/home/shared/AutoDismissStatusMessageList";
 import {

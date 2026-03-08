@@ -31,7 +31,7 @@ export const FOUNDRY_SKILLS_DIRECTORY_NAME = "skills";
 
 /**
  * Impact scope:
- * These constants are shared across chat runtime validation and home UI validation.
+ * These constants are shared across chat runtime validation and client UI validation.
  * Changing them affects what requests are accepted and what values users can set.
  */
 export const TEMPERATURE_MIN = 0;
@@ -175,7 +175,7 @@ export const HOME_DEFAULT_SKILL_REGISTRY_OPTIONS = [
 /**
  * Impact scope:
  * These constants define MCP server validation, parsing, and display behavior.
- * Changing them affects both API-side payload validation and home-side form checks.
+ * Changing them affects both API-side payload validation and client-side form checks.
  */
 export const MCP_SERVER_NAME_MAX_LENGTH = 80;
 export const MCP_STDIO_ARGS_MAX = 64;
@@ -512,7 +512,7 @@ export const INSTRUCTION_DIFF_PATCH_OUTPUT_TYPE = {
 
 /**
  * Impact scope:
- * These constants define thread naming behavior and home thread request defaults.
+ * These constants define thread naming behavior and client thread request defaults.
  * Changing them affects thread creation naming, auto-title generation, and request-state resets.
  */
 export const THREAD_AUTO_TITLE_MAX_LENGTH = 20;

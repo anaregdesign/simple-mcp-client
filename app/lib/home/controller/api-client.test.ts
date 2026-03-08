@@ -1,5 +1,5 @@
 /**
- * Tests for Home controller API client helpers.
+ * Tests for Client controller API client helpers.
  */
 import { describe, expect, it, vi } from "vitest";
 import {

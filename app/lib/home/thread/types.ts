@@ -1,5 +1,5 @@
 /**
- * Home runtime support module.
+ * Client runtime support module.
  */
 import type { ThreadMessage } from "~/lib/home/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/home/chat/stream";
