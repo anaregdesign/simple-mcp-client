@@ -56,7 +56,7 @@ vi.mock("~/lib/server/persistence/user", () => ({
   readMostRecentWorkspaceUserTenantId,
 }));
 
-vi.mock("./api.mcp.servers", () => ({
+vi.mock("~/lib/server/application/mcp/mcp-server-profile-service", () => ({
   ensureDefaultMcpServersForUser,
 }));
 

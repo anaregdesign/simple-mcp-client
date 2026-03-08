@@ -22,7 +22,7 @@ import {
   readErrorMessage,
   readJsonPayload,
   updateThreadSnapshot,
-} from "~/lib/server/threads/thread-service";
+} from "~/lib/server/application/threads/thread-service";
 import type { Route } from "./+types/api.threads.$threadId";
 
 const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;
