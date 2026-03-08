@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import type { ChangeEvent, RefObject } from "react";
 import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
+import { SubSection } from "~/components/home/shared/SubSection";
 import { AutoDismissStatusMessageList } from "~/components/home/shared/AutoDismissStatusMessageList";
 import { InfoIconButton } from "~/components/home/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/home/shared/LabeledTooltip";
@@ -275,37 +276,43 @@ export function InstructionSection(props: InstructionSectionProps) {
           },
         ]}
       />
-      <div className="instruction-context-toggle-list" aria-label="Instruction context toggles">
-        {instructionContextToggleOptions.map((option) => (
-          <div key={option.key} className="instruction-context-toggle-item">
-            <div className="instruction-context-toggle-switch-row">
-              <Switch
-                id={`instruction-context-toggle-${option.key}`}
-                className="instruction-context-toggle-switch"
-                label={option.label}
-                checked={option.enabled}
-                onChange={(_, data) => {
-                  onInstructionContextToggleChange(option.key, data.checked === true);
-                }}
-                disabled={isSending || isEnhancingInstruction || isThreadReadOnly}
-              />
-              {option.infoLines.length > 0 ? (
-                <LabeledTooltip
-                  title={option.infoTitle}
-                  lines={option.infoLines}
-                  className="setting-group-tooltip-target"
-                >
-                  <InfoIconButton
-                    className="setting-group-tooltip-icon instruction-context-toggle-info-icon"
-                    ariaLabel={`Show ${option.label} injection details`}
-                    title={`Show ${option.label} injection details`}
-                  />
-                </LabeledTooltip>
-              ) : null}
+      <SubSection
+        className="instruction-context-subsection"
+        title="Context"
+        description="Toggle which context payloads are injected when sending instruction-guided turns."
+      >
+        <div className="instruction-context-toggle-list" aria-label="Instruction context toggles">
+          {instructionContextToggleOptions.map((option) => (
+            <div key={option.key} className="instruction-context-toggle-item">
+              <div className="instruction-context-toggle-switch-row">
+                <Switch
+                  id={`instruction-context-toggle-${option.key}`}
+                  className="instruction-context-toggle-switch"
+                  label={option.label}
+                  checked={option.enabled}
+                  onChange={(_, data) => {
+                    onInstructionContextToggleChange(option.key, data.checked === true);
+                  }}
+                  disabled={isSending || isEnhancingInstruction || isThreadReadOnly}
+                />
+                {option.infoLines.length > 0 ? (
+                  <LabeledTooltip
+                    title={option.infoTitle}
+                    lines={option.infoLines}
+                    className="setting-group-tooltip-target"
+                  >
+                    <InfoIconButton
+                      className="setting-group-tooltip-icon instruction-context-toggle-info-icon"
+                      ariaLabel={`Show ${option.label} injection details`}
+                      title={`Show ${option.label} injection details`}
+                    />
+                  </LabeledTooltip>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </SubSection>
     </ConfigSection>
   );
 }

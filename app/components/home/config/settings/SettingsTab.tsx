@@ -32,9 +32,9 @@ export function SettingsTab(props: SettingsTabProps) {
       hidden={activeMainTab !== "settings"}
     >
       <div className="settings-content">
+        <UtilityModelSection {...utilityModelSectionProps} />
         <AppearanceSection {...appearanceSectionProps} />
         <AzureConnectionSection {...azureConnectionSectionProps} />
-        <UtilityModelSection {...utilityModelSectionProps} />
       </div>
     </section>
   );

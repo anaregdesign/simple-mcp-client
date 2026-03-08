@@ -3,6 +3,7 @@
  */
 import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
+import { SubSection } from "~/components/home/shared/SubSection";
 import { HOME_THEME_OPTIONS } from "~/lib/constants";
 import type { HomeTheme } from "~/lib/home/shared/view-types";
 
@@ -22,27 +23,30 @@ export function AppearanceSection(props: AppearanceSectionProps) {
       title="Appearance 🎨"
       description="Choose a theme for Playground UI. Changes apply immediately."
     >
-      <label className="input-label" htmlFor="appearance-theme-select">
-        Theme
-      </label>
-      <Select
-        id="appearance-theme-select"
-        value={homeTheme}
-        onChange={(_, data) => {
-          const nextTheme = data.value;
-          if (nextTheme === "light" || nextTheme === "dark") {
-            onHomeThemeChange(nextTheme);
-          }
-        }}
-        title="Select Playground theme."
+      <SubSection
+        className="appearance-theme-subsection"
+        title="Theme"
+        description="Switch Playground visual theme. Preference is saved locally."
       >
-        {HOME_THEME_OPTIONS.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </Select>
-      <p className="field-hint">Theme preference is saved locally on this device.</p>
+        <Select
+          id="appearance-theme-select"
+          aria-label="Theme"
+          value={homeTheme}
+          onChange={(_, data) => {
+            const nextTheme = data.value;
+            if (nextTheme === "light" || nextTheme === "dark") {
+              onHomeThemeChange(nextTheme);
+            }
+          }}
+          title="Select Playground theme."
+        >
+          {HOME_THEME_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </SubSection>
     </ConfigSection>
   );
 }

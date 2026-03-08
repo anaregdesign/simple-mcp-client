@@ -4,6 +4,7 @@
 import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
 import { StatusMessageList } from "~/components/home/shared/StatusMessageList";
+import { SubSection } from "~/components/home/shared/SubSection";
 
 const { Button, Select, Spinner } = FluentUI;
 
@@ -73,6 +74,58 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
     azureLogoutError,
     azureConnectionError,
   } = props;
+  const hasActiveAzureContext = Boolean(activeAzureConnection || activeAzurePrincipal);
+  const showAzureTenantSubSection = Boolean(activeAzurePrincipal && azureTenants.length > 0);
+  const isAzureLogoutDisabled =
+    isSending || isLoadingAzureConnections || isSwitchingAzureTenant || isStartingAzureLogout;
+  const azureConnectionSummary = hasActiveAzureContext ? (
+    <dl className="azure-connection-summary" aria-label="Active Azure connection details">
+      {activeAzurePrincipal ? (
+        <>
+          <div className="azure-connection-summary-row">
+            <dt>Principal</dt>
+            <dd>{activeAzurePrincipal.displayName || activeAzurePrincipal.principalId}</dd>
+          </div>
+          {activeAzurePrincipal.principalName ? (
+            <div className="azure-connection-summary-row">
+              <dt>Principal name</dt>
+              <dd>{activeAzurePrincipal.principalName}</dd>
+            </div>
+          ) : null}
+          <div className="azure-connection-summary-row">
+            <dt>Principal type</dt>
+            <dd>{formatPrincipalTypeLabel(activeAzurePrincipal.principalType)}</dd>
+          </div>
+          <div className="azure-connection-summary-row">
+            <dt>Tenant ID</dt>
+            <dd>{activeAzurePrincipal.tenantId}</dd>
+          </div>
+          <div className="azure-connection-summary-row">
+            <dt>Principal ID</dt>
+            <dd>{activeAzurePrincipal.principalId}</dd>
+          </div>
+        </>
+      ) : null}
+      <div className="azure-connection-summary-row">
+        <dt>Playground project</dt>
+        <dd>{activeAzureConnection?.projectName ?? "Not selected"}</dd>
+      </div>
+      <div className="azure-connection-summary-row">
+        <dt>Playground deployment</dt>
+        <dd>{selectedPlaygroundAzureDeploymentName || "Not selected"}</dd>
+      </div>
+      <div className="azure-connection-summary-row">
+        <dt>Endpoint</dt>
+        <dd>{activeAzureConnection?.baseUrl ?? "Not selected"}</dd>
+      </div>
+      <div className="azure-connection-summary-row">
+        <dt>API version</dt>
+        <dd>{activeAzureConnection?.apiVersion ?? "Not selected"}</dd>
+      </div>
+    </dl>
+  ) : (
+    <p className="field-hint">No active Azure project.</p>
+  );
 
   return (
     <ConfigSection
@@ -95,7 +148,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
         </Button>
       ) : (
         <>
-          {activeAzureConnection || activeAzurePrincipal ? (
+          {hasActiveAzureContext ? (
             <div className="selectable-card-header-row selectable-card-header-row-right">
               <Button
                 type="button"
@@ -127,13 +180,15 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
                 : "Loading deployments for the selected project..."}
             </div>
           ) : null}
-          {activeAzurePrincipal && azureTenants.length > 0 ? (
-            <>
-              <label className="input-label" htmlFor="azure-connection-tenant">
-                Azure Tenant
-              </label>
+          {showAzureTenantSubSection ? (
+            <SubSection
+              className="azure-tenant-subsection"
+              title="Azure Tenant"
+              description="Switch signed-in tenant. Project and deployment catalog reloads automatically."
+            >
               <Select
                 id="azure-connection-tenant"
+                aria-label="Azure Tenant"
                 value={activeAzureTenantId}
                 onChange={(_, data) => {
                   onAzureTenantChange(data.value);
@@ -159,57 +214,25 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
                   Switching tenant and reloading projects...
                 </div>
               ) : null}
-            </>
+              {azureConnectionSummary}
+              <div className="azure-connection-actions">
+                <Button
+                  type="button"
+                  appearance="outline"
+                  className="azure-logout-btn"
+                  title="Sign out from Azure for this app."
+                  onClick={() => {
+                    void onAzureLogout();
+                  }}
+                  disabled={isAzureLogoutDisabled}
+                >
+                  {isStartingAzureLogout ? "🚪 Logging Out..." : "🚪 Logout"}
+                </Button>
+              </div>
+            </SubSection>
           ) : null}
-          {activeAzureConnection || activeAzurePrincipal ? (
-            <dl className="azure-connection-summary" aria-label="Active Azure connection details">
-              {activeAzurePrincipal ? (
-                <>
-                  <div className="azure-connection-summary-row">
-                    <dt>Principal</dt>
-                    <dd>{activeAzurePrincipal.displayName || activeAzurePrincipal.principalId}</dd>
-                  </div>
-                  {activeAzurePrincipal.principalName ? (
-                    <div className="azure-connection-summary-row">
-                      <dt>Principal name</dt>
-                      <dd>{activeAzurePrincipal.principalName}</dd>
-                    </div>
-                  ) : null}
-                  <div className="azure-connection-summary-row">
-                    <dt>Principal type</dt>
-                    <dd>{formatPrincipalTypeLabel(activeAzurePrincipal.principalType)}</dd>
-                  </div>
-                  <div className="azure-connection-summary-row">
-                    <dt>Tenant ID</dt>
-                    <dd>{activeAzurePrincipal.tenantId}</dd>
-                  </div>
-                  <div className="azure-connection-summary-row">
-                    <dt>Principal ID</dt>
-                    <dd>{activeAzurePrincipal.principalId}</dd>
-                  </div>
-                </>
-              ) : null}
-              <div className="azure-connection-summary-row">
-                <dt>Playground project</dt>
-                <dd>{activeAzureConnection?.projectName ?? "Not selected"}</dd>
-              </div>
-              <div className="azure-connection-summary-row">
-                <dt>Playground deployment</dt>
-                <dd>{selectedPlaygroundAzureDeploymentName || "Not selected"}</dd>
-              </div>
-              <div className="azure-connection-summary-row">
-                <dt>Endpoint</dt>
-                <dd>{activeAzureConnection?.baseUrl ?? "Not selected"}</dd>
-              </div>
-              <div className="azure-connection-summary-row">
-                <dt>API version</dt>
-                <dd>{activeAzureConnection?.apiVersion ?? "Not selected"}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="field-hint">No active Azure project.</p>
-          )}
-          {activeAzureConnection || activeAzurePrincipal ? (
+          {!showAzureTenantSubSection ? azureConnectionSummary : null}
+          {hasActiveAzureContext && !showAzureTenantSubSection ? (
             <div className="azure-connection-actions">
               <Button
                 type="button"
@@ -219,12 +242,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
                 onClick={() => {
                   void onAzureLogout();
                 }}
-                disabled={
-                  isSending ||
-                  isLoadingAzureConnections ||
-                  isSwitchingAzureTenant ||
-                  isStartingAzureLogout
-                }
+                disabled={isAzureLogoutDisabled}
               >
                 {isStartingAzureLogout ? "🚪 Logging Out..." : "🚪 Logout"}
               </Button>

@@ -1,9 +1,8 @@
 /**
  * Home UI component module.
  */
-import { InfoIconButton } from "~/components/home/shared/InfoIconButton";
-import { LabeledTooltip } from "~/components/home/shared/LabeledTooltip";
 import { SelectableCardList, type SelectableCardItem } from "~/components/home/shared/SelectableCardList";
+import { SubSection } from "~/components/home/shared/SubSection";
 
 export type CollapsibleSelectableCardGroup = {
   id: string;
@@ -36,67 +35,45 @@ export function CollapsibleSelectableCardGroupList(
   }
 
   return (
-    <div className="collapsible-selectable-group-list">
+    <div className="subsection-list collapsible-selectable-group-list">
       {visibleGroups.map((group) => {
         const externalHref = readHttpUrl(group.externalHref);
+        const summaryActions = externalHref ? (
+          <a
+            className="subsection-selectable-group-link symbol-icon-btn"
+            href={externalHref}
+            target="_blank"
+            rel="noreferrer"
+            title={group.externalLabel ?? `Open ${group.label} registry`}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <span className="symbol-icon-btn-glyph" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+        ) : undefined;
 
         return (
-          <details key={group.id} className="collapsible-selectable-group">
-            <summary className="collapsible-selectable-group-summary">
-              <div className="collapsible-selectable-group-title-row">
-                <h4 className="collapsible-selectable-group-title">{group.label}</h4>
-                {group.description ? (
-                  <LabeledTooltip
-                    title={`${group.label} Description`}
-                    lines={[group.description]}
-                    className="setting-group-tooltip-target"
-                  >
-                    <InfoIconButton
-                      className="setting-group-tooltip-icon"
-                      ariaLabel={`${group.label} description`}
-                      title={`${group.label} description`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                      }}
-                    />
-                  </LabeledTooltip>
-                ) : null}
-              </div>
-              <span className="collapsible-selectable-group-summary-actions">
-                {externalHref ? (
-                  <a
-                    className="collapsible-selectable-group-link symbol-icon-btn"
-                    href={externalHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={group.externalLabel ?? `Open ${group.label} registry`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    <span className="symbol-icon-btn-glyph" aria-hidden="true">
-                      ↗
-                    </span>
-                  </a>
-                ) : null}
-                <span className="collapsible-selectable-group-caret symbol-icon-btn" aria-hidden="true">
-                  <span className="symbol-icon-btn-glyph">▸</span>
-                </span>
-              </span>
-            </summary>
-            <div className="collapsible-selectable-group-content">
-              <SelectableCardList
-                items={group.items}
-                listAriaLabel={group.listAriaLabel}
-                emptyHint={group.emptyHint}
-                isActionDisabled={isActionDisabled}
-                onToggleItem={group.onToggleItem}
-                addButtonLabel={group.addButtonLabel}
-                selectedButtonLabel={group.selectedButtonLabel}
-              />
-            </div>
-          </details>
+          <SubSection
+            key={group.id}
+            className="subsection-selectable-group"
+            contentClassName="subsection-selectable-group-content"
+            title={group.label}
+            description={group.description}
+            summaryActions={summaryActions}
+          >
+            <SelectableCardList
+              items={group.items}
+              listAriaLabel={group.listAriaLabel}
+              emptyHint={group.emptyHint}
+              isActionDisabled={isActionDisabled}
+              onToggleItem={group.onToggleItem}
+              addButtonLabel={group.addButtonLabel}
+              selectedButtonLabel={group.selectedButtonLabel}
+            />
+          </SubSection>
         );
       })}
     </div>
