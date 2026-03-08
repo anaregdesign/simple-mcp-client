@@ -4,14 +4,18 @@
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 import {
-  HTTP_HEADER_NAME_PATTERN,
   MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_TIMEOUT_SECONDS,
   MCP_HTTP_HEADERS_MAX,
   MCP_TIMEOUT_SECONDS_MAX,
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants";
+import {
+  isMcpHeaderCountWithinLimit,
+  normalizeAndValidateMcpAzureAuthScope,
+  validateMcpHeaderKey,
+  validateMcpTimeoutSeconds,
+} from "~/lib/mcp/validation";
 
 export function parseHttpHeadersInput(input: string): ParseResult<Record<string, string>> {
   const trimmed = input.trim();
@@ -39,14 +43,15 @@ export function parseHttpHeadersInput(input: string): ParseResult<Record<string,
 
     const key = lineTrimmed.slice(0, separatorIndex).trim();
     const value = lineTrimmed.slice(separatorIndex + 1).trim();
-    if (!HTTP_HEADER_NAME_PATTERN.test(key)) {
+    const headerKeyValidation = validateMcpHeaderKey(key);
+    if (!headerKeyValidation.ok && headerKeyValidation.reason === "invalid_key") {
       return {
         ok: false,
         error: `Header line ${index + 1} has invalid key.`,
       };
     }
 
-    if (key.toLowerCase() === "content-type") {
+    if (!headerKeyValidation.ok && headerKeyValidation.reason === "reserved_content_type") {
       return {
         ok: false,
         error: 'Header line cannot override "Content-Type". It is fixed to "application/json".',
@@ -55,7 +60,7 @@ export function parseHttpHeadersInput(input: string): ParseResult<Record<string,
 
     headers[key] = value;
     count += 1;
-    if (count > MCP_HTTP_HEADERS_MAX) {
+    if (!isMcpHeaderCountWithinLimit(count)) {
       return {
         ok: false,
         error: `Headers can include up to ${MCP_HTTP_HEADERS_MAX} entries.`,
@@ -67,23 +72,22 @@ export function parseHttpHeadersInput(input: string): ParseResult<Record<string,
 }
 
 export function parseAzureAuthScopeInput(input: string): ParseResult<string> {
-  const trimmed = input.trim();
-  const scope = trimmed || MCP_DEFAULT_AZURE_AUTH_SCOPE;
-  if (scope.length > MCP_AZURE_AUTH_SCOPE_MAX_LENGTH) {
-    return {
-      ok: false,
-      error: `Azure auth scope must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
-    };
-  }
+  const scopeValidation = normalizeAndValidateMcpAzureAuthScope(input);
+  if (!scopeValidation.ok) {
+    if (scopeValidation.reason === "too_long") {
+      return {
+        ok: false,
+        error: `Azure auth scope must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
+      };
+    }
 
-  if (/\s/.test(scope)) {
     return {
       ok: false,
       error: "Azure auth scope must not include spaces.",
     };
   }
 
-  return { ok: true, value: scope };
+  return { ok: true, value: scopeValidation.value };
 }
 
 export function parseMcpTimeoutSecondsInput(input: string): ParseResult<number> {
@@ -93,19 +97,20 @@ export function parseMcpTimeoutSecondsInput(input: string): ParseResult<number> 
   }
 
   const parsed = Number(trimmed);
-  if (!Number.isSafeInteger(parsed)) {
-    return {
-      ok: false,
-      error: "MCP timeout must be an integer number of seconds.",
-    };
-  }
+  const timeoutValidation = validateMcpTimeoutSeconds(parsed);
+  if (!timeoutValidation.ok) {
+    if (timeoutValidation.reason === "not_integer") {
+      return {
+        ok: false,
+        error: "MCP timeout must be an integer number of seconds.",
+      };
+    }
 
-  if (parsed < MCP_TIMEOUT_SECONDS_MIN || parsed > MCP_TIMEOUT_SECONDS_MAX) {
     return {
       ok: false,
       error: `MCP timeout must be between ${MCP_TIMEOUT_SECONDS_MIN} and ${MCP_TIMEOUT_SECONDS_MAX} seconds.`,
     };
   }
 
-  return { ok: true, value: parsed };
+  return { ok: true, value: timeoutValidation.value };
 }

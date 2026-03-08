@@ -84,7 +84,6 @@ import {
   AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
   AGENT_SKILL_NAME_MAX_LENGTH,
   ENV_KEY_PATTERN,
-  HTTP_HEADER_NAME_PATTERN,
   MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_HTTP_HEADERS,
@@ -107,6 +106,12 @@ import {
   THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
   THREAD_ENVIRONMENT_VARIABLES_MAX,
 } from "~/lib/constants";
+import {
+  isMcpHeaderCountWithinLimit,
+  normalizeAndValidateMcpAzureAuthScope,
+  validateMcpHeaderKey,
+  validateMcpTimeoutSeconds,
+} from "~/lib/mcp/validation";
 import type { AzureDependencies } from "~/lib/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/home/shared/view-types";
 import type { ThreadSkillActivation } from "~/lib/home/skills/types";
@@ -3368,7 +3373,7 @@ function parseHttpHeaders(
   }
 
   const entries = Object.entries(headersValue);
-  if (entries.length > MCP_HTTP_HEADERS_MAX) {
+  if (!isMcpHeaderCountWithinLimit(entries.length)) {
     return {
       ok: false,
       error: `mcpServers[${index}].headers can include up to ${MCP_HTTP_HEADERS_MAX} entries.`,
@@ -3377,11 +3382,12 @@ function parseHttpHeaders(
 
   const headers: Record<string, string> = {};
   for (const [key, value] of entries) {
-    if (!HTTP_HEADER_NAME_PATTERN.test(key)) {
+    const headerKeyValidation = validateMcpHeaderKey(key);
+    if (!headerKeyValidation.ok && headerKeyValidation.reason === "invalid_key") {
       return { ok: false, error: `mcpServers[${index}].headers key "${key}" is invalid.` };
     }
 
-    if (key.toLowerCase() === "content-type") {
+    if (!headerKeyValidation.ok && headerKeyValidation.reason === "reserved_content_type") {
       return {
         ok: false,
         error: `mcpServers[${index}].headers cannot include "Content-Type". It is fixed to "application/json".`,
@@ -3411,26 +3417,26 @@ function parseAzureAuthScope(
     return { ok: false, error: `mcpServers[${index}].azureAuthScope must be a string.` };
   }
 
-  const scope = rawScope.trim() || MCP_DEFAULT_AZURE_AUTH_SCOPE;
-  if (scope.length > MCP_AZURE_AUTH_SCOPE_MAX_LENGTH) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].azureAuthScope must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
-    };
-  }
+  const scopeValidation = normalizeAndValidateMcpAzureAuthScope(rawScope);
+  if (!scopeValidation.ok) {
+    if (scopeValidation.reason === "too_long") {
+      return {
+        ok: false,
+        error: `mcpServers[${index}].azureAuthScope must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
+      };
+    }
 
-  if (/\s/.test(scope)) {
     return { ok: false, error: `mcpServers[${index}].azureAuthScope must not include spaces.` };
   }
 
-  if (useAzureAuth && !scope) {
+  if (useAzureAuth && !scopeValidation.value) {
     return {
       ok: false,
       error: `mcpServers[${index}].azureAuthScope is required when useAzureAuth is true.`,
     };
   }
 
-  return { ok: true, value: scope };
+  return { ok: true, value: scopeValidation.value };
 }
 
 function parseTimeoutSeconds(
@@ -3441,18 +3447,23 @@ function parseTimeoutSeconds(
     return { ok: true, value: MCP_DEFAULT_TIMEOUT_SECONDS };
   }
 
-  if (typeof rawTimeout !== "number" || !Number.isSafeInteger(rawTimeout)) {
+  if (typeof rawTimeout !== "number") {
     return { ok: false, error: `mcpServers[${index}].timeoutSeconds must be an integer.` };
   }
 
-  if (rawTimeout < MCP_TIMEOUT_SECONDS_MIN || rawTimeout > MCP_TIMEOUT_SECONDS_MAX) {
+  const timeoutValidation = validateMcpTimeoutSeconds(rawTimeout);
+  if (!timeoutValidation.ok) {
+    if (timeoutValidation.reason === "not_integer") {
+      return { ok: false, error: `mcpServers[${index}].timeoutSeconds must be an integer.` };
+    }
+
     return {
       ok: false,
       error: `mcpServers[${index}].timeoutSeconds must be between ${MCP_TIMEOUT_SECONDS_MIN} and ${MCP_TIMEOUT_SECONDS_MAX}.`,
     };
   }
 
-  return { ok: true, value: rawTimeout };
+  return { ok: true, value: timeoutValidation.value };
 }
 
 function buildMcpHttpRequestHeaders(headers: Record<string, string>): Record<string, string> {

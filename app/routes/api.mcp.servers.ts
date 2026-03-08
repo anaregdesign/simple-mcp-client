@@ -4,7 +4,6 @@
 import {
   ENV_KEY_PATTERN,
   HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
-  HTTP_HEADER_NAME_PATTERN,
   MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_TIMEOUT_SECONDS,
@@ -17,6 +16,12 @@ import {
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants";
 import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
+import {
+  isMcpHeaderCountWithinLimit,
+  normalizeAndValidateMcpAzureAuthScope,
+  validateMcpHeaderKey,
+  validateMcpTimeoutSeconds,
+} from "~/lib/mcp/validation";
 import {
   resolveFoundryConfigDirectory,
   resolveFoundryWorkspaceUserDirectory,
@@ -1020,7 +1025,7 @@ function parseHttpHeaders(
   }
 
   const entries = Object.entries(headersValue);
-  if (entries.length > MCP_HTTP_HEADERS_MAX) {
+  if (!isMcpHeaderCountWithinLimit(entries.length)) {
     return {
       ok: false,
       error: `\`headers\` can include up to ${MCP_HTTP_HEADERS_MAX} entries.`,
@@ -1029,11 +1034,12 @@ function parseHttpHeaders(
 
   const headers: Record<string, string> = {};
   for (const [key, value] of entries) {
-    if (!HTTP_HEADER_NAME_PATTERN.test(key)) {
+    const headerKeyValidation = validateMcpHeaderKey(key);
+    if (!headerKeyValidation.ok && headerKeyValidation.reason === "invalid_key") {
       return { ok: false, error: `Invalid header key: ${key}` };
     }
 
-    if (key.toLowerCase() === "content-type") {
+    if (!headerKeyValidation.ok && headerKeyValidation.reason === "reserved_content_type") {
       return {
         ok: false,
         error: '`headers` must not include "Content-Type". It is fixed to "application/json".',
@@ -1062,23 +1068,23 @@ function parseAzureAuthScope(
     return { ok: false, error: "`azureAuthScope` must be a string." };
   }
 
-  const trimmed = rawScope.trim() || MCP_DEFAULT_AZURE_AUTH_SCOPE;
-  if (trimmed.length > MCP_AZURE_AUTH_SCOPE_MAX_LENGTH) {
-    return {
-      ok: false,
-      error: `\`azureAuthScope\` must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
-    };
-  }
+  const scopeValidation = normalizeAndValidateMcpAzureAuthScope(rawScope);
+  if (!scopeValidation.ok) {
+    if (scopeValidation.reason === "too_long") {
+      return {
+        ok: false,
+        error: `\`azureAuthScope\` must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
+      };
+    }
 
-  if (/\s/.test(trimmed)) {
     return { ok: false, error: "`azureAuthScope` must not include spaces." };
   }
 
-  if (useAzureAuth && !trimmed) {
+  if (useAzureAuth && !scopeValidation.value) {
     return { ok: false, error: "`azureAuthScope` is required when `useAzureAuth` is true." };
   }
 
-  return { ok: true, value: trimmed };
+  return { ok: true, value: scopeValidation.value };
 }
 
 function parseTimeoutSeconds(
@@ -1088,18 +1094,23 @@ function parseTimeoutSeconds(
     return { ok: true, value: MCP_DEFAULT_TIMEOUT_SECONDS };
   }
 
-  if (typeof rawTimeout !== "number" || !Number.isSafeInteger(rawTimeout)) {
+  if (typeof rawTimeout !== "number") {
     return { ok: false, error: "`timeoutSeconds` must be an integer." };
   }
 
-  if (rawTimeout < MCP_TIMEOUT_SECONDS_MIN || rawTimeout > MCP_TIMEOUT_SECONDS_MAX) {
+  const timeoutValidation = validateMcpTimeoutSeconds(rawTimeout);
+  if (!timeoutValidation.ok) {
+    if (timeoutValidation.reason === "not_integer") {
+      return { ok: false, error: "`timeoutSeconds` must be an integer." };
+    }
+
     return {
       ok: false,
       error: `\`timeoutSeconds\` must be between ${MCP_TIMEOUT_SECONDS_MIN} and ${MCP_TIMEOUT_SECONDS_MAX}.`,
     };
   }
 
-  return { ok: true, value: rawTimeout };
+  return { ok: true, value: timeoutValidation.value };
 }
 
 function readTransport(value: unknown): McpTransport | null {

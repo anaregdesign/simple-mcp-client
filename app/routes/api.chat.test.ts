@@ -1045,6 +1045,39 @@ describe("readMcpServers", () => {
     });
   });
 
+  it("rejects scope strings with whitespace", () => {
+    expect(
+      readMcpServers({
+        mcpServers: [
+          {
+            url: "https://example.com/mcp",
+            useAzureAuth: true,
+            azureAuthScope: "scope with spaces",
+          },
+        ],
+      }),
+    ).toEqual({
+      ok: false,
+      error: "mcpServers[0].azureAuthScope must not include spaces.",
+    });
+  });
+
+  it("rejects non-integer timeout values", () => {
+    expect(
+      readMcpServers({
+        mcpServers: [
+          {
+            url: "https://example.com/mcp",
+            timeoutSeconds: 3.5,
+          },
+        ],
+      }),
+    ).toEqual({
+      ok: false,
+      error: "mcpServers[0].timeoutSeconds must be an integer.",
+    });
+  });
+
   it("skips legacy unavailable default stdio MCP servers", () => {
     const result = readMcpServers({
       mcpServers: [
