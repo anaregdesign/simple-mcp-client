@@ -1051,7 +1051,7 @@ export function useWorkspaceClientController() {
   useEffect(() => {
     return installGlobalClientErrorLogging(() =>
       buildRuntimeLogContext({
-        source: "home",
+        source: "client",
       }),
     );
   }, []);
