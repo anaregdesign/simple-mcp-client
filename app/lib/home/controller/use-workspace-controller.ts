@@ -195,6 +195,7 @@ import {
 } from "~/lib/home/controller/thread-guards";
 import {
   buildThreadListOptions,
+  findThreadSnapshotById,
   mergeSkillSelections,
 } from "~/lib/home/controller/thread-runtime";
 import {
@@ -1264,7 +1265,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread) {
       return;
     }
@@ -1322,7 +1323,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread) {
       return;
     }
@@ -1366,7 +1367,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread || !hasThreadInteraction(baseThread)) {
       return;
     }
@@ -1417,7 +1418,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread || !hasThreadInteraction(baseThread)) {
       return;
     }
@@ -2279,7 +2280,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const snapshot = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+    const snapshot = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
     if (!snapshot) {
       return;
     }
@@ -2307,7 +2308,7 @@ export function useWorkspaceController() {
 
     clearThreadNameSaveTimeout();
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread) {
       return true;
     }
@@ -2341,7 +2342,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
     if (!baseThread || baseThread.name === normalizedName) {
       return;
     }
@@ -2386,7 +2387,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
     if (!baseThread || !hasThreadInteraction(baseThread)) {
       return;
     }
@@ -2445,7 +2446,7 @@ export function useWorkspaceController() {
         return;
       }
 
-      const latestThread = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+      const latestThread = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
       if (!latestThread || latestThread.deletedAt !== null) {
         return;
       }
@@ -2595,7 +2596,7 @@ export function useWorkspaceController() {
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
-      const currentThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+      const currentThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
       const currentThreadSnapshot =
         currentThread ? buildThreadSnapshotFromCurrentState(currentThread) : null;
 
@@ -2672,7 +2673,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2698,7 +2699,7 @@ export function useWorkspaceController() {
       setActiveThreadNameInput(normalizedName);
     }
 
-    const renamedThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const renamedThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!renamedThread) {
       return;
     }
@@ -2713,7 +2714,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2749,7 +2750,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2770,7 +2771,7 @@ export function useWorkspaceController() {
       const targetThreadForSave =
         threadId === activeThreadIdRef.current.trim()
           ? (() => {
-              const activeThread = threadsRef.current.find((thread) => thread.id === threadId);
+              const activeThread = findThreadSnapshotById(threadsRef.current, threadId);
               if (!activeThread) {
                 return null;
               }
@@ -2847,7 +2848,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2936,7 +2937,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt === null) {
       setThreadError("Selected archive is not available.");
       return;
@@ -3011,7 +3012,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const nextThread = threadsRef.current.find((thread) => thread.id === nextThreadId);
+    const nextThread = findThreadSnapshotById(threadsRef.current, nextThreadId);
     if (!nextThread) {
       setThreadError("Selected thread is not available.");
       return;
@@ -4108,7 +4109,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, threadId);
     const shouldRefreshThreadTitleOnFirstMessage =
       !!baseThread && baseThread.deletedAt === null && baseThread.messages.length === 0;
 

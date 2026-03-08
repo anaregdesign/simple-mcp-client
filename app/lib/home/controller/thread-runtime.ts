@@ -3,7 +3,7 @@
  */
 import { HOME_DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants";
 import type { ThreadSkillActivation } from "~/lib/home/skills/types";
-import type { ThreadSummary } from "~/lib/home/thread/types";
+import type { ThreadSnapshot, ThreadSummary } from "~/lib/home/thread/types";
 import type { ThreadRequestState } from "~/lib/home/controller/types";
 
 export type ThreadListOption = {
@@ -60,4 +60,16 @@ export function mergeSkillSelections(
   }
 
   return Array.from(byLocation.values());
+}
+
+export function findThreadSnapshotById(
+  threads: ThreadSnapshot[],
+  threadIdRaw: string,
+): ThreadSnapshot | null {
+  const threadId = threadIdRaw.trim();
+  if (!threadId) {
+    return null;
+  }
+
+  return threads.find((thread) => thread.id === threadId) ?? null;
 }

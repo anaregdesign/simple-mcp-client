@@ -2,8 +2,10 @@
  * Tests for Home controller thread runtime helpers.
  */
 import { describe, expect, it } from "vitest";
+import type { ThreadSnapshot } from "~/lib/home/thread/types";
 import {
   buildThreadListOptions,
+  findThreadSnapshotById,
   mergeSkillSelections,
 } from "~/lib/home/controller/thread-runtime";
 
@@ -98,5 +100,40 @@ describe("mergeSkillSelections", () => {
       { name: "Skill B", location: "/skills/b" },
       { name: "Skill C", location: "/skills/c" },
     ]);
+  });
+});
+
+describe("findThreadSnapshotById", () => {
+  const threads: ThreadSnapshot[] = [
+    {
+      id: "thread-1",
+      name: "Thread 1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      deletedAt: null,
+      reasoningEffort: "low",
+      webSearchEnabled: false,
+      agentInstruction: "",
+      instructionContextToggles: {
+        system: true,
+      },
+      threadEnvironment: {},
+      messages: [],
+      mcpServers: [],
+      mcpRpcLogs: [],
+      skillSelections: [],
+    },
+  ];
+
+  it("returns null for empty identifiers", () => {
+    expect(findThreadSnapshotById(threads, "   ")).toBeNull();
+  });
+
+  it("trims identifiers before matching", () => {
+    expect(findThreadSnapshotById(threads, " thread-1 ")).toEqual(threads[0]);
+  });
+
+  it("returns null when no thread matches", () => {
+    expect(findThreadSnapshotById(threads, "thread-2")).toBeNull();
   });
 });
