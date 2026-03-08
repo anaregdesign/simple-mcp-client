@@ -8,12 +8,12 @@ import { readStringList } from "~/lib/client/shared/collections";
 import {
   readSkillCatalogList,
   readSkillRegistryCatalogList,
-} from "~/lib/client/skills/parsers";
-import type { SkillRegistryId } from "~/lib/client/skills/registry";
+} from "~/lib/contracts/skills/parsers";
+import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/client/skills/types";
+} from "~/lib/contracts/skills/types";
 
 export type SkillsCatalogSnapshot = {
   skills: SkillCatalogEntry[];

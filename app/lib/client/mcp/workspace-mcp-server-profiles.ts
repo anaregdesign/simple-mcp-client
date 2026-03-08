@@ -1,7 +1,7 @@
 /**
  * Client runtime support module.
  */
-import { buildMcpServerKey, type McpServerConfig } from "~/lib/client/mcp/profile";
+import { buildMcpServerKey, type McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { McpServersAuthState } from "~/lib/client/shared/view-types";
 
 /**

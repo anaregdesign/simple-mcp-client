@@ -2,7 +2,7 @@
  * Tests for Client controller thread runtime helpers.
  */
 import { describe, expect, it } from "vitest";
-import type { ThreadSnapshot } from "~/lib/client/threads/types";
+import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
 import {
   buildThreadListOptions,
   findThreadSnapshotById,

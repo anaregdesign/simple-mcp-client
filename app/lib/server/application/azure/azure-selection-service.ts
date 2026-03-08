@@ -8,8 +8,9 @@ import {
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
-import type { ThemeMode, ReasoningEffort } from "~/lib/client/shared/view-types";
-import { readThemeModeFromUnknown } from "~/lib/client/settings/theme-mode";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/shared/theme-mode";
+import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
 
 type AzureSelectionPreferencePayload = {
   target: AzureSelectionTarget | null;

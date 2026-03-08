@@ -1,16 +1,12 @@
 /**
  * Client runtime support module.
  */
-export type ChatAttachment = {
-  name: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataUrl: string;
-};
+import type {
+  ChatAttachment,
+  DraftChatAttachment,
+} from "~/lib/contracts/chat/attachments";
 
-export type DraftChatAttachment = ChatAttachment & {
-  id: string;
-};
+export type { ChatAttachment, DraftChatAttachment };
 
 export async function readFileAsDataUrl(file: File): Promise<string> {
   return await new Promise((resolve, reject) => {

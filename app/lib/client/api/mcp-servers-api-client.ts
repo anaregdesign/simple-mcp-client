@@ -9,7 +9,7 @@ import {
   readMcpServerList,
   serializeMcpServerForSave,
   type McpServerConfig,
-} from "~/lib/client/mcp/profile";
+} from "~/lib/contracts/mcp/profile";
 import { isMcpServersAuthRequired } from "~/lib/client/mcp/workspace-mcp-server-profiles";
 
 export type McpServersSnapshot = {

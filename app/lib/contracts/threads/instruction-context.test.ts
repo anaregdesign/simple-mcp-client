@@ -7,7 +7,7 @@ import {
   cloneThreadInstructionContextToggles,
   hasNonDefaultThreadInstructionContextToggles,
   readThreadInstructionContextTogglesFromUnknown,
-} from "~/lib/client/threads/instruction-context";
+} from "~/lib/contracts/threads/instruction-context";
 
 describe("thread instruction-context toggles", () => {
   it("exposes default toggles", () => {

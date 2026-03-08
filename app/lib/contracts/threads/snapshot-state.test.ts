@@ -10,7 +10,7 @@ import {
   readThreadRuntimeStateById,
   readThreadSnapshotById,
   updateThreadSnapshotCollectionById,
-} from "~/lib/client/threads/snapshot-state";
+} from "~/lib/contracts/threads/snapshot-state";
 
 describe("hasThreadInteraction", () => {
   it("returns false for threads without messages", () => {

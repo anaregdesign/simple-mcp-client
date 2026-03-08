@@ -1,7 +1,7 @@
-/**
- * Client runtime support module.
- */
-import { AGENT_SKILL_NAME_PATTERN, HOME_DEFAULT_SKILL_REGISTRY_OPTIONS } from "~/lib/constants/skills";
+import {
+  AGENT_SKILL_NAME_PATTERN,
+  HOME_DEFAULT_SKILL_REGISTRY_OPTIONS,
+} from "~/lib/constants/skills";
 
 export const SKILL_REGISTRY_OPTIONS = HOME_DEFAULT_SKILL_REGISTRY_OPTIONS;
 
@@ -15,7 +15,7 @@ export type ParsedSkillRegistrySkillName = {
   tag: string | null;
 };
 
-const SKILL_REGISTRY_TAG_PATTERN = /^[A-Za-z0-9._-]+$/;
+const skillRegistryTagPattern = /^[A-Za-z0-9._-]+$/;
 
 export function isSkillRegistryId(value: unknown): value is SkillRegistryId {
   if (typeof value !== "string") {
@@ -82,7 +82,7 @@ export function parseSkillRegistrySkillName(
     return null;
   }
 
-  if (!SKILL_REGISTRY_TAG_PATTERN.test(tag)) {
+  if (!skillRegistryTagPattern.test(tag)) {
     return null;
   }
 

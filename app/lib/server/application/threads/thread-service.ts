@@ -10,19 +10,19 @@ import {
   prisma,
 } from "~/lib/server/persistence/prisma";
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
-import { readThreadSnapshotFromUnknown } from "~/lib/client/threads/parsers";
+import { readThreadSnapshotFromUnknown } from "~/lib/contracts/threads/parsers";
 import {
   buildThreadMessageSkillActivationRowId,
   buildThreadOperationLogRowId,
   buildThreadMcpServerRowId,
   buildThreadSkillActivationRowId,
-} from "~/lib/client/threads/server-ids";
+} from "~/lib/server/shared/thread-row-ids";
 import {
   hasThreadInteraction,
   hasThreadPersistableState,
-} from "~/lib/client/threads/snapshot-state";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/client/skills/registry";
-import type { ThreadSnapshot } from "~/lib/client/threads/types";
+} from "~/lib/contracts/threads/snapshot-state";
+import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
+import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
 
 export class ThreadQueryService {
   async readUserThreads(userId: number): Promise<ThreadSnapshot[]> {

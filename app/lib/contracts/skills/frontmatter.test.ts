@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseSkillFrontmatter,
   validateSkillFrontmatter,
-} from "~/lib/client/skills/frontmatter";
+} from "~/lib/contracts/skills/frontmatter";
 
 describe("parseSkillFrontmatter", () => {
   it("parses name and description from YAML frontmatter", () => {

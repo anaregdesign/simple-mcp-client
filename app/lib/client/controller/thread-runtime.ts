@@ -2,8 +2,8 @@
  * Client controller thread runtime helpers.
  */
 import { HOME_DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants/client";
-import type { ThreadSkillActivation } from "~/lib/client/skills/types";
-import type { ThreadSnapshot, ThreadSummary } from "~/lib/client/threads/types";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import type { ThreadSnapshot, ThreadSummary } from "~/lib/contracts/threads/types";
 import type { ThreadRequestState } from "~/lib/client/controller/types";
 
 export type ThreadListOption = {

@@ -6,7 +6,7 @@ import {
   readSkillCatalogList,
   readSkillRegistryCatalogList,
   readThreadSkillActivationList,
-} from "~/lib/client/skills/parsers";
+} from "~/lib/contracts/skills/parsers";
 
 describe("readSkillCatalogList", () => {
   it("parses valid entries and de-duplicates by location", () => {

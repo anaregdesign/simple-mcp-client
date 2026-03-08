@@ -1,7 +1,4 @@
-/**
- * Client runtime support module.
- */
-import type { SkillRegistryId } from "~/lib/client/skills/registry";
+import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
 
 export type SkillCatalogSource = "workspace" | "codex_home" | "app_data";
 

@@ -1,13 +1,10 @@
-/**
- * Client runtime support module.
- */
-import type { ThreadMessage } from "~/lib/client/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
-import type { McpServerConfig } from "~/lib/client/mcp/profile";
-import type { ReasoningEffort } from "~/lib/client/shared/view-types";
-import type { ThreadSkillActivation } from "~/lib/client/skills/types";
-import type { ThreadEnvironment } from "~/lib/client/threads/environment";
-import type { ThreadInstructionContextToggles } from "~/lib/client/threads/instruction-context";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 
 export type ThreadSnapshot = {
   id: string;

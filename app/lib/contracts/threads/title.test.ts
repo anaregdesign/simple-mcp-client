@@ -6,7 +6,7 @@ import {
   buildThreadAutoTitlePlaygroundContent,
   buildThreadAutoTitleRequestMessage,
   normalizeThreadAutoTitle,
-} from "~/lib/client/threads/title";
+} from "~/lib/contracts/threads/title";
 
 describe("normalizeThreadAutoTitle", () => {
   it("normalizes whitespace and keeps only the first non-empty line", () => {

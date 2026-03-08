@@ -7,7 +7,7 @@ import {
   parseSkillRegistrySkillName,
   readSkillRegistryLabelFromSkillLocation,
   readSkillRegistrySkillNameValidationMessage,
-} from "~/lib/client/skills/registry";
+} from "~/lib/contracts/skills/registry";
 
 describe("isSkillRegistryId", () => {
   it("includes known registry ids", () => {

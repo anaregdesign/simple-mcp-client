@@ -1,7 +1,8 @@
-/**
- * Client runtime support module.
- */
-import { AGENT_SKILL_DESCRIPTION_MAX_LENGTH, AGENT_SKILL_NAME_MAX_LENGTH, AGENT_SKILL_NAME_PATTERN } from "~/lib/constants/skills";
+import {
+  AGENT_SKILL_DESCRIPTION_MAX_LENGTH,
+  AGENT_SKILL_NAME_MAX_LENGTH,
+  AGENT_SKILL_NAME_PATTERN,
+} from "~/lib/constants/skills";
 
 export type SkillFrontmatter = {
   name: string;
@@ -69,7 +70,7 @@ export function validateSkillFrontmatter(
   }
 
   if (normalizedDirectoryName && normalizedDirectoryName !== name) {
-    return `Skill directory name \"${normalizedDirectoryName}\" must match frontmatter name \"${name}\".`;
+    return `Skill directory name "${normalizedDirectoryName}" must match frontmatter name "${name}".`;
   }
 
   return null;

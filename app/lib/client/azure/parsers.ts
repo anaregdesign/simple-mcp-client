@@ -4,7 +4,7 @@
 import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
 import type { ThemeMode, ReasoningEffort } from "~/lib/client/shared/view-types";
-import { readThemeModeFromUnknown } from "~/lib/client/settings/theme-mode";
+import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
 
 export type AzureProjectOption = {
   id: string;

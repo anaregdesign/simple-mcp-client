@@ -2,7 +2,7 @@
  * API route module for /api/threads/:threadId.
  */
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
-import { readThreadSnapshotFromUnknown } from "~/lib/client/threads/parsers";
+import { readThreadSnapshotFromUnknown } from "~/lib/contracts/threads/parsers";
 import {
   authRequiredResponse,
   errorResponse,

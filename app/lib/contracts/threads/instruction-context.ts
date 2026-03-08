@@ -1,6 +1,3 @@
-/**
- * Client runtime support module.
- */
 export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
   {
     key: "system",
@@ -18,7 +15,10 @@ export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
 export type ThreadInstructionContextToggleOption =
   (typeof THREAD_INSTRUCTION_CONTEXT_OPTIONS)[number];
 export type ThreadInstructionContextToggleKey = ThreadInstructionContextToggleOption["key"];
-export type ThreadInstructionContextToggles = Record<ThreadInstructionContextToggleKey, boolean>;
+export type ThreadInstructionContextToggles = Record<
+  ThreadInstructionContextToggleKey,
+  boolean
+>;
 
 export const DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES: ThreadInstructionContextToggles =
   buildDefaultThreadInstructionContextToggles();
@@ -57,8 +57,7 @@ export function hasNonDefaultThreadInstructionContextToggles(
   value: ThreadInstructionContextToggles,
 ): boolean {
   for (const option of THREAD_INSTRUCTION_CONTEXT_OPTIONS) {
-    const expected = option.defaultEnabled;
-    if (value[option.key] !== expected) {
+    if (value[option.key] !== option.defaultEnabled) {
       return true;
     }
   }

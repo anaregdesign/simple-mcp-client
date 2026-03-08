@@ -6,7 +6,7 @@ import {
   buildThreadSummary,
   readThreadSnapshotFromUnknown,
   readThreadSnapshotList,
-} from "~/lib/client/threads/parsers";
+} from "~/lib/contracts/threads/parsers";
 
 describe("readThreadSnapshotFromUnknown", () => {
   it("parses a valid thread payload", () => {

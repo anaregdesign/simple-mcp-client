@@ -1,7 +1,7 @@
 /**
  * Client controller MCP runtime helpers.
  */
-import type { McpServerConfig } from "~/lib/client/mcp/profile";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 
 export type ChatRequestMcpServer =
   | {

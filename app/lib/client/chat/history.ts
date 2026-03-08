@@ -2,7 +2,7 @@
  * Client runtime support module.
  */
 import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
-import type { ThreadSkillActivation } from "~/lib/client/skills/types";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 
 export function buildThreadOperationLogsByTurnId(
   entries: ThreadOperationLogEntry[],

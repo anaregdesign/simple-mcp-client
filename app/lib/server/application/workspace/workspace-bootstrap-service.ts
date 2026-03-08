@@ -21,7 +21,7 @@ import {
 } from "~/lib/server/application/skills/workspace-skill-service";
 import { threadQueryService } from "~/lib/server/application/threads/thread-service";
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
-import type { ThreadSnapshot } from "~/lib/client/threads/types";
+import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
 
 type WorkspaceBootstrapOptions = {
   request: Request;

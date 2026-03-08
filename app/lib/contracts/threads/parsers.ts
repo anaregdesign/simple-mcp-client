@@ -1,19 +1,16 @@
-/**
- * Client runtime support module.
- */
-import type { ChatAttachment } from "~/lib/client/chat/attachments";
-import type { ThreadMessage } from "~/lib/client/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
+import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
   readThreadOperationLogEntryFromUnknown as readThreadOperationLogEntryFromStream,
-} from "~/lib/client/chat/stream";
-import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
-import { readMcpServerFromUnknown } from "~/lib/client/mcp/profile";
-import type { ReasoningEffort } from "~/lib/client/shared/view-types";
-import { readThreadSkillActivationList } from "~/lib/client/skills/parsers";
-import { readThreadEnvironmentFromUnknown } from "~/lib/client/threads/environment";
-import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/client/threads/instruction-context";
-import type { ThreadSnapshot, ThreadSummary } from "~/lib/client/threads/types";
+  type ThreadOperationLogEntry,
+} from "~/lib/contracts/chat/operation-log";
+import { readMcpServerFromUnknown } from "~/lib/contracts/mcp/profile";
+import { readThreadSkillActivationList } from "~/lib/contracts/skills/parsers";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
+import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/contracts/threads/instruction-context";
+import type { ThreadSnapshot, ThreadSummary } from "~/lib/contracts/threads/types";
 
 type ReadThreadSnapshotOptions = {
   fallbackInstruction?: string;
@@ -248,7 +245,9 @@ function readThreadOperationLogEntryList(value: unknown): ThreadOperationLogEntr
   return entries;
 }
 
-function readThreadOperationLogEntryFromUnknown(value: unknown): ThreadOperationLogEntry | null {
+function readThreadOperationLogEntryFromUnknown(
+  value: unknown,
+): ThreadOperationLogEntry | null {
   const parsed = readThreadOperationLogEntryFromStream(value);
   if (!parsed || !isRecord(value)) {
     return null;

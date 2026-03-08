@@ -3,9 +3,9 @@
  */
 import type { ChatApiResponse, ThreadOperationLogEntry } from "~/lib/client/chat/stream";
 import type { ThreadRequestState } from "~/lib/client/controller/types";
-import type { ThreadInstructionContextToggles } from "~/lib/client/threads/instruction-context";
-import type { ThreadEnvironment } from "~/lib/client/threads/environment";
-import type { ThreadSkillActivation } from "~/lib/client/skills/types";
+import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 import type { ChatRequestMcpServer } from "~/lib/client/controller/mcp-runtime";
 

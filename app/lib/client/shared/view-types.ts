@@ -4,7 +4,7 @@
 import type { McpTransport } from "~/lib/domain/shared/mcp-transport";
 import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import type { ThemeMode as DomainThemeMode } from "~/lib/domain/shared/theme-mode";
-import type { ThreadInstructionContextToggleKey } from "~/lib/client/threads/instruction-context";
+import type { ThreadInstructionContextToggleKey } from "~/lib/contracts/threads/instruction-context";
 
 export type MainViewTab = "settings" | "skills" | "mcp" | "threads";
 export type { McpTransport, ReasoningEffort };

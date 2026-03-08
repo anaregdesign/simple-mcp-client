@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/client/skills/registry";
+import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
 import { parseSkillRegistryMutationPath } from "./workspace-skill-service";
 
 describe("workspace-skill-service", () => {

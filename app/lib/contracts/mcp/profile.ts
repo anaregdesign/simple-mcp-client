@@ -1,7 +1,13 @@
-/**
- * Client runtime support module.
- */
-import { ENV_KEY_PATTERN, HTTP_HEADER_NAME_PATTERN, MCP_AZURE_AUTH_SCOPE_MAX_LENGTH, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS, MCP_HTTP_HEADERS_MAX, MCP_TIMEOUT_SECONDS_MAX, MCP_TIMEOUT_SECONDS_MIN } from "~/lib/constants/mcp";
+import {
+  ENV_KEY_PATTERN,
+  HTTP_HEADER_NAME_PATTERN,
+  MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
+  MCP_DEFAULT_AZURE_AUTH_SCOPE,
+  MCP_DEFAULT_TIMEOUT_SECONDS,
+  MCP_HTTP_HEADERS_MAX,
+  MCP_TIMEOUT_SECONDS_MAX,
+  MCP_TIMEOUT_SECONDS_MIN,
+} from "~/lib/constants/mcp";
 import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 
 export type McpHttpServerConfig = {
@@ -83,7 +89,10 @@ export function readMcpServerFromUnknown(value: unknown): McpServerConfig | null
     }
 
     const envValue = value.env;
-    if (!isRecord(envValue) || !Object.values(envValue).every((entry) => typeof entry === "string")) {
+    if (
+      !isRecord(envValue) ||
+      !Object.values(envValue).every((entry) => typeof entry === "string")
+    ) {
       return null;
     }
 
@@ -167,7 +176,10 @@ export function serializeMcpServerForSave(
   return includeId ? { ...payload, id: server.id } : payload;
 }
 
-export function upsertMcpServer(current: McpServerConfig[], profile: McpServerConfig): McpServerConfig[] {
+export function upsertMcpServer(
+  current: McpServerConfig[],
+  profile: McpServerConfig,
+): McpServerConfig[] {
   const existingIndex = current.findIndex((entry) => entry.id === profile.id);
   if (existingIndex < 0) {
     return [...current, profile];

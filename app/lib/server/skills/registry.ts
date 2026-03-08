@@ -1,15 +1,15 @@
 /**
  * Server runtime module.
  */
-import { createHash } from "node:crypto";
-import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { constants as fsConstants } from "node:fs";
+import nodeCrypto from "node:crypto";
+import nodeFs from "node:fs";
+import nodeFsPromises from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import nodeUrl from "node:url";
 import { FOUNDRY_SKILLS_DIRECTORY_NAME, FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
 import { AGENT_SKILL_NAME_PATTERN, SKILL_REGISTRY_LIST_CACHE_TTL_MS, SKILL_REGISTRY_TREE_CACHE_TTL_MS } from "~/lib/constants/skills";
 import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/client/skills/frontmatter";
+import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/contracts/skills/frontmatter";
 import {
   parseSkillRegistrySkillName,
   readSkillRegistryOptionById,
@@ -17,8 +17,8 @@ import {
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
   type SkillRegistryOption,
-} from "~/lib/client/skills/registry";
-import type { SkillRegistryCatalog } from "~/lib/client/skills/types";
+} from "~/lib/contracts/skills/registry";
+import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
@@ -91,6 +91,7 @@ const REGISTRY_LIST_CACHE_KEY_PREFIX = "skill_registry_list:";
 const REGISTRY_TREE_CACHE_KEY_PREFIX = "skill_registry_tree:";
 const CACHE_VERSION = "v1";
 const INSTALLED_SKILL_METADATA_FILE_NAME = ".local-playground-skill.json";
+const fsConstants = nodeFs.constants;
 
 export async function discoverSkillRegistries(
   options: ResolveSkillRegistryOptions,
@@ -158,7 +159,7 @@ export async function installSkillFromRegistry(
   });
   const remoteVersionChecksum = buildVersionChecksumFromBlobEntries(matchingBlobEntries);
 
-  await mkdir(registryInstallRoot, { recursive: true });
+  await nodeFsPromises.mkdir(registryInstallRoot, { recursive: true });
   const alreadyInstalled = await directoryExists(skillInstallRoot);
   if (alreadyInstalled) {
     const installedMetadata = await readInstalledSkillMetadata(skillInstallRoot);
@@ -177,12 +178,12 @@ export async function installSkillFromRegistry(
       };
     }
 
-    await rm(skillInstallRoot, { recursive: true, force: true });
+    await nodeFsPromises.rm(skillInstallRoot, { recursive: true, force: true });
   }
 
-  await mkdir(skillInstallRoot, { recursive: true });
+  await nodeFsPromises.mkdir(skillInstallRoot, { recursive: true });
   try {
-    const contentChecksumHash = createHash("sha256");
+    const contentChecksumHash = nodeCrypto.createHash("sha256");
     for (const blobEntry of matchingBlobEntries) {
       const blobPath = blobEntry.path;
       const relativePath = blobPath.slice(skillPrefix.length);
@@ -199,7 +200,7 @@ export async function installSkillFromRegistry(
         throw new Error(`Registry file path escapes skill root: ${blobPath}`);
       }
 
-      await mkdir(path.dirname(destinationPath), { recursive: true });
+      await nodeFsPromises.mkdir(path.dirname(destinationPath), { recursive: true });
       const sourceFileUrl = buildRawFileUrl({
         repository: registry.repository,
         ref: registry.ref,
@@ -209,7 +210,7 @@ export async function installSkillFromRegistry(
       contentChecksumHash.update(relativePath);
       contentChecksumHash.update("\0");
       contentChecksumHash.update(Buffer.from(bytes));
-      await writeFile(destinationPath, Buffer.from(bytes));
+      await nodeFsPromises.writeFile(destinationPath, Buffer.from(bytes));
     }
 
     await validateInstalledSkill(skillInstallRoot, normalizedSkillName);
@@ -223,7 +224,7 @@ export async function installSkillFromRegistry(
       contentChecksum: contentChecksumHash.digest("hex"),
     });
   } catch (error) {
-    await rm(skillInstallRoot, { recursive: true, force: true });
+    await nodeFsPromises.rm(skillInstallRoot, { recursive: true, force: true });
     throw error;
   }
 
@@ -263,7 +264,7 @@ export async function deleteInstalledSkillFromRegistry(
     };
   }
 
-  await rm(skillInstallRoot, { recursive: true, force: true });
+  await nodeFsPromises.rm(skillInstallRoot, { recursive: true, force: true });
   await removeEmptyAncestorDirectories(skillInstallRoot, registryInstallRoot);
   await removeDirectoryWhenEmpty(registryInstallRoot);
   await invalidateSkillRegistryListCache(registry.id);
@@ -474,7 +475,7 @@ async function validateInstalledSkill(
   expectedSkillName: string,
 ): Promise<void> {
   const skillFilePath = path.join(skillInstallRoot, "SKILL.md");
-  const skillFileContent = await readFile(skillFilePath, "utf8").catch(() => "");
+  const skillFileContent = await nodeFsPromises.readFile(skillFilePath, "utf8").catch(() => "");
   const frontmatter = parseSkillFrontmatter(skillFileContent);
   if (!frontmatter) {
     throw new Error("Installed Skill is missing valid frontmatter.");
@@ -510,7 +511,7 @@ async function writeInstalledSkillMetadata(options: {
   };
 
   const metadataPath = path.join(options.skillInstallRoot, INSTALLED_SKILL_METADATA_FILE_NAME);
-  await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+  await nodeFsPromises.writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
 }
 
 async function readRegistrySkillBlobEntries(options: {
@@ -601,7 +602,7 @@ function readRegistrySkillPathFromBlobPath(options: {
 }
 
 function buildVersionChecksumFromBlobEntries(blobEntries: RegistryBlobEntry[]): string {
-  const checksumHash = createHash("sha256");
+  const checksumHash = nodeCrypto.createHash("sha256");
   const sortedBlobEntries = [...blobEntries].sort((left, right) => left.path.localeCompare(right.path));
   for (const blobEntry of sortedBlobEntries) {
     checksumHash.update(blobEntry.path);
@@ -614,7 +615,7 @@ function buildVersionChecksumFromBlobEntries(blobEntries: RegistryBlobEntry[]): 
 
 async function readInstalledSkillMetadata(skillInstallRoot: string): Promise<InstalledSkillMetadata | null> {
   const metadataPath = path.join(skillInstallRoot, INSTALLED_SKILL_METADATA_FILE_NAME);
-  const metadataContent = await readFile(metadataPath, "utf8").catch(() => "");
+  const metadataContent = await nodeFsPromises.readFile(metadataPath, "utf8").catch(() => "");
   if (!metadataContent.trim()) {
     return null;
   }
@@ -1016,9 +1017,9 @@ async function removeDirectoryWhenEmpty(directoryPath: string): Promise<void> {
     return;
   }
 
-  const entries = await readdir(directoryPath);
+  const entries = await nodeFsPromises.readdir(directoryPath);
   if (entries.length === 0) {
-    await rm(directoryPath, { recursive: true, force: true });
+    await nodeFsPromises.rm(directoryPath, { recursive: true, force: true });
   }
 }
 
@@ -1043,7 +1044,7 @@ async function removeEmptyAncestorDirectories(
 
 async function directoryExists(directoryPath: string): Promise<boolean> {
   try {
-    await access(directoryPath, fsConstants.F_OK | fsConstants.R_OK);
+    await nodeFsPromises.access(directoryPath, fsConstants.F_OK | fsConstants.R_OK);
     return true;
   } catch {
     return false;
@@ -1052,7 +1053,7 @@ async function directoryExists(directoryPath: string): Promise<boolean> {
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
-    await access(filePath, fsConstants.F_OK | fsConstants.R_OK);
+    await nodeFsPromises.access(filePath, fsConstants.F_OK | fsConstants.R_OK);
     return true;
   } catch {
     return false;
@@ -1102,7 +1103,7 @@ function resolveSqliteDatabaseFilePath(databaseUrl: string): string | null {
 
   try {
     if (databaseUrl.startsWith("file://")) {
-      return fileURLToPath(databaseUrl);
+      return nodeUrl.fileURLToPath(databaseUrl);
     }
   } catch {
     return null;

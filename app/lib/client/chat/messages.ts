@@ -1,20 +1,14 @@
 /**
  * Client runtime support module.
  */
-import type { ChatAttachment } from "~/lib/client/chat/attachments";
-import type { ThreadSkillActivation } from "~/lib/client/skills/types";
+import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
+import type {
+  ThreadMessage,
+  ThreadMessageRole,
+} from "~/lib/contracts/chat/messages";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 
-export type ThreadMessageRole = "user" | "assistant";
-
-export type ThreadMessage = {
-  id: string;
-  role: ThreadMessageRole;
-  content: string;
-  createdAt: string;
-  turnId: string;
-  attachments: ChatAttachment[];
-  skillActivations: ThreadSkillActivation[];
-};
+export type { ThreadMessage, ThreadMessageRole };
 
 export function createThreadMessage(
   role: ThreadMessageRole,

@@ -1,8 +1,5 @@
-/**
- * Client runtime support module.
- */
 import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/constants/chat";
-import type { ThreadMessage } from "~/lib/client/chat/messages";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 
 const threadAutoTitleContextMaxCharacters = 3_000;
 const threadAutoTitleContextMessageLimit = 8;

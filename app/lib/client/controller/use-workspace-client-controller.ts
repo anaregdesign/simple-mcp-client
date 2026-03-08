@@ -70,11 +70,11 @@ import {
   parseHttpHeadersInput,
   parseMcpTimeoutSecondsInput,
 } from "~/lib/client/mcp/http-inputs";
-import type { McpServerConfig } from "~/lib/client/mcp/profile";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   buildMcpServerKey,
   upsertMcpServer,
-} from "~/lib/client/mcp/profile";
+} from "~/lib/contracts/mcp/profile";
 import {
   parseStdioArgsInput,
   parseStdioEnvInput,
@@ -94,7 +94,7 @@ import {
   buildThreadSummary,
   readThreadSnapshotFromUnknown,
   readThreadSnapshotList,
-} from "~/lib/client/threads/parsers";
+} from "~/lib/contracts/threads/parsers";
 import {
   cloneThreadEnvironment,
   cloneThreadInstructionContexts,
@@ -110,30 +110,30 @@ import {
   readThreadRuntimeStateById,
   updateThreadSnapshotCollectionById,
   upsertThreadSnapshot,
-} from "~/lib/client/threads/snapshot-state";
-import { readThreadEnvironmentFromUnknown } from "~/lib/client/threads/environment";
+} from "~/lib/contracts/threads/snapshot-state";
+import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
   type ThreadInstructionContextToggleKey,
-} from "~/lib/client/threads/instruction-context";
+} from "~/lib/contracts/threads/instruction-context";
 import {
   buildThreadAutoTitlePlaygroundContent,
   normalizeThreadAutoTitle,
-} from "~/lib/client/threads/title";
-import type { ThreadSnapshot, ThreadSummary } from "~/lib/client/threads/types";
-import { readSkillCatalogList, readSkillRegistryCatalogList } from "~/lib/client/skills/parsers";
+} from "~/lib/contracts/threads/title";
+import type { ThreadSnapshot, ThreadSummary } from "~/lib/contracts/threads/types";
+import { readSkillCatalogList, readSkillRegistryCatalogList } from "~/lib/contracts/skills/parsers";
 import {
   readSkillRegistryOptionById,
   readSkillRegistryLabelFromSkillLocation,
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
-} from "~/lib/client/skills/registry";
+} from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
   ThreadSkillActivation,
-} from "~/lib/client/skills/types";
+} from "~/lib/contracts/skills/types";
 import { copyTextToClipboard } from "~/lib/client/shared/clipboard";
 import { readStringList } from "~/lib/client/shared/collections";
 import { getFileExtension } from "~/lib/client/shared/files";

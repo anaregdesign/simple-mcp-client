@@ -1,11 +1,11 @@
 /**
  * Server runtime module.
  */
-import { constants as fsConstants, type Dirent } from "node:fs";
-import { access, mkdir, open, readdir, readFile, realpath, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import nodeFs from "node:fs";
+import nodeFsPromises from "node:fs/promises";
+import nodeOs from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import nodeUrl from "node:url";
 import { FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
 import { AGENT_SKILLS_DIRECTORY_NAME, AGENT_SKILL_FILE_MAX_BYTES } from "~/lib/constants/skills";
 import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
@@ -13,8 +13,8 @@ import {
   parseSkillFrontmatter,
   type SkillFrontmatter,
   validateSkillFrontmatter,
-} from "~/lib/client/skills/frontmatter";
-import type { SkillCatalogEntry, SkillCatalogSource } from "~/lib/client/skills/types";
+} from "~/lib/contracts/skills/frontmatter";
+import type { SkillCatalogEntry, SkillCatalogSource } from "~/lib/contracts/skills/types";
 
 type SkillCatalogRoot = {
   path: string;
@@ -38,6 +38,8 @@ type ResolveSkillCatalogRootsOptions = {
 
 const SKILL_FRONTMATTER_READ_CHUNK_BYTES = 4 * 1024;
 const SKILL_FRONTMATTER_READ_MAX_BYTES = 128 * 1024;
+const fsConstants = nodeFs.constants;
+type Dirent = import("node:fs").Dirent;
 
 export function resolveSkillCatalogRoots(
   options: ResolveSkillCatalogRootsOptions,
@@ -89,14 +91,14 @@ export async function discoverSkillCatalog(
 
   for (const root of roots) {
     if (root.createIfMissing) {
-      await mkdir(root.path, { recursive: true }).catch((error) => {
+      await nodeFsPromises.mkdir(root.path, { recursive: true }).catch((error) => {
         warnings.push(`Failed to prepare Skills directory (${root.path}): ${readErrorMessage(error)}`);
       });
     }
 
     const skillFileCandidates = await readSkillFileCandidates(root.path);
     for (const filePath of skillFileCandidates) {
-      const canonicalLocation = await realpath(filePath).catch(() => path.resolve(filePath));
+      const canonicalLocation = await nodeFsPromises.realpath(filePath).catch(() => path.resolve(filePath));
       if (seenCanonicalLocations.has(canonicalLocation)) {
         continue;
       }
@@ -144,7 +146,7 @@ export async function readSkillMarkdown(
   maxBytes = AGENT_SKILL_FILE_MAX_BYTES,
 ): Promise<string> {
   const normalizedLocation = await validateSkillMarkdownLocation(location, maxBytes);
-  return await readFile(normalizedLocation, "utf8");
+  return await nodeFsPromises.readFile(normalizedLocation, "utf8");
 }
 
 export async function readSkillFrontmatter(
@@ -173,7 +175,7 @@ export function resolveCodexHomeDirectory(codexHome?: string): string {
     return path.resolve(envConfigured);
   }
 
-  return path.resolve(homedir(), ".codex");
+  return path.resolve(nodeOs.homedir(), ".codex");
 }
 
 const SKILL_DISCOVERY_MAX_DEPTH = 4;
@@ -208,7 +210,7 @@ async function collectSkillFileCandidates(
 
   let entries: Dirent[];
   try {
-    entries = await readdir(directoryPath, { withFileTypes: true });
+    entries = await nodeFsPromises.readdir(directoryPath, { withFileTypes: true });
   } catch {
     // Ignore unreadable directories so one permission issue does not block full catalog discovery.
     return;
@@ -266,7 +268,7 @@ async function validateSkillMarkdownLocation(
     throw new Error("Skill location must point to SKILL.md.");
   }
 
-  const fileStats = await stat(normalizedLocation);
+  const fileStats = await nodeFsPromises.stat(normalizedLocation);
   if (!fileStats.isFile()) {
     throw new Error("Skill location is not a file.");
   }
@@ -279,7 +281,7 @@ async function validateSkillMarkdownLocation(
 }
 
 async function readSkillMarkdownHeaderContent(location: string): Promise<string> {
-  const fileHandle = await open(location, "r");
+  const fileHandle = await nodeFsPromises.open(location, "r");
   const chunks: Buffer[] = [];
   let totalBytesRead = 0;
 
@@ -329,7 +331,7 @@ function hasCompleteFrontmatterHeader(content: string): boolean {
 
 async function directoryExists(location: string): Promise<boolean> {
   try {
-    const stats = await stat(location);
+    const stats = await nodeFsPromises.stat(location);
     return stats.isDirectory();
   } catch {
     return false;
@@ -338,8 +340,8 @@ async function directoryExists(location: string): Promise<boolean> {
 
 async function fileExists(location: string): Promise<boolean> {
   try {
-    await access(location, fsConstants.R_OK);
-    const fileStats = await stat(location);
+    await nodeFsPromises.access(location, fsConstants.R_OK);
+    const fileStats = await nodeFsPromises.stat(location);
     return fileStats.isFile();
   } catch {
     return false;
@@ -426,7 +428,7 @@ function resolveSqliteDatabaseFilePath(databaseUrl: string): string | null {
 
   try {
     if (databaseUrl.startsWith("file://")) {
-      return fileURLToPath(databaseUrl);
+      return nodeUrl.fileURLToPath(databaseUrl);
     }
   } catch {
     return null;

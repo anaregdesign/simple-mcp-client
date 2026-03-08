@@ -15,7 +15,7 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
-import type { ReasoningEffort } from "~/lib/client/shared/view-types";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
 

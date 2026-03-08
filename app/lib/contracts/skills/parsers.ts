@@ -1,14 +1,11 @@
-/**
- * Client runtime support module.
- */
-import { isSkillRegistryId } from "~/lib/client/skills/registry";
+import { isSkillRegistryId } from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
   SkillCatalogSource,
   SkillRegistryCatalog,
   SkillRegistrySkillEntry,
   ThreadSkillActivation,
-} from "~/lib/client/skills/types";
+} from "~/lib/contracts/skills/types";
 
 export function readSkillCatalogList(value: unknown): SkillCatalogEntry[] {
   if (!Array.isArray(value)) {
@@ -73,7 +70,9 @@ export function readSkillRegistryCatalogList(value: unknown): SkillRegistryCatal
   return catalogs;
 }
 
-export function readThreadSkillActivationFromUnknown(value: unknown): ThreadSkillActivation | null {
+export function readThreadSkillActivationFromUnknown(
+  value: unknown,
+): ThreadSkillActivation | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -166,7 +165,9 @@ function readSkillRegistrySkillEntryList(value: unknown): SkillRegistrySkillEntr
   return entries;
 }
 
-function readSkillRegistrySkillEntryFromUnknown(value: unknown): SkillRegistrySkillEntry | null {
+function readSkillRegistrySkillEntryFromUnknown(
+  value: unknown,
+): SkillRegistrySkillEntry | null {
   if (!isRecord(value)) {
     return null;
   }

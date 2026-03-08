@@ -49,15 +49,15 @@ import { CHAT_ATTACHMENT_ALLOWED_EXTENSIONS, CHAT_ATTACHMENT_MAX_FILES, CHAT_ATT
 import { ENV_KEY_PATTERN, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_HTTP_HEADERS, MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER, MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER, MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER, MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER, MCP_SERVER_NAME_MAX_LENGTH, THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
 import { AGENT_SKILL_NAME_MAX_LENGTH, AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES, AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS, AGENT_SKILL_READ_TEXT_MAX_CHARS, AGENT_SKILL_SCRIPT_ARG_MAX_LENGTH, AGENT_SKILL_SCRIPT_MAX_ARGS, AGENT_SKILL_SCRIPT_OUTPUT_MAX_CHARS, AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS, AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES } from "~/lib/constants/skills";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
-import type { ReasoningEffort } from "~/lib/client/shared/view-types";
+import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import {
   cloneThreadEnvironment,
   parseThreadEnvironmentFromUnknown,
   type ThreadEnvironment,
-} from "~/lib/client/threads/environment";
+} from "~/lib/contracts/threads/environment";
 import {
   type ThreadInstructionContextToggles,
-} from "~/lib/client/threads/instruction-context";
+} from "~/lib/contracts/threads/instruction-context";
 import {
   isDeploymentReasoningEffortCompatible,
   isWebSearchCompatibleReasoningEffort,

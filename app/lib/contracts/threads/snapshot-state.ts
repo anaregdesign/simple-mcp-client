@@ -1,17 +1,20 @@
-/**
- * Client runtime support module.
- */
-import { HOME_DEFAULT_REASONING_EFFORT, HOME_DEFAULT_WEB_SEARCH_ENABLED } from "~/lib/constants/chat";
-import type { McpServerConfig } from "~/lib/client/mcp/profile";
-import type { ThreadMessage } from "~/lib/client/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
-import type { ThreadSkillActivation } from "~/lib/client/skills/types";
-import type { ThreadEnvironment } from "~/lib/client/threads/environment";
+import {
+  HOME_DEFAULT_REASONING_EFFORT,
+  HOME_DEFAULT_WEB_SEARCH_ENABLED,
+} from "~/lib/constants/chat";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import {
+  cloneThreadEnvironment,
+  type ThreadEnvironment,
+} from "~/lib/contracts/threads/environment";
 import {
   cloneThreadInstructionContextToggles,
   hasNonDefaultThreadInstructionContextToggles,
-} from "~/lib/client/threads/instruction-context";
-import type { ThreadSnapshot } from "~/lib/client/threads/types";
+} from "~/lib/contracts/threads/instruction-context";
+import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
 
 export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
   return value.map((message) => ({
@@ -36,21 +39,23 @@ export function cloneMcpServers(value: McpServerConfig[]): McpServerConfig[] {
   );
 }
 
-export function cloneThreadOperationLogs(value: ThreadOperationLogEntry[]): ThreadOperationLogEntry[] {
+export function cloneThreadOperationLogs(
+  value: ThreadOperationLogEntry[],
+): ThreadOperationLogEntry[] {
   return value.map((entry) => ({
     ...entry,
   }));
 }
 
-export function cloneThreadSkillActivations(value: ThreadSkillActivation[]): ThreadSkillActivation[] {
+export function cloneThreadSkillActivations(
+  value: ThreadSkillActivation[],
+): ThreadSkillActivation[] {
   return value.map((entry) => ({
     ...entry,
   }));
 }
 
-export function cloneThreadEnvironment(value: ThreadEnvironment): ThreadEnvironment {
-  return { ...value };
-}
+export { cloneThreadEnvironment };
 
 export function cloneThreadInstructionContexts(
   value: ThreadSnapshot["instructionContextToggles"],

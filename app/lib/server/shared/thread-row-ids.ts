@@ -1,12 +1,11 @@
-/**
- * Client runtime support module.
- */
-import { THREAD_MCP_SERVER_ROW_ID_PATTERN, THREAD_OPERATION_LOG_ROW_ID_PATTERN } from "~/lib/constants/persistence";
+import {
+  THREAD_MCP_SERVER_ROW_ID_PATTERN,
+  THREAD_OPERATION_LOG_ROW_ID_PATTERN,
+} from "~/lib/constants/persistence";
 
 export function normalizeThreadMcpServerSourceId(sourceId: string, index: number): string {
   let normalized = sourceId.trim();
 
-  // Unwrap persisted row-id prefixes to keep source ids stable across load/save cycles.
   while (normalized.length > 0) {
     const match = normalized.match(THREAD_MCP_SERVER_ROW_ID_PATTERN);
     if (!match?.[1]) {
@@ -22,7 +21,11 @@ export function normalizeThreadMcpServerSourceId(sourceId: string, index: number
   return normalized;
 }
 
-export function buildThreadMcpServerRowId(threadId: string, sourceId: string, index: number): string {
+export function buildThreadMcpServerRowId(
+  threadId: string,
+  sourceId: string,
+  index: number,
+): string {
   const normalizedThreadId = threadId.trim();
   const normalizedSourceId = normalizeThreadMcpServerSourceId(sourceId, index);
   return `thread:${normalizedThreadId}:mcp:${index}:${normalizedSourceId}`;
@@ -31,7 +34,6 @@ export function buildThreadMcpServerRowId(threadId: string, sourceId: string, in
 export function normalizeThreadOperationLogSourceRpcId(sourceId: string, index: number): string {
   let normalized = sourceId.trim();
 
-  // Unwrap persisted row-id prefixes to keep source ids stable across load/save cycles.
   while (normalized.length > 0) {
     const match = normalized.match(THREAD_OPERATION_LOG_ROW_ID_PATTERN);
     if (!match?.[1]) {
@@ -47,7 +49,11 @@ export function normalizeThreadOperationLogSourceRpcId(sourceId: string, index: 
   return normalized;
 }
 
-export function buildThreadOperationLogRowId(threadId: string, sourceId: string, index: number): string {
+export function buildThreadOperationLogRowId(
+  threadId: string,
+  sourceId: string,
+  index: number,
+): string {
   const normalizedThreadId = threadId.trim();
   const normalizedSourceId = normalizeThreadOperationLogSourceRpcId(sourceId, index);
   return `thread:${normalizedThreadId}:rpc:${index}:${normalizedSourceId}`;

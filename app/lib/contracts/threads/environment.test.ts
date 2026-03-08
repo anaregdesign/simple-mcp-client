@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseThreadEnvironmentFromUnknown,
   readThreadEnvironmentFromUnknown,
-} from "~/lib/client/threads/environment";
+} from "~/lib/contracts/threads/environment";
 
 describe("parseThreadEnvironmentFromUnknown", () => {
   it("parses valid environment maps", () => {
