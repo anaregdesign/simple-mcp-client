@@ -98,6 +98,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
+    await ensureDefaultMcpServersForUser(user.id);
     const profiles = await readWorkspaceMcpServerProfiles(user.id);
     return Response.json({ profiles });
   } catch (error) {
