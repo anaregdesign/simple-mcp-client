@@ -15,18 +15,7 @@ import {
   CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
   CHAT_MAX_MCP_SERVERS,
   DEFAULT_AGENT_INSTRUCTION,
-  ENV_KEY_PATTERN,
   HOME_REASONING_EFFORT_OPTIONS,
-  MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-  MCP_HTTP_HEADERS_MAX,
-  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
-  MCP_SERVER_NAME_MAX_LENGTH,
-  MCP_STDIO_ARGS_MAX,
-  MCP_STDIO_ENV_VARS_MAX,
-  MCP_TIMEOUT_SECONDS_MAX,
-  MCP_TIMEOUT_SECONDS_MIN,
   TEMPERATURE_MAX,
   TEMPERATURE_MIN,
 } from "~/lib/constants";
@@ -40,13 +29,8 @@ import {
   readThreadInstructionContextTogglesFromUnknown,
   type ThreadInstructionContextToggles,
 } from "~/lib/home/thread/instruction-context";
+import { parseChatMcpServerEntry } from "~/lib/mcp/server-config-parser";
 import { buildMcpServerConfigKey } from "~/lib/mcp/config-key";
-import {
-  isMcpHeaderCountWithinLimit,
-  normalizeAndValidateMcpAzureAuthScope,
-  validateMcpHeaderKey,
-  validateMcpTimeoutSeconds,
-} from "~/lib/mcp/validation";
 
 export type ThreadMessageRole = "user" | "assistant";
 
@@ -62,8 +46,6 @@ export type ClientMessage = {
   content: string;
   attachments: ClientAttachment[];
 };
-
-type McpTransport = "streamable_http" | "sse" | "stdio";
 
 type ClientMcpHttpServerConfig = {
   name: string;
@@ -143,10 +125,6 @@ export type ChatRequestValidationError = {
 export type ChatRequestParseResult =
   | { ok: true; value: ParsedChatRequest }
   | { ok: false; error: ChatRequestValidationError };
-
-const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
-  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
-);
 
 const MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES = ["gpt-5.4"] as const;
 
@@ -969,129 +947,18 @@ export function readMcpServers(
   const dedupeKeys = new Set<string>();
 
   for (const [index, entry] of value.entries()) {
-    if (!isRecord(entry)) {
-      return { ok: false, error: `mcpServers[${index}] is invalid.` };
+    const parsedConfigResult = parseChatMcpServerEntry(entry, {
+      index,
+      requestUrl: options.requestUrl,
+    });
+    if (!parsedConfigResult.ok) {
+      return parsedConfigResult;
     }
-
-    const rawName = typeof entry.name === "string" ? entry.name.trim() : "";
-
-    const rawTransport = entry.transport;
-    let transport: McpTransport;
-    if (rawTransport === "sse") {
-      transport = "sse";
-    } else if (rawTransport === "stdio") {
-      transport = "stdio";
-    } else if (
-      rawTransport === "streamable_http" ||
-      rawTransport === undefined ||
-      rawTransport === null
-    ) {
-      transport = "streamable_http";
-    } else {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].transport must be \"streamable_http\", \"sse\", or \"stdio\".`,
-      };
-    }
-
-    if (transport === "stdio") {
-      const command = typeof entry.command === "string" ? entry.command.trim() : "";
-      if (!command) {
-        return { ok: false, error: `mcpServers[${index}].command is required for stdio.` };
-      }
-
-      if (/\s/.test(command)) {
-        return { ok: false, error: `mcpServers[${index}].command must not include spaces.` };
-      }
-
-      const argsResult = parseStdioArgs(entry.args, index);
-      if (!argsResult.ok) {
-        return argsResult;
-      }
-
-      const envResult = parseStdioEnv(entry.env, index);
-      if (!envResult.ok) {
-        return envResult;
-      }
-
-      const cwd = typeof entry.cwd === "string" ? entry.cwd.trim() : "";
-      const name = (rawName || command).slice(0, MCP_SERVER_NAME_MAX_LENGTH);
-      if (!name) {
-        return { ok: false, error: `mcpServers[${index}].name is required.` };
-      }
-
-      if (
-        isLegacyUnavailableDefaultStdioNpxServer({
-          command,
-          args: argsResult.value,
-          cwd: cwd || undefined,
-          env: envResult.value,
-        })
-      ) {
-        continue;
-      }
-
-      const config: ClientMcpStdioServerConfig = {
-        name,
-        transport,
-        command,
-        args: argsResult.value,
-        cwd: cwd || undefined,
-        env: envResult.value,
-      };
-      const dedupeKey = buildMcpServerConfigKey(config);
-      if (dedupeKeys.has(dedupeKey)) {
-        continue;
-      }
-
-      dedupeKeys.add(dedupeKey);
-      result.push(config);
+    if (!parsedConfigResult.value) {
       continue;
     }
 
-    const rawUrl = typeof entry.url === "string" ? entry.url.trim() : "";
-    if (!rawUrl) {
-      return { ok: false, error: `mcpServers[${index}].url is required.` };
-    }
-
-    const parsedHttpUrlResult = parseMcpHttpUrlForChat(rawUrl, index, options.requestUrl);
-    if (!parsedHttpUrlResult.ok) {
-      return parsedHttpUrlResult;
-    }
-
-    const name = (rawName || parsedHttpUrlResult.value.nameFallback).slice(
-      0,
-      MCP_SERVER_NAME_MAX_LENGTH,
-    );
-    if (!name) {
-      return { ok: false, error: `mcpServers[${index}].name is required.` };
-    }
-
-    const headersResult = parseHttpHeaders(entry.headers, index);
-    if (!headersResult.ok) {
-      return headersResult;
-    }
-
-    const useAzureAuth = entry.useAzureAuth === true;
-    const scopeResult = parseAzureAuthScope(entry.azureAuthScope, index, useAzureAuth);
-    if (!scopeResult.ok) {
-      return scopeResult;
-    }
-
-    const timeoutResult = parseTimeoutSeconds(entry.timeoutSeconds, index);
-    if (!timeoutResult.ok) {
-      return timeoutResult;
-    }
-
-    const config: ClientMcpHttpServerConfig = {
-      name,
-      transport,
-      url: parsedHttpUrlResult.value.url,
-      headers: headersResult.value,
-      useAzureAuth,
-      azureAuthScope: scopeResult.value,
-      timeoutSeconds: timeoutResult.value,
-    };
+    const config = parsedConfigResult.value;
 
     const dedupeKey = buildMcpServerConfigKey(config);
     if (dedupeKeys.has(dedupeKey)) {
@@ -1103,282 +970,6 @@ export function readMcpServers(
   }
 
   return { ok: true, value: result };
-}
-
-function parseMcpHttpUrlForChat(
-  rawUrl: string,
-  index: number,
-  requestUrl?: string,
-): ParseResult<{ url: string; nameFallback: string }> {
-  const requestOrigin = readRequestOrigin(requestUrl);
-  if (rawUrl.startsWith("/") && !rawUrl.startsWith("//")) {
-    if (!requestOrigin) {
-      return { ok: false, error: `mcpServers[${index}].url is invalid.` };
-    }
-
-    let resolvedUrl: URL;
-    try {
-      resolvedUrl = new URL(rawUrl, requestOrigin);
-    } catch {
-      return { ok: false, error: `mcpServers[${index}].url is invalid.` };
-    }
-
-    if (resolvedUrl.protocol !== "http:" && resolvedUrl.protocol !== "https:") {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].url must start with http://, https://, or /.`,
-      };
-    }
-
-    const pathSegments = resolvedUrl.pathname
-      .split("/")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-    const nameFallback = pathSegments[pathSegments.length - 1] ?? resolvedUrl.hostname;
-    return {
-      ok: true,
-      value: {
-        url: resolvedUrl.toString(),
-        nameFallback,
-      },
-    };
-  }
-
-  let parsedAbsoluteUrl: URL;
-  try {
-    parsedAbsoluteUrl = new URL(rawUrl);
-  } catch {
-    return { ok: false, error: `mcpServers[${index}].url is invalid.` };
-  }
-
-  if (parsedAbsoluteUrl.protocol !== "http:" && parsedAbsoluteUrl.protocol !== "https:") {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].url must start with http://, https://, or /.`,
-    };
-  }
-
-  return {
-    ok: true,
-    value: {
-      url: parsedAbsoluteUrl.toString(),
-      nameFallback: parsedAbsoluteUrl.hostname,
-    },
-  };
-}
-
-function readRequestOrigin(requestUrl?: string): string | null {
-  if (typeof requestUrl !== "string") {
-    return null;
-  }
-
-  const trimmed = requestUrl.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  try {
-    return new URL(trimmed).origin;
-  } catch {
-    return null;
-  }
-}
-
-function isLegacyUnavailableDefaultStdioNpxServer(config: {
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-}): boolean {
-  return (
-    config.command === "npx" &&
-    config.args.length === 2 &&
-    config.args[0] === "-y" &&
-    legacyUnavailableDefaultStdioNpxPackageNameSet.has(config.args[1]) &&
-    !config.cwd &&
-    Object.keys(config.env).length === 0
-  );
-}
-
-function parseStdioArgs(argsValue: unknown, index: number): ParseResult<string[]> {
-  if (argsValue === undefined || argsValue === null) {
-    return { ok: true, value: [] };
-  }
-
-  if (!Array.isArray(argsValue)) {
-    return { ok: false, error: `mcpServers[${index}].args must be an array of strings.` };
-  }
-
-  if (argsValue.length > MCP_STDIO_ARGS_MAX) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].args can include up to ${MCP_STDIO_ARGS_MAX} entries.`,
-    };
-  }
-
-  const args: string[] = [];
-  for (const [argIndex, arg] of argsValue.entries()) {
-    if (typeof arg !== "string") {
-      return { ok: false, error: `mcpServers[${index}].args[${argIndex}] must be a string.` };
-    }
-
-    const trimmed = arg.trim();
-    if (!trimmed) {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].args[${argIndex}] must not be empty.`,
-      };
-    }
-
-    args.push(trimmed);
-  }
-
-  return { ok: true, value: args };
-}
-
-function parseStdioEnv(
-  envValue: unknown,
-  index: number,
-): ParseResult<Record<string, string>> {
-  if (envValue === undefined || envValue === null) {
-    return { ok: true, value: {} };
-  }
-
-  if (!isRecord(envValue)) {
-    return { ok: false, error: `mcpServers[${index}].env must be an object.` };
-  }
-
-  const entries = Object.entries(envValue);
-  if (entries.length > MCP_STDIO_ENV_VARS_MAX) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].env can include up to ${MCP_STDIO_ENV_VARS_MAX} entries.`,
-    };
-  }
-
-  const env: Record<string, string> = {};
-  for (const [key, value] of entries) {
-    if (!ENV_KEY_PATTERN.test(key)) {
-      return { ok: false, error: `mcpServers[${index}].env key \"${key}\" is invalid.` };
-    }
-
-    if (typeof value !== "string") {
-      return { ok: false, error: `mcpServers[${index}].env[\"${key}\"] must be a string.` };
-    }
-
-    env[key] = value;
-  }
-
-  return { ok: true, value: env };
-}
-
-function parseHttpHeaders(
-  headersValue: unknown,
-  index: number,
-): ParseResult<Record<string, string>> {
-  if (headersValue === undefined || headersValue === null) {
-    return { ok: true, value: {} };
-  }
-
-  if (!isRecord(headersValue)) {
-    return { ok: false, error: `mcpServers[${index}].headers must be an object.` };
-  }
-
-  const entries = Object.entries(headersValue);
-  if (!isMcpHeaderCountWithinLimit(entries.length)) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].headers can include up to ${MCP_HTTP_HEADERS_MAX} entries.`,
-    };
-  }
-
-  const headers: Record<string, string> = {};
-  for (const [key, value] of entries) {
-    const headerKeyValidation = validateMcpHeaderKey(key);
-    if (!headerKeyValidation.ok && headerKeyValidation.reason === "invalid_key") {
-      return { ok: false, error: `mcpServers[${index}].headers key \"${key}\" is invalid.` };
-    }
-
-    if (!headerKeyValidation.ok && headerKeyValidation.reason === "reserved_content_type") {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].headers cannot include \"Content-Type\". It is fixed to \"application/json\".`,
-      };
-    }
-
-    if (typeof value !== "string") {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].headers[\"${key}\"] must be a string.`,
-      };
-    }
-
-    headers[key] = value;
-  }
-
-  return { ok: true, value: headers };
-}
-
-function parseAzureAuthScope(
-  rawScope: unknown,
-  index: number,
-  useAzureAuth: boolean,
-): ParseResult<string> {
-  if (rawScope === undefined || rawScope === null) {
-    return { ok: true, value: MCP_DEFAULT_AZURE_AUTH_SCOPE };
-  }
-
-  if (typeof rawScope !== "string") {
-    return { ok: false, error: `mcpServers[${index}].azureAuthScope must be a string.` };
-  }
-
-  const scopeValidation = normalizeAndValidateMcpAzureAuthScope(rawScope);
-  if (!scopeValidation.ok) {
-    if (scopeValidation.reason === "too_long") {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].azureAuthScope must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
-      };
-    }
-
-    return {
-      ok: false,
-      error: `mcpServers[${index}].azureAuthScope must not include spaces.`,
-    };
-  }
-
-  if (useAzureAuth && !scopeValidation.value) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].azureAuthScope is required when useAzureAuth is true.`,
-    };
-  }
-
-  return { ok: true, value: scopeValidation.value };
-}
-
-function parseTimeoutSeconds(rawTimeout: unknown, index: number): ParseResult<number> {
-  if (rawTimeout === undefined || rawTimeout === null) {
-    return { ok: true, value: MCP_DEFAULT_TIMEOUT_SECONDS };
-  }
-
-  if (typeof rawTimeout !== "number") {
-    return { ok: false, error: `mcpServers[${index}].timeoutSeconds must be an integer.` };
-  }
-
-  const timeoutValidation = validateMcpTimeoutSeconds(rawTimeout);
-  if (!timeoutValidation.ok) {
-    if (timeoutValidation.reason === "not_integer") {
-      return { ok: false, error: `mcpServers[${index}].timeoutSeconds must be an integer.` };
-    }
-
-    return {
-      ok: false,
-      error: `mcpServers[${index}].timeoutSeconds must be between ${MCP_TIMEOUT_SECONDS_MIN} and ${MCP_TIMEOUT_SECONDS_MAX}.`,
-    };
-  }
-
-  return { ok: true, value: timeoutValidation.value };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
