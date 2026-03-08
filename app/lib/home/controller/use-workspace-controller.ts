@@ -2874,20 +2874,22 @@ export function useWorkspaceController() {
         }
       }
 
-      const response = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
-        method: "DELETE",
-      });
-
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        if (authRequired) {
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: `/api/threads/${encodeURIComponent(threadId)}`,
+        init: {
+          method: "DELETE",
+        },
+        readPayload: (response) => readJsonPayload<ThreadsApiResponse>(response, "Threads"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to delete thread.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to continue.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
-          throw new Error("Azure login is required. Open Settings and sign in to continue.");
-        }
-
-        throw new Error(payload.error || "Failed to delete thread.");
-      }
+        },
+      });
 
       const deletedThread = readThreadSnapshotFromUnknown(payload.thread, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
@@ -2909,6 +2911,10 @@ export function useWorkspaceController() {
         },
       });
     } catch (deleteError) {
+      if (deleteError instanceof HomeApiError && deleteError.kind === "auth_required") {
+        setThreadError(deleteError.message);
+        return;
+      }
       logHomeError("delete_thread_failed", deleteError, {
         action: "delete_thread",
         statusCode: 500,
@@ -2916,7 +2922,7 @@ export function useWorkspaceController() {
           threadId,
         },
       });
-      setThreadError(deleteError instanceof Error ? deleteError.message : "Failed to delete thread.");
+      setThreadError(mapApiError(deleteError, "Failed to delete thread."));
     } finally {
       endThreadOperation("deleting");
     }
@@ -2954,26 +2960,28 @@ export function useWorkspaceController() {
         }
       }
 
-      const response = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: `/api/threads/${encodeURIComponent(threadId)}`,
+        init: {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            archived: false,
+          }),
         },
-        body: JSON.stringify({
-          archived: false,
-        }),
-      });
-
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = resolveAuthRequired(response.status, payload);
-        if (authRequired) {
+        readPayload: (response) => readJsonPayload<ThreadsApiResponse>(response, "Threads"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to restore thread.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to continue.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
-          throw new Error("Azure login is required. Open Settings and sign in to continue.");
-        }
-
-        throw new Error(payload.error || "Failed to restore thread.");
-      }
+        },
+      });
 
       const restoredThread = readThreadSnapshotFromUnknown(payload.thread, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
@@ -2992,6 +3000,10 @@ export function useWorkspaceController() {
         },
       });
     } catch (restoreError) {
+      if (restoreError instanceof HomeApiError && restoreError.kind === "auth_required") {
+        setThreadError(restoreError.message);
+        return;
+      }
       logHomeError("restore_thread_failed", restoreError, {
         action: "restore_thread",
         statusCode: 500,
@@ -2999,7 +3011,7 @@ export function useWorkspaceController() {
           threadId,
         },
       });
-      setThreadError(restoreError instanceof Error ? restoreError.message : "Failed to restore thread.");
+      setThreadError(mapApiError(restoreError, "Failed to restore thread."));
     } finally {
       endThreadOperation("restoring");
     }

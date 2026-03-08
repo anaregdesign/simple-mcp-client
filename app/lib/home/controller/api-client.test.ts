@@ -110,6 +110,39 @@ describe("requestHomeApi", () => {
     } satisfies Partial<HomeApiError>);
   });
 
+  it("uses custom auth-required message", async () => {
+    await expect(
+      requestHomeApi({
+        url: "/api/test",
+        readPayload: async () => ({ authRequired: true }),
+        resolveAuthRequired: (status, payload) => resolveAuthRequired(status, payload),
+        readErrorMessage: () => null,
+        fallbackErrorMessage: "fallback",
+        authRequiredMessage: "Please sign in.",
+        fetchImpl: async () => new Response(JSON.stringify({ authRequired: true }), { status: 401 }),
+      }),
+    ).rejects.toMatchObject({
+      kind: "auth_required",
+      message: "Please sign in.",
+    } satisfies Partial<HomeApiError>);
+  });
+
+  it("prefers payload error messages for http errors", async () => {
+    await expect(
+      requestHomeApi({
+        url: "/api/test",
+        readPayload: async () => ({ error: "payload error" }),
+        resolveAuthRequired: () => false,
+        readErrorMessage: (payload) => payload.error,
+        fallbackErrorMessage: "fallback",
+        fetchImpl: async () => new Response("{}", { status: 500 }),
+      }),
+    ).rejects.toMatchObject({
+      kind: "http_error",
+      message: "payload error",
+    } satisfies Partial<HomeApiError>);
+  });
+
   it("returns response and payload for success", async () => {
     const result = await requestHomeApi({
       url: "/api/test",
