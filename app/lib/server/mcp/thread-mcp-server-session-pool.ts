@@ -23,6 +23,7 @@ type AcquireThreadMcpServerSessionOptions<RefreshState> = {
   sessionKey: string;
   refreshState: RefreshState;
   idleTtlMs?: number;
+  waitForAvailableMs?: number;
   createSession: (refreshState: RefreshState) => Promise<ThreadMcpServerSession<RefreshState>>;
 };
 
@@ -34,11 +35,13 @@ type ThreadMcpServerSessionEntry = {
 };
 
 const threadMcpServerSessionEntryByKey = new Map<string, ThreadMcpServerSessionEntry>();
+const THREAD_MCP_SERVER_SESSION_DEFAULT_WAIT_FOR_AVAILABLE_MS = 100;
 
 export async function acquireThreadMcpServerSession<RefreshState>(
   options: AcquireThreadMcpServerSessionOptions<RefreshState>,
 ): Promise<ThreadMcpServerSessionLease> {
   const idleTtlMs = normalizeIdleTtlMs(options.idleTtlMs);
+  const waitForAvailableMs = normalizeWaitForAvailableMs(options.waitForAvailableMs);
   if (!options.threadId) {
     const session = await createAndConnectThreadMcpServerSession(
       options.createSession,
@@ -61,6 +64,16 @@ export async function acquireThreadMcpServerSession<RefreshState>(
   }
 
   if (existingEntry.inUse || !existingEntry.session) {
+    const reusedFromWait = await waitForExistingPooledThreadMcpServerSession(
+      existingEntry,
+      options.refreshState,
+      idleTtlMs,
+      waitForAvailableMs,
+    );
+    if (reusedFromWait) {
+      return reusedFromWait;
+    }
+
     const session = await createAndConnectThreadMcpServerSession(
       options.createSession,
       options.refreshState,
@@ -87,6 +100,14 @@ export async function closeAllThreadMcpServerSessions(): Promise<void> {
 function normalizeIdleTtlMs(value: number | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS;
+  }
+
+  return value;
+}
+
+function normalizeWaitForAvailableMs(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return THREAD_MCP_SERVER_SESSION_DEFAULT_WAIT_FOR_AVAILABLE_MS;
   }
 
   return value;
@@ -132,6 +153,37 @@ async function acquireExistingPooledThreadMcpServerSession<RefreshState>(
   }
 
   return createPooledThreadMcpServerSessionLease(entry, "reused", idleTtlMs);
+}
+
+async function waitForExistingPooledThreadMcpServerSession<RefreshState>(
+  entry: ThreadMcpServerSessionEntry,
+  refreshState: RefreshState,
+  idleTtlMs: number,
+  waitForAvailableMs: number,
+): Promise<ThreadMcpServerSessionLease | null> {
+  if (waitForAvailableMs <= 0) {
+    return null;
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= waitForAvailableMs) {
+    const current = threadMcpServerSessionEntryByKey.get(entry.key);
+    if (!current || current !== entry || !current.session) {
+      return null;
+    }
+
+    if (!current.inUse) {
+      return await acquireExistingPooledThreadMcpServerSession(
+        current,
+        refreshState,
+        idleTtlMs,
+      );
+    }
+
+    await sleep(10);
+  }
+
+  return null;
 }
 
 async function createAndConnectThreadMcpServerSession<RefreshState>(
@@ -252,6 +304,12 @@ function hasUnrefTimer(timer: unknown): timer is { unref: () => void } {
 
   const timerWithUnref = timer as { unref?: unknown };
   return typeof timerWithUnref.unref === "function";
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 }
 
 export const threadMcpServerSessionPoolTestUtils = {

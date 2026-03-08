@@ -132,6 +132,7 @@ describe("acquireThreadMcpServerSession", () => {
       refreshState: { turnId: "turn-2" },
       createSession,
       idleTtlMs: 10_000,
+      waitForAvailableMs: 0,
     });
     expect(secondLease.status).toBe("connected");
     expect(secondLease.isEphemeral).toBe(true);
@@ -142,6 +143,49 @@ describe("acquireThreadMcpServerSession", () => {
     expect(createCalls).toBe(2);
     expect(counters.connectCalls).toBe(2);
     expect(counters.closeCalls).toBe(1);
+  });
+
+  it("waits briefly for pooled session reuse before falling back", async () => {
+    const counters: MockServerCounters = { connectCalls: 0, closeCalls: 0 };
+    let createCalls = 0;
+    const createSession = async (): Promise<ThreadMcpServerSession<RefreshState>> => {
+      createCalls += 1;
+      return {
+        server: createMockServer(counters),
+        refreshBeforeUse: async () => {},
+      };
+    };
+
+    const firstLease = await acquireThreadMcpServerSession({
+      threadId: "thread-5",
+      sessionKey: "shared",
+      refreshState: { turnId: "turn-1" },
+      createSession,
+      idleTtlMs: 10_000,
+    });
+    expect(firstLease.status).toBe("connected");
+    expect(firstLease.isEphemeral).toBe(false);
+
+    const secondLeasePromise = acquireThreadMcpServerSession({
+      threadId: "thread-5",
+      sessionKey: "shared",
+      refreshState: { turnId: "turn-2" },
+      createSession,
+      idleTtlMs: 10_000,
+      waitForAvailableMs: 200,
+    });
+
+    await waitFor(40);
+    await firstLease.release();
+
+    const secondLease = await secondLeasePromise;
+    expect(secondLease.status).toBe("reused");
+    expect(secondLease.isEphemeral).toBe(false);
+    await secondLease.release();
+
+    expect(createCalls).toBe(1);
+    expect(counters.connectCalls).toBe(1);
+    expect(counters.closeCalls).toBe(0);
   });
 
   it("does not cache failed sessions and retries with a fresh connection", async () => {
