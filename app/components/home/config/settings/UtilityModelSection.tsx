@@ -4,7 +4,10 @@
 import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
 import { StatusMessageList } from "~/components/home/shared/StatusMessageList";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+import type {
+  AzureConnectionOptionView,
+  ReasoningEffort,
+} from "~/lib/home/shared/view-types";
 import {
   HOME_REASONING_EFFORT_OPTIONS,
   HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
@@ -13,17 +16,12 @@ import {
 
 const { Select, Spinner } = FluentUI;
 
-type AzureConnectionLike = {
-  id: string;
-  projectName: string;
-};
-
 type UtilityModelSectionProps = {
   isAzureAuthRequired: boolean;
   isSending: boolean;
   isLoadingAzureConnections: boolean;
   isLoadingUtilityAzureDeployments: boolean;
-  azureConnections: AzureConnectionLike[];
+  azureConnections: AzureConnectionOptionView[];
   selectedUtilityAzureConnectionId: string;
   selectedUtilityAzureDeploymentName: string;
   utilityAzureDeployments: string[];

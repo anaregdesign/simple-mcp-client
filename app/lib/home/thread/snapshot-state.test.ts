@@ -7,6 +7,9 @@ import {
   hasThreadInteraction,
   isThreadArchivedById,
   isThreadSnapshotArchived,
+  readThreadRuntimeStateById,
+  readThreadSnapshotById,
+  updateThreadSnapshotCollectionById,
 } from "~/lib/home/thread/snapshot-state";
 
 describe("hasThreadInteraction", () => {
@@ -143,5 +146,118 @@ describe("isThreadArchivedById", () => {
 
   it("returns true for archived thread ids", () => {
     expect(isThreadArchivedById(snapshots, "thread-archived")).toBe(true);
+  });
+});
+
+describe("readThreadSnapshotById", () => {
+  const snapshots = [
+    {
+      id: "thread-a",
+      name: "A",
+      createdAt: "2026-03-08T00:00:00.000Z",
+      updatedAt: "2026-03-08T00:00:00.000Z",
+      deletedAt: null,
+      reasoningEffort: "none" as const,
+      webSearchEnabled: false,
+      agentInstruction: "",
+      instructionContextToggles: { system: true },
+      threadEnvironment: {},
+      messages: [],
+      mcpServers: [],
+      mcpRpcLogs: [],
+      skillSelections: [],
+    },
+  ];
+
+  it("returns null for empty ids", () => {
+    expect(readThreadSnapshotById(snapshots, "")).toBeNull();
+  });
+
+  it("returns the matching snapshot by id", () => {
+    expect(readThreadSnapshotById(snapshots, "thread-a")?.id).toBe("thread-a");
+  });
+});
+
+describe("readThreadRuntimeStateById", () => {
+  const snapshots = [
+    {
+      id: "thread-runtime",
+      name: "Runtime",
+      createdAt: "2026-03-08T00:00:00.000Z",
+      updatedAt: "2026-03-08T00:00:00.000Z",
+      deletedAt: null,
+      reasoningEffort: "none" as const,
+      webSearchEnabled: false,
+      agentInstruction: "",
+      instructionContextToggles: { system: true },
+      threadEnvironment: {},
+      messages: [
+        {
+          id: "message-1",
+          role: "user" as const,
+          content: "hello",
+          createdAt: "2026-03-08T00:00:00.000Z",
+          turnId: "turn-1",
+          attachments: [],
+          skillActivations: [],
+        },
+      ],
+      mcpServers: [],
+      mcpRpcLogs: [],
+      skillSelections: [],
+    },
+  ];
+
+  it("returns empty runtime state when active thread is missing", () => {
+    expect(readThreadRuntimeStateById(snapshots, "missing")).toEqual({
+      activeThreadSnapshot: null,
+      messages: [],
+      mcpServers: [],
+      mcpRpcLogs: [],
+      skillSelections: [],
+    });
+  });
+
+  it("returns cloned runtime state for matching thread", () => {
+    const state = readThreadRuntimeStateById(snapshots, "thread-runtime");
+    expect(state.activeThreadSnapshot?.id).toBe("thread-runtime");
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages).not.toBe(snapshots[0]?.messages);
+  });
+});
+
+describe("updateThreadSnapshotCollectionById", () => {
+  const baseSnapshots = [
+    {
+      id: "thread-1",
+      name: "Before",
+      createdAt: "2026-03-08T00:00:00.000Z",
+      updatedAt: "2026-03-08T00:00:00.000Z",
+      deletedAt: null,
+      reasoningEffort: "none" as const,
+      webSearchEnabled: false,
+      agentInstruction: "",
+      instructionContextToggles: { system: true },
+      threadEnvironment: {},
+      messages: [],
+      mcpServers: [],
+      mcpRpcLogs: [],
+      skillSelections: [],
+    },
+  ];
+
+  it("returns the original collection when thread id is missing", () => {
+    const next = updateThreadSnapshotCollectionById(baseSnapshots, "missing", (current) => current);
+    expect(next).toBe(baseSnapshots);
+  });
+
+  it("updates the target snapshot and keeps array sorted by updatedAt", () => {
+    const next = updateThreadSnapshotCollectionById(baseSnapshots, "thread-1", (current) => ({
+      ...current,
+      name: "After",
+      updatedAt: "2026-03-08T00:00:01.000Z",
+    }));
+    expect(next).toHaveLength(1);
+    expect(next[0]?.name).toBe("After");
   });
 });

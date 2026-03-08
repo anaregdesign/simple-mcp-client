@@ -138,6 +138,8 @@ import {
   hasThreadPersistableState,
   isThreadArchivedById,
   isThreadSnapshotArchived,
+  readThreadRuntimeStateById,
+  updateThreadSnapshotCollectionById,
   upsertThreadSnapshot,
 } from "~/lib/home/thread/snapshot-state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/home/thread/environment";
@@ -173,6 +175,46 @@ import {
   readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
 } from "~/lib/home/controller/desktop-updater";
+import {
+  buildAzureProjectsLoadResult,
+  isAzureProjectsLoadReady,
+  resolveAzureAuthRequiredState,
+  resolveAzureTenantOptions,
+  resolveInitialAzureProjectId,
+  shouldUseCachedAzureProjectCatalog,
+  type AzureProjectsLoadResult,
+} from "~/lib/home/controller/azure-runtime";
+import { serializeMcpServersForChatRequest } from "~/lib/home/controller/mcp-runtime";
+import { deriveInstructionRuntimeUiState } from "~/lib/home/controller/instruction-runtime";
+import {
+  canTransition,
+  canStartThreadOperation,
+  transitionThreadOperation,
+  type ThreadOperationPhase,
+} from "~/lib/home/controller/thread-operation-phase";
+import {
+  canSendMessageByGuard,
+  isThreadPhaseBlockingSend,
+  selectThreadOperationPhaseFlags,
+  shouldBlockThreadPersistence,
+} from "~/lib/home/controller/thread-guards";
+import {
+  buildThreadListOptions,
+  findThreadSnapshotById,
+  mergeSkillSelections,
+} from "~/lib/home/controller/thread-runtime";
+import {
+  applySendResult,
+  buildChatRequestPayload,
+  consumeChatResponseStream,
+  validateSendPreconditions,
+} from "~/lib/home/controller/send-message-usecase";
+import {
+  HomeApiError,
+  mapApiError,
+  requestHomeApi,
+  resolveAuthRequired,
+} from "~/lib/home/controller/api-client";
 import { readJsonPayload } from "~/lib/home/controller/http";
 import {
   type AzureActionApiResponse,
@@ -223,6 +265,8 @@ type LoadAzureDeploymentsOptions = {
   force?: boolean;
 };
 
+type LoadAzureProjectsResult = AzureProjectsLoadResult;
+
 /**
  * Home runtime controller.
  * Owns interactive state for Playground/Threads/MCP/Settings and orchestrates server API calls.
@@ -240,7 +284,6 @@ export function useWorkspaceController() {
   const [activeAzurePrincipal, setActiveAzurePrincipal] = useState<AzurePrincipalProfile | null>(
     null,
   );
-  const [messages, setMessages] = useState<ThreadMessage[]>([...HOME_INITIAL_MESSAGES]);
   const [draft, setDraft] = useState("");
   const [chatComposerCursorIndex, setChatComposerCursorIndex] = useState(0);
   const [chatCommandHighlightedIndex, setChatCommandHighlightedIndex] = useState(0);
@@ -292,7 +335,6 @@ export function useWorkspaceController() {
   const [instructionEnhancingThreadId, setInstructionEnhancingThreadId] = useState("");
   const [instructionEnhanceComparison, setInstructionEnhanceComparison] =
     useState<InstructionEnhanceComparison | null>(null);
-  const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
   const [workspaceMcpServerProfiles, setWorkspaceMcpServerProfiles] = useState<McpServerConfig[]>([]);
   const [mcpNameInput, setMcpNameInput] = useState("");
   const [mcpUrlInput, setMcpUrlInput] = useState("");
@@ -329,20 +371,13 @@ export function useWorkspaceController() {
   const [azureLoginError, setAzureLoginError] = useState<string | null>(null);
   const [azureTenantSwitchError, setAzureTenantSwitchError] = useState<string | null>(null);
   const [azureLogoutError, setAzureLogoutError] = useState<string | null>(null);
-  const [mcpRpcLogs, setThreadOperationLogs] = useState<ThreadOperationLogEntry[]>([]);
   const [threads, setThreads] = useState<ThreadSnapshot[]>([]);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [activeThreadNameInput, setActiveThreadNameInput] = useState("");
-  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
   const [isSavingThread, setIsSavingThread] = useState(false);
-  const [isSwitchingThread, setIsSwitchingThread] = useState(false);
-  const [isCreatingThread, setIsCreatingThread] = useState(false);
-  const [isDeletingThread, setIsDeletingThread] = useState(false);
-  const [isClearingThread, setIsClearingThread] = useState(false);
-  const [isRestoringThread, setIsRestoringThread] = useState(false);
+  const [threadOperationPhase, setThreadOperationPhase] = useState<ThreadOperationPhase>("idle");
   const [threadError, setThreadError] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<SkillCatalogEntry[]>([]);
-  const [selectedThreadSkills, setSelectedThreadSkills] = useState<ThreadSkillActivation[]>([]);
   const [selectedMessageSkillActivations, setSelectedMessageSkillActivations] = useState<ThreadSkillActivation[]>([]);
   const [skillRegistryCatalogs, setSkillRegistryCatalogs] = useState<SkillRegistryCatalog[]>([]);
   const [isMutatingSkillRegistries, setIsMutatingSkillRegistries] = useState(false);
@@ -358,6 +393,14 @@ export function useWorkspaceController() {
   const [isApplyingDesktopUpdate, setIsApplyingDesktopUpdate] = useState(false);
   const [rightPaneWidth, setRightPaneWidth] = useState(420);
   const [activeResizeHandle, setActiveResizeHandle] = useState<"main" | null>(null);
+  const threadOperationPhaseFlags = selectThreadOperationPhaseFlags(threadOperationPhase);
+  const isLoadingThreads = threadOperationPhaseFlags.isLoadingThreads;
+  const isSwitchingThread = threadOperationPhaseFlags.isSwitchingThread;
+  const isCreatingThread = threadOperationPhaseFlags.isCreatingThread;
+  const isDeletingThread = threadOperationPhaseFlags.isDeletingThread;
+  const isClearingThread = threadOperationPhaseFlags.isClearingThread;
+  const isRestoringThread = threadOperationPhaseFlags.isRestoringThread;
+  const isThreadOperationBusy = threadOperationPhaseFlags.isThreadOperationBusy;
 
   // Mutable refs for request sequencing, optimistic state, and debounce timers.
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
@@ -409,12 +452,14 @@ export function useWorkspaceController() {
     azureConnections.find((connection) => connection.id === selectedUtilityAzureConnectionId) ??
     azureConnections[0] ??
     null;
-  const canClearAgentInstruction =
-    agentInstruction.length > 0 ||
-    loadedInstructionFileName !== null ||
-    instructionFileError !== null;
-  const canSaveAgentInstructionPrompt = agentInstruction.trim().length > 0;
-  const canEnhanceAgentInstruction = agentInstruction.trim().length > 0;
+  const instructionRuntimeUiState = deriveInstructionRuntimeUiState({
+    agentInstruction,
+    loadedInstructionFileName,
+    instructionFileError,
+  });
+  const canClearAgentInstruction = instructionRuntimeUiState.hasInstructionInteraction;
+  const canSaveAgentInstructionPrompt = instructionRuntimeUiState.canSaveAgentInstructionPrompt;
+  const canEnhanceAgentInstruction = instructionRuntimeUiState.canEnhanceAgentInstruction;
   const playgroundAzureDeploymentNames = playgroundAzureDeployments.map(
     (deployment) => deployment.name,
   );
@@ -473,6 +518,16 @@ export function useWorkspaceController() {
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
   const error = uiError ?? activeThreadRequestState.error;
+  const activeThreadRuntimeState = useMemo(
+    () => readThreadRuntimeStateById(threads, activeThreadId),
+    [activeThreadId, threads],
+  );
+  const activeThreadSnapshot = activeThreadRuntimeState.activeThreadSnapshot;
+  const messages =
+    activeThreadSnapshot !== null ? activeThreadRuntimeState.messages : [...HOME_INITIAL_MESSAGES];
+  const mcpServers = activeThreadRuntimeState.mcpServers;
+  const mcpRpcLogs = activeThreadRuntimeState.mcpRpcLogs;
+  const selectedThreadSkills = activeThreadRuntimeState.skillSelections;
   const threadOperationLogsByTurnId = useMemo(
     () => buildThreadOperationLogsByTurnId(mcpRpcLogs),
     [mcpRpcLogs],
@@ -514,8 +569,6 @@ export function useWorkspaceController() {
   ].join(",");
   const chatAttachmentFormatHint = "Code Interpreter supported files (.pdf, .csv, .xlsx, .docx, .png, ...)";
   const threadSummaries: ThreadSummary[] = threads.map((thread) => buildThreadSummary(thread));
-  const activeThreadSnapshot =
-    threads.find((thread) => thread.id === activeThreadId) ?? null;
   const isActiveThreadArchived = isThreadSnapshotArchived(activeThreadSnapshot);
   const isEnhancingInstructionForActiveThread =
     isEnhancingInstruction &&
@@ -523,6 +576,16 @@ export function useWorkspaceController() {
     instructionEnhancingThreadId === activeThreadId;
   const activeThreadSummaries = threadSummaries.filter((thread) => thread.deletedAt === null);
   const archivedThreadSummaries = threadSummaries.filter((thread) => thread.deletedAt !== null);
+  const activeThreadOptions = buildThreadListOptions({
+    summaries: activeThreadSummaries,
+    threadRequestStateById,
+    renameActiveThreadId: activeThreadId,
+    activeThreadNameInput,
+  });
+  const archivedThreadOptions = buildThreadListOptions({
+    summaries: archivedThreadSummaries,
+    threadRequestStateById,
+  });
   const availableSkillByLocation = useMemo(
     () => new Map(availableSkills.map((skill) => [skill.location, skill] as const)),
     [availableSkills],
@@ -687,23 +750,20 @@ export function useWorkspaceController() {
       skills: [],
     }));
   }, [skillRegistryCatalogs]);
-  const canSendMessage =
-    !isSending &&
-    !isSwitchingThread &&
-    !isDeletingThread &&
-    !isClearingThread &&
-    !isRestoringThread &&
-    !isActiveThreadArchived &&
-    !isLoadingThreads &&
-    !isChatLocked &&
-    !isLoadingAzureConnections &&
-    !isLoadingPlaygroundAzureDeployments &&
-    !!activeThreadId.trim() &&
-    !!activePlaygroundAzureConnection &&
-    !!selectedPlaygroundAzureDeploymentName.trim() &&
-    isSelectedPlaygroundReasoningEffortOptionAvailable &&
-    isPlaygroundReasoningEffortWebSearchCompatible &&
-    draft.trim().length > 0;
+  const canSendMessage = canSendMessageByGuard({
+    threadOperationPhase,
+    isSending,
+    isActiveThreadArchived,
+    isChatLocked,
+    isLoadingAzureConnections,
+    isLoadingPlaygroundAzureDeployments,
+    hasActiveThreadId: activeThreadId.trim().length > 0,
+    hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+    hasSelectedPlaygroundAzureDeploymentName: selectedPlaygroundAzureDeploymentName.trim().length > 0,
+    isSelectedPlaygroundReasoningEffortOptionAvailable,
+    isPlaygroundReasoningEffortWebSearchCompatible,
+    hasDraftContent: draft.trim().length > 0,
+  });
 
   // Observability helpers for Home runtime events.
   function buildRuntimeLogContext(extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -930,8 +990,8 @@ export function useWorkspaceController() {
       }
 
       void (async () => {
-        const stillAuthRequired = await loadAzureProjects();
-        if (!stillAuthRequired) {
+        const loadResult = await loadAzureProjects();
+        if (isAzureProjectsLoadReady(loadResult)) {
           setAzureLoginError(null);
           setUiError(null);
         }
@@ -1198,12 +1258,11 @@ export function useWorkspaceController() {
       return;
     }
     if (
-      isSending ||
-      isSwitchingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread ||
-      isLoadingThreads
+      shouldBlockThreadPersistence({
+        threadOperationPhase,
+        isSending,
+        blockOnCreating: false,
+      })
     ) {
       return;
     }
@@ -1213,7 +1272,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread) {
       return;
     }
@@ -1249,11 +1308,7 @@ export function useWorkspaceController() {
     selectedThreadSkills,
     threads,
     isSending,
-    isSwitchingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
-    isLoadingThreads,
+    threadOperationPhase,
   ]);
 
   useEffect(() => {
@@ -1261,13 +1316,11 @@ export function useWorkspaceController() {
       return;
     }
     if (
-      isSending ||
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
+      shouldBlockThreadPersistence({
+        threadOperationPhase,
+        isSending,
+        blockOnCreating: true,
+      })
     ) {
       return;
     }
@@ -1277,7 +1330,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread) {
       return;
     }
@@ -1305,26 +1358,14 @@ export function useWorkspaceController() {
     activeThreadNameInput,
     threads,
     isSending,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
+    threadOperationPhase,
   ]);
 
   useEffect(() => {
     if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
       return;
     }
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
@@ -1333,7 +1374,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread || !hasThreadInteraction(baseThread)) {
       return;
     }
@@ -1360,26 +1401,14 @@ export function useWorkspaceController() {
     activeThreadId,
     agentInstruction,
     threads,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
+    threadOperationPhase,
   ]);
 
   useEffect(() => {
     if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
       return;
     }
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
     if (isChatLocked || isLoadingUtilityAzureDeployments) {
@@ -1396,7 +1425,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread || !hasThreadInteraction(baseThread)) {
       return;
     }
@@ -1410,12 +1439,7 @@ export function useWorkspaceController() {
     });
   }, [
     isChatLocked,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
+    threadOperationPhase,
     isLoadingUtilityAzureDeployments,
     selectedUtilityAzureConnectionId,
     selectedUtilityAzureDeploymentName,
@@ -1435,31 +1459,32 @@ export function useWorkspaceController() {
     setIsLoadingWorkspaceMcpServerProfiles(true);
 
     try {
-      const response = await fetch("/api/mcp/servers", {
-        method: "GET",
+      const { payload } = await requestHomeApi<McpServersApiResponse>({
+        url: "/api/mcp/servers",
+        init: {
+          method: "GET",
+        },
+        readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload, (rawPayload) =>
+            isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
+          ),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load saved MCP servers.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load MCP servers.",
+        onAuthRequired: () => {
+          setIsAzureAuthRequired(true);
+          clearWorkspaceMcpServerProfilesState(
+            "Azure login is required. Open Settings and sign in to load MCP servers.",
+          );
+        },
       });
-
-      const payload = await readJsonPayload<McpServersApiResponse>(
-        response,
-        "saved MCP servers",
-      );
       if (requestSeq !== workspaceMcpServerProfileRequestSeqRef.current) {
         return;
       }
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
-      }
-
-      if (!response.ok) {
-        const authRequired = isMcpServersAuthRequired(response.status, payload);
-        if (authRequired) {
-          setIsAzureAuthRequired(true);
-          clearWorkspaceMcpServerProfilesState(
-            "Azure login is required. Open Settings and sign in to load MCP servers.",
-          );
-          return;
-        }
-        throw new Error(payload.error || "Failed to load saved MCP servers.");
       }
 
       const parsedServers = readMcpServerList(payload.profiles);
@@ -1473,12 +1498,15 @@ export function useWorkspaceController() {
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
       }
+      if (loadError instanceof HomeApiError && loadError.kind === "auth_required") {
+        return;
+      }
       logHomeError("load_saved_mcp_servers_failed", loadError, {
         action: "load_saved_mcp_servers",
         statusCode: 500,
       });
       setWorkspaceMcpServerProfileError(
-        loadError instanceof Error ? loadError.message : "Failed to load saved MCP servers.",
+        mapApiError(loadError, "Failed to load saved MCP servers."),
       );
     } finally {
       if (
@@ -1508,16 +1536,32 @@ export function useWorkspaceController() {
     setIsLoadingSkills(true);
 
     try {
-      const response = await fetch("/api/skills", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { payload } = await requestHomeApi<SkillsApiResponse>({
+        url: "/api/skills",
+        init: {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            forceRefresh: options.forceRefresh === true,
+          }),
         },
-        body: JSON.stringify({
-          forceRefresh: options.forceRefresh === true,
-        }),
+        readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load Skills.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load Skills.",
+        onAuthRequired: () => {
+          setIsAzureAuthRequired(true);
+          setAvailableSkills([]);
+          setSkillRegistryCatalogs([]);
+          setSkillsError("Azure login is required. Open Settings and sign in to load Skills.");
+          setSkillRegistryError("Azure login is required. Open Settings and sign in to load Skills.");
+        },
       });
-      const payload = await readJsonPayload<SkillsApiResponse>(response, "Skills");
       if (requestSeq !== skillsRequestSeqRef.current) {
         return;
       }
@@ -1525,24 +1569,13 @@ export function useWorkspaceController() {
         return;
       }
 
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
-          setIsAzureAuthRequired(true);
-          setAvailableSkills([]);
-          setSkillRegistryCatalogs([]);
-          setSkillsError(
-            "Azure login is required. Open Settings and sign in to load Skills.",
-          );
-          setSkillRegistryError(
-            "Azure login is required. Open Settings and sign in to load Skills.",
-          );
-          return;
-        }
-        throw new Error(payload.error || "Failed to load Skills.");
-      }
-
-      setIsAzureAuthRequired(false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: false,
+          source: "background_success",
+        }),
+      );
       applySkillsApiPayload(payload);
       setSkillRegistrySuccess(null);
     } catch (loadError) {
@@ -1552,17 +1585,18 @@ export function useWorkspaceController() {
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
       }
+      if (loadError instanceof HomeApiError && loadError.kind === "auth_required") {
+        return;
+      }
 
       logHomeError("load_skills_failed", loadError, {
         action: "load_skills",
       });
       setAvailableSkills([]);
       setSkillRegistryCatalogs([]);
-      setSkillsError(loadError instanceof Error ? loadError.message : "Failed to load Skills.");
+      setSkillsError(mapApiError(loadError, "Failed to load Skills."));
       setSkillRegistryError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Failed to load Skill registries.",
+        mapApiError(loadError, "Failed to load Skill registries."),
       );
     } finally {
       if (requestSeq === skillsRequestSeqRef.current) {
@@ -1598,26 +1632,39 @@ export function useWorkspaceController() {
 
     try {
       const mutationMethod = options.action === "install_registry_skill" ? "PUT" : "DELETE";
-      const response = await fetch(buildSkillRegistrySkillApiPath(options), {
-        method: mutationMethod,
-      });
-      const payload = await readJsonPayload<SkillsApiResponse>(response, "Skills");
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
+      const { payload } = await requestHomeApi<SkillsApiResponse>({
+        url: buildSkillRegistrySkillApiPath(options),
+        init: {
+          method: mutationMethod,
+        },
+        readPayload: (response) => readJsonPayload<SkillsApiResponse>(response, "Skills"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to update Skill registry.",
+        authRequiredMessage:
+          "Azure login is required. Open Settings and sign in to update Skill registries.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
-          throw new Error(
-            "Azure login is required. Open Settings and sign in to update Skill registries.",
-          );
-        }
-        throw new Error(payload.error || "Failed to update Skill registry.");
-      }
+        },
+      });
 
-      setIsAzureAuthRequired(false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: false,
+          source: "background_success",
+        }),
+      );
       applySkillsApiPayload(payload);
       const message = typeof payload.message === "string" ? payload.message.trim() : "";
       setSkillRegistrySuccess(message || null);
     } catch (error) {
+      if (error instanceof HomeApiError && error.kind === "auth_required") {
+        setSkillRegistryError(error.message);
+        return;
+      }
       logHomeError("update_skill_registry_failed", error, {
         action: options.action,
         context: {
@@ -1625,9 +1672,7 @@ export function useWorkspaceController() {
           skillName: options.skillName,
         },
       });
-      setSkillRegistryError(
-        error instanceof Error ? error.message : "Failed to update Skill registry.",
-      );
+      setSkillRegistryError(mapApiError(error, "Failed to update Skill registry."));
     } finally {
       setIsMutatingSkillRegistries(false);
     }
@@ -1785,17 +1830,8 @@ export function useWorkspaceController() {
     setActiveThreadId("");
     setActiveThreadNameInput("");
     setThreadError(nextError);
-    setIsLoadingThreads(false);
-    setIsSwitchingThread(false);
-    setIsCreatingThread(false);
-    setIsDeletingThread(false);
-    setIsClearingThread(false);
-    setIsRestoringThread(false);
+    resetThreadOperationPhase();
     setIsSavingThread(false);
-    setMessages([...HOME_INITIAL_MESSAGES]);
-    setThreadOperationLogs([]);
-    setMcpServers([]);
-    setSelectedThreadSkills([]);
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(HOME_DEFAULT_REASONING_EFFORT);
     setWebSearchEnabled(HOME_DEFAULT_WEB_SEARCH_ENABLED);
@@ -1818,6 +1854,44 @@ export function useWorkspaceController() {
     setSystemNotice(null);
     setThreadRequestStateById({});
     setIsComposing(false);
+  }
+
+  function beginThreadOperation(
+    phase: Exclude<ThreadOperationPhase, "idle">,
+  ): boolean {
+    if (
+      !canTransition(threadOperationPhase, {
+        type: "start",
+        phase,
+      })
+    ) {
+      return false;
+    }
+
+    setThreadOperationPhase((current) =>
+      transitionThreadOperation(current, {
+        type: "start",
+        phase,
+      }).to,
+    );
+    return true;
+  }
+
+  function resetThreadOperationPhase(): void {
+    setThreadOperationPhase((current) =>
+      transitionThreadOperation(current, {
+        type: "reset",
+      }).to,
+    );
+  }
+
+  function endThreadOperation(expectedPhase: Exclude<ThreadOperationPhase, "idle">): void {
+    setThreadOperationPhase((current) =>
+      transitionThreadOperation(current, {
+        type: "complete",
+        phase: expectedPhase,
+      }).to,
+    );
   }
 
   // Thread request-state helpers.
@@ -2028,20 +2102,9 @@ export function useWorkspaceController() {
       return;
     }
 
-    updateThreadsState((current) => {
-      const index = current.findIndex((thread) => thread.id === threadId);
-      if (index < 0) {
-        return current;
-      }
-
-      const base = current[index];
-      const updatedThread = updater(base);
-      const normalizedUpdatedThread = {
-        ...updatedThread,
-        updatedAt: updatedThread.updatedAt || new Date().toISOString(),
-      };
-      return upsertThreadSnapshot(current, normalizedUpdatedThread);
-    });
+    updateThreadsState((current) =>
+      updateThreadSnapshotCollectionById(current, threadId, updater),
+    );
   }
 
   function appendMessageToThreadState(threadId: string, message: ThreadMessage): void {
@@ -2056,10 +2119,6 @@ export function useWorkspaceController() {
       updatedAt: new Date().toISOString(),
       messages: [...thread.messages, clonedMessage],
     }));
-
-    if (activeThreadIdRef.current === threadId) {
-      setMessages((current) => [...current, clonedMessage]);
-    }
   }
 
   function appendThreadOperationLogToThreadState(threadId: string, entry: ThreadOperationLogEntry): void {
@@ -2070,10 +2129,6 @@ export function useWorkspaceController() {
       updatedAt: new Date().toISOString(),
       mcpRpcLogs: upsertThreadOperationLogEntry(thread.mcpRpcLogs, clonedEntry),
     }));
-
-    if (activeThreadIdRef.current === threadId) {
-      setThreadOperationLogs((current) => upsertThreadOperationLogEntry(current, clonedEntry));
-    }
   }
 
   function applyThreadEnvironmentToThreadState(
@@ -2095,18 +2150,9 @@ export function useWorkspaceController() {
   function applyThreadSnapshotToState(thread: ThreadSnapshot) {
     isApplyingThreadStateRef.current = true;
 
-    const clonedMessages = cloneMessages(thread.messages);
-    const clonedMcpServers = cloneMcpServers(thread.mcpServers);
-    const clonedThreadOperationLogs = cloneThreadOperationLogs(thread.mcpRpcLogs);
-    const clonedSkillSelections = cloneThreadSkillActivations(thread.skillSelections);
-
     activeThreadIdRef.current = thread.id;
     setActiveThreadId(thread.id);
     setActiveThreadNameInput(thread.name);
-    setMessages(clonedMessages);
-    setMcpServers(clonedMcpServers);
-    setThreadOperationLogs(clonedThreadOperationLogs);
-    setSelectedThreadSkills(clonedSkillSelections);
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(thread.reasoningEffort);
     setWebSearchEnabled(thread.webSearchEnabled);
@@ -2140,7 +2186,7 @@ export function useWorkspaceController() {
     setThreadRequestStateById({});
     applyThreadSnapshotToState(localThread);
     setThreadError(null);
-    setIsLoadingThreads(true);
+    beginThreadOperation("loading");
   }
 
   // Thread persistence and title-refresh orchestration.
@@ -2175,27 +2221,29 @@ export function useWorkspaceController() {
     }
 
     try {
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: endpoint,
+        init: {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(snapshot),
         },
-        body: JSON.stringify(snapshot),
-      });
-
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
+        readPayload: (response) => readJsonPayload<ThreadsApiResponse>(response, "Threads"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to save thread.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to continue.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
           if (reportError) {
             setThreadError("Azure login is required. Open Settings and sign in to continue.");
           }
-          return false;
-        }
-
-        throw new Error(payload.error || "Failed to save thread.");
-      }
+        },
+      });
 
       const savedThread = readThreadSnapshotFromUnknown(payload.thread, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
@@ -2229,6 +2277,9 @@ export function useWorkspaceController() {
       });
       return true;
     } catch (saveError) {
+      if (saveError instanceof HomeApiError && saveError.kind === "auth_required") {
+        return false;
+      }
       logHomeError("save_thread_snapshot_failed", saveError, {
         action: "save_thread_snapshot",
         statusCode: 500,
@@ -2237,7 +2288,7 @@ export function useWorkspaceController() {
         },
       });
       if (reportError) {
-        setThreadError(saveError instanceof Error ? saveError.message : "Failed to save thread.");
+        setThreadError(mapApiError(saveError, "Failed to save thread."));
       }
       return false;
     } finally {
@@ -2253,7 +2304,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const snapshot = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+    const snapshot = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
     if (!snapshot) {
       return;
     }
@@ -2281,7 +2332,7 @@ export function useWorkspaceController() {
 
     clearThreadNameSaveTimeout();
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
     if (!baseThread) {
       return true;
     }
@@ -2315,7 +2366,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
     if (!baseThread || baseThread.name === normalizedName) {
       return;
     }
@@ -2360,7 +2411,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const baseThread = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
     if (!baseThread || !hasThreadInteraction(baseThread)) {
       return;
     }
@@ -2404,7 +2455,7 @@ export function useWorkspaceController() {
       const payload = (await response.json()) as ThreadTitleApiResponse;
       if (!response.ok || payload.error) {
         if (payload.errorCode === "azure_login_required") {
-          if (options.reason === "utility_deployment_update") {
+          if (options.reason === "utility_deployment_update" && isSwitchingAzureTenant) {
             setAzureTenantSwitchError(
               "Azure tenant switch is still applying. Retry Azure Login if this persists.",
             );
@@ -2419,7 +2470,7 @@ export function useWorkspaceController() {
         return;
       }
 
-      const latestThread = threadsRef.current.find((thread) => thread.id === normalizedThreadId);
+      const latestThread = findThreadSnapshotById(threadsRef.current, normalizedThreadId);
       if (!latestThread || latestThread.deletedAt !== null) {
         return;
       }
@@ -2465,24 +2516,27 @@ export function useWorkspaceController() {
 
     const requestSeq = threadLoadRequestSeqRef.current + 1;
     threadLoadRequestSeqRef.current = requestSeq;
-    setIsLoadingThreads(true);
+    beginThreadOperation("loading");
     setThreadError(null);
 
     try {
-      const response = await fetch("/api/threads", {
-        method: "GET",
-      });
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: "/api/threads",
+        init: {
+          method: "GET",
+        },
+        readPayload: async (response) => (await response.json()) as ThreadsApiResponse,
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load threads.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
           clearThreadsState("Azure login is required. Open Settings and sign in to load threads.");
-          return;
-        }
-
-        throw new Error(payload.error || "Failed to load threads.");
-      }
+        },
+      });
 
       if (requestSeq !== threadLoadRequestSeqRef.current) {
         return;
@@ -2539,15 +2593,18 @@ export function useWorkspaceController() {
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return;
       }
+      if (loadError instanceof HomeApiError && loadError.kind === "auth_required") {
+        return;
+      }
 
       logHomeError("load_threads_failed", loadError, {
         action: "load_threads",
         statusCode: 500,
       });
-      setThreadError(loadError instanceof Error ? loadError.message : "Failed to load threads.");
+      setThreadError(mapApiError(loadError, "Failed to load threads."));
     } finally {
       if (requestSeq === threadLoadRequestSeqRef.current) {
-        setIsLoadingThreads(false);
+        endThreadOperation("loading");
       }
     }
   }
@@ -2555,23 +2612,15 @@ export function useWorkspaceController() {
   async function createThreadAndSwitch(options: {
     name?: string;
   } = {}): Promise<boolean> {
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!beginThreadOperation("creating")) {
       return false;
     }
 
     setThreadError(null);
-    setIsCreatingThread(true);
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
-      const currentThread = threadsRef.current.find((thread) => thread.id === currentThreadId);
+      const currentThread = findThreadSnapshotById(threadsRef.current, currentThreadId);
       const currentThreadSnapshot =
         currentThread ? buildThreadSnapshotFromCurrentState(currentThread) : null;
 
@@ -2614,7 +2663,7 @@ export function useWorkspaceController() {
       setThreadError(createError instanceof Error ? createError.message : "Failed to create thread.");
       return false;
     } finally {
-      setIsCreatingThread(false);
+      endThreadOperation("creating");
     }
   }
 
@@ -2644,18 +2693,11 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!beginThreadOperation("clearing")) {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2681,7 +2723,7 @@ export function useWorkspaceController() {
       setActiveThreadNameInput(normalizedName);
     }
 
-    const renamedThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const renamedThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!renamedThread) {
       return;
     }
@@ -2696,7 +2738,7 @@ export function useWorkspaceController() {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2728,18 +2770,11 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!canStartThreadOperation(threadOperationPhase)) {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2755,13 +2790,12 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setIsClearingThread(true);
 
     try {
       const targetThreadForSave =
         threadId === activeThreadIdRef.current.trim()
           ? (() => {
-              const activeThread = threadsRef.current.find((thread) => thread.id === threadId);
+              const activeThread = findThreadSnapshotById(threadsRef.current, threadId);
               if (!activeThread) {
                 return null;
               }
@@ -2819,7 +2853,7 @@ export function useWorkspaceController() {
       });
       setThreadError(clearError instanceof Error ? clearError.message : "Failed to clear thread.");
     } finally {
-      setIsClearingThread(false);
+      endThreadOperation("clearing");
     }
   }
 
@@ -2834,18 +2868,11 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!beginThreadOperation("deleting")) {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -2861,7 +2888,6 @@ export function useWorkspaceController() {
     }
 
     setThreadError(null);
-    setIsDeletingThread(true);
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2872,20 +2898,22 @@ export function useWorkspaceController() {
         }
       }
 
-      const response = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
-        method: "DELETE",
-      });
-
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: `/api/threads/${encodeURIComponent(threadId)}`,
+        init: {
+          method: "DELETE",
+        },
+        readPayload: (response) => readJsonPayload<ThreadsApiResponse>(response, "Threads"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to delete thread.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to continue.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
-          throw new Error("Azure login is required. Open Settings and sign in to continue.");
-        }
-
-        throw new Error(payload.error || "Failed to delete thread.");
-      }
+        },
+      });
 
       const deletedThread = readThreadSnapshotFromUnknown(payload.thread, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
@@ -2907,6 +2935,10 @@ export function useWorkspaceController() {
         },
       });
     } catch (deleteError) {
+      if (deleteError instanceof HomeApiError && deleteError.kind === "auth_required") {
+        setThreadError(deleteError.message);
+        return;
+      }
       logHomeError("delete_thread_failed", deleteError, {
         action: "delete_thread",
         statusCode: 500,
@@ -2914,9 +2946,9 @@ export function useWorkspaceController() {
           threadId,
         },
       });
-      setThreadError(deleteError instanceof Error ? deleteError.message : "Failed to delete thread.");
+      setThreadError(mapApiError(deleteError, "Failed to delete thread."));
     } finally {
-      setIsDeletingThread(false);
+      endThreadOperation("deleting");
     }
   }
 
@@ -2931,25 +2963,17 @@ export function useWorkspaceController() {
       return;
     }
 
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
+    if (!beginThreadOperation("restoring")) {
       return;
     }
 
-    const targetThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt === null) {
       setThreadError("Selected archive is not available.");
       return;
     }
 
     setThreadError(null);
-    setIsRestoringThread(true);
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
@@ -2960,26 +2984,28 @@ export function useWorkspaceController() {
         }
       }
 
-      const response = await fetch(`/api/threads/${encodeURIComponent(threadId)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      const { payload } = await requestHomeApi<ThreadsApiResponse>({
+        url: `/api/threads/${encodeURIComponent(threadId)}`,
+        init: {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            archived: false,
+          }),
         },
-        body: JSON.stringify({
-          archived: false,
-        }),
-      });
-
-      const payload = (await response.json()) as ThreadsApiResponse;
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
+        readPayload: (response) => readJsonPayload<ThreadsApiResponse>(response, "Threads"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to restore thread.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to continue.",
+        onAuthRequired: () => {
           setIsAzureAuthRequired(true);
-          throw new Error("Azure login is required. Open Settings and sign in to continue.");
-        }
-
-        throw new Error(payload.error || "Failed to restore thread.");
-      }
+        },
+      });
 
       const restoredThread = readThreadSnapshotFromUnknown(payload.thread, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
@@ -2998,6 +3024,10 @@ export function useWorkspaceController() {
         },
       });
     } catch (restoreError) {
+      if (restoreError instanceof HomeApiError && restoreError.kind === "auth_required") {
+        setThreadError(restoreError.message);
+        return;
+      }
       logHomeError("restore_thread_failed", restoreError, {
         action: "restore_thread",
         statusCode: 500,
@@ -3005,35 +3035,27 @@ export function useWorkspaceController() {
           threadId,
         },
       });
-      setThreadError(restoreError instanceof Error ? restoreError.message : "Failed to restore thread.");
+      setThreadError(mapApiError(restoreError, "Failed to restore thread."));
     } finally {
-      setIsRestoringThread(false);
+      endThreadOperation("restoring");
     }
   }
 
   async function handleThreadChange(nextThreadIdRaw: string) {
     const nextThreadId = nextThreadIdRaw.trim();
     setThreadError(null);
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isCreatingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
-      return;
-    }
     if (!nextThreadId || nextThreadId === activeThreadIdRef.current) {
       return;
     }
 
-    const nextThread = threadsRef.current.find((thread) => thread.id === nextThreadId);
+    const nextThread = findThreadSnapshotById(threadsRef.current, nextThreadId);
     if (!nextThread) {
       setThreadError("Selected thread is not available.");
       return;
     }
-    setIsSwitchingThread(true);
+    if (!beginThreadOperation("switching")) {
+      return;
+    }
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
       if (!readThreadRequestState(currentThreadId).isSending) {
@@ -3052,7 +3074,7 @@ export function useWorkspaceController() {
         },
       });
     } finally {
-      setIsSwitchingThread(false);
+      endThreadOperation("switching");
     }
   }
 
@@ -3468,16 +3490,22 @@ export function useWorkspaceController() {
     void reloadState();
   }
 
-  async function loadAzureProjects(options: LoadAzureProjectsOptions = {}): Promise<boolean> {
+  async function loadAzureProjects(
+    options: LoadAzureProjectsOptions = {},
+  ): Promise<LoadAzureProjectsResult> {
     const forceReload = options.force === true;
     const preferredTenantId = options.preferredTenantId?.trim() ?? "";
     const waitForWorkspaceStateReload = options.waitForWorkspaceStateReload === true;
+    const useCachedProjectCatalog = shouldUseCachedAzureProjectCatalog({
+      forceReload,
+      isAzureAuthRequired,
+    });
     const requestSeq = azureConnectionsRequestSeqRef.current + 1;
     azureConnectionsRequestSeqRef.current = requestSeq;
     setIsLoadingAzureConnections(true);
 
     try {
-      if (!forceReload) {
+      if (useCachedProjectCatalog) {
         const tenantIdForCache = preferredTenantId || activeAzureTenantIdRef.current.trim();
         const cachedCatalog = readCachedAzureProjectCatalog(tenantIdForCache);
         if (cachedCatalog) {
@@ -3517,7 +3545,10 @@ export function useWorkspaceController() {
                 )
               : null;
           if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-            return false;
+            return {
+              authRequired: false,
+              tenantSwitchPending: false,
+            };
           }
           preferredAzureSelectionRef.current = preferredSelection;
           if (preferredSelection?.homeTheme) {
@@ -3528,39 +3559,20 @@ export function useWorkspaceController() {
           const preferredUtilityReasoningEffort =
             preferredSelection?.utility?.reasoningEffort ?? HOME_DEFAULT_UTILITY_REASONING_EFFORT;
           const knownProjectIds = new Set(cachedCatalog.projects.map((connection) => connection.id));
-
-          const resolveInitialProjectId = (
-            currentProjectId: string,
-            preferredProjectId: string,
-            fallbackProjectId = "",
-          ): string => {
-            const normalizedCurrentProjectId = currentProjectId.trim();
-            if (knownProjectIds.has(normalizedCurrentProjectId)) {
-              return normalizedCurrentProjectId;
-            }
-
-            const normalizedPreferredProjectId = preferredProjectId.trim();
-            if (knownProjectIds.has(normalizedPreferredProjectId)) {
-              return normalizedPreferredProjectId;
-            }
-
-            const normalizedFallbackProjectId = fallbackProjectId.trim();
-            if (knownProjectIds.has(normalizedFallbackProjectId)) {
-              return normalizedFallbackProjectId;
-            }
-
-            return cachedCatalog.projects[0]?.id ?? "";
-          };
-
-          const nextPlaygroundProjectId = resolveInitialProjectId(
-            selectedPlaygroundAzureConnectionIdRef.current,
-            preferredPlaygroundProjectId,
-          );
-          const nextUtilityProjectId = resolveInitialProjectId(
-            selectedUtilityAzureConnectionIdRef.current,
-            preferredUtilityProjectId,
-            nextPlaygroundProjectId,
-          );
+          const defaultProjectId = cachedCatalog.projects[0]?.id ?? "";
+          const nextPlaygroundProjectId = resolveInitialAzureProjectId({
+            knownProjectIds,
+            currentProjectId: selectedPlaygroundAzureConnectionIdRef.current,
+            preferredProjectId: preferredPlaygroundProjectId,
+            defaultProjectId,
+          });
+          const nextUtilityProjectId = resolveInitialAzureProjectId({
+            knownProjectIds,
+            currentProjectId: selectedUtilityAzureConnectionIdRef.current,
+            preferredProjectId: preferredUtilityProjectId,
+            fallbackProjectId: nextPlaygroundProjectId,
+            defaultProjectId,
+          });
 
           cancelAzureDeploymentLoads();
           setAzureConnections(cachedCatalog.projects.map((project) => ({ ...project })));
@@ -3568,62 +3580,51 @@ export function useWorkspaceController() {
           setActiveAzurePrincipal(cachedCatalog.principal ? { ...cachedCatalog.principal } : null);
           setPlaygroundAzureDeployments([]);
           setUtilityAzureDeployments([]);
-          setIsAzureAuthRequired(false);
           setAzureConnectionError(null);
           setPlaygroundAzureDeploymentError(null);
           setUtilityAzureDeploymentError(null);
           setUtilityReasoningEffort(preferredUtilityReasoningEffort);
           setSelectedPlaygroundAzureConnectionId(nextPlaygroundProjectId);
           setSelectedUtilityAzureConnectionId(nextUtilityProjectId);
-          return false;
+          return {
+            authRequired: false,
+            tenantSwitchPending: false,
+          };
         }
       }
 
       const projectsRequestUrl = preferredTenantId
         ? `/api/azure/projects?tenantId=${encodeURIComponent(preferredTenantId)}`
         : "/api/azure/projects";
-      const response = await fetch(projectsRequestUrl, {
-        method: "GET",
+      const { payload } = await requestHomeApi<AzureProjectsApiResponse>({
+        url: projectsRequestUrl,
+        init: {
+          method: "GET",
+        },
+        readPayload: (response) => readJsonPayload<AzureProjectsApiResponse>(response, "Azure projects"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load Azure projects.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
       });
-
-      const payload = (await response.json()) as AzureProjectsApiResponse;
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return isAzureAuthRequired;
-      }
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        clearActiveAzureIdentity();
-        clearWorkspaceMcpServerProfilesState();
-        clearThreadsState(
-          authRequired
-            ? "Azure login is required. Open Settings and sign in to load threads."
-            : null,
-        );
-        setIsAzureAuthRequired(authRequired);
-        setAzureConnections([]);
-        setPlaygroundAzureDeployments([]);
-        setUtilityAzureDeployments([]);
-        setIsLoadingPlaygroundAzureDeployments(false);
-        setIsLoadingUtilityAzureDeployments(false);
-        setSelectedPlaygroundAzureConnectionId("");
-        setSelectedPlaygroundAzureDeploymentName("");
-        setSelectedUtilityAzureConnectionId("");
-        setSelectedUtilityAzureDeploymentName("");
-        setUtilityReasoningEffort(HOME_DEFAULT_UTILITY_REASONING_EFFORT);
-        setAzureConnectionError(authRequired ? null : payload.error || "Failed to load Azure projects.");
-        setPlaygroundAzureDeploymentError(null);
-        setUtilityAzureDeploymentError(null);
-        return authRequired;
+        return {
+          authRequired: isAzureAuthRequired,
+          tenantSwitchPending: false,
+        };
       }
 
       const parsedProjects = readAzureProjectList(payload.projects);
       const tenantId = readTenantIdFromUnknown(payload.tenantId);
       const principalId = readPrincipalIdFromUnknown(payload.principalId);
-      if (
-        preferredTenantId &&
-        tenantId &&
-        preferredTenantId.toLowerCase() !== tenantId.toLowerCase()
-      ) {
+      const loadResult = buildAzureProjectsLoadResult({
+        authRequired: payload.authRequired === true,
+        preferredTenantId,
+        resolvedTenantId: tenantId,
+      });
+      if (loadResult.tenantSwitchPending) {
         logHomeWarning(
           "azure_tenant_switch_verification_pending",
           "Resolved tenant does not match requested tenant yet.",
@@ -3635,7 +3636,7 @@ export function useWorkspaceController() {
             },
           },
         );
-        return true;
+        return loadResult;
       }
       const parsedTenants = resolveAzureTenantOptions(readAzureTenantList(payload.tenants), tenantId);
       const parsedPrincipal =
@@ -3674,7 +3675,10 @@ export function useWorkspaceController() {
           ? await loadAzureSelectionPreference(tenantId, principalId)
           : null;
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return payload.authRequired === true;
+        return {
+          authRequired: payload.authRequired === true,
+          tenantSwitchPending: false,
+        };
       }
       preferredAzureSelectionRef.current = preferredSelection;
       if (preferredSelection?.homeTheme) {
@@ -3694,39 +3698,20 @@ export function useWorkspaceController() {
       const preferredUtilityReasoningEffort =
         preferredSelection?.utility?.reasoningEffort ?? HOME_DEFAULT_UTILITY_REASONING_EFFORT;
       const knownProjectIds = new Set(parsedProjects.map((connection) => connection.id));
-
-      const resolveInitialProjectId = (
-        currentProjectId: string,
-        preferredProjectId: string,
-        fallbackProjectId = "",
-      ): string => {
-        const normalizedCurrentProjectId = currentProjectId.trim();
-        if (knownProjectIds.has(normalizedCurrentProjectId)) {
-          return normalizedCurrentProjectId;
-        }
-
-        const normalizedPreferredProjectId = preferredProjectId.trim();
-        if (knownProjectIds.has(normalizedPreferredProjectId)) {
-          return normalizedPreferredProjectId;
-        }
-
-        const normalizedFallbackProjectId = fallbackProjectId.trim();
-        if (knownProjectIds.has(normalizedFallbackProjectId)) {
-          return normalizedFallbackProjectId;
-        }
-
-        return parsedProjects[0]?.id ?? "";
-      };
-
-      const nextPlaygroundProjectId = resolveInitialProjectId(
-        selectedPlaygroundAzureConnectionIdRef.current,
-        preferredPlaygroundProjectId,
-      );
-      const nextUtilityProjectId = resolveInitialProjectId(
-        selectedUtilityAzureConnectionIdRef.current,
-        preferredUtilityProjectId,
-        nextPlaygroundProjectId,
-      );
+      const defaultProjectId = parsedProjects[0]?.id ?? "";
+      const nextPlaygroundProjectId = resolveInitialAzureProjectId({
+        knownProjectIds,
+        currentProjectId: selectedPlaygroundAzureConnectionIdRef.current,
+        preferredProjectId: preferredPlaygroundProjectId,
+        defaultProjectId,
+      });
+      const nextUtilityProjectId = resolveInitialAzureProjectId({
+        knownProjectIds,
+        currentProjectId: selectedUtilityAzureConnectionIdRef.current,
+        preferredProjectId: preferredUtilityProjectId,
+        fallbackProjectId: nextPlaygroundProjectId,
+        defaultProjectId,
+      });
 
       cancelAzureDeploymentLoads();
       setAzureConnections(parsedProjects);
@@ -3734,24 +3719,35 @@ export function useWorkspaceController() {
       setActiveAzurePrincipal(parsedPrincipal);
       setPlaygroundAzureDeployments([]);
       setUtilityAzureDeployments([]);
-      setIsAzureAuthRequired(payload.authRequired === true ? true : false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: loadResult.authRequired,
+          source: "projects_response",
+        }),
+      );
       setAzureConnectionError(null);
       setPlaygroundAzureDeploymentError(null);
       setUtilityAzureDeploymentError(null);
       setUtilityReasoningEffort(preferredUtilityReasoningEffort);
       setSelectedPlaygroundAzureConnectionId(nextPlaygroundProjectId);
       setSelectedUtilityAzureConnectionId(nextUtilityProjectId);
-      return payload.authRequired === true;
+      return loadResult;
     } catch (loadError) {
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return isAzureAuthRequired;
+        return {
+          authRequired: isAzureAuthRequired,
+          tenantSwitchPending: false,
+        };
       }
       logHomeError("load_azure_projects_failed", loadError, {
         action: "load_azure_projects",
       });
-      const errorMessage =
-        loadError instanceof Error ? loadError.message : "Failed to load Azure projects.";
-      const nextAuthRequired = isLikelyChatAzureAuthError(errorMessage);
+      const errorMessage = mapApiError(loadError, "Failed to load Azure projects.");
+      const nextAuthRequired =
+        loadError instanceof HomeApiError
+          ? loadError.kind === "auth_required"
+          : isLikelyChatAzureAuthError(errorMessage);
       clearActiveAzureIdentity();
       clearWorkspaceMcpServerProfilesState();
       clearThreadsState(
@@ -3773,7 +3769,10 @@ export function useWorkspaceController() {
       setAzureConnectionError(nextAuthRequired ? null : errorMessage);
       setPlaygroundAzureDeploymentError(null);
       setUtilityAzureDeploymentError(null);
-      return nextAuthRequired;
+      return {
+        authRequired: nextAuthRequired,
+        tenantSwitchPending: false,
+      };
     } finally {
       if (requestSeq === azureConnectionsRequestSeqRef.current) {
         setIsLoadingAzureConnections(false);
@@ -3815,7 +3814,13 @@ export function useWorkspaceController() {
               : preferredSelection.utility?.deploymentName) ?? ""
           : "";
 
-      setIsAzureAuthRequired(false);
+      setIsAzureAuthRequired((currentAuthRequired) =>
+        resolveAzureAuthRequiredState({
+          currentAuthRequired,
+          nextAuthRequired: false,
+          source: "background_success",
+        }),
+      );
       if (target === "playground") {
         setPlaygroundAzureDeployments(deployments);
         setSelectedPlaygroundAzureDeploymentName((current) =>
@@ -3875,14 +3880,20 @@ export function useWorkspaceController() {
     }
 
     try {
-      const response = await fetch(
-        `/api/azure/projects/${encodeURIComponent(normalizedProjectId)}/deployments`,
-        {
+      const { payload } = await requestHomeApi<AzureProjectsApiResponse>({
+        url: `/api/azure/projects/${encodeURIComponent(normalizedProjectId)}/deployments`,
+        init: {
           method: "GET",
         },
-      );
-
-      const payload = (await response.json()) as AzureProjectsApiResponse;
+        readPayload: (response) =>
+          readJsonPayload<AzureProjectsApiResponse>(response, "Azure deployments"),
+        resolveAuthRequired: (status, responsePayload) =>
+          resolveAuthRequired(status, responsePayload),
+        readErrorMessage: (responsePayload) =>
+          typeof responsePayload.error === "string" ? responsePayload.error : null,
+        fallbackErrorMessage: "Failed to load deployments for the selected project.",
+        authRequiredMessage: "Azure login is required. Open Settings and sign in to load threads.",
+      });
       const activeRequestSeq =
         target === "playground"
           ? playgroundAzureDeploymentRequestSeqRef.current
@@ -3896,34 +3907,6 @@ export function useWorkspaceController() {
           ? selectedPlaygroundAzureConnectionIdRef.current.trim()
           : selectedUtilityAzureConnectionIdRef.current.trim();
       if (!selectedProjectId || selectedProjectId !== normalizedProjectId) {
-        return;
-      }
-
-      if (!response.ok) {
-        const authRequired = payload.authRequired === true || response.status === 401;
-        if (authRequired) {
-          clearActiveAzureIdentity();
-          clearWorkspaceMcpServerProfilesState();
-          clearThreadsState("Azure login is required. Open Settings and sign in to load threads.");
-        }
-        setIsAzureAuthRequired(authRequired);
-        if (target === "playground") {
-          setPlaygroundAzureDeployments([]);
-          setSelectedPlaygroundAzureDeploymentName("");
-          setPlaygroundAzureDeploymentError(
-            authRequired
-              ? null
-              : payload.error || "Failed to load deployments for the selected project.",
-          );
-        } else {
-          setUtilityAzureDeployments([]);
-          setSelectedUtilityAzureDeploymentName("");
-          setUtilityAzureDeploymentError(
-            authRequired
-              ? null
-              : payload.error || "Failed to load deployments for the selected project.",
-          );
-        }
         return;
       }
 
@@ -3970,22 +3953,28 @@ export function useWorkspaceController() {
           projectId: normalizedProjectId,
         },
       });
-      setIsAzureAuthRequired(false);
+      const authRequired = loadError instanceof HomeApiError && loadError.kind === "auth_required";
+      if (authRequired) {
+        clearActiveAzureIdentity();
+        clearWorkspaceMcpServerProfilesState();
+        clearThreadsState("Azure login is required. Open Settings and sign in to load threads.");
+      }
+      setIsAzureAuthRequired(authRequired);
       if (target === "playground") {
         setPlaygroundAzureDeployments([]);
         setSelectedPlaygroundAzureDeploymentName("");
         setPlaygroundAzureDeploymentError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load deployments for the selected project.",
+          authRequired
+            ? null
+            : mapApiError(loadError, "Failed to load deployments for the selected project."),
         );
       } else {
         setUtilityAzureDeployments([]);
         setSelectedUtilityAzureDeploymentName("");
         setUtilityAzureDeploymentError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load deployments for the selected project.",
+          authRequired
+            ? null
+            : mapApiError(loadError, "Failed to load deployments for the selected project."),
         );
       }
     } finally {
@@ -4019,27 +4008,32 @@ export function useWorkspaceController() {
       : "/api/mcp/servers";
     const method = isUpdate ? "PUT" : "POST";
 
-    const response = await fetch(endpoint, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
+    const { payload } = await requestHomeApi<McpServersApiResponse>({
+      url: endpoint,
+      init: {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          serializeMcpServerForSave(server, {
+            includeId: false,
+          }),
+        ),
       },
-      body: JSON.stringify(
-        serializeMcpServerForSave(server, {
-          includeId: false,
-        }),
-      ),
-    });
-
-    const payload = await readJsonPayload<McpServersApiResponse>(response, "saved MCP servers");
-    if (!response.ok) {
-      const authRequired = isMcpServersAuthRequired(response.status, payload);
-      if (authRequired) {
+      readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
+      resolveAuthRequired: (status, responsePayload) =>
+        resolveAuthRequired(status, responsePayload, (rawPayload) =>
+          isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
+        ),
+      readErrorMessage: (responsePayload) =>
+        typeof responsePayload.error === "string" ? responsePayload.error : null,
+      fallbackErrorMessage: "Failed to save MCP server.",
+      authRequiredMessage: "Azure login is required. Open Settings and sign in to save MCP servers.",
+      onAuthRequired: () => {
         setIsAzureAuthRequired(true);
-        throw new Error("Azure login is required. Open Settings and sign in to save MCP servers.");
-      }
-      throw new Error(payload.error || "Failed to save MCP server.");
-    }
+      },
+    });
 
     const profile = readMcpServerFromUnknown(payload.profile);
     if (!profile) {
@@ -4066,121 +4060,97 @@ export function useWorkspaceController() {
   }
 
   async function deleteWorkspaceMcpServerProfileFromConfig(serverId: string): Promise<McpServerConfig[]> {
-    const response = await fetch(`/api/mcp/servers/${encodeURIComponent(serverId)}`, {
-      method: "DELETE",
-    });
-
-    const payload = await readJsonPayload<McpServersApiResponse>(response, "saved MCP servers");
-    if (!response.ok) {
-      const authRequired = isMcpServersAuthRequired(response.status, payload);
-      if (authRequired) {
+    const { payload } = await requestHomeApi<McpServersApiResponse>({
+      url: `/api/mcp/servers/${encodeURIComponent(serverId)}`,
+      init: {
+        method: "DELETE",
+      },
+      readPayload: (response) => readJsonPayload<McpServersApiResponse>(response, "saved MCP servers"),
+      resolveAuthRequired: (status, responsePayload) =>
+        resolveAuthRequired(status, responsePayload, (rawPayload) =>
+          isMcpServersAuthRequired(status, rawPayload as McpServersApiResponse),
+        ),
+      readErrorMessage: (responsePayload) =>
+        typeof responsePayload.error === "string" ? responsePayload.error : null,
+      fallbackErrorMessage: "Failed to delete MCP server.",
+      authRequiredMessage: "Azure login is required. Open Settings and sign in to edit MCP servers.",
+      onAuthRequired: () => {
         setIsAzureAuthRequired(true);
-        throw new Error("Azure login is required. Open Settings and sign in to edit MCP servers.");
-      }
-
-      throw new Error(payload.error || "Failed to delete MCP server.");
-    }
+      },
+    });
 
     return readMcpServerList(payload.profiles);
   }
 
   function connectMcpServerToAgent(serverToConnect: McpServerConfig) {
-    setMcpServers((current) => {
-      const existingIndex = current.findIndex(
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+
+    updateThreadSnapshotById(activeId, (thread) => {
+      const existingIndex = thread.mcpServers.findIndex(
         (server) => buildMcpServerKey(server) === buildMcpServerKey(serverToConnect),
       );
       if (existingIndex >= 0) {
-        return current.map((server, index) =>
-          index === existingIndex ? { ...server, name: serverToConnect.name } : server,
-        );
+        return {
+          ...thread,
+          mcpServers: thread.mcpServers.map((server, index) =>
+            index === existingIndex ? { ...server, name: serverToConnect.name } : server,
+          ),
+        };
       }
 
-      return [...current, serverToConnect];
+      return {
+        ...thread,
+        mcpServers: [...thread.mcpServers, serverToConnect],
+      };
     });
   }
 
   async function sendMessage() {
     const threadId = activeThreadIdRef.current.trim();
     const content = draft.trim();
-    if (!content) {
-      return;
-    }
-
-    if (!threadId) {
-      setThreadError("Select or create a thread before sending.");
-      setActiveMainTab("threads");
-      return;
-    }
-    if (isArchivedThread(threadId)) {
-      setThreadError("Archived thread is read-only. Restore it from Archives to continue.");
-      setActiveMainTab("threads");
-      return;
-    }
-
-    if (readThreadRequestState(threadId).isSending) {
-      return;
-    }
-
-    if (
-      isLoadingThreads ||
-      isSwitchingThread ||
-      isDeletingThread ||
-      isClearingThread ||
-      isRestoringThread
-    ) {
-      setThreadError("Thread state is updating. Please wait.");
-      setActiveMainTab("threads");
-      return;
-    }
-
-    if (isChatLocked) {
-      setActiveMainTab("settings");
-      setUiError("Playground is unavailable while logged out. Open ⚙️ Settings and sign in.");
-      return;
-    }
-
-    if (!activePlaygroundAzureConnection) {
-      setUiError(
-        isAzureAuthRequired
-          ? "Azure login is required. Click Project or Deployment and sign in."
-          : "No Azure project is available. Check your Azure account permissions.",
-      );
-      return;
-    }
-
     const deploymentName = selectedPlaygroundAzureDeploymentName.trim();
-    if (isLoadingPlaygroundAzureDeployments) {
-      setUiError("Deployment list is loading. Please wait.");
+    const preconditionViolation = validateSendPreconditions({
+      content,
+      threadId,
+      isArchivedThread: isArchivedThread(threadId),
+      isThreadSending: readThreadRequestState(threadId).isSending,
+      isThreadPhaseBlockingSend: isThreadPhaseBlockingSend(threadOperationPhase),
+      isChatLocked,
+      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+      isAzureAuthRequired,
+      isLoadingPlaygroundAzureDeployments,
+      deploymentName,
+      isSelectedDeploymentValid: includesAzureDeploymentName(playgroundAzureDeployments, deploymentName),
+      isPlaygroundReasoningEffortSupported,
+      isSelectedPlaygroundReasoningEffortOptionAvailable:
+        effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort),
+      webSearchEnabled,
+      isPlaygroundReasoningEffortWebSearchCompatible:
+        !webSearchEnabled ||
+        !isPlaygroundReasoningEffortSupported ||
+        isWebSearchCompatibleReasoningEffort(reasoningEffort),
+    });
+    if (preconditionViolation) {
+      if (preconditionViolation.type === "thread_error" && preconditionViolation.message) {
+        setThreadError(preconditionViolation.message);
+      }
+      if (preconditionViolation.type === "ui_error") {
+        setUiError(preconditionViolation.message);
+      }
+      if (preconditionViolation.targetTab) {
+        setActiveMainTab(preconditionViolation.targetTab);
+      }
       return;
     }
 
-    if (!deploymentName || !includesAzureDeploymentName(playgroundAzureDeployments, deploymentName)) {
-      setUiError("Select an Azure deployment before sending.");
+    if (!content || !threadId || !activePlaygroundAzureConnection || !deploymentName) {
       return;
     }
 
-    if (
-      isPlaygroundReasoningEffortSupported &&
-      !effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort)
-    ) {
-      setUiError(
-        "Select a Reasoning Effort value available for the selected deployment before sending.",
-      );
-      return;
-    }
-
-    if (
-      webSearchEnabled &&
-      isPlaygroundReasoningEffortSupported &&
-      !isWebSearchCompatibleReasoningEffort(reasoningEffort)
-    ) {
-      setUiError(
-        "Selected Reasoning Effort cannot be used with Web Search. Choose a Web Search-compatible value.",
-      );
-      return;
-    }
-
-    const baseThread = threadsRef.current.find((thread) => thread.id === threadId);
+    const baseThread = findThreadSnapshotById(threadsRef.current, threadId);
     const shouldRefreshThreadTitleOnFirstMessage =
       !!baseThread && baseThread.deletedAt === null && baseThread.messages.length === 0;
 
@@ -4235,14 +4205,12 @@ export function useWorkspaceController() {
     setUiError(null);
     setSystemNotice(null);
     setAzureLoginError(null);
-    updateThreadRequestState(threadId, (current) => ({
-      ...current,
-      isSending: true,
-      sendProgressMessages: ["Preparing request..."],
-      activeTurnId: turnId,
-      lastErrorTurnId: null,
-      error: null,
-    }));
+    updateThreadRequestState(threadId, (current) =>
+      applySendResult(current, {
+        status: "optimistic",
+        turnId,
+      }),
+    );
     logHomeInfo("send_message_started", "Thread message request started.", {
       action: "send_message",
       context: {
@@ -4265,8 +4233,31 @@ export function useWorkspaceController() {
     const sendAbortController = new AbortController();
     assignThreadSendAbortController(threadId, sendAbortController);
 
-    let receivedOperationLogCount = 0;
     try {
+      const requestPayload = buildChatRequestPayload({
+        threadId,
+        turnId,
+        message: content,
+        attachments: requestAttachments,
+        history,
+        azureConfig: {
+          tenantId: activeAzureTenantIdRef.current,
+          projectName: activePlaygroundAzureConnection.projectName,
+          baseUrl: activePlaygroundAzureConnection.baseUrl,
+          apiVersion: activePlaygroundAzureConnection.apiVersion,
+          deploymentName,
+        },
+        supportsReasoningEffort: isPlaygroundReasoningEffortSupported,
+        reasoningEffort,
+        webSearchEnabled,
+        agentInstruction: requestAgentInstruction,
+        instructionContextToggles: requestInstructionContextToggles,
+        threadEnvironment: requestThreadEnvironment,
+        skills: requestSkillSelections,
+        explicitSkillLocations: requestExplicitSkillLocations,
+        mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
+      });
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -4274,72 +4265,24 @@ export function useWorkspaceController() {
           Accept: "text/event-stream, application/json",
         },
         signal: sendAbortController.signal,
-        body: JSON.stringify({
-          threadId,
-          turnId,
-          message: content,
-          attachments: requestAttachments,
-          history,
-          azureConfig: {
-            tenantId: activeAzureTenantIdRef.current,
-            projectName: activePlaygroundAzureConnection.projectName,
-            baseUrl: activePlaygroundAzureConnection.baseUrl,
-            apiVersion: activePlaygroundAzureConnection.apiVersion,
-            deploymentName,
-          },
-          supportsReasoningEffort: isPlaygroundReasoningEffortSupported,
-          ...(isPlaygroundReasoningEffortSupported
-            ? { reasoningEffort }
-            : {}),
-          webSearchEnabled,
-          agentInstruction: requestAgentInstruction,
-          instructionContextToggles: requestInstructionContextToggles,
-          threadEnvironment: requestThreadEnvironment,
-          skills: requestSkillSelections,
-          explicitSkillLocations: requestExplicitSkillLocations,
-          mcpServers: requestMcpServers.map((server) =>
-            server.transport === "stdio"
-              ? {
-                  name: server.name,
-                  transport: server.transport,
-                  command: server.command,
-                  args: server.args,
-                  cwd: server.cwd,
-                  env: server.env,
-                }
-              : {
-                  name: server.name,
-                  transport: server.transport,
-                  url: server.url,
-                  headers: server.headers,
-                  useAzureAuth: server.useAzureAuth,
-                  azureAuthScope: server.azureAuthScope,
-                  timeoutSeconds: server.timeoutSeconds,
-                },
-          ),
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
-      const contentType = response.headers.get("content-type") ?? "";
-      const isEventStream = contentType.toLowerCase().includes("text/event-stream");
-
-      let payload: ChatApiResponse;
-      if (isEventStream) {
-        payload = await readChatEventStreamPayload(response, {
-          onProgress: (message) => {
-            appendThreadProgressMessage(threadId, message);
-          },
-          onOperationLogRecord: (entry) => {
-            receivedOperationLogCount += 1;
-            appendThreadOperationLogToThreadState(threadId, {
-              ...entry,
-              turnId,
-            });
-          },
-        });
-      } else {
-        payload = await readJsonPayload<ChatApiResponse>(response, "chat");
-      }
+      const { payload, isEventStream, operationLogCount } = await consumeChatResponseStream({
+        response,
+        readChatEventStreamPayload: (streamResponse, handlers) =>
+          readChatEventStreamPayload(streamResponse, handlers),
+        readJsonPayload: (jsonResponse) => readJsonPayload<ChatApiResponse>(jsonResponse, "chat"),
+        onProgress: (message) => {
+          appendThreadProgressMessage(threadId, message);
+        },
+        onOperationLogRecord: (entry) => {
+          appendThreadOperationLogToThreadState(threadId, {
+            ...entry,
+            turnId,
+          });
+        },
+      });
 
       if (!response.ok || payload.error) {
         if (payload.errorCode === "azure_login_required") {
@@ -4358,21 +4301,18 @@ export function useWorkspaceController() {
       );
       const assistantMessage = createThreadMessage("assistant", payload.message, turnId);
       appendMessageToThreadState(threadId, assistantMessage);
-      updateThreadRequestState(threadId, (current) => ({
-        ...current,
-        isSending: false,
-        sendProgressMessages: [],
-        activeTurnId: null,
-        lastErrorTurnId: null,
-        error: null,
-      }));
+      updateThreadRequestState(threadId, (current) =>
+        applySendResult(current, {
+          status: "succeeded",
+        }),
+      );
       logHomeInfo("send_message_succeeded", "Thread message request completed.", {
         action: "send_message",
         context: {
           threadId,
           turnId,
           responseLength: payload.message.length,
-          operationLogCount: receivedOperationLogCount,
+          operationLogCount,
           usedEventStream: isEventStream,
         },
       });
@@ -4384,17 +4324,13 @@ export function useWorkspaceController() {
           context: {
             threadId,
             turnId,
-            operationLogCount: receivedOperationLogCount,
           },
         });
-        updateThreadRequestState(threadId, (current) => ({
-          ...current,
-          isSending: false,
-          sendProgressMessages: [],
-          activeTurnId: null,
-          lastErrorTurnId: null,
-          error: null,
-        }));
+        updateThreadRequestState(threadId, (current) =>
+          applySendResult(current, {
+            status: "canceled",
+          }),
+        );
         return;
       }
 
@@ -4408,14 +4344,13 @@ export function useWorkspaceController() {
           skillSelectionCount: requestSkillSelections.length,
         },
       });
-      updateThreadRequestState(threadId, (current) => ({
-        ...current,
-        isSending: false,
-        sendProgressMessages: [],
-        activeTurnId: null,
-        lastErrorTurnId: turnId,
-        error: sendError instanceof Error ? sendError.message : "Could not reach the server.",
-      }));
+      updateThreadRequestState(threadId, (current) =>
+        applySendResult(current, {
+          status: "failed",
+          turnId,
+          error: sendError,
+        }),
+      );
     } finally {
       clearThreadSendAbortController(threadId, sendAbortController);
       window.setTimeout(() => {
@@ -4425,7 +4360,7 @@ export function useWorkspaceController() {
   }
 
   // UI event handlers bound to panel props.
-  async function runAzureLoginFlow(targetTenantIdRaw = ""): Promise<boolean> {
+  async function runAzureLoginFlow(targetTenantIdRaw = ""): Promise<LoadAzureProjectsResult> {
     const targetTenantId = targetTenantIdRaw.trim();
     const waitForWorkspaceStateReload = targetTenantId.length > 0;
     const requestInit: RequestInit = {
@@ -4451,14 +4386,23 @@ export function useWorkspaceController() {
         ? "Azure tenant switched. Azure projects were refreshed."
         : payload.message || "Azure login completed.",
     );
-    setIsAzureAuthRequired(false);
+    setIsAzureAuthRequired((currentAuthRequired) =>
+      resolveAzureAuthRequiredState({
+        currentAuthRequired,
+        nextAuthRequired: false,
+        source: "interactive_login",
+      }),
+    );
     setAzureConnectionError(null);
     setPlaygroundAzureDeploymentError(null);
     setUtilityAzureDeploymentError(null);
 
-    let stillAuthRequired = true;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      stillAuthRequired = await loadAzureProjects(
+    let loadResult: LoadAzureProjectsResult = {
+      authRequired: true,
+      tenantSwitchPending: false,
+    };
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      loadResult = await loadAzureProjects(
         targetTenantId
           ? {
               preferredTenantId: targetTenantId,
@@ -4470,7 +4414,7 @@ export function useWorkspaceController() {
               waitForWorkspaceStateReload,
             },
       );
-      if (!stillAuthRequired) {
+      if (isAzureProjectsLoadReady(loadResult)) {
         break;
       }
 
@@ -4478,11 +4422,11 @@ export function useWorkspaceController() {
         window.setTimeout(resolve, 500);
       });
     }
-    if (stillAuthRequired) {
+    if (loadResult.authRequired) {
       setIsAzureAuthRequired(true);
     }
 
-    return stillAuthRequired;
+    return loadResult;
   }
 
   async function handleAzureLogin() {
@@ -4530,8 +4474,12 @@ export function useWorkspaceController() {
     setIsSwitchingAzureTenant(true);
 
     try {
-      const stillAuthRequired = await runAzureLoginFlow(nextTenantId);
-      if (stillAuthRequired) {
+      const loadResult = await runAzureLoginFlow(nextTenantId);
+      if (loadResult.tenantSwitchPending) {
+        setAzureTenantSwitchError(
+          "Azure tenant switch is still applying. Retry Azure Login if this persists.",
+        );
+      } else if (loadResult.authRequired) {
         setAzureTenantSwitchError("Failed to switch Azure tenant. Retry Azure Login.");
       }
     } catch (switchError) {
@@ -4607,8 +4555,8 @@ export function useWorkspaceController() {
 
     try {
       clearAzureCatalogCacheByTenant(activeAzureTenantIdRef.current);
-      const stillAuthRequired = await loadAzureProjects({ force: true });
-      if (!stillAuthRequired) {
+      const loadResult = await loadAzureProjects({ force: true });
+      if (isAzureProjectsLoadReady(loadResult)) {
         setSystemNotice("Azure catalog reloaded.");
       }
     } finally {
@@ -4680,9 +4628,15 @@ export function useWorkspaceController() {
       setWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
 
       const deletedKey = buildMcpServerKey(selected);
-      setMcpServers((current) =>
-        current.filter((server) => buildMcpServerKey(server) !== deletedKey),
-      );
+      const activeId = activeThreadIdRef.current.trim();
+      if (activeId) {
+        updateThreadSnapshotById(activeId, (thread) => ({
+          ...thread,
+          mcpServers: thread.mcpServers.filter(
+            (server) => buildMcpServerKey(server) !== deletedKey,
+          ),
+        }));
+      }
 
       if (editingMcpServerId === serverId) {
         clearMcpServerEditState();
@@ -4785,23 +4739,30 @@ export function useWorkspaceController() {
       return;
     }
 
-    setSelectedThreadSkills((current) => {
-      if (current.some((selection) => selection.location === location)) {
-        return current;
+    const skill = availableSkillByLocation.get(location);
+    if (!skill) {
+      return;
+    }
+
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => {
+      if (thread.skillSelections.some((selection) => selection.location === location)) {
+        return thread;
       }
 
-      const skill = availableSkillByLocation.get(location);
-      if (!skill) {
-        return current;
-      }
-
-      return [
-        ...current,
-        {
-          name: skill.name,
-          location: skill.location,
-        },
-      ];
+      return {
+        ...thread,
+        skillSelections: [
+          ...thread.skillSelections,
+          {
+            name: skill.name,
+            location: skill.location,
+          },
+        ],
+      };
     });
     setSkillsError(null);
   }
@@ -4811,10 +4772,16 @@ export function useWorkspaceController() {
     if (!location) {
       return;
     }
-
-    setSelectedThreadSkills((current) =>
-      current.filter((selection) => selection.location !== location),
-    );
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => ({
+      ...thread,
+      skillSelections: thread.skillSelections.filter(
+        (selection) => selection.location !== location,
+      ),
+    }));
     setSkillsError(null);
   }
 
@@ -4823,25 +4790,38 @@ export function useWorkspaceController() {
     if (!location) {
       return;
     }
-
-    setSelectedThreadSkills((current) => {
-      const existingIndex = current.findIndex((selection) => selection.location === location);
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => {
+      const existingIndex = thread.skillSelections.findIndex(
+        (selection) => selection.location === location,
+      );
       if (existingIndex >= 0) {
-        return current.filter((selection) => selection.location !== location);
+        return {
+          ...thread,
+          skillSelections: thread.skillSelections.filter(
+            (selection) => selection.location !== location,
+          ),
+        };
       }
 
       const skill = availableSkillByLocation.get(location);
       if (!skill) {
-        return current;
+        return thread;
       }
 
-      return [
-        ...current,
-        {
-          name: skill.name,
-          location: skill.location,
-        },
-      ];
+      return {
+        ...thread,
+        skillSelections: [
+          ...thread.skillSelections,
+          {
+            name: skill.name,
+            location: skill.location,
+          },
+        ],
+      };
     });
     setSkillsError(null);
   }
@@ -5699,25 +5679,34 @@ export function useWorkspaceController() {
       if (isEditing && editingServer) {
         const previousServerKey = buildMcpServerKey(editingServer);
         const nextServerKey = buildMcpServerKey(savedProfile);
-        setMcpServers((current) => {
-          const filtered = current.filter(
-            (server) => buildMcpServerKey(server) !== previousServerKey,
-          );
-          if (filtered.length === current.length) {
-            return current;
-          }
-
-          const nextIndex = filtered.findIndex(
-            (server) => buildMcpServerKey(server) === nextServerKey,
-          );
-          if (nextIndex >= 0) {
-            return filtered.map((server, index) =>
-              index === nextIndex ? { ...server, name: savedProfile.name } : server,
+        const activeId = activeThreadIdRef.current.trim();
+        if (activeId) {
+          updateThreadSnapshotById(activeId, (thread) => {
+            const filtered = thread.mcpServers.filter(
+              (server) => buildMcpServerKey(server) !== previousServerKey,
             );
-          }
+            if (filtered.length === thread.mcpServers.length) {
+              return thread;
+            }
 
-          return [...filtered, savedProfile];
-        });
+            const nextIndex = filtered.findIndex(
+              (server) => buildMcpServerKey(server) === nextServerKey,
+            );
+            if (nextIndex >= 0) {
+              return {
+                ...thread,
+                mcpServers: filtered.map((server, index) =>
+                  index === nextIndex ? { ...server, name: savedProfile.name } : server,
+                ),
+              };
+            }
+
+            return {
+              ...thread,
+              mcpServers: [...filtered, savedProfile],
+            };
+          });
+        }
       } else {
         connectMcpServerToAgent(savedProfile);
       }
@@ -5794,15 +5783,27 @@ export function useWorkspaceController() {
     }
 
     const selectedKey = buildMcpServerKey(selected);
-    setMcpServers((current) => {
-      const alreadyConnected = current.some(
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => {
+      const alreadyConnected = thread.mcpServers.some(
         (server) => buildMcpServerKey(server) === selectedKey,
       );
       if (alreadyConnected) {
-        return current.filter((server) => buildMcpServerKey(server) !== selectedKey);
+        return {
+          ...thread,
+          mcpServers: thread.mcpServers.filter(
+            (server) => buildMcpServerKey(server) !== selectedKey,
+          ),
+        };
       }
 
-      return [...current, selected];
+      return {
+        ...thread,
+        mcpServers: [...thread.mcpServers, selected],
+      };
     });
     setWorkspaceMcpServerProfileError(null);
   }
@@ -5811,8 +5812,14 @@ export function useWorkspaceController() {
     if (isArchivedThread(activeThreadIdRef.current)) {
       return;
     }
-
-    setMcpServers((current) => current.filter((server) => server.id !== id));
+    const activeId = activeThreadIdRef.current.trim();
+    if (!activeId) {
+      return;
+    }
+    updateThreadSnapshotById(activeId, (thread) => ({
+      ...thread,
+      mcpServers: thread.mcpServers.filter((server) => server.id !== id),
+    }));
   }
 
   async function handleApplyDesktopUpdate() {
@@ -6084,14 +6091,6 @@ export function useWorkspaceController() {
     },
   };
 
-  const isThreadOperationBusy =
-    isLoadingThreads ||
-    isSwitchingThread ||
-    isCreatingThread ||
-    isDeletingThread ||
-    isClearingThread ||
-    isRestoringThread;
-
   const threadsTabProps = {
     instructionSectionProps: {
       agentInstruction,
@@ -6134,29 +6133,8 @@ export function useWorkspaceController() {
       onAdoptEnhancedInstruction: handleAdoptEnhancedInstruction,
       onAdoptOriginalInstruction: handleAdoptOriginalInstruction,
     },
-    activeThreadOptions: activeThreadSummaries.map((thread) => {
-      const isActiveThread = thread.id === activeThreadId;
-      return {
-        id: thread.id,
-        name: isActiveThread ? activeThreadNameInput : thread.name,
-        updatedAt: thread.updatedAt,
-        deletedAt: thread.deletedAt,
-        messageCount: thread.messageCount,
-        mcpServerCount: thread.mcpServerCount,
-        isAwaitingResponse:
-          (threadRequestStateById[thread.id] ?? HOME_DEFAULT_THREAD_REQUEST_STATE).isSending,
-      };
-    }),
-    archivedThreadOptions: archivedThreadSummaries.map((thread) => ({
-      id: thread.id,
-      name: thread.name,
-      updatedAt: thread.updatedAt,
-      deletedAt: thread.deletedAt,
-      messageCount: thread.messageCount,
-      mcpServerCount: thread.mcpServerCount,
-      isAwaitingResponse:
-        (threadRequestStateById[thread.id] ?? HOME_DEFAULT_THREAD_REQUEST_STATE).isSending,
-    })),
+    activeThreadOptions,
+    archivedThreadOptions,
     activeThreadId,
     isLoadingThreads,
     isSwitchingThread,
@@ -6326,65 +6304,6 @@ export function useWorkspaceController() {
     },
     playgroundPanelProps,
   };
-}
-
-function resolveAzureTenantOptions(
-  tenants: AzureTenantOption[],
-  activeTenantIdRaw: string,
-): AzureTenantOption[] {
-  const activeTenantId = activeTenantIdRaw.trim();
-  const activeTenantKey = activeTenantId.toLowerCase();
-  const tenantById = new Map<string, AzureTenantOption>();
-
-  for (const tenant of tenants) {
-    const tenantId = tenant.tenantId.trim();
-    const tenantKey = tenantId.toLowerCase();
-    if (!tenantId || tenantById.has(tenantKey)) {
-      continue;
-    }
-
-    tenantById.set(tenantKey, {
-      tenantId,
-      displayName: tenant.displayName.trim() || tenant.defaultDomain.trim() || tenantId,
-      defaultDomain: tenant.defaultDomain.trim(),
-    });
-  }
-
-  if (activeTenantId && !tenantById.has(activeTenantKey)) {
-    tenantById.set(activeTenantKey, {
-      tenantId: activeTenantId,
-      displayName: activeTenantId,
-      defaultDomain: "",
-    });
-  }
-
-  return Array.from(tenantById.values()).sort((left, right) => {
-    if (activeTenantKey && left.tenantId.toLowerCase() === activeTenantKey) {
-      return -1;
-    }
-    if (activeTenantKey && right.tenantId.toLowerCase() === activeTenantKey) {
-      return 1;
-    }
-    return left.displayName.localeCompare(right.displayName);
-  });
-}
-
-function mergeSkillSelections(
-  threadSkills: ThreadSkillActivation[],
-  messageSkillActivations: ThreadSkillActivation[],
-): ThreadSkillActivation[] {
-  const byLocation = new Map<string, ThreadSkillActivation>();
-  for (const selection of [...threadSkills, ...messageSkillActivations]) {
-    const location = selection.location.trim();
-    if (!location || byLocation.has(location)) {
-      continue;
-    }
-    byLocation.set(location, {
-      name: selection.name,
-      location,
-    });
-  }
-  return Array.from(byLocation.values());
 }
 
 function resolveSkillBadgeLabel(

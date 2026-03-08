@@ -46,12 +46,17 @@
 
 - When `prisma/schema.prisma` changes for persisted models/fields, update `/mcp/debug` schema design descriptions in `app/lib/server/persistence/mcp-debug-database.ts` in the same implementation pass.
 - Keep `/mcp/debug` metadata aligned end-to-end:
-  - `tableDefinitions` role/field/type/nullability entries
+  - metadata definition rows (role/field/type/nullability entries)
   - latest-thread description schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
   - any affected MCP debug tool descriptions generated from metadata
 - Verify sync with `app/lib/server/persistence/mcp-debug-database.test.ts`.
 - After Prisma schema updates that affect persisted models/fields, run:
   - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
+- Keep table metadata definitions modular:
+  - `app/lib/server/persistence/mcp-debug-database-metadata.ts` is the source of table metadata rows.
+  - `app/lib/server/persistence/mcp-debug-database-types.ts` is the source of metadata types.
+  - `app/lib/server/persistence/mcp-debug-database.ts` should consume metadata definitions, not re-inline a large metadata array.
+- When metadata definitions change, update metadata module and tests in the same pass.
 
 ## Ordering Field Semantics
 
@@ -95,6 +100,13 @@
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
 
+## API Service Boundaries
+
+- Do not import one route module from another in `app/routes/api.*` implementations.
+- Shared route logic must live in `app/lib/server/*-service.ts` (or a feature subdirectory under `app/lib/server/`).
+- Route modules should own HTTP concerns (method dispatch, status code, response shape, request validation) and delegate reusable domain logic to service modules.
+- For any `api.*` refactor, run a static audit that route-to-route import findings are zero.
+
 ## Agents SDK Command API Exceptions
 
 - Keep command-style APIs where they are required for Agents SDK runtime behavior:
@@ -110,6 +122,14 @@
   - old term search (`rg`) for deprecated entity names and payload keys
   - raw `405` search in `api.*` implementations
   - old query-contract search (resource IDs passed by query for mutations)
+  - route-to-route import search in `app/routes/api.*` implementations
+  - duplicated local `*Like` type search in Home UI modules when shared view models were changed
+  - duplicated Thread selector pattern search in controller hotspots:
+    - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
+  - duplicated Home API auth/error branch search in controller hotspots:
+    - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
+  - `api.chat` helper concentration search:
+    - `rg -n "^function " app/routes/api.chat.ts`
 - Run dynamic validation after static cleanup:
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
@@ -179,6 +199,16 @@
   - thread-scoped execution logs
   - agent instruction
   - thread request status (send/progress/error)
+- Keep a single source of truth for active Thread runtime state:
+  - canonical state is `threads + activeThreadId`
+  - avoid mirrored controller-level state for data already represented in thread snapshots (`messages`, `mcpServers`, `mcpRpcLogs`, `skillSelections`)
+- Prefer pure selector/update helpers for Thread snapshot reads and writes under `app/lib/home/thread/*` over ad-hoc duplicated mutation code in controller handlers.
+- When `use-workspace-controller.ts` needs Thread lookup by ID, use shared selector helpers (for example `findThreadSnapshotById`) instead of repeating inline `threadsRef.current.find(...)`.
+- Use phase-based Thread operation state (`ThreadOperationPhase`) with shared guard helpers instead of many independent busy booleans.
+- Apply Thread operation phase updates through transition APIs in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation` / `canTransition`) instead of direct phase mutation.
+- Keep `sendMessage` orchestration thin by delegating precondition checks, request payload composition, stream consumption, and result application to `app/lib/home/controller/send-message-usecase.ts`.
+- Centralize shared Home API auth/error handling in `app/lib/home/controller/api-client.ts` (`requestHomeApi`, `resolveAuthRequired`, `mapApiError`) instead of duplicating 401/authRequired/network branches per handler.
+- For Home controller fetch calls that read JSON payload and map auth/error branches, use `requestHomeApi` by default and keep per-handler logic limited to domain-specific state updates.
 - Keep persistent interactive state in React/controller runtime first.
 - Persist controller state to SQLite with delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat SQLite as durable snapshot storage; treat React/controller state as the immediate source of truth during interaction.
@@ -190,6 +220,8 @@
 - Import constants directly from the owning constants module under `~/lib/` with the same exported name.
   - Avoid alias renaming (`as`) for constants.
 - Avoid re-export-only type/constant passthrough files; import from the source module directly.
+- For Home UI and controller boundaries, shared view/domain types belong in `app/lib/home/shared/view-types.ts`.
+  - Avoid reintroducing duplicated component-local `*Like` types when the same shape is used in multiple modules.
 
 ## Visual Style Baseline (Current UI)
 
@@ -244,6 +276,11 @@
 - Render Markdown responses and apply syntax highlighting to JSON responses.
 - Show concrete streaming progress states (not only generic `Thinking...`).
 - Support chat attachments for Code Interpreter-compatible files with current validation limits from constants modules under `app/lib/`.
+- Keep `app/routes/api.chat.ts` orchestration-focused.
+  - Request parsing/metadata handling, SSE response wiring, and reusable runtime helpers should live under `app/lib/server/chat/*`.
+- Do not add reusable low-level runtime utilities directly in `app/routes/api.chat.ts` (for example stdio command/path resolution, environment shaping, retry helpers); place them under `app/lib/server/chat/*` with dedicated unit tests.
+- On stream disconnect/cancel, propagate `AbortSignal` through chat execution and ensure MCP/session/container cleanup paths always execute.
+- Classify stream disconnect as cancellation (not upstream failure): do not emit stream error payload on client disconnect, and log cancellation as info-level (`chat_stream_canceled`).
 
 ## Threads / Instruction Behavior
 
@@ -289,6 +326,11 @@
   - allow additional custom headers
   - support per-server timeout and per-server Azure token scope
   - when Azure auth is enabled, inject `Authorization: Bearer <token>` at request time from `DefaultAzureCredential`
+- Share MCP input validation between frontend and backend via `app/lib/mcp/validation.ts`; UI and route parsers may format context-specific error messages but should not duplicate validation rules.
+- Share MCP server config parsing across chat and MCP routes via `app/lib/mcp/server-config-parser.ts`; keep context-specific error prefixes/messages at the call site, not duplicated parser logic.
+- For MCP session pool contention, prefer bounded wait-and-reuse before ephemeral fallback to improve session reuse and reduce connection churn.
+- Register runtime shutdown cleanup hooks once (idempotent) and close all Thread MCP sessions during process shutdown.
+- For session pool idle cleanup, close MCP sessions with best-effort safe close and warning logs so close failures never surface as unhandled rejections.
 
 ## MCP Debugging UX
 

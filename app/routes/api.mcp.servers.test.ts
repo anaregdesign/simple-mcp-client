@@ -169,6 +169,28 @@ describe("parseIncomingMcpServer", () => {
       ok: false,
       error: "`command` must not include spaces.",
     });
+
+    expect(
+      parseIncomingMcpServer({
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        azureAuthScope: "scope with spaces",
+      }),
+    ).toEqual({
+      ok: false,
+      error: "`azureAuthScope` must not include spaces.",
+    });
+
+    expect(
+      parseIncomingMcpServer({
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        timeoutSeconds: 3.5,
+      }),
+    ).toEqual({
+      ok: false,
+      error: "`timeoutSeconds` must be an integer.",
+    });
   });
 });
 

@@ -89,6 +89,7 @@ After updating the skill link, restart Codex (or start a new session).
   - `streamable_http`
   - `sse`
   - `stdio`
+- Built-in `cmd` MCP (`/mcp/cmd`) is included as a default profile and auto-connects on thread creation.
 - Save MCP profiles to SQLite, then attach/detach per thread.
 - Duplicate config detection reuses existing entries with warning behavior.
 - HTTP MCP always includes `Content-Type: application/json`.
@@ -101,6 +102,7 @@ Default saved MCP profiles (created if missing):
 
 - `openai-docs` (`https://developers.openai.com/mcp`)
 - `microsoft-learn` (`https://learn.microsoft.com/api/mcp`)
+- `cmd` (`/mcp/cmd`; `connectOnThreadCreate: true`)
 - `filesystem` (`npx -y @modelcontextprotocol/server-filesystem .`; working directory: `~/.foundry_local_playground/users/<user-id>/` on macOS/Linux)
 - `server-memory` (`npx -y @modelcontextprotocol/server-memory`)
 - `server-everything` (`npx -y @modelcontextprotocol/server-everything`)
@@ -177,6 +179,7 @@ Per-OS packaging:
 - `npm run desktop:package:win`
 - `npm run desktop:package:win:all`
 - `npm run desktop:package:win:portable`
+- `npm run desktop:package:win:portable:all`
 
 ## Data Paths
 

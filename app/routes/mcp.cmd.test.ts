@@ -1,6 +1,9 @@
 /**
  * Test module verifying /mcp/cmd behavior.
  */
+import fs from "node:fs";
+import nodeOs from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants";
 
@@ -34,7 +37,6 @@ import { action, loader, mcpCmdRouteTestUtils } from "./mcp.cmd";
 describe("mcp cmd route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mcpCmdRouteTestUtils.clearThreadCommandConsent();
 
     readAzureArmUserContextMock.mockResolvedValue({
       token: "arm-token-1",
@@ -134,7 +136,6 @@ describe("mcp cmd route", () => {
     expect(commandTool).toBeTruthy();
     expect(typeof commandTool.description).toBe("string");
     expect(commandTool.description).toContain("stdout/stderr");
-    expect(commandTool.description).toContain("first command execution in a thread");
     expect(commandTool.inputSchema).toEqual(
       expect.objectContaining({
         type: "object",
@@ -158,63 +159,12 @@ describe("mcp cmd route", () => {
             minimum: 1,
             maximum: 600,
           }),
-          confirmedByUser: expect.objectContaining({
-            type: "boolean",
-          }),
-          confirmationMessage: expect.objectContaining({
-            type: "string",
-            minLength: 1,
-            maxLength: 4000,
-          }),
         }),
       }),
     );
   });
 
-  it("requires explicit confirmation for first execution in a thread", async () => {
-    const response = await callShellExecuteTool({
-      threadId: "thread-1",
-      argumentsValue: {
-        command: "echo local-playground-cmd-output",
-      },
-    });
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.error).toBeUndefined();
-
-    expect(body.result?.isError).toBe(true);
-    expect(body.result?.content).toEqual([
-      {
-        type: "text",
-        text: buildExpectedApprovalPromptMarkdown(),
-      },
-    ]);
-    expect(body.result?.structuredContent).toEqual({
-      executed: false,
-      approvalRequired: true,
-      requiresUserConfirmation: true,
-      reason:
-        "First command execution in this thread requires explicit user confirmation before running terminal commands.",
-      confirmationPromptMarkdown: buildExpectedApprovalPromptMarkdown(),
-      confirmationChoices: ["yes", "no"],
-      consentScope: "thread",
-      threadContext: {
-        threadId: "thread-1",
-        turnId: null,
-      },
-      nextCallArguments: {
-        threadId: "thread-1",
-        command: "echo local-playground-cmd-output",
-        workingDirectory: null,
-        timeoutSeconds: 120,
-        confirmedByUser: true,
-        confirmationMessage: "yes",
-      },
-    });
-  });
-
-  it("executes shell command and returns stdout/stderr details after confirmation", async () => {
+  it("executes shell command and returns stdout/stderr details", async () => {
     const defaultWorkingDirectoryResult = mcpCmdRouteTestUtils.resolveWorkingDirectory(
       42,
       "thread-2",
@@ -222,14 +172,12 @@ describe("mcp cmd route", () => {
     );
     expect(defaultWorkingDirectoryResult.ok).toBe(true);
     const expectedWorkingDirectory =
-      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value : "";
+      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value.workingDirectory : "";
 
     const response = await callShellExecuteTool({
       threadId: "thread-2",
       argumentsValue: {
         command: "echo local-playground-cmd-output",
-        confirmedByUser: true,
-        confirmationMessage: "yes",
       },
     });
 
@@ -239,7 +187,6 @@ describe("mcp cmd route", () => {
 
     const payload = body.result?.structuredContent;
     expect(payload.executed).toBe(true);
-    expect(payload.approvalRequired).toBe(false);
     expect(payload.command).toBe("echo local-playground-cmd-output");
     expect(payload.workingDirectory).toBe(expectedWorkingDirectory);
     expect(payload.stdout).toContain("local-playground-cmd-output");
@@ -255,8 +202,6 @@ describe("mcp cmd route", () => {
       threadId: "thread-2",
       turnId: null,
     });
-    expect(payload.consentScope).toBe("thread");
-    expect(payload.consentGrantedInThisCall).toBe(true);
 
     expect(payload.shell).toMatchObject({
       executable: expect.any(String),
@@ -267,37 +212,7 @@ describe("mcp cmd route", () => {
     });
   });
 
-  it("skips reconfirmation after thread consent was already granted", async () => {
-    const firstResponse = await callShellExecuteTool({
-      threadId: "thread-3",
-      argumentsValue: {
-        command: "echo first-run",
-        confirmedByUser: true,
-        confirmationMessage: "yes",
-      },
-    });
-
-    expect(firstResponse.status).toBe(200);
-    const firstBody = await firstResponse.json();
-    expect(firstBody.result?.structuredContent?.executed).toBe(true);
-
-    const secondResponse = await callShellExecuteTool({
-      threadId: "thread-3",
-      argumentsValue: {
-        command: "echo second-run",
-      },
-    });
-
-    expect(secondResponse.status).toBe(200);
-    const secondBody = await secondResponse.json();
-    const secondPayload = secondBody.result?.structuredContent;
-    expect(secondPayload.executed).toBe(true);
-    expect(secondPayload.stdout).toContain("second-run");
-    expect(secondPayload.consentScope).toBe("thread");
-    expect(secondPayload.consentGrantedInThisCall).toBe(false);
-  });
-
-  it("requires confirmation for each request when thread context is missing", async () => {
+  it("requires thread context for secure execution", async () => {
     const response = await callShellExecuteTool({
       argumentsValue: {
         command: "echo no-thread",
@@ -309,44 +224,7 @@ describe("mcp cmd route", () => {
     expect(body.result?.isError).toBe(true);
     expect(body.result?.structuredContent).toEqual({
       executed: false,
-      approvalRequired: true,
-      requiresUserConfirmation: true,
-      reason:
-        "threadContext.threadId is missing. Explicit user confirmation is required for this command execution.",
-      confirmationPromptMarkdown: buildExpectedApprovalPromptMarkdown(),
-      confirmationChoices: ["yes", "no"],
-      consentScope: "request",
-      threadContext: {
-        threadId: null,
-        turnId: null,
-      },
-      nextCallArguments: {
-        command: "echo no-thread",
-        workingDirectory: null,
-        timeoutSeconds: 120,
-        confirmedByUser: true,
-        confirmationMessage: "yes",
-      },
-    });
-  });
-
-  it("requires explicit workingDirectory when thread context is missing", async () => {
-    const response = await callShellExecuteTool({
-      argumentsValue: {
-        command: "echo no-thread",
-        confirmedByUser: true,
-        confirmationMessage: "yes",
-      },
-    });
-
-    expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body.result?.isError).toBe(true);
-    expect(body.result?.structuredContent).toEqual({
-      executed: false,
-      approvalRequired: false,
-      error:
-        "threadContext.threadId is required when workingDirectory is omitted. Provide `workingDirectory` explicitly for threadless requests.",
+      error: "threadContext.threadId is required for secure command execution.",
       threadContext: {
         threadId: null,
         turnId: null,
@@ -354,66 +232,107 @@ describe("mcp cmd route", () => {
     });
   });
 
-  it("cancels execution when user chooses no", async () => {
+  it("allows compound shell commands", async () => {
     const response = await callShellExecuteTool({
-      threadId: "thread-cancel",
+      threadId: "thread-secure-operator",
       argumentsValue: {
-        command: "echo should-not-run",
-        confirmedByUser: true,
-        confirmationMessage: "no",
+        command: "echo one && echo two",
       },
     });
 
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.result?.isError).toBeUndefined();
-    expect(body.result?.structuredContent).toEqual({
-      executed: false,
-      approvalRequired: false,
-      approvalDenied: true,
-      reason: "User selected no. Command execution was canceled.",
-      command: "echo should-not-run",
-      threadContext: {
-        threadId: "thread-cancel",
-        turnId: null,
+    expect(body.error).toBeUndefined();
+    const payload = body.result?.structuredContent;
+    expect(payload.executed).toBe(true);
+    expect(payload.stdout).toContain("one");
+    expect(payload.stdout).toContain("two");
+  });
+
+  it("blocks critical destructive command patterns", async () => {
+    const response = await callShellExecuteTool({
+      threadId: "thread-secure-executable",
+      argumentsValue: {
+        command: "rm -rf /",
       },
     });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.result?.isError).toBe(true);
+    const payload = body.result?.structuredContent;
+    expect(payload.executed).toBe(false);
+    expect(payload.error).toContain("critical operation pattern");
+  });
+
+  it("blocks sensitive path references", async () => {
+    const response = await callShellExecuteTool({
+      threadId: "thread-secure-sensitive-path",
+      argumentsValue: {
+        command: "cat ~/.ssh/id_rsa",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.result?.isError).toBe(true);
+    const payload = body.result?.structuredContent;
+    expect(payload.executed).toBe(false);
+    expect(payload.error).toContain("sensitive path pattern");
+  });
+
+  it("rejects workingDirectory outside thread directory", async () => {
+    const outsideDirectory = fs.mkdtempSync(
+      path.join(nodeOs.tmpdir(), "local-playground-mcp-cmd-outside-working-dir-"),
+    );
+    try {
+      const response = await callShellExecuteTool({
+        threadId: "thread-secure-working-dir",
+        argumentsValue: {
+          command: "echo denied",
+          workingDirectory: outsideDirectory,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.result?.isError).toBe(true);
+      const payload = body.result?.structuredContent;
+      expect(payload.executed).toBe(false);
+      expect(payload.error).toContain("workingDirectory must be inside thread directory");
+    } finally {
+      fs.rmSync(outsideDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("allows non-critical commands that target paths outside thread directory", async () => {
+    const outsideDirectory = fs.mkdtempSync(
+      path.join(nodeOs.tmpdir(), "local-playground-mcp-cmd-outside-path-"),
+    );
+    const outsideFilePath = path.join(outsideDirectory, "allowed.txt");
+    try {
+      const response = await callShellExecuteTool({
+        threadId: "thread-secure-path-argument",
+        argumentsValue: {
+          command:
+            `node -e "require('node:fs').writeFileSync(process.argv[1], 'ok')" ${JSON.stringify(outsideFilePath)}`,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.result?.isError).toBeUndefined();
+      const payload = body.result?.structuredContent;
+      expect(payload.executed).toBe(true);
+      expect(payload.exitCode).toBe(0);
+      expect(fs.readFileSync(outsideFilePath, "utf8")).toBe("ok");
+    } finally {
+      fs.rmSync(outsideDirectory, { recursive: true, force: true });
+    }
   });
 
   it("uses client-provided threadId from tool arguments", async () => {
-    const firstResponse = await callShellExecuteTool({
-      argumentsValue: {
-        threadId: "thread-from-client",
-        command: "echo from-client-thread",
-      },
-    });
-
-    expect(firstResponse.status).toBe(200);
-    const firstBody = await firstResponse.json();
-    expect(firstBody.result?.isError).toBe(true);
-    expect(firstBody.result?.structuredContent).toEqual({
-      executed: false,
-      approvalRequired: true,
-      requiresUserConfirmation: true,
-      reason:
-        "First command execution in this thread requires explicit user confirmation before running terminal commands.",
-      confirmationPromptMarkdown: buildExpectedApprovalPromptMarkdown(),
-      confirmationChoices: ["yes", "no"],
-      consentScope: "thread",
-      threadContext: {
-        threadId: "thread-from-client",
-        turnId: null,
-      },
-      nextCallArguments: {
-        threadId: "thread-from-client",
-        command: "echo from-client-thread",
-        workingDirectory: null,
-        timeoutSeconds: 120,
-        confirmedByUser: true,
-        confirmationMessage: "yes",
-      },
-    });
-
     const defaultWorkingDirectoryResult = mcpCmdRouteTestUtils.resolveWorkingDirectory(
       42,
       "thread-from-client",
@@ -421,20 +340,18 @@ describe("mcp cmd route", () => {
     );
     expect(defaultWorkingDirectoryResult.ok).toBe(true);
     const expectedWorkingDirectory =
-      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value : "";
+      defaultWorkingDirectoryResult.ok ? defaultWorkingDirectoryResult.value.workingDirectory : "";
 
-    const secondResponse = await callShellExecuteTool({
+    const response = await callShellExecuteTool({
       argumentsValue: {
         threadId: "thread-from-client",
         command: "echo from-client-thread",
-        confirmedByUser: true,
-        confirmationMessage: "yes",
       },
     });
 
-    expect(secondResponse.status).toBe(200);
-    const secondBody = await secondResponse.json();
-    const payload = secondBody.result?.structuredContent;
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const payload = body.result?.structuredContent;
     expect(payload.executed).toBe(true);
     expect(payload.threadContext).toEqual({
       threadId: "thread-from-client",
@@ -473,14 +390,4 @@ async function callShellExecuteTool(options: {
       }),
     }),
   });
-}
-
-function buildExpectedApprovalPromptMarkdown(): string {
-  return [
-    "このスレッド内でのコマンド実行を許可しますか？",
-    "",
-    "以下から選択してください。",
-    "- yes",
-    "- no",
-  ].join("\n");
 }

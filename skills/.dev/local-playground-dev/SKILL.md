@@ -54,6 +54,20 @@ Run this loop for every implementation task.
   - status codes: `200`/`201`/`204` success semantics, `409` state conflicts, `422` validation failures
   - `methodNotAllowedResponse` for `405` responses with `Allow`
   - structured JSON error payloads with stable machine-readable code and concise message
+- Enforce API service boundary for route implementations:
+  - avoid route-to-route imports inside `app/routes/api.*` production modules
+  - extract shared route logic to `app/lib/server/*-service.ts` (or feature subdirectories under `app/lib/server/`)
+- Keep `api.chat` orchestration-focused:
+  - request parsing/metadata helpers and SSE/runtime helpers should live in `app/lib/server/chat/*`
+  - reusable low-level runtime helpers (for example stdio command/path resolution and environment shaping) should be extracted to `app/lib/server/chat/*` with dedicated unit tests
+  - stream disconnect/cancel must propagate `AbortSignal` and trigger cleanup paths
+  - stream disconnect should be classified as cancellation (`chat_stream_canceled` info log) and must not emit upstream-failure error payloads
+- Keep MCP validation logic centralized in `app/lib/mcp/validation.ts` and reused by both frontend input parsers and backend route parsers.
+- Keep MCP server config parser logic centralized in `app/lib/mcp/server-config-parser.ts`; route-specific prefixes/messages may vary but parser behavior must stay shared.
+- Keep MCP session lifecycle disciplined:
+  - prefer bounded wait-and-reuse before ephemeral fallback on session-pool contention
+  - register shutdown cleanup hooks idempotently and close all thread MCP sessions on runtime shutdown
+  - idle cleanup close must use safe close (best-effort + warning log) to avoid unhandled rejections
 - Keep command-style API exceptions scoped to Agents SDK runtime endpoints only:
   - `/api/chat`
   - `/api/instruction-patches`
@@ -63,10 +77,11 @@ Run this loop for every implementation task.
   - `npm run test:core -- app/routes/api.*.test.ts`
   - `npm run typecheck:core`
 - When `prisma/schema.prisma` changes for persisted models/fields, update `/mcp/debug` schema design descriptions in `app/lib/server/persistence/mcp-debug-database.ts` in the same change batch:
-  - `tableDefinitions` metadata entries
+  - metadata definitions (`app/lib/server/persistence/mcp-debug-database-metadata.ts`)
   - latest-thread schema-source model list (`buildDatabaseDebugLatestThreadToolDescription`)
   - affected MCP debug tool descriptions derived from metadata
 - Keep `app/lib/server/persistence/mcp-debug-database.test.ts` aligned with metadata changes.
+- Keep shared Home view/domain types centralized in `app/lib/home/shared/view-types.ts`; avoid duplicated local `*Like` aliases across components.
 - Use semantic naming for ordering and log concepts:
   - same behavior -> same identifier family
   - different behavior -> different identifier family
@@ -90,6 +105,14 @@ Run this loop for every implementation task.
 ## 3) Enforce State Persistence Policy
 
 - Keep persistent application state in React runtime first (controller-owned state in `app/lib/home/controller/`).
+- Keep active thread runtime state single-sourced in controller (`threads + activeThreadId`) and avoid mirrored state fields for snapshot-owned data.
+- Prefer pure selector/update helpers for Thread snapshot read/write flows (`app/lib/home/thread/*`) over duplicated ad-hoc state mutation paths.
+- For `use-workspace-controller.ts`, avoid repeating inline `threadsRef.current.find(...)` for Thread ID lookup; use a shared selector helper (for example `findThreadSnapshotById`).
+- Prefer phase-based operation state (`ThreadOperationPhase`) and guard helpers instead of many independent boolean busy flags.
+- Apply operation phase updates via transition helpers in `app/lib/home/controller/thread-operation-phase.ts` (for example `transitionThreadOperation`) instead of direct string assignments.
+- Keep send-message pipeline module boundaries explicit in `app/lib/home/controller/send-message-usecase.ts` (`validateSendPreconditions`, `buildChatRequestPayload`, `consumeChatResponseStream`, `applySendResult`).
+- Reuse `app/lib/home/controller/api-client.ts` for Home API auth/error handling; avoid per-handler duplication of 401/authRequired/network mapping.
+- For Home controller network handlers that parse JSON and branch on auth/error, default to `requestHomeApi` and keep handler code focused on domain state transitions.
 - Persist that state to SQLite via delayed writes (debounced/autosave), not eager write-on-every-change.
 - Treat DB as durable snapshot storage; treat React state as the immediate source of truth during interaction.
 - Implement persistence from controller logic under `app/lib/home/controller/`.
@@ -108,6 +131,10 @@ Run this loop for every implementation task.
 - Use `references/review-checklist.md` at pre-change, in-change, and final gates.
 - Treat sections 0-4 as continuous guardrails during implementation.
 - For naming/contract refactors, run repeated static drift checks plus dynamic gates until findings are zero.
+- For controller/chat hotspot files, include focused drift checks in each refactor batch:
+  - `rg -n "threadsRef\\.current\\.find\\(\\(thread\\) => thread\\.id ===" app/lib/home/controller/use-workspace-controller.ts`
+  - `rg -n "resolveAuthRequired\\(response\\.status|!response\\.ok" app/lib/home/controller/use-workspace-controller.ts`
+  - `rg -n "^function " app/routes/api.chat.ts`
 
 ## 6) Run Mandatory Quality Gates
 
@@ -131,6 +158,10 @@ After refactors:
 
 - Remove dead files, selectors, and stale tests.
 - Refresh `README.md` and `docs/images/` when user-facing UX/layout changes.
+- Run static drift checks to zero for:
+  - route-to-route imports in `app/routes/api.*` production modules
+  - duplicated Home local `*Like` view types after shared type refactors
+  - deprecated terms/keys replaced by the refactor batch
 - If `app/routes/api.*` changed, run:
   - `npm run test:core -- app/routes/api.*.test.ts`
   - REST static checks from `references/review-checklist.md` section 2 API contract items

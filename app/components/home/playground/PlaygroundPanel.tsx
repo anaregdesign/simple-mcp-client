@@ -15,7 +15,17 @@ import { LabeledTooltip } from "~/components/home/shared/LabeledTooltip";
 import { AutoDismissStatusMessageList } from "~/components/home/shared/AutoDismissStatusMessageList";
 import { StatusMessageList } from "~/components/home/shared/StatusMessageList";
 import { QuickControlFrame } from "~/components/home/shared/QuickControlFrame";
-import type { ReasoningEffort } from "~/lib/home/shared/view-types";
+import type {
+  AzureConnectionOptionView,
+  ChatCommandMenuView,
+  DesktopUpdaterStatusView,
+  ReasoningEffort,
+  ThreadMcpConnectionView,
+  ThreadMessageAttachmentView,
+  ThreadMessageView,
+  ThreadOperationLogEntryView,
+  ThreadSkillView,
+} from "~/lib/home/shared/view-types";
 import { resolveDesktopUpdaterActionState } from "~/lib/home/controller/desktop-updater";
 import { formatChatAttachmentSize } from "~/lib/home/chat/attachments";
 import {
@@ -30,97 +40,17 @@ const {
   Switch,
   Textarea,
 } = FluentUI;
-type ThreadMessageRole = "user" | "assistant";
-
-type ThreadMessageLike = {
-  id: string;
-  role: ThreadMessageRole;
-  content: string;
-  turnId: string;
-  skillActivations?: ThreadSkillLike[];
-};
-
-type ThreadMessageAttachmentLike = {
-  id: string;
-  name: string;
-  sizeBytes: number;
-};
-
-type ThreadSkillLike = {
-  name: string;
-  location: string;
-};
-
-type ChatCommandSuggestionLike = {
-  id: string;
-  label: string;
-  description: string;
-  detail: string;
-  isSelected: boolean;
-  isAvailable: boolean;
-};
-
-type ChatCommandMenuLike = {
-  keyword: string;
-  query: string;
-  emptyHint: string;
-  highlightedIndex: number;
-  suggestions: ChatCommandSuggestionLike[];
-};
-
-type DesktopUpdaterStatusLike = {
-  supported: boolean;
-  checking: boolean;
-  updateAvailable: boolean;
-  updateDownloaded: boolean;
-  currentVersion: string;
-  availableVersion: string;
-  errorMessage: string;
-  lastCheckedAt: string;
-};
-
-type AzureConnectionLike = {
-  id: string;
-  projectName: string;
-};
-
-type ThreadOperationLogEntryLike = {
-  id: string;
-};
-
-type ThreadMcpConnectionHttpLike = {
-  id: string;
-  name: string;
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string;
-  timeoutSeconds: number;
-};
-
-type ThreadMcpConnectionStdioLike = {
-  id: string;
-  name: string;
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-};
-
-type ThreadMcpConnectionLike = ThreadMcpConnectionHttpLike | ThreadMcpConnectionStdioLike;
 
 type PlaygroundPanelProps<
-  TMessage extends ThreadMessageLike,
-  TThreadOperationLogEntry extends ThreadOperationLogEntryLike,
-  TMcpServer extends ThreadMcpConnectionLike,
+  TMessage extends ThreadMessageView,
+  TThreadOperationLogEntry extends ThreadOperationLogEntryView,
+  TMcpServer extends ThreadMcpConnectionView,
 > = {
   messages: TMessage[];
   threadOperationLogsByTurnId: Map<string, TThreadOperationLogEntry[]>;
   isSending: boolean;
   isThreadReadOnly: boolean;
-  desktopUpdaterStatus: DesktopUpdaterStatusLike;
+  desktopUpdaterStatus: DesktopUpdaterStatusView;
   isApplyingDesktopUpdate: boolean;
   onCheckDesktopUpdates: () => void;
   onApplyDesktopUpdate: () => void;
@@ -151,7 +81,7 @@ type PlaygroundPanelProps<
   messageAttachmentAccept: string;
   messageAttachmentFormatHint: string;
   draft: string;
-  messageAttachments: ThreadMessageAttachmentLike[];
+  messageAttachments: ThreadMessageAttachmentView[];
   messageAttachmentError: string | null;
   onDraftChange: (event: ChangeEvent<HTMLTextAreaElement>, value: string) => void;
   onInputSelect: (event: SyntheticEvent<HTMLTextAreaElement>) => void;
@@ -159,7 +89,7 @@ type PlaygroundPanelProps<
   onMessageAttachmentFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemoveMessageAttachment: (id: string) => void;
   onInputKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
-  chatCommandMenu: ChatCommandMenuLike | null;
+  chatCommandMenu: ChatCommandMenuView | null;
   onSelectChatCommandSuggestion: (id: string) => void;
   onHighlightChatCommandSuggestion: (index: number) => void;
   onCompositionStart: () => void;
@@ -171,7 +101,7 @@ type PlaygroundPanelProps<
   isStartingAzureLogin: boolean;
   isStartingAzureLogout: boolean;
   onChatAzureSelectorAction: (target: "project" | "deployment") => void;
-  azureConnections: AzureConnectionLike[];
+  azureConnections: AzureConnectionOptionView[];
   activeAzureConnectionId: string;
   onProjectChange: (projectId: string) => void;
   selectedAzureDeploymentName: string;
@@ -185,8 +115,8 @@ type PlaygroundPanelProps<
   onWebSearchEnabledChange: (value: boolean) => void;
   maxMessageAttachmentFiles: number;
   canSendMessage: boolean;
-  selectedThreadSkills: ThreadSkillLike[];
-  selectedMessageSkillActivations: ThreadSkillLike[];
+  selectedThreadSkills: ThreadSkillView[];
+  selectedMessageSkillActivations: ThreadSkillView[];
   onRemoveThreadSkill: (location: string) => void;
   onRemoveMessageSkillActivation: (location: string) => void;
   mcpServers: TMcpServer[];
@@ -194,9 +124,9 @@ type PlaygroundPanelProps<
 };
 
 export function PlaygroundPanel<
-  TMessage extends ThreadMessageLike,
-  TThreadOperationLogEntry extends ThreadOperationLogEntryLike,
-  TMcpServer extends ThreadMcpConnectionLike,
+  TMessage extends ThreadMessageView,
+  TThreadOperationLogEntry extends ThreadOperationLogEntryView,
+  TMcpServer extends ThreadMcpConnectionView,
 >(props: PlaygroundPanelProps<TMessage, TThreadOperationLogEntry, TMcpServer>) {
   const {
     messages,

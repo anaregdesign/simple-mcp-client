@@ -63,8 +63,13 @@ const {
   buildInitialSkillOperationRecords,
   instrumentMcpServer,
   buildUpstreamErrorMessage,
+  buildUpstreamErrorPayload,
   isTransientNetworkTerminationError,
+  isRequestCanceledError,
   shouldRetryChatExecution,
+  throwIfAborted,
+  runAgentWithTimeout,
+  RequestCanceledError,
   resolveThreadDirectoryPath,
   applyDefaultThreadDirectoryToStdioServers,
 } = chatRouteTestUtils;
@@ -504,11 +509,61 @@ describe("shouldRetryChatExecution", () => {
   });
 });
 
+describe("runAgentWithTimeout", () => {
+  it("aborts task when upstream signal is canceled", async () => {
+    const upstreamAbortController = new AbortController();
+    const runPromise = runAgentWithTimeout(
+      async (signal) => {
+        await new Promise<void>((resolve) => {
+          const poll = () => {
+            if (signal.aborted) {
+              resolve();
+              return;
+            }
+            setTimeout(poll, 5);
+          };
+          poll();
+        });
+        throw new Error("aborted");
+      },
+      5_000,
+      "Timed out",
+      upstreamAbortController.signal,
+    );
+
+    upstreamAbortController.abort();
+    await expect(runPromise).rejects.toThrow("aborted");
+  });
+});
+
 describe("buildUpstreamErrorMessage", () => {
   it("returns retry guidance for transient termination errors", () => {
     expect(buildUpstreamErrorMessage(new TypeError("terminated"), "gpt-5.2")).toBe(
       "Connection to Azure OpenAI was interrupted before completion. Please retry.",
     );
+  });
+});
+
+describe("stream cancellation classification", () => {
+  it("treats canceled requests as non-upstream failures", () => {
+    const canceledError = new RequestCanceledError();
+    expect(isRequestCanceledError(canceledError)).toBe(true);
+    expect(
+      buildUpstreamErrorPayload(canceledError, "gpt-5.2"),
+    ).toEqual({
+      payload: {
+        code: "request_canceled",
+        error: "Request was canceled by client disconnect.",
+      },
+      status: 499,
+    });
+  });
+
+  it("throws RequestCanceledError when abort signal is already canceled", () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    expect(() => throwIfAborted(controller.signal)).toThrow(RequestCanceledError);
   });
 });
 
@@ -1014,6 +1069,39 @@ describe("readMcpServers", () => {
       ok: false,
       error:
         'mcpServers[0].headers cannot include "Content-Type". It is fixed to "application/json".',
+    });
+  });
+
+  it("rejects scope strings with whitespace", () => {
+    expect(
+      readMcpServers({
+        mcpServers: [
+          {
+            url: "https://example.com/mcp",
+            useAzureAuth: true,
+            azureAuthScope: "scope with spaces",
+          },
+        ],
+      }),
+    ).toEqual({
+      ok: false,
+      error: "mcpServers[0].azureAuthScope must not include spaces.",
+    });
+  });
+
+  it("rejects non-integer timeout values", () => {
+    expect(
+      readMcpServers({
+        mcpServers: [
+          {
+            url: "https://example.com/mcp",
+            timeoutSeconds: 3.5,
+          },
+        ],
+      }),
+    ).toEqual({
+      ok: false,
+      error: "mcpServers[0].timeoutSeconds must be an integer.",
     });
   });
 

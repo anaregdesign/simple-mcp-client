@@ -9,6 +9,7 @@ const {
   findMany,
   createMany,
   deleteMany,
+  transaction,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAzureArmUserContext: vi.fn(async () => ({
@@ -23,6 +24,7 @@ const {
   findMany: vi.fn(async () => []),
   createMany: vi.fn(async () => ({ count: 0 })),
   deleteMany: vi.fn(async () => ({ count: 0 })),
+  transaction: vi.fn(async (..._args: unknown[]) => undefined),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
@@ -42,7 +44,7 @@ vi.mock("~/lib/server/persistence/prisma", () => ({
       createMany,
       deleteMany,
     },
-    $transaction: vi.fn(async () => undefined),
+    $transaction: transaction,
   },
 }));
 
@@ -72,19 +74,36 @@ describe("/api/mcp/servers collection", () => {
     createMany.mockResolvedValue({ count: 0 });
     deleteMany.mockReset();
     deleteMany.mockResolvedValue({ count: 0 });
+    transaction.mockReset();
+    transaction.mockImplementation(async (...args: unknown[]) => {
+      const callback = args[0] as (tx: {
+        workspaceMcpServerProfile: {
+          createMany: typeof createMany;
+          deleteMany: typeof deleteMany;
+        };
+      }) => Promise<unknown>;
+      await callback({
+        workspaceMcpServerProfile: {
+          createMany,
+          deleteMany,
+        },
+      });
+      return undefined;
+    });
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
   });
 
-  it("returns 200 for GET without writing profiles", async () => {
+  it("returns 200 for GET and ensures default profiles", async () => {
     const response = await loader({
       request: new Request("http://localhost/api/mcp/servers", { method: "GET" }),
     } as never);
 
     expect(response.status).toBe(200);
-    expect(findMany).toHaveBeenCalledTimes(1);
-    expect(createMany).not.toHaveBeenCalled();
-    expect(deleteMany).not.toHaveBeenCalled();
+    expect(findMany).toHaveBeenCalledTimes(2);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(deleteMany).toHaveBeenCalledTimes(1);
+    expect(createMany).toHaveBeenCalledTimes(1);
   });
 
   it("returns 405 with Allow for unsupported loader methods", async () => {

@@ -27,19 +27,56 @@ const MCP_CMD_TOOL_NAME = "shell_execute_command";
 const MCP_CMD_TOOL_DESCRIPTION = [
   "Executes an arbitrary shell command on the Local Playground host.",
   "Returns stdout/stderr, exit status, timeout state, execution duration, and resolved shell metadata.",
-  "Safety policy: if this is the first command execution in a thread, ask the user for explicit consent in chat first.",
-  "Then call again with confirmedByUser=true and confirmationMessage set to yes or no.",
+  "Security policy: critical destructive command patterns are blocked.",
+  "Security policy: sensitive credential/system path references are blocked.",
+  "Security policy: command environment is sanitized and scoped to the thread directory.",
   "Default working directory is ~/.foundry_local_playground/users/<user-id>/threads/<thread-id>/.",
-  "When threadContext.threadId is missing, explicit consent is required for every call and workingDirectory must be provided explicitly.",
+  "threadContext.threadId is required for secure command execution.",
 ].join("\n");
 
 const MCP_CMD_DEFAULT_TIMEOUT_SECONDS = 120;
 const MCP_CMD_MAX_TIMEOUT_SECONDS = 600;
 const MCP_CMD_OUTPUT_MAX_BYTES = 1_000_000;
 const MCP_CMD_MAX_COMMAND_LENGTH = 32_000;
-const MCP_CMD_MAX_CONFIRMATION_MESSAGE_LENGTH = 4_000;
-const THREAD_COMMAND_CONSENT_CACHE_MAX = 512;
-const COMMAND_APPROVAL_CHOICES = ["yes", "no"] as const;
+const MCP_CMD_CRITICAL_COMMAND_PATTERNS = [
+  /\brm\s+-rf\s+\/($|\s)/i,
+  /\bmkfs(\.[a-z0-9]+)?\b/i,
+  /\bfdisk\b/i,
+  /\bdiskutil\s+erase/i,
+  /\bshutdown\b/i,
+  /\breboot\b/i,
+  /\bpoweroff\b/i,
+  /\bhalt\b/i,
+  /\bformat\s+[a-z]:/i,
+];
+
+const MCP_CMD_SENSITIVE_PATH_PATTERNS = [
+  /(^|[\\/])\.ssh([\\/]|$)/i,
+  /(^|[\\/])\.aws([\\/]|$)/i,
+  /(^|[\\/])\.azure([\\/]|$)/i,
+  /(^|[\\/])\.gnupg([\\/]|$)/i,
+  /(^|[\\/])\.kube([\\/]|$)/i,
+  /(^|[\\/])\.git-credentials([\\/]|$)/i,
+  /(^|[\\/])\.config[\\/]gcloud([\\/]|$)/i,
+  /(^|[\\/])Library[\\/]Keychains([\\/]|$)/i,
+  /(^|[\\/])AppData[\\/]Roaming[\\/]Microsoft[\\/]Credentials([\\/]|$)/i,
+  /(^|[\\/])etc[\\/](passwd|shadow|sudoers)\b/i,
+  /(^|[\\/])var[\\/]run([\\/]|$)/i,
+  /(^|[\\/])proc([\\/]|$)/i,
+  /(^|[\\/])sys([\\/]|$)/i,
+];
+
+const MCP_CMD_ALLOWED_ENVIRONMENT_KEYS = new Set([
+  "COMSPEC",
+  "LANG",
+  "LC_ALL",
+  "PATH",
+  "PATHEXT",
+  "SHELL",
+  "SYSTEMROOT",
+  "TERM",
+  "WINDIR",
+]);
 
 const cmdExecuteInputSchema = {
   threadId: z
@@ -47,7 +84,7 @@ const cmdExecuteInputSchema = {
     .min(1)
     .optional()
     .describe(
-      "Optional thread identifier supplied by the client. When provided, this value is used for first-run consent scope and default working directory resolution.",
+      "Optional thread identifier supplied by the client. When provided, this value is used for default working directory resolution.",
     ),
   command: z
     .string()
@@ -72,20 +109,6 @@ const cmdExecuteInputSchema = {
     .describe(
       `Execution timeout in seconds. Defaults to ${MCP_CMD_DEFAULT_TIMEOUT_SECONDS} (max ${MCP_CMD_MAX_TIMEOUT_SECONDS}).`,
     ),
-  confirmedByUser: z
-    .boolean()
-    .optional()
-    .describe(
-      "Set true only after the user explicitly agreed to terminal command execution for this thread.",
-    ),
-  confirmationMessage: z
-    .string()
-    .min(1)
-    .max(MCP_CMD_MAX_CONFIRMATION_MESSAGE_LENGTH)
-    .optional()
-    .describe(
-      'User choice for command execution approval. Required when confirmedByUser=true and must be either "yes" or "no".',
-    ),
 };
 
 type AuthenticatedMcpCmdContext = {
@@ -104,28 +127,14 @@ type ParsedCmdToolArguments = {
   command: string;
   workingDirectory: string | null;
   timeoutSeconds: number;
-  confirmedByUser: boolean;
-  confirmationMessage: string | null;
-  confirmationChoice: "yes" | "no" | null;
 };
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-type CommandConsentResult =
-  | {
-      ok: true;
-      scope: "thread" | "request";
-      grantedInThisCall: boolean;
-    }
-  | {
-      ok: false;
-      scope: "thread" | "request";
-      reason: string;
-      nextCallArguments: {
-        confirmedByUser: true;
-        confirmationMessage: string;
-      };
-    };
+type CommandDirectoryScope = {
+  threadDirectory: string;
+  workingDirectory: string;
+};
 
 type ShellFamily = "posix" | "powershell" | "cmd";
 
@@ -153,8 +162,6 @@ type CommandExecutionResult = {
   timedOut: boolean;
   durationMs: number;
 };
-
-const threadCommandConsentMap = new Map<string, { grantedAt: string }>();
 
 export async function loader({ request }: { request: Request }) {
   installGlobalServerErrorLogging();
@@ -259,7 +266,6 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
       if (!parsedArguments.ok) {
         return buildToolResponse({
           executed: false,
-          approvalRequired: false,
           error: parsedArguments.error,
           threadContext: {
             threadId: requestContext.threadId,
@@ -274,60 +280,33 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         ...requestContext,
         threadId: effectiveThreadId,
       };
-      if (commandArgs.confirmedByUser && commandArgs.confirmationChoice === "no") {
-        return buildToolResponse({
-          executed: false,
-          approvalRequired: false,
-          approvalDenied: true,
-          reason: "User selected no. Command execution was canceled.",
-          command: commandArgs.command,
-          threadContext: {
-            threadId: effectiveThreadId,
-            turnId: requestContext.turnId,
-          },
-        });
-      }
-      const commandConsent = evaluateCommandExecutionConsent(
-        effectiveRequestContext,
-        commandArgs,
-      );
-      if (!commandConsent.ok) {
-        const confirmationPromptMarkdown = buildCommandApprovalPromptMarkdown();
-        return buildToolResponse({
-          executed: false,
-          approvalRequired: true,
-          requiresUserConfirmation: true,
-          reason: commandConsent.reason,
-          confirmationPromptMarkdown,
-          confirmationChoices: COMMAND_APPROVAL_CHOICES,
-          consentScope: commandConsent.scope,
-          threadContext: {
-            threadId: effectiveThreadId,
-            turnId: requestContext.turnId,
-          },
-          nextCallArguments: {
-            ...(effectiveThreadId ? { threadId: effectiveThreadId } : {}),
-            command: commandArgs.command,
-            workingDirectory: commandArgs.workingDirectory,
-            timeoutSeconds: commandArgs.timeoutSeconds,
-            ...commandConsent.nextCallArguments,
-          },
-        }, {
-          isError: true,
-          text: confirmationPromptMarkdown,
-        });
-      }
 
-      const workingDirectoryResult = resolveWorkingDirectory(
-        requestContext.userId,
-        effectiveThreadId,
+      const directoryScopeResult = resolveWorkingDirectory(
+        effectiveRequestContext.userId,
+        effectiveRequestContext.threadId,
         commandArgs.workingDirectory,
       );
-      if (!workingDirectoryResult.ok) {
+      if (!directoryScopeResult.ok) {
         return buildToolResponse({
           executed: false,
-          approvalRequired: false,
-          error: workingDirectoryResult.error,
+          error: directoryScopeResult.error,
+          threadContext: {
+            threadId: effectiveThreadId,
+            turnId: requestContext.turnId,
+          },
+        }, { isError: true });
+      }
+      const directoryScope = directoryScopeResult.value;
+
+      const commandSecurityResult = evaluateCommandSecurityPolicy({
+        command: commandArgs.command,
+      });
+      if (!commandSecurityResult.ok) {
+        return buildToolResponse({
+          executed: false,
+          error: commandSecurityResult.error,
+          command: commandArgs.command,
+          workingDirectory: directoryScope.workingDirectory,
           threadContext: {
             threadId: effectiveThreadId,
             turnId: requestContext.turnId,
@@ -339,7 +318,6 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
       if (!shellExecutionContext) {
         return buildToolResponse({
           executed: false,
-          approvalRequired: false,
           error:
             "No available shell environment was found for this operating system. Configure SHELL/ComSpec and retry.",
           threadContext: {
@@ -353,22 +331,23 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         const executionResult = await runShellCommand({
           shellExecutionContext,
           command: commandArgs.command,
-          workingDirectory: workingDirectoryResult.value,
+          workingDirectory: directoryScope.workingDirectory,
+          environment: buildSecureCommandEnvironment({
+            threadDirectory: directoryScope.threadDirectory,
+            workingDirectory: directoryScope.workingDirectory,
+          }),
           timeoutSeconds: commandArgs.timeoutSeconds,
         });
 
         return buildToolResponse({
           executed: true,
-          approvalRequired: false,
           command: commandArgs.command,
-          workingDirectory: workingDirectoryResult.value,
+          workingDirectory: directoryScope.workingDirectory,
           timeoutSeconds: commandArgs.timeoutSeconds,
           threadContext: {
             threadId: effectiveThreadId,
             turnId: requestContext.turnId,
           },
-          consentScope: commandConsent.scope,
-          consentGrantedInThisCall: commandConsent.grantedInThisCall,
           stdout: executionResult.stdout,
           stderr: executionResult.stderr,
           stdoutTruncated: executionResult.stdoutTruncated,
@@ -388,9 +367,8 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
       } catch (error) {
         return buildToolResponse({
           executed: false,
-          approvalRequired: false,
           command: commandArgs.command,
-          workingDirectory: workingDirectoryResult.value,
+          workingDirectory: directoryScope.workingDirectory,
           timeoutSeconds: commandArgs.timeoutSeconds,
           threadContext: {
             threadId: effectiveThreadId,
@@ -450,11 +428,6 @@ function parseCmdExecuteArguments(value: unknown): ParseResult<ParsedCmdToolArgu
     return timeoutSecondsResult;
   }
 
-  const confirmationResult = parseConfirmationInput(value);
-  if (!confirmationResult.ok) {
-    return confirmationResult;
-  }
-
   const threadIdResult = parseThreadId(value.threadId);
   if (!threadIdResult.ok) {
     return threadIdResult;
@@ -467,9 +440,6 @@ function parseCmdExecuteArguments(value: unknown): ParseResult<ParsedCmdToolArgu
       command,
       workingDirectory,
       timeoutSeconds: timeoutSecondsResult.value,
-      confirmedByUser: confirmationResult.value.confirmedByUser,
-      confirmationMessage: confirmationResult.value.confirmationMessage,
-      confirmationChoice: confirmationResult.value.confirmationChoice,
     },
   };
 }
@@ -510,210 +480,80 @@ function parseTimeoutSeconds(rawTimeoutSeconds: unknown): ParseResult<number> {
   return { ok: true, value: rawTimeoutSeconds };
 }
 
-function parseConfirmationInput(
-  value: Record<string, unknown>,
-): ParseResult<Pick<ParsedCmdToolArguments, "confirmedByUser" | "confirmationMessage" | "confirmationChoice">> {
-  const rawConfirmedByUser = value.confirmedByUser;
-  const confirmedByUser = rawConfirmedByUser === true;
-  if (rawConfirmedByUser !== undefined && typeof rawConfirmedByUser !== "boolean") {
-    return { ok: false, error: "`confirmedByUser` must be a boolean when provided." };
-  }
-
-  const rawConfirmationMessage = value.confirmationMessage;
-  let confirmationMessage: string | null = null;
-  if (rawConfirmationMessage !== undefined && rawConfirmationMessage !== null) {
-    if (typeof rawConfirmationMessage !== "string") {
-      return {
-        ok: false,
-        error: "`confirmationMessage` must be a string when provided.",
-      };
-    }
-
-    const normalizedConfirmationMessage = rawConfirmationMessage.trim();
-    if (normalizedConfirmationMessage.length > MCP_CMD_MAX_CONFIRMATION_MESSAGE_LENGTH) {
-      return {
-        ok: false,
-        error:
-          `\`confirmationMessage\` must be ${MCP_CMD_MAX_CONFIRMATION_MESSAGE_LENGTH} characters or fewer.`,
-      };
-    }
-
-    confirmationMessage = normalizedConfirmationMessage.length > 0
-      ? normalizedConfirmationMessage
-      : null;
-  }
-
-  if (confirmedByUser && !confirmationMessage) {
+function resolveWorkingDirectory(
+  userId: number,
+  threadId: string | null,
+  workingDirectory: string | null,
+): ParseResult<CommandDirectoryScope> {
+  if (!threadId) {
     return {
       ok: false,
-      error: "`confirmationMessage` is required when `confirmedByUser` is true.",
+      error: "threadContext.threadId is required for secure command execution.",
     };
   }
 
-  const confirmationChoice =
-    confirmedByUser && confirmationMessage
-      ? normalizeConfirmationChoice(confirmationMessage)
-      : null;
-  if (confirmedByUser && !confirmationChoice) {
+  const threadDirectoryResult = ensureThreadWorkingDirectory(userId, threadId);
+  if (!threadDirectoryResult.ok) {
+    return threadDirectoryResult;
+  }
+  const threadDirectory = threadDirectoryResult.value;
+
+  if (!workingDirectory) {
+    return {
+      ok: true,
+      value: {
+        threadDirectory,
+        workingDirectory: threadDirectory,
+      },
+    };
+  }
+
+  const targetWorkingDirectory = path.isAbsolute(workingDirectory)
+    ? path.resolve(workingDirectory)
+    : path.resolve(threadDirectory, workingDirectory);
+  let stats: fs.Stats;
+  try {
+    stats = fs.statSync(targetWorkingDirectory);
+  } catch {
     return {
       ok: false,
-      error: '`confirmationMessage` must be either "yes" or "no" when `confirmedByUser` is true.',
+      error: `workingDirectory does not exist: ${targetWorkingDirectory}`,
+    };
+  }
+  if (!stats.isDirectory()) {
+    return {
+      ok: false,
+      error: `workingDirectory must be a directory: ${targetWorkingDirectory}`,
+    };
+  }
+
+  const workingDirectoryBoundaryResult = isPathWithinThreadDirectoryBoundary(
+    targetWorkingDirectory,
+    threadDirectory,
+  );
+  if (!workingDirectoryBoundaryResult.ok) {
+    return workingDirectoryBoundaryResult;
+  }
+  if (!workingDirectoryBoundaryResult.value) {
+    return {
+      ok: false,
+      error: `workingDirectory must be inside thread directory: ${threadDirectory}`,
     };
   }
 
   return {
     ok: true,
     value: {
-      confirmedByUser,
-      confirmationMessage,
-      confirmationChoice,
+      threadDirectory,
+      workingDirectory: targetWorkingDirectory,
     },
   };
 }
 
-function normalizeConfirmationChoice(value: string): "yes" | "no" | null {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "yes") {
-    return "yes";
-  }
-  if (normalized === "no") {
-    return "no";
-  }
-  return null;
-}
-
-function evaluateCommandExecutionConsent(
-  requestContext: McpCmdRequestContext,
-  args: ParsedCmdToolArguments,
-): CommandConsentResult {
-  if (!requestContext.threadId) {
-    if (!args.confirmedByUser) {
-      return {
-        ok: false,
-        scope: "request",
-        reason:
-          "threadContext.threadId is missing. Explicit user confirmation is required for this command execution.",
-        nextCallArguments: {
-          confirmedByUser: true,
-          confirmationMessage: "yes",
-        },
-      };
-    }
-
-    return {
-      ok: true,
-      scope: "request",
-      grantedInThisCall: true,
-    };
-  }
-
-  const threadConsentKey = buildThreadConsentKey(
-    requestContext.userId,
-    requestContext.threadId,
-  );
-  if (threadCommandConsentMap.has(threadConsentKey)) {
-    return {
-      ok: true,
-      scope: "thread",
-      grantedInThisCall: false,
-    };
-  }
-
-  if (!args.confirmedByUser) {
-    return {
-      ok: false,
-      scope: "thread",
-      reason:
-        "First command execution in this thread requires explicit user confirmation before running terminal commands.",
-      nextCallArguments: {
-        confirmedByUser: true,
-        confirmationMessage: "yes",
-      },
-    };
-  }
-
-  rememberThreadConsent(threadConsentKey);
-  return {
-    ok: true,
-    scope: "thread",
-    grantedInThisCall: true,
-  };
-}
-
-function buildThreadConsentKey(userId: number, threadId: string): string {
-  return `${userId}:${threadId}`;
-}
-
-function buildCommandApprovalPromptMarkdown(): string {
-  return [
-    "このスレッド内でのコマンド実行を許可しますか？",
-    "",
-    "以下から選択してください。",
-    "- yes",
-    "- no",
-  ].join("\n");
-}
-
-function rememberThreadConsent(key: string): void {
-  if (threadCommandConsentMap.has(key)) {
-    threadCommandConsentMap.delete(key);
-  }
-
-  threadCommandConsentMap.set(key, {
-    grantedAt: new Date().toISOString(),
-  });
-
-  while (threadCommandConsentMap.size > THREAD_COMMAND_CONSENT_CACHE_MAX) {
-    const oldestKey = threadCommandConsentMap.keys().next().value;
-    if (typeof oldestKey !== "string") {
-      break;
-    }
-    threadCommandConsentMap.delete(oldestKey);
-  }
-}
-
-function resolveWorkingDirectory(
-  userId: number,
-  threadId: string | null,
-  workingDirectory: string | null,
-): ParseResult<string> {
-  if (!workingDirectory) {
-    return ensureThreadWorkingDirectory(userId, threadId);
-  }
-
-  const resolved = path.resolve(workingDirectory);
-  let stats: fs.Stats;
-  try {
-    stats = fs.statSync(resolved);
-  } catch {
-    return {
-      ok: false,
-      error: `workingDirectory does not exist: ${resolved}`,
-    };
-  }
-
-  if (!stats.isDirectory()) {
-    return {
-      ok: false,
-      error: `workingDirectory must be a directory: ${resolved}`,
-    };
-  }
-
-  return { ok: true, value: resolved };
-}
-
 function ensureThreadWorkingDirectory(
   userId: number,
-  threadId: string | null,
+  threadId: string,
 ): ParseResult<string> {
-  if (!threadId) {
-    return {
-      ok: false,
-      error:
-        "threadContext.threadId is required when workingDirectory is omitted. Provide `workingDirectory` explicitly for threadless requests.",
-    };
-  }
-
   let resolved: string;
   try {
     resolved = resolveFoundryWorkspaceThreadDirectory({
@@ -736,6 +576,216 @@ function ensureThreadWorkingDirectory(
   }
 
   return { ok: true, value: resolved };
+}
+
+function evaluateCommandSecurityPolicy(options: {
+  command: string;
+}): ParseResult<true> {
+  const { command } = options;
+
+  const tokensResult = tokenizeShellCommand(command);
+  if (!tokensResult.ok) {
+    return tokensResult;
+  }
+  const tokens = tokensResult.value;
+  if (tokens.length === 0) {
+    return {
+      ok: false,
+      error: "Command must include an executable name.",
+    };
+  }
+
+  if (!readExecutableName(tokens[0])) {
+    return {
+      ok: false,
+      error: "Command executable is invalid.",
+    };
+  }
+
+  const criticalPatternMatch = readMatchedPattern(command, MCP_CMD_CRITICAL_COMMAND_PATTERNS);
+  if (criticalPatternMatch) {
+    return {
+      ok: false,
+      error:
+        `Command matches blocked critical operation pattern '${criticalPatternMatch}' in /mcp/cmd security policy.`,
+    };
+  }
+
+  const sensitivePathPatternMatch = readMatchedPattern(command, MCP_CMD_SENSITIVE_PATH_PATTERNS);
+  if (sensitivePathPatternMatch) {
+    return {
+      ok: false,
+      error:
+        `Command references a sensitive path pattern '${sensitivePathPatternMatch}' blocked by /mcp/cmd security policy.`,
+    };
+  }
+
+  return { ok: true, value: true };
+}
+
+function tokenizeShellCommand(command: string): ParseResult<string[]> {
+  const tokens: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | null = null;
+  let escaping = false;
+
+  for (const character of command) {
+    if (escaping) {
+      current += character;
+      escaping = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaping = true;
+      continue;
+    }
+
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (character === "'" || character === "\"") {
+      quote = character;
+      continue;
+    }
+
+    if (/\s/.test(character)) {
+      if (current.length > 0) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += character;
+  }
+
+  if (escaping) {
+    return {
+      ok: false,
+      error: "Command has an invalid trailing escape character.",
+    };
+  }
+  if (quote) {
+    return {
+      ok: false,
+      error: "Command has an unmatched quote.",
+    };
+  }
+  if (current.length > 0) {
+    tokens.push(current);
+  }
+
+  return {
+    ok: true,
+    value: tokens,
+  };
+}
+
+function readExecutableName(token: string): string | null {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const executable = path.win32.basename(path.posix.basename(trimmed)).toLowerCase();
+  return executable.length > 0 ? executable : null;
+}
+
+function readMatchedPattern(command: string, patterns: RegExp[]): string | null {
+  for (const pattern of patterns) {
+    if (pattern.test(command)) {
+      return pattern.source;
+    }
+  }
+  return null;
+}
+
+function isPathWithinThreadDirectoryBoundary(
+  targetPath: string,
+  threadDirectory: string,
+): ParseResult<boolean> {
+  const threadDirectoryRealPathResult = readRealPath(threadDirectory);
+  if (!threadDirectoryRealPathResult.ok) {
+    return threadDirectoryRealPathResult;
+  }
+
+  const existingAncestorResult = readClosestExistingPath(targetPath);
+  if (!existingAncestorResult.ok) {
+    return existingAncestorResult;
+  }
+  const existingAncestor = existingAncestorResult.value;
+  const ancestorRealPathResult = readRealPath(existingAncestor);
+  if (!ancestorRealPathResult.ok) {
+    return ancestorRealPathResult;
+  }
+
+  const relativeFromAncestor = path.relative(
+    path.resolve(existingAncestor),
+    path.resolve(targetPath),
+  );
+  const normalizedTargetFromRealAncestor = path.resolve(
+    ancestorRealPathResult.value,
+    relativeFromAncestor,
+  );
+
+  return {
+    ok: true,
+    value: isPathInsideBoundary(
+      normalizedTargetFromRealAncestor,
+      threadDirectoryRealPathResult.value,
+    ),
+  };
+}
+
+function readRealPath(inputPath: string): ParseResult<string> {
+  try {
+    return {
+      ok: true,
+      value: path.resolve(fs.realpathSync(inputPath)),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Failed to resolve path '${inputPath}': ${readErrorMessage(error)}`,
+    };
+  }
+}
+
+function readClosestExistingPath(inputPath: string): ParseResult<string> {
+  let current = path.resolve(inputPath);
+  while (true) {
+    if (fs.existsSync(current)) {
+      return {
+        ok: true,
+        value: current,
+      };
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return {
+        ok: false,
+        error: `Unable to resolve an existing ancestor for path '${inputPath}'.`,
+      };
+    }
+    current = parent;
+  }
+}
+
+function isPathInsideBoundary(targetPath: string, boundaryPath: string): boolean {
+  const normalizedBoundary = normalizeComparisonPath(boundaryPath);
+  const normalizedTarget = normalizeComparisonPath(targetPath);
+  const relative = path.relative(normalizedBoundary, normalizedTarget);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function normalizeComparisonPath(inputPath: string): string {
+  const normalized = path.resolve(inputPath);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 function resolveShellExecutionContext(): ShellExecutionContext | null {
@@ -877,12 +927,14 @@ async function runShellCommand(options: {
   shellExecutionContext: ShellExecutionContext;
   command: string;
   workingDirectory: string;
+  environment: NodeJS.ProcessEnv;
   timeoutSeconds: number;
 }): Promise<CommandExecutionResult> {
   const {
     shellExecutionContext,
     command,
     workingDirectory,
+    environment,
     timeoutSeconds,
   } = options;
 
@@ -897,7 +949,7 @@ async function runShellCommand(options: {
       [...shellExecutionContext.argsPrefix, command],
       {
         cwd: workingDirectory,
-        env: process.env,
+        env: environment,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
       },
@@ -941,6 +993,45 @@ async function runShellCommand(options: {
       });
     });
   });
+}
+
+function buildSecureCommandEnvironment(options: {
+  threadDirectory: string;
+  workingDirectory: string;
+}): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    if (!MCP_CMD_ALLOWED_ENVIRONMENT_KEYS.has(key.toUpperCase())) {
+      continue;
+    }
+    environment[key] = value;
+  }
+
+  const processPath = process.env.PATH ?? process.env.Path;
+  if (typeof processPath === "string" && processPath.length > 0) {
+    environment.PATH = processPath;
+  }
+
+  const tempDirectory = path.join(options.threadDirectory, ".tmp");
+  const xdgConfigHome = path.join(options.threadDirectory, ".config");
+  const xdgCacheHome = path.join(options.threadDirectory, ".cache");
+  fs.mkdirSync(tempDirectory, { recursive: true });
+  fs.mkdirSync(xdgConfigHome, { recursive: true });
+  fs.mkdirSync(xdgCacheHome, { recursive: true });
+
+  environment.HOME = options.threadDirectory;
+  environment.USERPROFILE = options.threadDirectory;
+  environment.PWD = options.workingDirectory;
+  environment.TMPDIR = tempDirectory;
+  environment.TMP = tempDirectory;
+  environment.TEMP = tempDirectory;
+  environment.XDG_CONFIG_HOME = xdgConfigHome;
+  environment.XDG_CACHE_HOME = xdgCacheHome;
+
+  return environment;
 }
 
 function createOutputCollector(): OutputCollector {
@@ -1066,10 +1157,6 @@ function buildToolResponse(
 
 export const mcpCmdRouteTestUtils = {
   parseCmdExecuteArguments,
-  evaluateCommandExecutionConsent,
   resolveWorkingDirectory,
   resolveShellExecutionContext,
-  clearThreadCommandConsent: () => {
-    threadCommandConsentMap.clear();
-  },
 };

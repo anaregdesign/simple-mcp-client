@@ -2,10 +2,7 @@
  * Home runtime support module.
  */
 import { buildMcpServerKey, type McpServerConfig } from "~/lib/home/mcp/profile";
-
-type McpServersAuthLike = {
-  authRequired?: boolean;
-};
+import type { McpServersAuthState } from "~/lib/home/shared/view-types";
 
 /**
  * View model used by `SelectableCardList` in the MCP saved profile section.
@@ -25,7 +22,7 @@ export type WorkspaceMcpServerProfileOption = {
  */
 export function isMcpServersAuthRequired(
   status: number,
-  payload: McpServersAuthLike | null | undefined,
+  payload: McpServersAuthState | null | undefined,
 ): boolean {
   return status === 401 || payload?.authRequired === true;
 }

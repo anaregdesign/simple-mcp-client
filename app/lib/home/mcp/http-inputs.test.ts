@@ -25,6 +25,13 @@ describe("parseHttpHeadersInput", () => {
       error: 'Header line cannot override "Content-Type". It is fixed to "application/json".',
     });
   });
+
+  it("rejects invalid header key", () => {
+    expect(parseHttpHeadersInput("Bad Header=value")).toEqual({
+      ok: false,
+      error: "Header line 1 has invalid key.",
+    });
+  });
 });
 
 describe("parseAzureAuthScopeInput", () => {

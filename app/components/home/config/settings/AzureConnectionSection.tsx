@@ -5,35 +5,20 @@ import { FluentUI } from "~/components/home/shared/fluent";
 import { ConfigSection } from "~/components/home/shared/ConfigSection";
 import { StatusMessageList } from "~/components/home/shared/StatusMessageList";
 import { SubSection } from "~/components/home/shared/SubSection";
+import type {
+  AzureConnectionView,
+  AzurePrincipalView,
+  AzureTenantView,
+} from "~/lib/home/shared/view-types";
 
 const { Button, Select, Spinner } = FluentUI;
-
-type AzureConnectionLike = {
-  projectName: string;
-  baseUrl: string;
-  apiVersion: string;
-};
-
-type AzurePrincipalLike = {
-  tenantId: string;
-  principalId: string;
-  displayName: string;
-  principalName: string;
-  principalType: "user" | "servicePrincipal" | "managedIdentity" | "unknown";
-};
-
-type AzureTenantLike = {
-  tenantId: string;
-  displayName: string;
-  defaultDomain: string;
-};
 
 type AzureConnectionSectionProps = {
   isAzureAuthRequired: boolean;
   isSending: boolean;
   isStartingAzureLogin: boolean;
   onAzureLogin: () => void | Promise<void>;
-  azureTenants: AzureTenantLike[];
+  azureTenants: AzureTenantView[];
   activeAzureTenantId: string;
   isSwitchingAzureTenant: boolean;
   onAzureTenantChange: (tenantId: string) => void;
@@ -41,8 +26,8 @@ type AzureConnectionSectionProps = {
   isLoadingAzureDeployments: boolean;
   isReloadingAzureCatalog: boolean;
   onAzureCatalogReload: () => void | Promise<void>;
-  activeAzureConnection: AzureConnectionLike | null;
-  activeAzurePrincipal: AzurePrincipalLike | null;
+  activeAzureConnection: AzureConnectionView | null;
+  activeAzurePrincipal: AzurePrincipalView | null;
   selectedPlaygroundAzureDeploymentName: string;
   isStartingAzureLogout: boolean;
   onAzureLogout: () => void | Promise<void>;
@@ -262,7 +247,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
 }
 
 function formatPrincipalTypeLabel(
-  principalType: AzurePrincipalLike["principalType"],
+  principalType: AzurePrincipalView["principalType"],
 ): string {
   if (principalType === "servicePrincipal") {
     return "Service principal";
@@ -276,7 +261,7 @@ function formatPrincipalTypeLabel(
   return "Unknown";
 }
 
-function formatAzureTenantLabel(tenant: AzureTenantLike): string {
+function formatAzureTenantLabel(tenant: AzureTenantView): string {
   const displayName = tenant.displayName.trim() || tenant.tenantId;
   const defaultDomain = tenant.defaultDomain.trim();
   if (defaultDomain && displayName !== defaultDomain) {

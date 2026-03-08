@@ -11,31 +11,19 @@ import { InfoIconButton } from "~/components/home/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/home/shared/LabeledTooltip";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
-import type { ThreadInstructionContextToggleKey } from "~/lib/home/thread/instruction-context";
+import type {
+  InstructionContextToggleOptionView,
+  InstructionEnhanceComparisonView,
+  InstructionLanguage,
+} from "~/lib/home/shared/view-types";
 
 const { Button, Spinner, Switch, Textarea } = FluentUI;
 
-type InstructionLanguageLike = "japanese" | "english" | "mixed" | "unknown";
-
-type InstructionEnhanceComparisonLike = {
-  extension: string;
-  language: InstructionLanguageLike;
-  diffPatch: string;
-};
-
-type InstructionContextToggleOptionLike = {
-  key: ThreadInstructionContextToggleKey;
-  label: string;
-  infoTitle: string;
-  infoLines: string[];
-  enabled: boolean;
-};
-
 type InstructionSectionProps = {
   agentInstruction: string;
-  instructionContextToggleOptions: InstructionContextToggleOptionLike[];
-  instructionEnhanceComparison: InstructionEnhanceComparisonLike | null;
-  describeInstructionLanguage: (language: InstructionLanguageLike) => string;
+  instructionContextToggleOptions: InstructionContextToggleOptionView[];
+  instructionEnhanceComparison: InstructionEnhanceComparisonView | null;
+  describeInstructionLanguage: (language: InstructionLanguage) => string;
   isSending: boolean;
   isThreadReadOnly: boolean;
   isEnhancingInstruction: boolean;
@@ -54,7 +42,7 @@ type InstructionSectionProps = {
   onClearInstructionSaveSuccess: () => void;
   onClearInstructionEnhanceSuccess: () => void;
   onInstructionContextToggleChange: (
-    key: ThreadInstructionContextToggleKey,
+    key: InstructionContextToggleOptionView["key"],
     enabled: boolean,
   ) => void;
   onAgentInstructionChange: (value: string) => void;

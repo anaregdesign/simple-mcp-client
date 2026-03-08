@@ -17,7 +17,7 @@ import {
   readMostRecentWorkspaceUserTenantId,
 } from "~/lib/server/persistence/user";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
-import { ensureDefaultMcpServersForUser } from "./api.mcp.servers";
+import { ensureDefaultMcpServersForUser } from "~/lib/server/mcp/mcp-server-profile-service";
 import type { Route } from "./+types/api.azure.session";
 
 const AZURE_SESSION_ALLOWED_METHODS = ["PUT", "DELETE"] as const;

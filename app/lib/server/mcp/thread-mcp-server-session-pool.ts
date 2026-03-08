@@ -23,6 +23,7 @@ type AcquireThreadMcpServerSessionOptions<RefreshState> = {
   sessionKey: string;
   refreshState: RefreshState;
   idleTtlMs?: number;
+  waitForAvailableMs?: number;
   createSession: (refreshState: RefreshState) => Promise<ThreadMcpServerSession<RefreshState>>;
 };
 
@@ -34,11 +35,13 @@ type ThreadMcpServerSessionEntry = {
 };
 
 const threadMcpServerSessionEntryByKey = new Map<string, ThreadMcpServerSessionEntry>();
+const THREAD_MCP_SERVER_SESSION_DEFAULT_WAIT_FOR_AVAILABLE_MS = 100;
 
 export async function acquireThreadMcpServerSession<RefreshState>(
   options: AcquireThreadMcpServerSessionOptions<RefreshState>,
 ): Promise<ThreadMcpServerSessionLease> {
   const idleTtlMs = normalizeIdleTtlMs(options.idleTtlMs);
+  const waitForAvailableMs = normalizeWaitForAvailableMs(options.waitForAvailableMs);
   if (!options.threadId) {
     const session = await createAndConnectThreadMcpServerSession(
       options.createSession,
@@ -61,6 +64,16 @@ export async function acquireThreadMcpServerSession<RefreshState>(
   }
 
   if (existingEntry.inUse || !existingEntry.session) {
+    const reusedFromWait = await waitForExistingPooledThreadMcpServerSession(
+      existingEntry,
+      options.refreshState,
+      idleTtlMs,
+      waitForAvailableMs,
+    );
+    if (reusedFromWait) {
+      return reusedFromWait;
+    }
+
     const session = await createAndConnectThreadMcpServerSession(
       options.createSession,
       options.refreshState,
@@ -78,7 +91,10 @@ export async function closeAllThreadMcpServerSessions(): Promise<void> {
     entries.map(async (entry) => {
       clearThreadMcpServerSessionCleanupTimer(entry);
       if (entry.session) {
-        await entry.session.server.close();
+        await closeThreadMcpServerSessionSafely(entry.session, {
+          reason: "close_all",
+          key: entry.key,
+        });
       }
     }),
   );
@@ -87,6 +103,14 @@ export async function closeAllThreadMcpServerSessions(): Promise<void> {
 function normalizeIdleTtlMs(value: number | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     return THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS;
+  }
+
+  return value;
+}
+
+function normalizeWaitForAvailableMs(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return THREAD_MCP_SERVER_SESSION_DEFAULT_WAIT_FOR_AVAILABLE_MS;
   }
 
   return value;
@@ -134,6 +158,37 @@ async function acquireExistingPooledThreadMcpServerSession<RefreshState>(
   return createPooledThreadMcpServerSessionLease(entry, "reused", idleTtlMs);
 }
 
+async function waitForExistingPooledThreadMcpServerSession<RefreshState>(
+  entry: ThreadMcpServerSessionEntry,
+  refreshState: RefreshState,
+  idleTtlMs: number,
+  waitForAvailableMs: number,
+): Promise<ThreadMcpServerSessionLease | null> {
+  if (waitForAvailableMs <= 0) {
+    return null;
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= waitForAvailableMs) {
+    const current = threadMcpServerSessionEntryByKey.get(entry.key);
+    if (!current || current !== entry || !current.session) {
+      return null;
+    }
+
+    if (!current.inUse) {
+      return await acquireExistingPooledThreadMcpServerSession(
+        current,
+        refreshState,
+        idleTtlMs,
+      );
+    }
+
+    await sleep(10);
+  }
+
+  return null;
+}
+
 async function createAndConnectThreadMcpServerSession<RefreshState>(
   createSession: (refreshState: RefreshState) => Promise<ThreadMcpServerSession<RefreshState>>,
   refreshState: RefreshState,
@@ -152,10 +207,23 @@ async function createAndConnectThreadMcpServerSession<RefreshState>(
 async function closeThreadMcpServerSession<RefreshState>(
   session: ThreadMcpServerSession<RefreshState>,
 ): Promise<void> {
+  await closeThreadMcpServerSessionSafely(session, {
+    reason: "create_or_ephemeral_release",
+    key: "",
+  });
+}
+
+async function closeThreadMcpServerSessionSafely<RefreshState>(
+  session: ThreadMcpServerSession<RefreshState>,
+  context: {
+    reason: "idle_cleanup" | "close_all" | "create_or_ephemeral_release";
+    key: string;
+  },
+): Promise<void> {
   try {
     await session.server.close();
-  } catch {
-    // Best-effort close when session creation or refresh fails.
+  } catch (error) {
+    reportThreadMcpServerSessionCloseWarning(error, context);
   }
 }
 
@@ -242,7 +310,10 @@ async function closeIdleThreadMcpServerSession(
 
   clearThreadMcpServerSessionCleanupTimer(current);
   threadMcpServerSessionEntryByKey.delete(key);
-  await current.session.server.close();
+  await closeThreadMcpServerSessionSafely(current.session, {
+    reason: "idle_cleanup",
+    key,
+  });
 }
 
 function hasUnrefTimer(timer: unknown): timer is { unref: () => void } {
@@ -252,6 +323,26 @@ function hasUnrefTimer(timer: unknown): timer is { unref: () => void } {
 
   const timerWithUnref = timer as { unref?: unknown };
   return typeof timerWithUnref.unref === "function";
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
+
+function reportThreadMcpServerSessionCloseWarning(
+  error: unknown,
+  context: {
+    reason: "idle_cleanup" | "close_all" | "create_or_ephemeral_release";
+    key: string;
+  },
+): void {
+  const errorMessage = error instanceof Error ? error.message : "Unknown close error.";
+  const contextKey = context.key ? ` key=${context.key}` : "";
+  console.warn(
+    `[thread-mcp-session-pool] Failed to close MCP session (${context.reason})${contextKey}: ${errorMessage}`,
+  );
 }
 
 export const threadMcpServerSessionPoolTestUtils = {

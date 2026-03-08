@@ -2,10 +2,8 @@
  * API route module for /api/chat.
  */
 import type { Route } from "./+types/api.chat";
-import fs from "node:fs";
 import nodeOs from "node:os";
 import path from "node:path";
-import childProcess from "node:child_process";
 import {
   Agent,
   MCPServerSSE,
@@ -25,10 +23,7 @@ import {
   codeInterpreterTool,
 } from "@openai/agents-openai";
 import { toFile } from "openai";
-import {
-  getAzureDependencies,
-  normalizeAzureOpenAIBaseURL,
-} from "~/lib/azure/dependencies";
+import { getAzureDependencies } from "~/lib/azure/dependencies";
 import {
   resolveFoundryWorkspaceThreadDirectory,
   resolveFoundryWorkspaceUserDirectory,
@@ -39,6 +34,7 @@ import {
   type ThreadMcpServerSession,
   type ThreadMcpServerSessionLease,
 } from "~/lib/server/mcp/thread-mcp-server-session-pool";
+import { registerThreadMcpServerSessionPoolShutdownHooks } from "~/lib/server/mcp/thread-mcp-server-session-pool-shutdown";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -61,18 +57,14 @@ import {
   CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES,
   CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES,
   CHAT_MAX_CONSECUTIVE_IDENTICAL_SKILL_OPERATIONS,
-  CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
-  CHAT_MAX_ACTIVE_SKILLS,
   CHAT_MAX_IDENTICAL_SKILL_OPERATION_CALLS_PER_SIGNATURE,
   CHAT_MAX_IDENTICAL_SKILL_RUN_SCRIPT_CALLS_PER_SIGNATURE,
   CHAT_MAX_SKILL_OPERATION_CALLS_PER_SERVER_METHOD,
   CHAT_MAX_SKILL_RUN_SCRIPT_CALLS_PER_SERVER_METHOD,
   CHAT_MAX_SKILL_OPERATION_ERRORS,
   CHAT_MAX_RUN_TURNS,
-  CHAT_MAX_MCP_SERVERS,
   CHAT_MODEL_RUN_TIMEOUT_MS,
   DEFAULT_AGENT_INSTRUCTION,
-  HOME_REASONING_EFFORT_OPTIONS,
   AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES,
   AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
   AGENT_SKILL_READ_TEXT_MAX_CHARS,
@@ -83,41 +75,47 @@ import {
   AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
   AGENT_SKILL_NAME_MAX_LENGTH,
   ENV_KEY_PATTERN,
-  HTTP_HEADER_NAME_PATTERN,
-  MCP_AZURE_AUTH_SCOPE_MAX_LENGTH,
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_HTTP_HEADERS,
   MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER,
   MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER,
   MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER,
   MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-  MCP_HTTP_HEADERS_MAX,
-  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
   MCP_SERVER_NAME_MAX_LENGTH,
-  MCP_STDIO_ARGS_MAX,
-  MCP_STDIO_ENV_VARS_MAX,
-  MCP_TIMEOUT_SECONDS_MAX,
-  MCP_TIMEOUT_SECONDS_MIN,
   THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS,
-  TEMPERATURE_MAX,
-  TEMPERATURE_MIN,
   THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
   THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
   THREAD_ENVIRONMENT_VARIABLES_MAX,
 } from "~/lib/constants";
 import type { AzureDependencies } from "~/lib/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/home/shared/view-types";
-import type { ThreadSkillActivation } from "~/lib/home/skills/types";
 import {
   cloneThreadEnvironment,
   parseThreadEnvironmentFromUnknown,
   type ThreadEnvironment,
 } from "~/lib/home/thread/environment";
 import {
-  readThreadInstructionContextTogglesFromUnknown,
   type ThreadInstructionContextToggles,
 } from "~/lib/home/thread/instruction-context";
+import {
+  isDeploymentReasoningEffortCompatible,
+  isWebSearchCompatibleReasoningEffort,
+  parseChatRequest,
+  readAttachments,
+  readExplicitSkillLocations,
+  readInstructionContextToggles,
+  readMcpServers,
+  readSkills,
+  readTemperature,
+  readThreadEnvironment,
+  readWebSearchEnabled,
+  type ClientAttachment,
+  type ClientMcpServerConfig,
+  type ClientMessage,
+  type ClientSkillSelection,
+  type ResolvedAzureConfig,
+} from "~/lib/server/chat/request-parser";
+import { logChatRequestValidationError } from "~/lib/server/chat/request-validation-log";
 import {
   readAzureArmUserContext,
   type AzurePrincipalType,
@@ -133,65 +131,42 @@ import {
   type SkillResourceFileEntry,
   type SkillResourceKind,
 } from "~/lib/server/skills/runtime";
-
-type ThreadMessageRole = "user" | "assistant";
-
-type ClientAttachment = {
-  name: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataUrl: string;
-};
-
-type ClientMessage = {
-  role: ThreadMessageRole;
-  content: string;
-  attachments: ClientAttachment[];
-};
-
-type McpTransport = "streamable_http" | "sse" | "stdio";
-type ClientMcpHttpServerConfig = {
-  name: string;
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string;
-  timeoutSeconds: number;
-};
-type ClientMcpStdioServerConfig = {
-  name: string;
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-};
-type ClientMcpServerConfig = ClientMcpHttpServerConfig | ClientMcpStdioServerConfig;
-type ClientSkillSelection = ThreadSkillActivation;
+import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stream";
+import {
+  buildAgentRunContext,
+  cleanupChatRuntime,
+  prepareMcpRuntime,
+  prepareSkillRuntime,
+} from "~/lib/server/chat/chat-runtime-stages";
+import {
+  readOptionalRequestHeaderValue,
+  readWebSearchUserLocationFromRequest,
+  wantsEventStream,
+  type WebSearchPreviewUserLocation,
+} from "~/lib/server/chat/request-metadata";
+import {
+  buildStdioSpawnEnvironment,
+  resolveExecutableCommand,
+} from "~/lib/server/chat/stdio-runtime-path";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
-const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
-  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
-);
 const chatTransientTerminationRetryMaxAttempts = 2;
 const chatTransientTerminationRetryDelayMs = 250;
-type ResolvedAzureConfig = {
-  tenantId: string;
-  projectName: string;
-  baseUrl: string;
-  apiVersion: string;
-  deploymentName: string;
-};
+type ClientMcpHttpServerConfig = Extract<
+  ClientMcpServerConfig,
+  { transport: "streamable_http" | "sse" }
+>;
 type UpstreamErrorPayload = {
   code: string;
   error: string;
   errorCode?: "azure_login_required";
 };
-type WebSearchPreviewUserLocation = {
-  type: "approximate";
-  country: string;
-};
+class RequestCanceledError extends Error {
+  constructor(message = "Request was canceled.") {
+    super(message);
+    this.name = "RequestCanceledError";
+  }
+}
 type ChatExecutionOptions = {
   threadId: string | null;
   turnId: string | null;
@@ -363,12 +338,6 @@ type ActiveSkillRuntimeEntry = {
   referencesTruncated: boolean;
   assetsTruncated: boolean;
 };
-type EnvironmentMap = Record<string, string | undefined>;
-
-const shellPathStartMarker = "__LOCAL_PLAYGROUND_PATH_START__";
-const shellPathEndMarker = "__LOCAL_PLAYGROUND_PATH_END__";
-let cachedShellExecutablePathEntries: string[] | null = null;
-let cachedRuntimeExecutablePathEntries: string[] | null = null;
 type SkillRuntimeContext = {
   activeSkills: ActiveSkillRuntimeEntry[];
   warnings: string[];
@@ -405,9 +374,9 @@ let codeInterpreterAttachmentAvailabilityCache: CodeInterpreterAttachmentAvailab
   null;
 const WEB_SEARCH_PREVIEW_TOOL_NAME = "web_search_preview";
 const WEB_SEARCH_PREVIEW_CONTEXT_SIZE = "medium";
-const BCP47_REGION_CODE_PATTERN = /^[A-Za-z]{2}$/;
-const MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES = ["gpt-5.4"] as const;
 const CHAT_ALLOWED_METHODS = ["POST"] as const;
+
+registerThreadMcpServerSessionPoolShutdownHooks();
 
 export function loader({}: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -421,247 +390,48 @@ export async function action({ request }: Route.ActionArgs) {
     return methodNotAllowedResponse(CHAT_ALLOWED_METHODS);
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_json_body",
-      action: "parse_request_body",
-      level: "warning",
-      statusCode: 400,
-      message: "Invalid JSON body.",
-    });
+  const requestParseResult = await parseChatRequest(request);
+  if (!requestParseResult.ok) {
+    await logChatRequestValidationError(request, requestParseResult.error);
+    if (requestParseResult.error.statusCode === 400) {
+      return invalidJsonResponse();
+    }
 
-    return invalidJsonResponse();
+    return validationErrorResponse(
+      requestParseResult.error.code,
+      requestParseResult.error.message,
+    );
   }
 
-  const message = readMessage(payload);
-  if (!message) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "missing_message",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: "`message` is required.",
-    });
-
-    return validationErrorResponse("missing_message", "`message` is required.");
-  }
-  const threadId = readThreadId(payload);
-  const turnId = readTurnId(payload);
-
-  const historyResult = readHistory(payload);
-  if (!historyResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_history_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: historyResult.error,
-    });
-
-    return validationErrorResponse("invalid_history_payload", historyResult.error);
-  }
-  const history = historyResult.value;
-  const attachmentsResult = readAttachments(payload);
-  if (!attachmentsResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_attachments_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: attachmentsResult.error,
-    });
-
-    return validationErrorResponse("invalid_attachments_payload", attachmentsResult.error);
-  }
-  const supportsReasoningEffort = readSupportsReasoningEffort(payload);
-  const webSearchEnabled = readWebSearchEnabled(payload);
+  const {
+    threadId,
+    turnId,
+    message,
+    history,
+    attachments,
+    reasoningEffort,
+    webSearchEnabled,
+    temperature,
+    agentInstruction,
+    instructionContextToggles,
+    threadEnvironment,
+    skills,
+    explicitSkillLocations,
+    azureConfig,
+    mcpServers: requestMcpServers,
+  } = requestParseResult.value;
   const webSearchUserLocation = webSearchEnabled
     ? readWebSearchUserLocationFromRequest(request)
     : null;
-  const reasoningEffort = supportsReasoningEffort ? readReasoningEffort(payload) : null;
-  if (
-    reasoningEffort &&
-    webSearchEnabled &&
-    !isWebSearchCompatibleReasoningEffort(reasoningEffort)
-  ) {
-    const errorMessage =
-      "`reasoningEffort` value is not compatible with `webSearchEnabled: true`.";
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_reasoning_effort_for_web_search",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: errorMessage,
-    });
-
-    return validationErrorResponse("invalid_reasoning_effort_for_web_search", errorMessage);
-  }
-  const temperatureResult = readTemperature(payload);
-  if (!temperatureResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_temperature_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: temperatureResult.error,
-    });
-
-    return validationErrorResponse("invalid_temperature_payload", temperatureResult.error);
-  }
-  const agentInstruction = readAgentInstruction(payload);
-  const instructionContextTogglesResult = readInstructionContextToggles(payload);
-  if (!instructionContextTogglesResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_instruction_context_toggles_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: instructionContextTogglesResult.error,
-    });
-
-    return validationErrorResponse(
-      "invalid_instruction_context_toggles_payload",
-      instructionContextTogglesResult.error,
-    );
-  }
-  const threadEnvironmentResult = readThreadEnvironment(payload);
-  if (!threadEnvironmentResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_thread_environment_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: threadEnvironmentResult.error,
-    });
-
-    return validationErrorResponse("invalid_thread_environment_payload", threadEnvironmentResult.error);
-  }
-  const skillsResult = readSkills(payload);
-  if (!skillsResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_skills_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: skillsResult.error,
-    });
-
-    return validationErrorResponse("invalid_skills_payload", skillsResult.error);
-  }
-  const explicitSkillLocationsResult = readExplicitSkillLocations(payload);
-  if (!explicitSkillLocationsResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_explicit_skill_locations_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: explicitSkillLocationsResult.error,
-    });
-
-    return validationErrorResponse(
-      "invalid_explicit_skill_locations_payload",
-      explicitSkillLocationsResult.error,
-    );
-  }
-  const azureConfigResult = readAzureConfig(payload);
-  if (!azureConfigResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_azure_config",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: azureConfigResult.error,
-    });
-
-    return validationErrorResponse("invalid_azure_config", azureConfigResult.error);
-  }
-  const azureConfig = azureConfigResult.value;
-  if (
-    reasoningEffort &&
-    !isDeploymentReasoningEffortCompatible(azureConfig.deploymentName, reasoningEffort)
-  ) {
-    const errorMessage =
-      "`reasoningEffort` value is not supported by the selected deployment.";
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_reasoning_effort_for_deployment",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: errorMessage,
-      context: {
-        deploymentName: azureConfig.deploymentName,
-        reasoningEffort,
-      },
-    });
-
-    return validationErrorResponse("invalid_reasoning_effort_for_deployment", errorMessage);
-  }
-  const mcpServersResult = readMcpServers(payload, { requestUrl: request.url });
-  if (!mcpServersResult.ok) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/chat",
-      eventName: "invalid_mcp_servers_payload",
-      action: "validate_payload",
-      level: "warning",
-      statusCode: 422,
-      message: mcpServersResult.error,
-    });
-
-    return validationErrorResponse("invalid_mcp_servers_payload", mcpServersResult.error);
-  }
   const threadDirectoryContext = await resolveThreadDirectoryContext({
     threadId,
     tenantId: azureConfig.tenantId,
   });
   const mcpServers = applyDefaultThreadDirectoryToStdioServers(
-    mcpServersResult.value,
+    requestMcpServers,
     threadDirectoryContext?.threadDirectoryPath ?? null,
     threadDirectoryContext?.userDirectoryPath ?? null,
   );
-
-  if (!azureConfig.baseUrl) {
-    return validationErrorResponse("missing_azure_base_url", "Azure OpenAI base URL is missing.");
-  }
-  if (!azureConfig.deploymentName) {
-    return validationErrorResponse(
-      "missing_azure_deployment_name",
-      "Azure deployment name is missing.",
-    );
-  }
-  if (azureConfig.apiVersion && azureConfig.apiVersion !== "v1") {
-    return validationErrorResponse(
-      "invalid_azure_api_version",
-      "Azure OpenAI v1 endpoint requires `apiVersion` to be `v1`.",
-    );
-  }
 
   const executionOptions: ChatExecutionOptions = {
     threadId,
@@ -670,17 +440,17 @@ export async function action({ request }: Route.ActionArgs) {
     clientUserAgent: readOptionalRequestHeaderValue(request, "user-agent"),
     clientPlatform: readOptionalRequestHeaderValue(request, "sec-ch-ua-platform"),
     message,
-    attachments: attachmentsResult.value,
+    attachments,
     history,
     reasoningEffort,
     webSearchEnabled,
     webSearchUserLocation,
-    temperature: temperatureResult.value,
+    temperature,
     agentInstruction,
-    instructionContextToggles: instructionContextTogglesResult.value,
-    threadEnvironment: threadEnvironmentResult.value,
-    skills: skillsResult.value,
-    explicitSkillLocations: explicitSkillLocationsResult.value,
+    instructionContextToggles,
+    threadEnvironment,
+    skills,
+    explicitSkillLocations,
     azureConfig,
     mcpServers,
   };
@@ -751,7 +521,9 @@ export async function action({ request }: Route.ActionArgs) {
 async function executeChat(
   options: ChatExecutionOptions,
   onEvent?: (event: ChatExecutionEvent) => void,
+  abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
+  throwIfAborted(abortSignal);
   const azureDependencies = getAzureDependencies();
   const azureOpenAIClient = getAzureOpenAIClient(
     options.azureConfig.baseUrl,
@@ -799,9 +571,9 @@ async function executeChat(
       });
     }
 
-    const mcpSetupStartedAtMs = Date.now();
-    const connectResults = await Promise.allSettled(
-      options.mcpServers.map(async (serverConfig) => {
+    const mcpRuntime = await prepareMcpRuntime({
+      serverConfigs: options.mcpServers,
+      connectServer: async (serverConfig) => {
         emitProgress({
           message: `Connecting MCP server: ${serverConfig.name}`,
           isMcp: true,
@@ -848,17 +620,6 @@ async function executeChat(
             createSession: async () => createMcpServerSession(serverConfig),
           });
 
-          const connectDurationMs = Math.max(0, Date.now() - connectStartedAtMs);
-          mcpRuntimeMetrics.mcpConnectDurationMs += connectDurationMs;
-          if (lease.status === "reused") {
-            mcpRuntimeMetrics.mcpReusedCount += 1;
-          } else {
-            mcpRuntimeMetrics.mcpConnectedCount += 1;
-          }
-          if (lease.isEphemeral) {
-            mcpRuntimeMetrics.mcpEphemeralConnectCount += 1;
-          }
-
           emitThreadOperationLogRecord({
             id: connectRequestId,
             sequence: connectSequence,
@@ -881,6 +642,7 @@ async function executeChat(
           return {
             lease,
             server: lease.server,
+            connectDurationMs: Math.max(0, Date.now() - connectStartedAtMs),
           };
         } catch (error) {
           const connectResponse: JsonRpcResponsePayload = {
@@ -906,54 +668,35 @@ async function executeChat(
             `Failed to connect MCP server "${serverConfig.name}" (${describeMcpServer(serverConfig)}): ${readErrorMessage(error)}`,
           );
         }
-      }),
-    );
-
-    const successfulConnectResults: Array<{
-      lease: ThreadMcpServerSessionLease;
-      server: MCPServer;
-    }> = [];
-    let firstConnectError: Error | null = null;
-    for (const result of connectResults) {
-      if (result.status === "fulfilled") {
-        successfulConnectResults.push(result.value);
-        continue;
-      }
-
-      if (!firstConnectError) {
-        firstConnectError = result.reason instanceof Error
-          ? result.reason
-          : new Error(readErrorMessage(result.reason));
-      }
-    }
-
-    if (firstConnectError) {
-      await Promise.allSettled(
-        successfulConnectResults.map((result) => result.lease.release()),
-      );
-      throw firstConnectError;
-    }
-
-    connectedMcpServerLeases.push(...successfulConnectResults.map((result) => result.lease));
-    connectedMcpServers.push(...successfulConnectResults.map((result) => result.server));
-    mcpRuntimeMetrics.mcpSetupDurationMs = Math.max(0, Date.now() - mcpSetupStartedAtMs);
-
-    const skillRuntime = await buildSkillRuntimeContext(options.skills, {
-      explicitSkillLocations: options.explicitSkillLocations,
+      },
+      releaseLease: async (lease) => lease.release(),
     });
-    const skillExecutionContext: SkillToolExecutionContext | null =
-      skillRuntime.activeSkills.length > 0
-        ? {
-            threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
-          }
-        : null;
-    if (skillExecutionContext) {
-      emitSkillActivationOperationLogs(skillRuntime, {
-        nextSequence: nextThreadOperationLogSequence,
-        onRecord: emitThreadOperationLogRecord,
-      }, skillExecutionContext);
-    }
-    const skillWarnings = collectSkillRuntimeWarnings(skillRuntime);
+    connectedMcpServerLeases.push(...mcpRuntime.leases);
+    connectedMcpServers.push(...mcpRuntime.servers);
+    Object.assign(mcpRuntimeMetrics, mcpRuntime.metrics);
+
+    const preparedSkillRuntime = await prepareSkillRuntime({
+      loadRuntime: async () =>
+        buildSkillRuntimeContext(options.skills, {
+          explicitSkillLocations: options.explicitSkillLocations,
+        }),
+      createExecutionContext: (skillRuntime) =>
+        skillRuntime.activeSkills.length > 0
+          ? {
+              threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
+            }
+          : null,
+      emitActivationLogs: (skillRuntime, skillExecutionContext) => {
+        emitSkillActivationOperationLogs(skillRuntime, {
+          nextSequence: nextThreadOperationLogSequence,
+          onRecord: emitThreadOperationLogRecord,
+        }, skillExecutionContext);
+      },
+      collectWarnings: (skillRuntime) => collectSkillRuntimeWarnings(skillRuntime),
+    });
+    const skillRuntime = preparedSkillRuntime.runtime;
+    const skillExecutionContext = preparedSkillRuntime.executionContext;
+    const skillWarnings = preparedSkillRuntime.warnings;
     if (skillWarnings.length > 0) {
       emitProgress({
         message: `Skill loading warnings: ${skillWarnings.slice(0, 2).join(" / ")}`,
@@ -1066,7 +809,11 @@ async function executeChat(
         });
       },
     });
-    const runInput = compactionSession ? [currentInput] : [...historyInput, currentInput];
+    const { runInput } = buildAgentRunContext({
+      historyInput,
+      currentInput,
+      compactionSession,
+    });
 
     emitProgress({ message: "Sending request to Azure OpenAI..." });
     const runTimeoutSeconds = Math.ceil(CHAT_MODEL_RUN_TIMEOUT_MS / 1000);
@@ -1085,6 +832,7 @@ async function executeChat(
           }),
         CHAT_MODEL_RUN_TIMEOUT_MS,
         runTimeoutMessage,
+        abortSignal,
       );
       for await (const event of streamedResult) {
         const progress = readProgressEventFromRunStreamEvent(
@@ -1129,6 +877,7 @@ async function executeChat(
         }),
       CHAT_MODEL_RUN_TIMEOUT_MS,
       runTimeoutMessage,
+      abortSignal,
     );
     const assistantMessage = extractAgentFinalOutput(result.finalOutput);
     if (!assistantMessage) {
@@ -1145,40 +894,35 @@ async function executeChat(
       mcpRuntimeMetrics,
     };
   } finally {
-    await Promise.allSettled([
-      awaitWithTimeout(
-        (async () => {
-          if (!codeInterpreterContainerId) {
-            return;
-          }
-          try {
-            await azureOpenAIClient.containers.delete(codeInterpreterContainerId);
-          } catch {
-            // Best-effort cleanup for temporary Code Interpreter containers.
-          }
-        })(),
-        CHAT_CLEANUP_TIMEOUT_MS,
-        "Timed out while cleaning up the Code Interpreter container.",
-      ),
-      awaitWithTimeout(
-        Promise.allSettled(connectedMcpServerLeases.map((lease) => lease.release())).then(
-          () => undefined,
-        ),
-        CHAT_CLEANUP_TIMEOUT_MS,
-        "Timed out while releasing MCP server sessions.",
-      ),
-    ]);
+    await cleanupChatRuntime({
+      codeInterpreterContainerId,
+      deleteCodeInterpreterContainer: async (containerId) => {
+        try {
+          await azureOpenAIClient.containers.delete(containerId);
+        } catch {
+          // Best-effort cleanup for temporary Code Interpreter containers.
+        }
+      },
+      mcpServerLeases: connectedMcpServerLeases,
+      awaitWithTimeout,
+      cleanupTimeoutMs: CHAT_CLEANUP_TIMEOUT_MS,
+    });
   }
 }
 
 async function executeChatWithTransientRetry(
   options: ChatExecutionOptions,
   onEvent?: (event: ChatExecutionEvent) => void,
+  abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
   for (let attempt = 1; attempt <= chatTransientTerminationRetryMaxAttempts; attempt += 1) {
     try {
-      return await executeChat(options, onEvent);
+      throwIfAborted(abortSignal);
+      return await executeChat(options, onEvent, abortSignal);
     } catch (error) {
+      if (abortSignal?.aborted) {
+        throw error;
+      }
       if (
         !shouldRetryChatExecution(
           error,
@@ -1203,152 +947,89 @@ async function executeChatWithTransientRetry(
 }
 
 function streamChatResponse(options: ChatExecutionOptions): Response {
-  const encoder = new TextEncoder();
+  return createJsonEventStreamResponse(async ({ send, signal }) => {
+    const sendPayload = (payload: ChatStreamPayload) => {
+      send(payload);
+    };
 
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const send = (payload: ChatStreamPayload) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
-      };
+    try {
+      sendPayload({
+        type: "progress",
+        message: "Preparing request...",
+      });
 
-      try {
-        send({
-          type: "progress",
-          message: "Preparing request...",
-        });
-
-        const result = await executeChatWithTransientRetry(options, (event) => {
-          if (event.type === "progress") {
-            send({
-              type: "progress",
-              message: event.message,
-              ...(event.isMcp ? { isMcp: true } : {}),
-            });
-            return;
-          }
-
-          send({
-            type: "operation_log",
-            record: event.record,
+      const result = await executeChatWithTransientRetry(options, (event) => {
+        if (event.type === "progress") {
+          sendPayload({
+            type: "progress",
+            message: event.message,
+            ...(event.isMcp ? { isMcp: true } : {}),
           });
-        });
+          return;
+        }
 
-        send({
-          type: "final",
-          message: result.message,
-          threadEnvironment: result.threadEnvironment,
+        sendPayload({
+          type: "operation_log",
+          record: event.record,
         });
+      }, signal);
+
+      sendPayload({
+        type: "final",
+        message: result.message,
+        threadEnvironment: result.threadEnvironment,
+      });
+      await logServerRouteEvent({
+        route: "/api/chat",
+        eventName: "chat_stream_execution_succeeded",
+        action: "stream_chat",
+        level: "info",
+        statusCode: 200,
+        message: "Chat stream completed.",
+        threadId: options.threadId,
+        context: buildChatExecutionSuccessLogContext(options, result),
+      });
+    } catch (error) {
+      if (signal.aborted || isRequestCanceledError(error)) {
         await logServerRouteEvent({
           route: "/api/chat",
-          eventName: "chat_stream_execution_succeeded",
+          eventName: "chat_stream_canceled",
           action: "stream_chat",
           level: "info",
           statusCode: 200,
-          message: "Chat stream completed.",
+          message: "Chat stream canceled by client disconnect.",
           threadId: options.threadId,
-          context: buildChatExecutionSuccessLogContext(options, result),
+          context: buildChatExecutionLogContext(options),
         });
-      } catch (error) {
-        const upstreamError = buildUpstreamErrorPayload(
-          error,
-          options.azureConfig.deploymentName,
-        );
-        await logServerRouteEvent({
-          route: "/api/chat",
-          eventName: "chat_stream_execution_failed",
-          action: "stream_chat",
-          statusCode: upstreamError.status,
-          error,
-          threadId: options.threadId,
-          context: {
-            ...buildChatExecutionLogContext(options),
-            maxRunTurns: CHAT_MAX_RUN_TURNS,
-          },
-        });
-
-        send({
-          type: "error",
-          error: upstreamError.payload.error,
-          ...(upstreamError.payload.errorCode
-            ? { errorCode: upstreamError.payload.errorCode }
-            : {}),
-        });
-      } finally {
-        controller.close();
+        return;
       }
-    },
-  });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
-}
+      const upstreamError = buildUpstreamErrorPayload(
+        error,
+        options.azureConfig.deploymentName,
+      );
+      await logServerRouteEvent({
+        route: "/api/chat",
+        eventName: "chat_stream_execution_failed",
+        action: "stream_chat",
+        statusCode: upstreamError.status,
+        error,
+        threadId: options.threadId,
+        context: {
+          ...buildChatExecutionLogContext(options),
+          maxRunTurns: CHAT_MAX_RUN_TURNS,
+        },
+      });
 
-function wantsEventStream(request: Request): boolean {
-  const acceptHeader = request.headers.get("accept");
-  return (
-    typeof acceptHeader === "string" &&
-    acceptHeader.toLowerCase().includes("text/event-stream")
-  );
-}
-
-function readOptionalRequestHeaderValue(request: Request, headerName: string): string | null {
-  const rawValue = request.headers.get(headerName);
-  if (typeof rawValue !== "string") {
-    return null;
-  }
-
-  const normalized = rawValue.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function readWebSearchUserLocationFromRequest(
-  request: Request,
-): WebSearchPreviewUserLocation | null {
-  const acceptLanguage = readOptionalRequestHeaderValue(request, "accept-language");
-  if (!acceptLanguage) {
-    return null;
-  }
-
-  const primaryLanguageRange = acceptLanguage.split(",")[0]?.trim() ?? "";
-  if (!primaryLanguageRange) {
-    return null;
-  }
-
-  const primaryLanguageTag = primaryLanguageRange.split(";")[0]?.trim() ?? "";
-  if (!primaryLanguageTag) {
-    return null;
-  }
-
-  const country = readRegionCodeFromLanguageTag(primaryLanguageTag);
-  if (!country) {
-    return null;
-  }
-
-  return {
-    type: "approximate",
-    country,
-  };
-}
-
-function readRegionCodeFromLanguageTag(languageTag: string): string | null {
-  const subtags = languageTag
-    .split(/[-_]/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-
-  for (const subtag of subtags.slice(1)) {
-    if (BCP47_REGION_CODE_PATTERN.test(subtag)) {
-      return subtag.toUpperCase();
+      sendPayload({
+        type: "error",
+        error: upstreamError.payload.error,
+        ...(upstreamError.payload.errorCode
+          ? { errorCode: upstreamError.payload.errorCode }
+          : {}),
+      });
     }
-  }
-
-  return null;
+  });
 }
 
 function buildChatExecutionLogContext(options: ChatExecutionOptions): Record<string, unknown> {
@@ -1687,225 +1368,22 @@ function createResilientCompactionSession(
   };
 }
 
-function readThreadId(payload: unknown): string | null {
-  return readOptionalPayloadLabel(payload, "threadId");
-}
-
-function readTurnId(payload: unknown): string | null {
-  return readOptionalPayloadLabel(payload, "turnId");
-}
-
-function readOptionalPayloadLabel(payload: unknown, key: string): string | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  const value = payload[key];
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
-function readMessage(payload: unknown): string {
-  if (!isRecord(payload)) {
+function readDataUrlBase64Payload(dataUrl: string): string {
+  const match = /^data:[^,]*,([\s\S]*)$/i.exec(dataUrl.trim());
+  if (!match) {
     return "";
   }
-  const message = payload.message;
-  if (typeof message !== "string") {
-    return "";
-  }
-  return message.trim();
+
+  return (match[1] ?? "").replace(/\s+/g, "");
 }
 
-function readHistory(payload: unknown): ParseResult<ClientMessage[]> {
-  if (!isRecord(payload) || !Array.isArray(payload.history)) {
-    return { ok: true, value: [] };
-  }
-
-  const parsedHistory: ClientMessage[] = [];
-  for (const [index, entry] of payload.history.entries()) {
-    if (!isRecord(entry)) {
-      continue;
-    }
-
-    const role = entry.role;
-    const content = entry.content;
-    if ((role !== "user" && role !== "assistant") || typeof content !== "string") {
-      continue;
-    }
-
-    const trimmedContent = content.trim();
-    if (!trimmedContent) {
-      continue;
-    }
-
-    const attachmentsResult =
-      role === "user"
-        ? parseAttachmentList(entry.attachments, `history[${index}].attachments`)
-        : { ok: true as const, value: [] as ClientAttachment[] };
-    if (!attachmentsResult.ok) {
-      return attachmentsResult;
-    }
-
-    parsedHistory.push({
-      role,
-      content: trimmedContent,
-      attachments: attachmentsResult.value,
-    });
-  }
-
-  return {
-    ok: true,
-    value: parsedHistory,
-  };
+function buildAttachmentKey(attachment: ClientAttachment): string {
+  return `${attachment.name}\u0000${attachment.sizeBytes}\u0000${attachment.dataUrl}`;
 }
 
-function readAttachments(payload: unknown): ParseResult<ClientAttachment[]> {
-  if (!isRecord(payload)) {
-    return { ok: true, value: [] };
-  }
-
-  return parseAttachmentList(payload.attachments, "attachments");
-}
-
-function parseAttachmentList(
-  rawValue: unknown,
-  pathLabel: string,
-): ParseResult<ClientAttachment[]> {
-  if (rawValue === undefined || rawValue === null) {
-    return { ok: true, value: [] };
-  }
-
-  if (!Array.isArray(rawValue)) {
-    return { ok: false, error: `\`${pathLabel}\` must be an array.` };
-  }
-
-  if (rawValue.length > CHAT_ATTACHMENT_MAX_FILES) {
-    return {
-      ok: false,
-      error: `You can attach up to ${CHAT_ATTACHMENT_MAX_FILES} files per message.`,
-    };
-  }
-
-  const attachments: ClientAttachment[] = [];
-  let totalSizeBytes = 0;
-  let pdfTotalSizeBytes = 0;
-
-  for (const [index, rawAttachment] of rawValue.entries()) {
-    if (!isRecord(rawAttachment)) {
-      return { ok: false, error: `\`${pathLabel}[${index}]\` is invalid.` };
-    }
-
-    const name = typeof rawAttachment.name === "string" ? rawAttachment.name.trim() : "";
-    if (!name) {
-      return { ok: false, error: `\`${pathLabel}[${index}].name\` is required.` };
-    }
-    if (name.length > CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH) {
-      return {
-        ok: false,
-        error: `\`${pathLabel}[${index}].name\` must be ${CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH} characters or fewer.`,
-      };
-    }
-    if (/[\r\n]/.test(name)) {
-      return {
-        ok: false,
-        error: `\`${pathLabel}[${index}].name\` must not include line breaks.`,
-      };
-    }
-
-    const extension = readFileExtension(name);
-    if (!CHAT_ATTACHMENT_ALLOWED_EXTENSIONS.has(extension)) {
-      return {
-        ok: false,
-        error: `\`${pathLabel}[${index}].name\` must use a supported extension (${Array.from(CHAT_ATTACHMENT_ALLOWED_EXTENSIONS, (value) => `.${value}`).join(", ")}).`,
-      };
-    }
-
-    const dataUrlResult = parseAttachmentDataUrl(
-      rawAttachment.dataUrl,
-      `${pathLabel}[${index}].dataUrl`,
-    );
-    if (!dataUrlResult.ok) {
-      return dataUrlResult;
-    }
-
-    const maxFileSizeBytes =
-      extension === "pdf"
-        ? CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES
-        : CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES;
-    if (dataUrlResult.value.sizeBytes > maxFileSizeBytes) {
-      return {
-        ok: false,
-        error: `\`${pathLabel}[${index}]\` exceeds max file size for .${extension} (${maxFileSizeBytes} bytes).`,
-      };
-    }
-
-    if (rawAttachment.sizeBytes !== undefined) {
-      if (
-        typeof rawAttachment.sizeBytes !== "number" ||
-        !Number.isSafeInteger(rawAttachment.sizeBytes) ||
-        rawAttachment.sizeBytes < 0
-      ) {
-        return {
-          ok: false,
-          error: `\`${pathLabel}[${index}].sizeBytes\` must be a non-negative integer.`,
-        };
-      }
-      if (rawAttachment.sizeBytes !== dataUrlResult.value.sizeBytes) {
-        return {
-          ok: false,
-          error: `\`${pathLabel}[${index}].sizeBytes\` does not match file data size.`,
-        };
-      }
-    }
-
-    const rawMimeType = rawAttachment.mimeType;
-    let mimeType = dataUrlResult.value.mimeType;
-    if (rawMimeType !== undefined && rawMimeType !== null) {
-      if (typeof rawMimeType !== "string") {
-        return { ok: false, error: `\`${pathLabel}[${index}].mimeType\` must be a string.` };
-      }
-      const trimmed = rawMimeType.trim().toLowerCase();
-      if (trimmed) {
-        mimeType = trimmed;
-      }
-    }
-    if (mimeType.length > 128 || /[\r\n]/.test(mimeType)) {
-      return {
-        ok: false,
-        error: `\`${pathLabel}[${index}].mimeType\` is invalid.`,
-      };
-    }
-
-    totalSizeBytes += dataUrlResult.value.sizeBytes;
-    if (totalSizeBytes > CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES) {
-      return {
-        ok: false,
-        error: `Total attachment size cannot exceed ${CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES} bytes.`,
-      };
-    }
-    if (extension === "pdf") {
-      pdfTotalSizeBytes += dataUrlResult.value.sizeBytes;
-      if (pdfTotalSizeBytes > CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES) {
-        return {
-          ok: false,
-          error: `Total PDF attachment size cannot exceed ${CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES} bytes.`,
-        };
-      }
-    }
-
-    attachments.push({
-      name,
-      mimeType,
-      sizeBytes: dataUrlResult.value.sizeBytes,
-      dataUrl: dataUrlResult.value.dataUrl,
-    });
-  }
-
-  return { ok: true, value: attachments };
+function readFileExtension(fileName: string): string {
+  const parts = fileName.toLowerCase().split(".");
+  return parts.length > 1 ? parts[parts.length - 1] : "";
 }
 
 function parseAttachmentDataUrl(
@@ -1981,607 +1459,6 @@ function parseAttachmentDataUrl(
       sizeBytes,
     },
   };
-}
-
-function readDataUrlBase64Payload(dataUrl: string): string {
-  const match = /^data:[^,]*,([\s\S]*)$/i.exec(dataUrl.trim());
-  if (!match) {
-    return "";
-  }
-
-  return (match[1] ?? "").replace(/\s+/g, "");
-}
-
-function buildAttachmentKey(attachment: ClientAttachment): string {
-  return `${attachment.name}\u0000${attachment.sizeBytes}\u0000${attachment.dataUrl}`;
-}
-
-function readFileExtension(fileName: string): string {
-  const parts = fileName.toLowerCase().split(".");
-  return parts.length > 1 ? parts[parts.length - 1] : "";
-}
-
-function readReasoningEffort(payload: unknown): ReasoningEffort {
-  if (!isRecord(payload)) {
-    return "none";
-  }
-
-  const value = payload.reasoningEffort;
-  if (
-    typeof value === "string" &&
-    HOME_REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
-  ) {
-    return value as ReasoningEffort;
-  }
-  return "none";
-}
-
-function isWebSearchCompatibleReasoningEffort(reasoningEffort: ReasoningEffort): boolean {
-  return reasoningEffort !== "minimal";
-}
-
-function isDeploymentReasoningEffortCompatible(
-  deploymentNameRaw: string,
-  reasoningEffort: ReasoningEffort,
-): boolean {
-  const deploymentName = deploymentNameRaw.trim().toLowerCase();
-  if (!deploymentName) {
-    return true;
-  }
-
-  if (
-    reasoningEffort === "minimal" &&
-    MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES.some((prefix) =>
-      deploymentName.startsWith(prefix),
-    )
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function readSupportsReasoningEffort(payload: unknown): boolean {
-  if (!isRecord(payload)) {
-    return true;
-  }
-
-  return payload.supportsReasoningEffort !== false;
-}
-
-function readWebSearchEnabled(payload: unknown): boolean {
-  if (!isRecord(payload) || payload.webSearchEnabled === undefined) {
-    return false;
-  }
-
-  return payload.webSearchEnabled === true;
-}
-
-function readTemperature(payload: unknown): ParseResult<number | null> {
-  if (!isRecord(payload) || payload.temperature === undefined || payload.temperature === null) {
-    return { ok: true, value: null };
-  }
-
-  const value = payload.temperature;
-  if (typeof value === "string" && value.trim() === "") {
-    return { ok: true, value: null };
-  }
-
-  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : Number.NaN;
-
-  if (!Number.isFinite(parsed)) {
-    return {
-      ok: false,
-      error: "`temperature` must be a number between 0 and 2, or omitted (None).",
-    };
-  }
-
-  if (parsed < TEMPERATURE_MIN || parsed > TEMPERATURE_MAX) {
-    return {
-      ok: false,
-      error: "`temperature` must be between 0 and 2, or omitted (None).",
-    };
-  }
-
-  return { ok: true, value: parsed };
-}
-
-function readAgentInstruction(payload: unknown): string {
-  if (!isRecord(payload)) {
-    return DEFAULT_AGENT_INSTRUCTION;
-  }
-
-  const value = payload.agentInstruction;
-  if (typeof value !== "string") {
-    return DEFAULT_AGENT_INSTRUCTION;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return DEFAULT_AGENT_INSTRUCTION;
-  }
-
-  return trimmed.slice(0, CHAT_MAX_AGENT_INSTRUCTION_LENGTH);
-}
-
-function readInstructionContextToggles(
-  payload: unknown,
-): ParseResult<ThreadInstructionContextToggles> {
-  if (!isRecord(payload)) {
-    return { ok: false, error: "`instructionContextToggles` is required." };
-  }
-  if (!Object.prototype.hasOwnProperty.call(payload, "instructionContextToggles")) {
-    return { ok: false, error: "`instructionContextToggles` is required." };
-  }
-
-  const parsed = readThreadInstructionContextTogglesFromUnknown(
-    payload.instructionContextToggles,
-  );
-  if (!parsed) {
-    return {
-      ok: false,
-      error:
-        "`instructionContextToggles` must include all known boolean keys (for example `{ \"system\": true }`).",
-    };
-  }
-
-  return { ok: true, value: parsed };
-}
-
-function readThreadEnvironment(payload: unknown): ParseResult<ThreadEnvironment> {
-  if (!isRecord(payload)) {
-    return {
-      ok: true,
-      value: {},
-    };
-  }
-
-  const parsed = parseThreadEnvironmentFromUnknown(payload.threadEnvironment, {
-    strict: true,
-    pathLabel: "threadEnvironment",
-  });
-  if (!parsed.ok) {
-    return parsed;
-  }
-
-  return {
-    ok: true,
-    value: parsed.value,
-  };
-}
-
-function readSkills(payload: unknown): ParseResult<ClientSkillSelection[]> {
-  if (!isRecord(payload) || payload.skills === undefined) {
-    return { ok: true, value: [] };
-  }
-
-  const value = payload.skills;
-  if (!Array.isArray(value)) {
-    return { ok: false, error: "`skills` must be an array." };
-  }
-
-  if (value.length > CHAT_MAX_ACTIVE_SKILLS) {
-    return {
-      ok: false,
-      error: `You can enable up to ${CHAT_MAX_ACTIVE_SKILLS} Skills per message.`,
-    };
-  }
-
-  const result: ClientSkillSelection[] = [];
-  const seenLocations = new Set<string>();
-  for (const [index, entry] of value.entries()) {
-    if (!isRecord(entry)) {
-      return { ok: false, error: `skills[${index}] is invalid.` };
-    }
-
-    const name = typeof entry.name === "string" ? entry.name.trim() : "";
-    const location = typeof entry.location === "string" ? entry.location.trim() : "";
-    if (!name) {
-      return { ok: false, error: `skills[${index}].name is required.` };
-    }
-    if (name.length > AGENT_SKILL_NAME_MAX_LENGTH) {
-      return {
-        ok: false,
-        error: `skills[${index}].name must be ${AGENT_SKILL_NAME_MAX_LENGTH} characters or fewer.`,
-      };
-    }
-    if (!location) {
-      return { ok: false, error: `skills[${index}].location is required.` };
-    }
-    if (location.length > 4096) {
-      return { ok: false, error: `skills[${index}].location is too long.` };
-    }
-
-    if (seenLocations.has(location)) {
-      continue;
-    }
-
-    seenLocations.add(location);
-    result.push({
-      name,
-      location,
-    });
-  }
-
-  return {
-    ok: true,
-    value: result,
-  };
-}
-
-function readExplicitSkillLocations(payload: unknown): ParseResult<string[]> {
-  if (!isRecord(payload) || payload.explicitSkillLocations === undefined) {
-    return { ok: true, value: [] };
-  }
-
-  const value = payload.explicitSkillLocations;
-  if (!Array.isArray(value)) {
-    return { ok: false, error: "`explicitSkillLocations` must be an array." };
-  }
-
-  if (value.length > CHAT_MAX_ACTIVE_SKILLS) {
-    return {
-      ok: false,
-      error: `You can specify up to ${CHAT_MAX_ACTIVE_SKILLS} explicit Skill locations per message.`,
-    };
-  }
-
-  const result: string[] = [];
-  const seen = new Set<string>();
-  for (const [index, entry] of value.entries()) {
-    if (typeof entry !== "string") {
-      return {
-        ok: false,
-        error: `explicitSkillLocations[${index}] must be a string.`,
-      };
-    }
-
-    const location = entry.trim();
-    if (!location) {
-      return {
-        ok: false,
-        error: `explicitSkillLocations[${index}] is required.`,
-      };
-    }
-
-    if (location.length > 4096) {
-      return {
-        ok: false,
-        error: `explicitSkillLocations[${index}] is too long.`,
-      };
-    }
-
-    if (seen.has(location)) {
-      continue;
-    }
-    seen.add(location);
-    result.push(location);
-  }
-
-  return {
-    ok: true,
-    value: result,
-  };
-}
-
-function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
-  if (!isRecord(payload)) {
-    return { ok: false, error: "`azureConfig` is required." };
-  }
-
-  const value = payload.azureConfig;
-  if (value === undefined || value === null) {
-    return { ok: false, error: "`azureConfig` is required." };
-  }
-
-  if (!isRecord(value)) {
-    return { ok: false, error: "`azureConfig` must be an object." };
-  }
-
-  if (value.projectName !== undefined && typeof value.projectName !== "string") {
-    return { ok: false, error: "`azureConfig.projectName` must be a string." };
-  }
-
-  if (value.tenantId !== undefined && typeof value.tenantId !== "string") {
-    return { ok: false, error: "`azureConfig.tenantId` must be a string." };
-  }
-
-  if (value.baseUrl !== undefined && typeof value.baseUrl !== "string") {
-    return { ok: false, error: "`azureConfig.baseUrl` must be a string." };
-  }
-
-  if (value.apiVersion !== undefined && typeof value.apiVersion !== "string") {
-    return { ok: false, error: "`azureConfig.apiVersion` must be a string." };
-  }
-
-  if (value.deploymentName !== undefined && typeof value.deploymentName !== "string") {
-    return { ok: false, error: "`azureConfig.deploymentName` must be a string." };
-  }
-
-  const tenantId = typeof value.tenantId === "string" ? value.tenantId.trim() : "";
-  const baseUrl = typeof value.baseUrl === "string" ? normalizeAzureOpenAIBaseURL(value.baseUrl) : "";
-  const apiVersion =
-    typeof value.apiVersion === "string" && value.apiVersion.trim()
-      ? value.apiVersion.trim()
-      : "v1";
-  const deploymentName = typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
-
-  if (!tenantId) {
-    return { ok: false, error: "`azureConfig.tenantId` is required." };
-  }
-
-  if (!baseUrl) {
-    return { ok: false, error: "`azureConfig.baseUrl` is required." };
-  }
-
-  if (!deploymentName) {
-    return { ok: false, error: "`azureConfig.deploymentName` is required." };
-  }
-
-  return {
-    ok: true,
-    value: {
-      tenantId,
-      projectName: typeof value.projectName === "string" ? value.projectName.trim() : "",
-      baseUrl,
-      apiVersion,
-      deploymentName,
-    },
-  };
-}
-
-function readMcpServers(
-  payload: unknown,
-  options: {
-    requestUrl?: string;
-  } = {},
-): ParseResult<ClientMcpServerConfig[]> {
-  if (!isRecord(payload)) {
-    return { ok: true, value: [] };
-  }
-
-  const value = payload.mcpServers;
-  if (value === undefined) {
-    return { ok: true, value: [] };
-  }
-
-  if (!Array.isArray(value)) {
-    return { ok: false, error: "`mcpServers` must be an array." };
-  }
-
-  if (value.length > CHAT_MAX_MCP_SERVERS) {
-    return { ok: false, error: `You can add up to ${CHAT_MAX_MCP_SERVERS} MCP servers.` };
-  }
-
-  const result: ClientMcpServerConfig[] = [];
-  const dedupeKeys = new Set<string>();
-
-  for (const [index, entry] of value.entries()) {
-    if (!isRecord(entry)) {
-      return { ok: false, error: `mcpServers[${index}] is invalid.` };
-    }
-
-    const rawName = typeof entry.name === "string" ? entry.name.trim() : "";
-
-    const rawTransport = entry.transport;
-    let transport: McpTransport;
-    if (rawTransport === "sse") {
-      transport = "sse";
-    } else if (rawTransport === "stdio") {
-      transport = "stdio";
-    } else if (rawTransport === "streamable_http" || rawTransport === undefined || rawTransport === null) {
-      transport = "streamable_http";
-    } else {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].transport must be "streamable_http", "sse", or "stdio".`,
-      };
-    }
-
-    if (transport === "stdio") {
-      const command = typeof entry.command === "string" ? entry.command.trim() : "";
-      if (!command) {
-        return { ok: false, error: `mcpServers[${index}].command is required for stdio.` };
-      }
-
-      if (/\s/.test(command)) {
-        return { ok: false, error: `mcpServers[${index}].command must not include spaces.` };
-      }
-
-      const argsResult = parseStdioArgs(entry.args, index);
-      if (!argsResult.ok) {
-        return argsResult;
-      }
-
-      const envResult = parseStdioEnv(entry.env, index);
-      if (!envResult.ok) {
-        return envResult;
-      }
-
-      const cwd = typeof entry.cwd === "string" ? entry.cwd.trim() : "";
-      const name = (rawName || command).slice(0, MCP_SERVER_NAME_MAX_LENGTH);
-      if (!name) {
-        return { ok: false, error: `mcpServers[${index}].name is required.` };
-      }
-
-      if (
-        isLegacyUnavailableDefaultStdioNpxServer({
-          command,
-          args: argsResult.value,
-          cwd: cwd || undefined,
-          env: envResult.value,
-        })
-      ) {
-        continue;
-      }
-
-      const config: ClientMcpStdioServerConfig = {
-        name,
-        transport,
-        command,
-        args: argsResult.value,
-        cwd: cwd || undefined,
-        env: envResult.value,
-      };
-      const dedupeKey = buildMcpServerSessionConfigKey(config);
-      if (dedupeKeys.has(dedupeKey)) {
-        continue;
-      }
-
-      dedupeKeys.add(dedupeKey);
-      result.push(config);
-      continue;
-    }
-
-    const rawUrl = typeof entry.url === "string" ? entry.url.trim() : "";
-    if (!rawUrl) {
-      return { ok: false, error: `mcpServers[${index}].url is required.` };
-    }
-
-    const parsedHttpUrlResult = parseMcpHttpUrlForChat(rawUrl, index, options.requestUrl);
-    if (!parsedHttpUrlResult.ok) {
-      return parsedHttpUrlResult;
-    }
-
-    const name = (rawName || parsedHttpUrlResult.value.nameFallback).slice(0, MCP_SERVER_NAME_MAX_LENGTH);
-    if (!name) {
-      return { ok: false, error: `mcpServers[${index}].name is required.` };
-    }
-
-    const headersResult = parseHttpHeaders(entry.headers, index);
-    if (!headersResult.ok) {
-      return headersResult;
-    }
-    const useAzureAuth = entry.useAzureAuth === true;
-    const scopeResult = parseAzureAuthScope(entry.azureAuthScope, index, useAzureAuth);
-    if (!scopeResult.ok) {
-      return scopeResult;
-    }
-    const timeoutResult = parseTimeoutSeconds(entry.timeoutSeconds, index);
-    if (!timeoutResult.ok) {
-      return timeoutResult;
-    }
-
-    const config: ClientMcpHttpServerConfig = {
-      name,
-      transport,
-      url: parsedHttpUrlResult.value.url,
-      headers: headersResult.value,
-      useAzureAuth,
-      azureAuthScope: scopeResult.value,
-      timeoutSeconds: timeoutResult.value,
-    };
-    const dedupeKey = buildMcpServerSessionConfigKey(config);
-    if (dedupeKeys.has(dedupeKey)) {
-      continue;
-    }
-
-    dedupeKeys.add(dedupeKey);
-    result.push(config);
-  }
-
-  return { ok: true, value: result };
-}
-
-function parseMcpHttpUrlForChat(
-  rawUrl: string,
-  index: number,
-  requestUrl?: string,
-): ParseResult<{
-  url: string;
-  nameFallback: string;
-}> {
-  const requestOrigin = readRequestOrigin(requestUrl);
-  if (rawUrl.startsWith("/") && !rawUrl.startsWith("//")) {
-    if (!requestOrigin) {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].url is invalid.`,
-      };
-    }
-
-    let resolvedUrl: URL;
-    try {
-      resolvedUrl = new URL(rawUrl, requestOrigin);
-    } catch {
-      return { ok: false, error: `mcpServers[${index}].url is invalid.` };
-    }
-
-    if (resolvedUrl.protocol !== "http:" && resolvedUrl.protocol !== "https:") {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].url must start with http://, https://, or /.`,
-      };
-    }
-
-    const pathSegments = resolvedUrl.pathname
-      .split("/")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-    const nameFallback = pathSegments[pathSegments.length - 1] ?? resolvedUrl.hostname;
-    return {
-      ok: true,
-      value: {
-        url: resolvedUrl.toString(),
-        nameFallback,
-      },
-    };
-  }
-
-  let parsedAbsoluteUrl: URL;
-  try {
-    parsedAbsoluteUrl = new URL(rawUrl);
-  } catch {
-    return { ok: false, error: `mcpServers[${index}].url is invalid.` };
-  }
-
-  if (parsedAbsoluteUrl.protocol !== "http:" && parsedAbsoluteUrl.protocol !== "https:") {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].url must start with http://, https://, or /.`,
-    };
-  }
-
-  return {
-    ok: true,
-    value: {
-      url: parsedAbsoluteUrl.toString(),
-      nameFallback: parsedAbsoluteUrl.hostname,
-    },
-  };
-}
-
-function readRequestOrigin(requestUrl?: string): string | null {
-  if (typeof requestUrl !== "string") {
-    return null;
-  }
-
-  const trimmed = requestUrl.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  try {
-    return new URL(trimmed).origin;
-  } catch {
-    return null;
-  }
-}
-
-function isLegacyUnavailableDefaultStdioNpxServer(config: {
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-}): boolean {
-  return (
-    config.command === "npx" &&
-    config.args.length === 2 &&
-    config.args[0] === "-y" &&
-    legacyUnavailableDefaultStdioNpxPackageNameSet.has(config.args[1]) &&
-    !config.cwd &&
-    Object.keys(config.env).length === 0
-  );
 }
 
 function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
@@ -3346,176 +2223,6 @@ function shouldCacheSkillOperationResult(method: string): boolean {
   }
 
   return false;
-}
-
-function parseStdioArgs(argsValue: unknown, index: number): ParseResult<string[]> {
-  if (argsValue === undefined || argsValue === null) {
-    return { ok: true, value: [] };
-  }
-
-  if (!Array.isArray(argsValue)) {
-    return { ok: false, error: `mcpServers[${index}].args must be an array of strings.` };
-  }
-
-  if (argsValue.length > MCP_STDIO_ARGS_MAX) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].args can include up to ${MCP_STDIO_ARGS_MAX} entries.`,
-    };
-  }
-
-  const args: string[] = [];
-  for (const [argIndex, arg] of argsValue.entries()) {
-    if (typeof arg !== "string") {
-      return { ok: false, error: `mcpServers[${index}].args[${argIndex}] must be a string.` };
-    }
-
-    const trimmed = arg.trim();
-    if (!trimmed) {
-      return { ok: false, error: `mcpServers[${index}].args[${argIndex}] must not be empty.` };
-    }
-
-    args.push(trimmed);
-  }
-
-  return { ok: true, value: args };
-}
-
-function parseStdioEnv(
-  envValue: unknown,
-  index: number,
-): ParseResult<Record<string, string>> {
-  if (envValue === undefined || envValue === null) {
-    return { ok: true, value: {} };
-  }
-
-  if (!isRecord(envValue)) {
-    return { ok: false, error: `mcpServers[${index}].env must be an object.` };
-  }
-
-  const entries = Object.entries(envValue);
-  if (entries.length > MCP_STDIO_ENV_VARS_MAX) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].env can include up to ${MCP_STDIO_ENV_VARS_MAX} entries.`,
-    };
-  }
-
-  const env: Record<string, string> = {};
-
-  for (const [key, value] of entries) {
-    if (!ENV_KEY_PATTERN.test(key)) {
-      return { ok: false, error: `mcpServers[${index}].env key "${key}" is invalid.` };
-    }
-
-    if (typeof value !== "string") {
-      return { ok: false, error: `mcpServers[${index}].env["${key}"] must be a string.` };
-    }
-
-    env[key] = value;
-  }
-
-  return { ok: true, value: env };
-}
-
-function parseHttpHeaders(
-  headersValue: unknown,
-  index: number,
-): ParseResult<Record<string, string>> {
-  if (headersValue === undefined || headersValue === null) {
-    return { ok: true, value: {} };
-  }
-
-  if (!isRecord(headersValue)) {
-    return { ok: false, error: `mcpServers[${index}].headers must be an object.` };
-  }
-
-  const entries = Object.entries(headersValue);
-  if (entries.length > MCP_HTTP_HEADERS_MAX) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].headers can include up to ${MCP_HTTP_HEADERS_MAX} entries.`,
-    };
-  }
-
-  const headers: Record<string, string> = {};
-  for (const [key, value] of entries) {
-    if (!HTTP_HEADER_NAME_PATTERN.test(key)) {
-      return { ok: false, error: `mcpServers[${index}].headers key "${key}" is invalid.` };
-    }
-
-    if (key.toLowerCase() === "content-type") {
-      return {
-        ok: false,
-        error: `mcpServers[${index}].headers cannot include "Content-Type". It is fixed to "application/json".`,
-      };
-    }
-
-    if (typeof value !== "string") {
-      return { ok: false, error: `mcpServers[${index}].headers["${key}"] must be a string.` };
-    }
-
-    headers[key] = value;
-  }
-
-  return { ok: true, value: headers };
-}
-
-function parseAzureAuthScope(
-  rawScope: unknown,
-  index: number,
-  useAzureAuth: boolean,
-): ParseResult<string> {
-  if (rawScope === undefined || rawScope === null) {
-    return { ok: true, value: MCP_DEFAULT_AZURE_AUTH_SCOPE };
-  }
-
-  if (typeof rawScope !== "string") {
-    return { ok: false, error: `mcpServers[${index}].azureAuthScope must be a string.` };
-  }
-
-  const scope = rawScope.trim() || MCP_DEFAULT_AZURE_AUTH_SCOPE;
-  if (scope.length > MCP_AZURE_AUTH_SCOPE_MAX_LENGTH) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].azureAuthScope must be ${MCP_AZURE_AUTH_SCOPE_MAX_LENGTH} characters or fewer.`,
-    };
-  }
-
-  if (/\s/.test(scope)) {
-    return { ok: false, error: `mcpServers[${index}].azureAuthScope must not include spaces.` };
-  }
-
-  if (useAzureAuth && !scope) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].azureAuthScope is required when useAzureAuth is true.`,
-    };
-  }
-
-  return { ok: true, value: scope };
-}
-
-function parseTimeoutSeconds(
-  rawTimeout: unknown,
-  index: number,
-): ParseResult<number> {
-  if (rawTimeout === undefined || rawTimeout === null) {
-    return { ok: true, value: MCP_DEFAULT_TIMEOUT_SECONDS };
-  }
-
-  if (typeof rawTimeout !== "number" || !Number.isSafeInteger(rawTimeout)) {
-    return { ok: false, error: `mcpServers[${index}].timeoutSeconds must be an integer.` };
-  }
-
-  if (rawTimeout < MCP_TIMEOUT_SECONDS_MIN || rawTimeout > MCP_TIMEOUT_SECONDS_MAX) {
-    return {
-      ok: false,
-      error: `mcpServers[${index}].timeoutSeconds must be between ${MCP_TIMEOUT_SECONDS_MIN} and ${MCP_TIMEOUT_SECONDS_MAX}.`,
-    };
-  }
-
-  return { ok: true, value: rawTimeout };
 }
 
 function buildMcpHttpRequestHeaders(headers: Record<string, string>): Record<string, string> {
@@ -5818,20 +4525,64 @@ async function runAgentWithTimeout<T>(
   runTask: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
   timeoutMessage: string,
+  upstreamAbortSignal?: AbortSignal,
 ): Promise<T> {
   const controller = new AbortController();
+  const removeAbortRelay = relayAbortSignal(upstreamAbortSignal, controller);
   try {
     return await awaitWithTimeout(runTask(controller.signal), timeoutMs, timeoutMessage);
   } catch (error) {
     controller.abort();
     throw error;
+  } finally {
+    removeAbortRelay();
   }
+}
+
+function relayAbortSignal(
+  source: AbortSignal | undefined,
+  target: AbortController,
+): () => void {
+  if (!source) {
+    return () => {};
+  }
+
+  if (source.aborted) {
+    target.abort();
+    return () => {};
+  }
+
+  const onAbort = () => {
+    target.abort();
+  };
+  source.addEventListener("abort", onAbort);
+  return () => {
+    source.removeEventListener("abort", onAbort);
+  };
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal || !signal.aborted) {
+    return;
+  }
+
+  throw new RequestCanceledError();
 }
 
 function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
   payload: UpstreamErrorPayload;
   status: number;
 } {
+  if (isRequestCanceledError(error)) {
+    return {
+      payload: {
+        code: "request_canceled",
+        error: "Request was canceled by client disconnect.",
+      },
+      status: 499,
+    };
+  }
+
   if (isAzureCredentialError(error)) {
     return {
       payload: {
@@ -5849,6 +4600,17 @@ function buildUpstreamErrorPayload(error: unknown, deploymentName: string): {
     payload: { code: "upstream_service_error", error: message },
     status: 502,
   };
+}
+
+function isRequestCanceledError(error: unknown): boolean {
+  if (error instanceof RequestCanceledError) {
+    return true;
+  }
+
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.message === "Request was canceled.")
+  );
 }
 
 function buildUpstreamErrorMessage(error: unknown, deploymentName: string): string {
@@ -5945,241 +4707,6 @@ function isAzureCredentialError(error: unknown): boolean {
   ].some((pattern) => message.includes(pattern));
 }
 
-function buildStdioSpawnEnvironment(
-  configuredEnv: Record<string, string>,
-): Record<string, string> {
-  const base = { ...configuredEnv };
-  const pathKey = readPathEnvironmentKeyFromMap(process.env);
-  const configuredPath = readPathEnvironmentValue(base);
-  const processPath = readPathEnvironmentValue(process.env);
-  const mergedPathEntries = dedupePathEntries([
-    ...splitPathEntries(configuredPath),
-    ...splitPathEntries(processPath),
-    ...resolveRuntimeExecutablePathEntries(),
-  ]);
-  if (mergedPathEntries.length === 0) {
-    return base;
-  }
-
-  const pathValue = mergedPathEntries.join(path.delimiter);
-  const result: Record<string, string> = {
-    ...base,
-    [pathKey]: pathValue,
-  };
-  if (pathKey !== "PATH") {
-    result.PATH = pathValue;
-  }
-  return result;
-}
-
-function resolveExecutableCommand(command: string, env: Record<string, string>): string {
-  if (isPathLikeCommand(command)) {
-    return command;
-  }
-
-  const pathValue = readPathEnvironmentValue(env) || readPathEnvironmentValue(process.env);
-  if (!pathValue) {
-    return command;
-  }
-
-  const resolved = findExecutableInPath(command, pathValue, env);
-  return resolved ?? command;
-}
-
-function isPathLikeCommand(command: string): boolean {
-  return command.includes("/") || command.includes("\\");
-}
-
-function findExecutableInPath(
-  command: string,
-  pathValue: string,
-  env: Record<string, string>,
-): string | null {
-  const pathEntries = splitPathEntries(pathValue);
-  if (pathEntries.length === 0) {
-    return null;
-  }
-
-  const extCandidates = buildExecutableExtensions(command, env);
-  for (const directory of pathEntries) {
-    for (const extension of extCandidates) {
-      const candidate = path.join(directory, `${command}${extension}`);
-      if (isExecutableFile(candidate)) {
-        return candidate;
-      }
-    }
-  }
-
-  return null;
-}
-
-function buildExecutableExtensions(command: string, env: Record<string, string>): string[] {
-  if (process.platform !== "win32") {
-    return [""];
-  }
-
-  if (path.extname(command)) {
-    return [""];
-  }
-
-  const raw = env.PATHEXT ?? process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM";
-  const extensions = raw
-    .split(";")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-    .map((entry) => (entry.startsWith(".") ? entry : `.${entry}`));
-  return extensions.length > 0 ? extensions : [".EXE", ".CMD", ".BAT", ".COM"];
-}
-
-function isExecutableFile(filePath: string): boolean {
-  try {
-    fs.accessSync(filePath, process.platform === "win32" ? fs.constants.F_OK : fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function resolveRuntimeExecutablePathEntries(): string[] {
-  if (cachedRuntimeExecutablePathEntries) {
-    return cachedRuntimeExecutablePathEntries;
-  }
-
-  const resolved = dedupePathEntries([
-    ...resolveShellExecutablePathEntries(),
-    ...resolveAdditionalExecutablePathEntries(),
-  ]);
-  cachedRuntimeExecutablePathEntries = resolved;
-  return resolved;
-}
-
-function resolveShellExecutablePathEntries(): string[] {
-  if (cachedShellExecutablePathEntries) {
-    return cachedShellExecutablePathEntries;
-  }
-
-  if (process.platform === "win32") {
-    cachedShellExecutablePathEntries = [];
-    return cachedShellExecutablePathEntries;
-  }
-
-  const shellPath =
-    (typeof process.env.SHELL === "string" ? process.env.SHELL.trim() : "") ||
-    (() => {
-      try {
-        return nodeOs.userInfo().shell?.trim() ?? "";
-      } catch {
-        return "";
-      }
-    })();
-
-  if (!shellPath) {
-    cachedShellExecutablePathEntries = [];
-    return cachedShellExecutablePathEntries;
-  }
-
-  const command = `printf "%s%s%s" "${shellPathStartMarker}" "$PATH" "${shellPathEndMarker}"`;
-  const interactiveLoginEntries = readShellExecutablePathEntries(shellPath, ["-i", "-l", "-c", command]);
-  cachedShellExecutablePathEntries =
-    interactiveLoginEntries.length > 0
-      ? interactiveLoginEntries
-      : readShellExecutablePathEntries(shellPath, ["-l", "-c", command]);
-
-  return cachedShellExecutablePathEntries;
-}
-
-function readShellExecutablePathEntries(shellPath: string, args: string[]): string[] {
-  try {
-    const result = childProcess.spawnSync(shellPath, args, {
-      env: process.env,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 4_000,
-      maxBuffer: 512 * 1_024,
-    });
-    if (result.error || result.status !== 0) {
-      return [];
-    }
-
-    const output = typeof result.stdout === "string" ? result.stdout : "";
-    const start = output.indexOf(shellPathStartMarker);
-    const end = output.indexOf(shellPathEndMarker, start + shellPathStartMarker.length);
-    if (start < 0 || end < 0) {
-      return [];
-    }
-
-    const shellPathValue = output
-      .slice(start + shellPathStartMarker.length, end)
-      .trim();
-    return splitPathEntries(shellPathValue);
-  } catch {
-    return [];
-  }
-}
-
-function resolveAdditionalExecutablePathEntries(): string[] {
-  if (process.platform === "win32") {
-    const programFilesEntries = [
-      typeof process.env.ProgramFiles === "string" ? process.env.ProgramFiles : "",
-      typeof process.env["ProgramFiles(x86)"] === "string" ? process.env["ProgramFiles(x86)"] : "",
-    ]
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-    return dedupePathEntries(programFilesEntries.map((entry) => path.join(entry, "nodejs")));
-  }
-
-  const homeDirectory = nodeOs.homedir();
-  const entries = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"];
-  if (homeDirectory) {
-    entries.push(
-      path.join(homeDirectory, ".local", "bin"),
-      path.join(homeDirectory, ".volta", "bin"),
-      path.join(homeDirectory, ".asdf", "shims"),
-      path.join(homeDirectory, ".bun", "bin"),
-      path.join(homeDirectory, ".npm-global", "bin"),
-    );
-  }
-
-  return entries;
-}
-
-function splitPathEntries(pathValue: string): string[] {
-  return pathValue
-    .split(path.delimiter)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-}
-
-function dedupePathEntries(entries: string[]): string[] {
-  const seen = new Set<string>();
-  const deduped: string[] = [];
-  for (const entry of entries) {
-    if (!entry || seen.has(entry)) {
-      continue;
-    }
-
-    seen.add(entry);
-    deduped.push(entry);
-  }
-  return deduped;
-}
-
-function readPathEnvironmentValue(env: EnvironmentMap): string {
-  const key = readPathEnvironmentKeyFromMap(env);
-  const value = env[key];
-  return typeof value === "string" ? value : "";
-}
-
-function readPathEnvironmentKeyFromMap(env: EnvironmentMap): string {
-  for (const key of Object.keys(env)) {
-    if (key.toUpperCase() === "PATH") {
-      return key;
-    }
-  }
-
-  return "PATH";
-}
-
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
 }
@@ -6234,8 +4761,13 @@ export const chatRouteTestUtils = {
   buildInitialSkillOperationRecords,
   instrumentMcpServer,
   buildUpstreamErrorMessage,
+  buildUpstreamErrorPayload,
   isTransientNetworkTerminationError,
+  isRequestCanceledError,
   shouldRetryChatExecution,
+  runAgentWithTimeout,
+  throwIfAborted,
+  RequestCanceledError,
   resolveThreadDirectoryPath,
   applyDefaultThreadDirectoryToStdioServers,
 };
