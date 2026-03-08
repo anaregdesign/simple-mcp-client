@@ -1,6 +1,6 @@
 import {
-  HOME_DEFAULT_REASONING_EFFORT,
-  HOME_DEFAULT_WEB_SEARCH_ENABLED,
+  DEFAULT_REASONING_EFFORT,
+  DEFAULT_WEB_SEARCH_ENABLED,
 } from "~/lib/constants/chat";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
@@ -20,7 +20,9 @@ export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
   return value.map((message) => ({
     ...message,
     attachments: message.attachments.map((attachment) => ({ ...attachment })),
-    skillActivations: message.skillActivations.map((selection) => ({ ...selection })),
+    skillActivations: message.skillActivations.map((selection) => ({
+      ...selection,
+    })),
   }));
 }
 
@@ -106,9 +108,11 @@ export function hasThreadPersistableState(
   }
 
   return (
-    snapshot.reasoningEffort !== HOME_DEFAULT_REASONING_EFFORT ||
-    snapshot.webSearchEnabled !== HOME_DEFAULT_WEB_SEARCH_ENABLED ||
-    hasNonDefaultThreadInstructionContextToggles(snapshot.instructionContextToggles) ||
+    snapshot.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
+    snapshot.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
+    hasNonDefaultThreadInstructionContextToggles(
+      snapshot.instructionContextToggles,
+    ) ||
     Object.keys(snapshot.threadEnvironment).length > 0
   );
 }
@@ -116,7 +120,9 @@ export function hasThreadPersistableState(
 export function isThreadSnapshotArchived(
   snapshot: Pick<ThreadSnapshot, "deletedAt"> | null | undefined,
 ): boolean {
-  return snapshot !== null && snapshot !== undefined && snapshot.deletedAt !== null;
+  return (
+    snapshot !== null && snapshot !== undefined && snapshot.deletedAt !== null
+  );
 }
 
 export function isThreadArchivedById(
@@ -138,11 +144,17 @@ export function upsertThreadSnapshot(
 ): ThreadSnapshot[] {
   const existingIndex = current.findIndex((thread) => thread.id === next.id);
   if (existingIndex < 0) {
-    return [next, ...current].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    return [next, ...current].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
   }
 
-  const updated = current.map((thread, index) => (index === existingIndex ? next : thread));
-  return updated.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const updated = current.map((thread, index) =>
+    index === existingIndex ? next : thread,
+  );
+  return updated.sort((left, right) =>
+    right.updatedAt.localeCompare(left.updatedAt),
+  );
 }
 
 export function readThreadSnapshotById(
@@ -183,7 +195,9 @@ export function readThreadRuntimeStateById(
     messages: cloneMessages(activeThreadSnapshot.messages),
     mcpServers: cloneMcpServers(activeThreadSnapshot.mcpServers),
     mcpRpcLogs: cloneThreadOperationLogs(activeThreadSnapshot.mcpRpcLogs),
-    skillSelections: cloneThreadSkillActivations(activeThreadSnapshot.skillSelections),
+    skillSelections: cloneThreadSkillActivations(
+      activeThreadSnapshot.skillSelections,
+    ),
   };
 }
 

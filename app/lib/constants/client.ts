@@ -3,30 +3,31 @@
  * These constants define client layout behavior, theme preference behavior, and runtime UX defaults.
  * Changing them affects splitter bounds, theme switching, and interactive state defaults.
  */
-export const HOME_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX = 320;
-export const HOME_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX = 560;
-export const HOME_CHAT_INPUT_MIN_HEIGHT_PX = 44;
-export const HOME_CHAT_INPUT_MAX_HEIGHT_PX = 220;
-export const HOME_THREAD_NAME_MAX_LENGTH = 80;
+export const CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX = 320;
+export const CLIENT_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX = 560;
+export const CLIENT_CHAT_INPUT_MIN_HEIGHT_PX = 44;
+export const CLIENT_CHAT_INPUT_MAX_HEIGHT_PX = 220;
+export const THREAD_NAME_MAX_LENGTH = 80;
 
-export const HOME_DEFAULT_THEME = "light" as const;
-export const HOME_THEME_OPTIONS = [
+export const DEFAULT_THEME_MODE = "light" as const;
+export const THEME_MODE_OPTIONS = [
   { id: "light", label: "Light" },
   { id: "dark", label: "Dark" },
 ] as const;
 
-export const HOME_MAIN_VIEW_TAB_OPTIONS = [
+export const CLIENT_CONFIG_TAB_OPTIONS = [
   { id: "threads", label: "🧵 Threads" },
   { id: "mcp", label: "🧩 MCP Servers" },
   { id: "skills", label: "🧠 Skills" },
   { id: "settings", label: "⚙️ Settings" },
 ] as const;
 
-export const HOME_INITIAL_MESSAGES: ReadonlyArray<never> = [];
-export const HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL = "No Available Projects in Selected Tenant";
-export const HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL =
+export const INITIAL_THREAD_MESSAGES: ReadonlyArray<never> = [];
+export const NO_AVAILABLE_PROJECTS_OPTION_LABEL =
+  "No Available Projects in Selected Tenant";
+export const NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL =
   "No Available Deployments in Selected Tenant";
-export const HOME_DEFAULT_THREAD_REQUEST_STATE = {
+export const DEFAULT_THREAD_REQUEST_STATE = {
   isSending: false,
   sendProgressMessages: [] as string[],
   activeTurnId: null as string | null,

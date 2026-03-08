@@ -19,7 +19,12 @@ export function UnauthenticatedPanel(props: UnauthenticatedPanelProps) {
         <div className="chat-header-row">
           <div className="chat-header-main">
             <div className="chat-header-title">
-              <img className="chat-header-symbol" src="/foundry-symbol.svg" alt="" aria-hidden="true" />
+              <img
+                className="chat-header-symbol"
+                src="/local-playground-symbol.svg"
+                alt=""
+                aria-hidden="true"
+              />
               <h1>Local Playground</h1>
             </div>
           </div>

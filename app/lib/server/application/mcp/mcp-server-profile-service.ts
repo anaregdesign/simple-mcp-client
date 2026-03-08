@@ -1,7 +1,12 @@
 /**
  * MCP server profile application service module.
  */
-import { HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS, MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES } from "~/lib/constants/mcp";
+import {
+  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
+  MCP_DEFAULT_AZURE_AUTH_SCOPE,
+  MCP_DEFAULT_TIMEOUT_SECONDS,
+  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
+} from "~/lib/constants/mcp";
 import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
   WorkspaceMcpServerProfile,
@@ -14,8 +19,8 @@ import {
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
 import {
-  resolveFoundryConfigDirectory,
-  resolveFoundryWorkspaceUserDirectory,
+  resolveWorkspaceStorageDirectory,
+  resolveWorkspaceUserDirectory,
 } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import {
   ensurePersistenceDatabaseReady,
@@ -32,18 +37,18 @@ const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
 );
 type DefaultWorkspaceMcpServerProfileRow =
-  (typeof HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
+  (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
   DefaultWorkspaceMcpServerProfileRow,
   { transport: "stdio" }
 >;
 const defaultMermaidWorkspaceMcpServerProfile =
-  HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
+  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
     (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
       profile.transport === "stdio" && profile.name === "mcp-mermaid",
   ) ?? null;
 const defaultFilesystemWorkspaceMcpServerProfile =
-  HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
+  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
     (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
       profile.transport === "stdio" && profile.name === "filesystem",
   ) ?? null;
@@ -70,7 +75,10 @@ export class McpServerProfileService {
     currentProfiles: WorkspaceMcpServerProfileConfig[],
     workspaceUserId: number,
   ): WorkspaceMcpServerProfileConfig[] {
-    return mergeDefaultWorkspaceMcpServerProfiles(currentProfiles, workspaceUserId);
+    return mergeDefaultWorkspaceMcpServerProfiles(
+      currentProfiles,
+      workspaceUserId,
+    );
   }
 
   upsertWorkspaceMcpServerProfile(
@@ -94,7 +102,9 @@ export class McpServerProfileService {
 
 export const mcpServerProfileService = new McpServerProfileService();
 
-export async function readWorkspaceMcpServerProfiles(userId: number): Promise<WorkspaceMcpServerProfileConfig[]> {
+export async function readWorkspaceMcpServerProfiles(
+  userId: number,
+): Promise<WorkspaceMcpServerProfileConfig[]> {
   await ensurePersistenceDatabaseReady();
   const records = await prisma.workspaceMcpServerProfile.findMany({
     where: {
@@ -140,7 +150,9 @@ export async function writeWorkspaceMcpServerProfiles(
     }
 
     await transaction.workspaceMcpServerProfile.createMany({
-      data: profiles.map((profile, index) => mapProfileToDatabaseRecord(userId, profile, index)),
+      data: profiles.map((profile, index) =>
+        mapProfileToDatabaseRecord(userId, profile, index),
+      ),
     });
   });
 }
@@ -149,8 +161,13 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
   currentProfiles: WorkspaceMcpServerProfileConfig[],
   workspaceUserId: number,
 ): WorkspaceMcpServerProfileConfig[] {
-  const mergedProfiles = normalizeLegacyDefaultProfiles(currentProfiles, workspaceUserId);
-  const profileKeys = new Set(mergedProfiles.map((profile) => buildProfileKey(profile)));
+  const mergedProfiles = normalizeLegacyDefaultProfiles(
+    currentProfiles,
+    workspaceUserId,
+  );
+  const profileKeys = new Set(
+    mergedProfiles.map((profile) => buildProfileKey(profile)),
+  );
   for (const profile of buildDefaultMcpServerProfiles(workspaceUserId)) {
     const profileKey = buildProfileKey(profile);
     if (profileKeys.has(profileKey)) {
@@ -164,9 +181,14 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
   return mergedProfiles;
 }
 
-export async function ensureDefaultMcpServersForUser(userId: number): Promise<void> {
+export async function ensureDefaultMcpServersForUser(
+  userId: number,
+): Promise<void> {
   const currentProfiles = await readWorkspaceMcpServerProfiles(userId);
-  const nextProfiles = mergeDefaultWorkspaceMcpServerProfiles(currentProfiles, userId);
+  const nextProfiles = mergeDefaultWorkspaceMcpServerProfiles(
+    currentProfiles,
+    userId,
+  );
   if (nextProfiles.length === currentProfiles.length) {
     return;
   }
@@ -177,8 +199,9 @@ export async function ensureDefaultMcpServersForUser(userId: number): Promise<vo
 function buildDefaultMcpServerProfiles(
   workspaceUserId: number,
 ): WorkspaceMcpServerProfileConfig[] {
-  const defaultStdioWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
-  return HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile) => {
+  const defaultStdioWorkingDirectory =
+    resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
+  return DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile) => {
     if (defaultProfile.transport === "stdio") {
       return new WorkspaceMcpServerProfile({
         id: createRandomId(),
@@ -188,7 +211,9 @@ function buildDefaultMcpServerProfiles(
         command: defaultProfile.command,
         args: [...defaultProfile.args],
         cwd:
-          defaultProfile.cwd === "default" ? defaultStdioWorkingDirectory : undefined,
+          defaultProfile.cwd === "default"
+            ? defaultStdioWorkingDirectory
+            : undefined,
         env: { ...defaultProfile.env },
       }).toSnapshot();
     }
@@ -211,8 +236,10 @@ function normalizeLegacyDefaultProfiles(
   currentProfiles: WorkspaceMcpServerProfileConfig[],
   workspaceUserId: number,
 ): WorkspaceMcpServerProfileConfig[] {
-  const defaultWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
-  const legacyDefaultWorkingDirectory = resolveLegacyFilesystemWorkingDirectory();
+  const defaultWorkingDirectory =
+    resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
+  const legacyDefaultWorkingDirectory =
+    resolveLegacyFilesystemWorkingDirectory();
   const normalizedProfiles: WorkspaceMcpServerProfileConfig[] = [];
 
   for (const profile of currentProfiles) {
@@ -241,14 +268,21 @@ function isLegacyDefaultMermaidProfile(
   profile: WorkspaceMcpServerProfileConfig,
   legacyDefaultWorkingDirectory: string,
 ): profile is Extract<WorkspaceMcpServerProfileConfig, { transport: "stdio" }> {
-  if (profile.transport !== "stdio" || !defaultMermaidWorkspaceMcpServerProfile) {
+  if (
+    profile.transport !== "stdio" ||
+    !defaultMermaidWorkspaceMcpServerProfile
+  ) {
     return false;
   }
 
   return (
     profile.command === defaultMermaidWorkspaceMcpServerProfile.command &&
-    profile.args.length === defaultMermaidWorkspaceMcpServerProfile.args.length &&
-    profile.args.every((arg, index) => arg === defaultMermaidWorkspaceMcpServerProfile.args[index]) &&
+    profile.args.length ===
+      defaultMermaidWorkspaceMcpServerProfile.args.length &&
+    profile.args.every(
+      (arg, index) =>
+        arg === defaultMermaidWorkspaceMcpServerProfile.args[index],
+    ) &&
     Object.keys(profile.env).length === 0 &&
     isLegacyDefaultWorkingDirectory(profile.cwd, legacyDefaultWorkingDirectory)
   );
@@ -258,22 +292,29 @@ function isLegacyDefaultFilesystemProfile(
   profile: WorkspaceMcpServerProfileConfig,
   legacyDefaultWorkingDirectory: string,
 ): profile is Extract<WorkspaceMcpServerProfileConfig, { transport: "stdio" }> {
-  if (profile.transport !== "stdio" || !defaultFilesystemWorkspaceMcpServerProfile) {
+  if (
+    profile.transport !== "stdio" ||
+    !defaultFilesystemWorkspaceMcpServerProfile
+  ) {
     return false;
   }
 
   return (
     profile.command === defaultFilesystemWorkspaceMcpServerProfile.command &&
-    profile.args.length === defaultFilesystemWorkspaceMcpServerProfile.args.length &&
+    profile.args.length ===
+      defaultFilesystemWorkspaceMcpServerProfile.args.length &&
     profile.args.every(
-      (arg, index) => arg === defaultFilesystemWorkspaceMcpServerProfile.args[index],
+      (arg, index) =>
+        arg === defaultFilesystemWorkspaceMcpServerProfile.args[index],
     ) &&
     Object.keys(profile.env).length === 0 &&
     isLegacyDefaultWorkingDirectory(profile.cwd, legacyDefaultWorkingDirectory)
   );
 }
 
-function isLegacyUnavailableDefaultStdioProfile(profile: WorkspaceMcpServerProfileConfig): boolean {
+function isLegacyUnavailableDefaultStdioProfile(
+  profile: WorkspaceMcpServerProfileConfig,
+): boolean {
   if (profile.transport !== "stdio") {
     return false;
   }
@@ -288,14 +329,16 @@ function isLegacyUnavailableDefaultStdioProfile(profile: WorkspaceMcpServerProfi
   );
 }
 
-function resolveDefaultFilesystemWorkingDirectory(workspaceUserId: number): string {
-  return resolveFoundryWorkspaceUserDirectory({
+function resolveDefaultFilesystemWorkingDirectory(
+  workspaceUserId: number,
+): string {
+  return resolveWorkspaceUserDirectory({
     workspaceUserId,
   });
 }
 
 function resolveLegacyFilesystemWorkingDirectory(): string {
-  return resolveFoundryConfigDirectory();
+  return resolveWorkspaceStorageDirectory();
 }
 
 function isLegacyDefaultWorkingDirectory(
@@ -306,7 +349,10 @@ function isLegacyDefaultWorkingDirectory(
     return true;
   }
 
-  return normalizePathForComparison(cwd) === normalizePathForComparison(legacyDefaultWorkingDirectory);
+  return (
+    normalizePathForComparison(cwd) ===
+    normalizePathForComparison(legacyDefaultWorkingDirectory)
+  );
 }
 
 function normalizePathForComparison(value: string): string {
@@ -316,7 +362,11 @@ function normalizePathForComparison(value: string): string {
 export function upsertWorkspaceMcpServerProfile(
   currentProfiles: WorkspaceMcpServerProfileConfig[],
   incoming: IncomingMcpServerConfig,
-): { profile: WorkspaceMcpServerProfileConfig; profiles: WorkspaceMcpServerProfileConfig[]; warning: string | null } {
+): {
+  profile: WorkspaceMcpServerProfileConfig;
+  profiles: WorkspaceMcpServerProfileConfig[];
+  warning: string | null;
+} {
   const incomingKey = buildIncomingProfileKey(incoming);
   const keyIndex = currentProfiles.findIndex(
     (profile) => buildProfileKey(profile) === incomingKey,
@@ -332,7 +382,8 @@ export function upsertWorkspaceMcpServerProfile(
   const profileId =
     index >= 0
       ? currentProfiles[index].id
-      : incoming.id && !currentProfiles.some((profile) => profile.id === incoming.id)
+      : incoming.id &&
+          !currentProfiles.some((profile) => profile.id === incoming.id)
         ? incoming.id
         : createRandomId();
   const connectOnThreadCreate =
@@ -340,34 +391,37 @@ export function upsertWorkspaceMcpServerProfile(
     previousProfile?.connectOnThreadCreate ??
     false;
 
-  const profile: WorkspaceMcpServerProfileConfig = new WorkspaceMcpServerProfile(
-    incoming.transport === "stdio"
-      ? {
-          id: profileId,
-          name: incoming.name,
-          connectOnThreadCreate,
-          transport: incoming.transport,
-          command: incoming.command,
-          args: incoming.args,
-          cwd: incoming.cwd,
-          env: incoming.env,
-        }
-      : {
-          id: profileId,
-          name: incoming.name,
-          connectOnThreadCreate,
-          transport: incoming.transport,
-          url: incoming.url,
-          headers: incoming.headers,
-          useAzureAuth: incoming.useAzureAuth,
-          azureAuthScope: incoming.azureAuthScope,
-          timeoutSeconds: incoming.timeoutSeconds,
-        },
-  ).toSnapshot();
+  const profile: WorkspaceMcpServerProfileConfig =
+    new WorkspaceMcpServerProfile(
+      incoming.transport === "stdio"
+        ? {
+            id: profileId,
+            name: incoming.name,
+            connectOnThreadCreate,
+            transport: incoming.transport,
+            command: incoming.command,
+            args: incoming.args,
+            cwd: incoming.cwd,
+            env: incoming.env,
+          }
+        : {
+            id: profileId,
+            name: incoming.name,
+            connectOnThreadCreate,
+            transport: incoming.transport,
+            url: incoming.url,
+            headers: incoming.headers,
+            useAzureAuth: incoming.useAzureAuth,
+            azureAuthScope: incoming.azureAuthScope,
+            timeoutSeconds: incoming.timeoutSeconds,
+          },
+    ).toSnapshot();
 
   const profiles =
     index >= 0
-      ? currentProfiles.map((entry, entryIndex) => (entryIndex === index ? profile : entry))
+      ? currentProfiles.map((entry, entryIndex) =>
+          entryIndex === index ? profile : entry,
+        )
       : [...currentProfiles, profile];
 
   let warning: string | null = null;
@@ -392,7 +446,9 @@ export function deleteWorkspaceMcpServerProfile(
   };
 }
 
-function normalizeStoredMcpServer(entry: unknown): WorkspaceMcpServerProfileConfig | null {
+function normalizeStoredMcpServer(
+  entry: unknown,
+): WorkspaceMcpServerProfileConfig | null {
   const parsed = parseIncomingMcpServer(entry);
   if (!parsed.ok) {
     return null;
@@ -490,7 +546,11 @@ function normalizeStoredMcpServerRecord(entry: {
   });
 }
 
-function mapProfileToDatabaseRecord(userId: number, profile: WorkspaceMcpServerProfileConfig, profileOrder: number): {
+function mapProfileToDatabaseRecord(
+  userId: number,
+  profile: WorkspaceMcpServerProfileConfig,
+  profileOrder: number,
+): {
   id: string;
   userId: number;
   profileOrder: number;
@@ -572,7 +632,9 @@ function parseStringArrayJson(value: string | null): string[] | null {
   return [...parsed];
 }
 
-function parseStringMapJson(value: string | null): Record<string, string> | null {
+function parseStringMapJson(
+  value: string | null,
+): Record<string, string> | null {
   if (typeof value !== "string") {
     return null;
   }

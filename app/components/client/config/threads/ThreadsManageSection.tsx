@@ -10,7 +10,7 @@ import {
   type ContextActionMenuItem,
 } from "~/components/client/shared/ContextActionMenu";
 import { StatusMessageList } from "~/components/client/shared/StatusMessageList";
-import { HOME_THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 
 const { Button, Input, Spinner } = FluentUI;
 
@@ -97,7 +97,10 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
     onThreadRename(thread.id, nextName);
   }
 
-  function handleRenameInputKeyDown(event: KeyboardEvent<HTMLInputElement>, thread: ThreadOption) {
+  function handleRenameInputKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    thread: ThreadOption,
+  ) {
     if (event.key === "Enter") {
       event.preventDefault();
       submitThreadRename(thread);
@@ -124,7 +127,9 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
       return;
     }
 
-    const targetExists = activeThreadOptions.some((thread) => thread.id === renamingThreadId);
+    const targetExists = activeThreadOptions.some(
+      (thread) => thread.id === renamingThreadId,
+    );
     if (!targetExists) {
       clearThreadRenameState();
     }
@@ -139,7 +144,7 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
   }, [isThreadOperationBusy]);
 
   function handleRenameInputChange(value: string) {
-    setRenamingThreadName(value.slice(0, HOME_THREAD_NAME_MAX_LENGTH));
+    setRenamingThreadName(value.slice(0, THREAD_NAME_MAX_LENGTH));
   }
 
   return (
@@ -170,15 +175,24 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
       {activeThreadOptions.length === 0 ? (
         <p className="field-hint">No active threads</p>
       ) : (
-        <div className="threads-active-list" role="list" aria-label="Playground threads">
+        <div
+          className="threads-active-list"
+          role="list"
+          aria-label="Playground threads"
+        >
           {activeThreadOptions.map((thread) => {
             const isActive = thread.id === activeThreadId;
             const isRenamingThread = renamingThreadId === thread.id;
             const isDeleteDisabled =
-              isThreadOperationBusy || thread.isAwaitingResponse || thread.messageCount === 0;
+              isThreadOperationBusy ||
+              thread.isAwaitingResponse ||
+              thread.messageCount === 0;
             const isClearDisabled =
-              isThreadOperationBusy || thread.isAwaitingResponse || thread.messageCount === 0;
-            const isCancelDisabled = isThreadOperationBusy || !thread.isAwaitingResponse;
+              isThreadOperationBusy ||
+              thread.isAwaitingResponse ||
+              thread.messageCount === 0;
+            const isCancelDisabled =
+              isThreadOperationBusy || !thread.isAwaitingResponse;
             const deleteButtonTitle =
               thread.messageCount === 0
                 ? `Cannot delete thread ${thread.name} because it has no messages`
@@ -190,7 +204,8 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
             const cancelButtonTitle = thread.isAwaitingResponse
               ? `Cancel all in-progress processing in thread ${thread.name}`
               : `No in-progress processing to cancel in thread ${thread.name}`;
-            const isRenameDisabled = isThreadOperationBusy || thread.isAwaitingResponse;
+            const isRenameDisabled =
+              isThreadOperationBusy || thread.isAwaitingResponse;
             const activeThreadContextMenuItems: ContextActionMenuItem[] = [
               {
                 id: "rename",
@@ -231,7 +246,11 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
               },
             ];
             return (
-              <div key={thread.id} className="threads-active-item-row" role="listitem">
+              <div
+                key={thread.id}
+                className="threads-active-item-row"
+                role="listitem"
+              >
                 {isRenamingThread ? (
                   <Input
                     ref={renameInputRef}
@@ -271,7 +290,9 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
                         aria-pressed={isActive}
                       >
                         <span className="threads-active-item-content">
-                          <span className="threads-active-item-name">{thread.name}</span>
+                          <span className="threads-active-item-name">
+                            {thread.name}
+                          </span>
                           {thread.isAwaitingResponse ? (
                             <Spinner
                               size="tiny"
@@ -294,10 +315,15 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
           <summary className="threads-archived-summary">
             Archives ({archivedThreadOptions.length})
           </summary>
-          <div className="threads-archived-items" role="list" aria-label="Archived Playground threads">
+          <div
+            className="threads-archived-items"
+            role="list"
+            aria-label="Archived Playground threads"
+          >
             {archivedThreadOptions.map((thread) => {
               const isActive = thread.id === activeThreadId;
-              const isRestoreDisabled = isThreadOperationBusy || thread.isAwaitingResponse;
+              const isRestoreDisabled =
+                isThreadOperationBusy || thread.isAwaitingResponse;
               const archivedThreadContextMenuItems: ContextActionMenuItem[] = [
                 {
                   id: "restore",
@@ -310,7 +336,11 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
                 },
               ];
               return (
-                <div key={thread.id} className="threads-archived-item-row" role="listitem">
+                <div
+                  key={thread.id}
+                  className="threads-archived-item-row"
+                  role="listitem"
+                >
                   <LabeledTooltip
                     title={thread.name}
                     lines={buildArchivedThreadTooltipLines(thread)}
@@ -331,7 +361,9 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
                         aria-pressed={isActive}
                       >
                         <span className="threads-active-item-content">
-                          <span className="threads-active-item-name">{thread.name}</span>
+                          <span className="threads-active-item-name">
+                            {thread.name}
+                          </span>
                           {thread.isAwaitingResponse ? (
                             <Spinner
                               size="tiny"

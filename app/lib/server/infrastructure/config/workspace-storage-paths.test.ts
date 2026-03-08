@@ -8,26 +8,28 @@ import { pathToFileURL } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import {
-  resolveFoundryDatabaseFilePath,
-  resolveFoundryDatabaseUrl,
-  resolveFoundryConfigDirectory,
-  resolveFoundryWorkspaceThreadDirectory,
-  resolveFoundryWorkspaceUserDirectory,
-  resolveFoundryWorkspaceUserSkillsDirectory,
+  resolveWorkspaceDatabaseFilePath,
+  resolveWorkspaceDatabaseUrl,
+  resolveWorkspaceStorageDirectory,
+  resolveWorkspaceThreadDirectory,
+  resolveWorkspaceUserDirectory,
+  resolveWorkspaceUserSkillsDirectory,
 } from "./workspace-storage-paths";
 
-describe("resolveFoundryConfigDirectory", () => {
+describe("resolveWorkspaceStorageDirectory", () => {
   it("uses APPDATA on Windows when available", () => {
-    const resolved = resolveFoundryConfigDirectory({
+    const resolved = resolveWorkspaceStorageDirectory({
       platform: "win32",
       homeDirectory: "C:\\Users\\hiroki",
       appDataDirectory: "C:\\Users\\hiroki\\AppData\\Roaming",
     });
-    expect(resolved).toBe("C:\\Users\\hiroki\\AppData\\Roaming\\FoundryLocalPlayground");
+    expect(resolved).toBe(
+      "C:\\Users\\hiroki\\AppData\\Roaming\\FoundryLocalPlayground",
+    );
   });
 
   it("falls back to home path on Windows when APPDATA is missing", () => {
-    const resolved = resolveFoundryConfigDirectory({
+    const resolved = resolveWorkspaceStorageDirectory({
       platform: "win32",
       homeDirectory: "C:\\Users\\hiroki",
       appDataDirectory: "",
@@ -36,7 +38,7 @@ describe("resolveFoundryConfigDirectory", () => {
   });
 
   it("uses ~/.foundry_local_playground on macOS", () => {
-    const resolved = resolveFoundryConfigDirectory({
+    const resolved = resolveWorkspaceStorageDirectory({
       platform: "darwin",
       homeDirectory: "/Users/hiroki",
     });
@@ -44,7 +46,7 @@ describe("resolveFoundryConfigDirectory", () => {
   });
 
   it("uses ~/.foundry_local_playground on Linux", () => {
-    const resolved = resolveFoundryConfigDirectory({
+    const resolved = resolveWorkspaceStorageDirectory({
       platform: "linux",
       homeDirectory: "/home/hiroki",
     });
@@ -53,20 +55,22 @@ describe("resolveFoundryConfigDirectory", () => {
   });
 });
 
-describe("resolveFoundryDatabaseFilePath", () => {
+describe("resolveWorkspaceDatabaseFilePath", () => {
   it("builds SQLite path in the primary config directory", () => {
-    const resolved = resolveFoundryDatabaseFilePath({
+    const resolved = resolveWorkspaceDatabaseFilePath({
       platform: "darwin",
       homeDirectory: "/Users/hiroki",
     });
 
-    expect(resolved).toBe("/Users/hiroki/.foundry_local_playground/local-playground.sqlite");
+    expect(resolved).toBe(
+      "/Users/hiroki/.foundry_local_playground/local-playground.sqlite",
+    );
   });
 });
 
-describe("resolveFoundryWorkspaceUserDirectory", () => {
+describe("resolveWorkspaceUserDirectory", () => {
   it("builds workspace user path in the primary config directory", () => {
-    const resolved = resolveFoundryWorkspaceUserDirectory({
+    const resolved = resolveWorkspaceUserDirectory({
       workspaceUserId: 42,
       platform: "darwin",
       homeDirectory: "/Users/hiroki",
@@ -76,45 +80,49 @@ describe("resolveFoundryWorkspaceUserDirectory", () => {
   });
 });
 
-describe("resolveFoundryWorkspaceUserSkillsDirectory", () => {
+describe("resolveWorkspaceUserSkillsDirectory", () => {
   it("builds workspace user Skills path in the primary config directory", () => {
-    const resolved = resolveFoundryWorkspaceUserSkillsDirectory({
+    const resolved = resolveWorkspaceUserSkillsDirectory({
       workspaceUserId: 42,
       platform: "darwin",
       homeDirectory: "/Users/hiroki",
     });
 
-    expect(resolved).toBe("/Users/hiroki/.foundry_local_playground/users/42/skills");
+    expect(resolved).toBe(
+      "/Users/hiroki/.foundry_local_playground/users/42/skills",
+    );
   });
 });
 
-describe("resolveFoundryWorkspaceThreadDirectory", () => {
+describe("resolveWorkspaceThreadDirectory", () => {
   it("builds workspace thread path in the primary config directory", () => {
-    const resolved = resolveFoundryWorkspaceThreadDirectory({
+    const resolved = resolveWorkspaceThreadDirectory({
       workspaceUserId: 42,
       threadId: "thread-abc",
       platform: "darwin",
       homeDirectory: "/Users/hiroki",
     });
 
-    expect(resolved).toBe("/Users/hiroki/.foundry_local_playground/users/42/threads/thread-abc");
+    expect(resolved).toBe(
+      "/Users/hiroki/.foundry_local_playground/users/42/threads/thread-abc",
+    );
   });
 
   it("rejects threadId values with path separators", () => {
     expect(() =>
-      resolveFoundryWorkspaceThreadDirectory({
+      resolveWorkspaceThreadDirectory({
         workspaceUserId: 42,
         threadId: "../thread-abc",
         platform: "darwin",
         homeDirectory: "/Users/hiroki",
-      })
+      }),
     ).toThrow("`threadId` must not contain path separators.");
   });
 });
 
-describe("resolveFoundryDatabaseUrl", () => {
+describe("resolveWorkspaceDatabaseUrl", () => {
   it("uses explicit env URL when provided", () => {
-    const resolved = resolveFoundryDatabaseUrl({
+    const resolved = resolveWorkspaceDatabaseUrl({
       envDatabaseUrl: "file:/tmp/custom.sqlite",
     });
 
@@ -122,7 +130,7 @@ describe("resolveFoundryDatabaseUrl", () => {
   });
 
   it("normalizes encoded sqlite file URLs for Prisma compatibility", () => {
-    const resolved = resolveFoundryDatabaseUrl({
+    const resolved = resolveWorkspaceDatabaseUrl({
       envDatabaseUrl: "file:///tmp/foundry%20playground/custom.sqlite",
     });
 
@@ -130,16 +138,20 @@ describe("resolveFoundryDatabaseUrl", () => {
   });
 
   it("falls back to file URL derived from resolved database path", () => {
-    const resolved = resolveFoundryDatabaseUrl({
+    const resolved = resolveWorkspaceDatabaseUrl({
       platform: "linux",
       homeDirectory: "/home/hiroki",
     });
 
-    expect(resolved).toBe("file:/home/hiroki/.foundry_local_playground/local-playground.sqlite");
+    expect(resolved).toBe(
+      "file:/home/hiroki/.foundry_local_playground/local-playground.sqlite",
+    );
   });
 
   it("returns a sqlite URL that Prisma can connect to even when path has spaces", async () => {
-    const workingDirectory = await mkdtemp(path.join(tmpdir(), "foundry-db-url-"));
+    const workingDirectory = await mkdtemp(
+      path.join(tmpdir(), "foundry-db-url-"),
+    );
     const databaseFilePath = path.join(
       workingDirectory,
       "Application Support",
@@ -148,7 +160,7 @@ describe("resolveFoundryDatabaseUrl", () => {
     await mkdir(path.dirname(databaseFilePath), { recursive: true });
 
     const encodedFileUrl = pathToFileURL(databaseFilePath).toString();
-    const databaseUrl = resolveFoundryDatabaseUrl({
+    const databaseUrl = resolveWorkspaceDatabaseUrl({
       envDatabaseUrl: encodedFileUrl,
     });
     expect(databaseUrl.includes("%20")).toBe(false);

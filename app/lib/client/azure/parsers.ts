@@ -1,8 +1,8 @@
 /**
  * Client runtime support module.
  */
-import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
-import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
+import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import type { ReasoningEffort } from "~/lib/client/shared/view-types";
 import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
 import type {
@@ -56,8 +56,10 @@ export function readAzurePrincipalProfileFromUnknown(
     return null;
   }
 
-  const tenantId = readTenantIdFromUnknown(value.tenantId) || fallbackTenantId.trim();
-  const principalId = readPrincipalIdFromUnknown(value.principalId) || fallbackPrincipalId.trim();
+  const tenantId =
+    readTenantIdFromUnknown(value.tenantId) || fallbackTenantId.trim();
+  const principalId =
+    readPrincipalIdFromUnknown(value.principalId) || fallbackPrincipalId.trim();
   if (!tenantId || !principalId) {
     return null;
   }
@@ -87,8 +89,10 @@ export function readAzureSelectionFromUnknown(
     return null;
   }
 
-  const tenantId = typeof value.tenantId === "string" ? value.tenantId.trim() : "";
-  const principalId = typeof value.principalId === "string" ? value.principalId.trim() : "";
+  const tenantId =
+    typeof value.tenantId === "string" ? value.tenantId.trim() : "";
+  const principalId =
+    typeof value.principalId === "string" ? value.principalId.trim() : "";
   if (!tenantId || !principalId) {
     return null;
   }
@@ -111,7 +115,7 @@ export function readAzureSelectionFromUnknown(
   return {
     tenantId,
     principalId,
-    theme: theme ?? HOME_DEFAULT_THEME,
+    theme: theme ?? DEFAULT_THEME_MODE,
     playground,
     utility,
   };
@@ -159,7 +163,9 @@ export function readAzureTenantList(value: unknown): AzureTenantOption[] {
   return tenants;
 }
 
-export function readAzureDeploymentList(value: unknown): AzureDeploymentOption[] {
+export function readAzureDeploymentList(
+  value: unknown,
+): AzureDeploymentOption[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -184,18 +190,24 @@ export function readAzureDeploymentList(value: unknown): AzureDeploymentOption[]
     deploymentByName.set(deploymentKey, deployment);
   }
 
-  return [...deploymentByName.values()].sort((left, right) => left.name.localeCompare(right.name));
+  return [...deploymentByName.values()].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
 }
 
-function readAzureProjectFromUnknown(value: unknown): AzureProjectOption | null {
+function readAzureProjectFromUnknown(
+  value: unknown,
+): AzureProjectOption | null {
   if (!isRecord(value)) {
     return null;
   }
 
   const id = typeof value.id === "string" ? value.id.trim() : "";
-  const projectName = typeof value.projectName === "string" ? value.projectName.trim() : "";
+  const projectName =
+    typeof value.projectName === "string" ? value.projectName.trim() : "";
   const baseUrl = typeof value.baseUrl === "string" ? value.baseUrl.trim() : "";
-  const apiVersion = typeof value.apiVersion === "string" ? value.apiVersion.trim() : "";
+  const apiVersion =
+    typeof value.apiVersion === "string" ? value.apiVersion.trim() : "";
 
   if (!id || !projectName || !baseUrl || !apiVersion) {
     return null;
@@ -214,7 +226,8 @@ function readAzureTenantFromUnknown(value: unknown): AzureTenantOption | null {
     return null;
   }
 
-  const tenantId = typeof value.tenantId === "string" ? value.tenantId.trim() : "";
+  const tenantId =
+    typeof value.tenantId === "string" ? value.tenantId.trim() : "";
   if (!tenantId) {
     return null;
   }
@@ -232,7 +245,9 @@ function readAzureTenantFromUnknown(value: unknown): AzureTenantOption | null {
   };
 }
 
-function readAzureDeploymentFromUnknown(value: unknown): AzureDeploymentOption | null {
+function readAzureDeploymentFromUnknown(
+  value: unknown,
+): AzureDeploymentOption | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -242,7 +257,9 @@ function readAzureDeploymentFromUnknown(value: unknown): AzureDeploymentOption |
     return null;
   }
 
-  const reasoningEffortOptions = readReasoningEffortOptionsFromUnknown(value.reasoningEffortOptions);
+  const reasoningEffortOptions = readReasoningEffortOptionsFromUnknown(
+    value.reasoningEffortOptions,
+  );
 
   return {
     name,
@@ -257,8 +274,10 @@ function readAzureSelectionTargetFromUnknown(
     return null;
   }
 
-  const projectId = typeof value.projectId === "string" ? value.projectId.trim() : "";
-  const deploymentName = typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
+  const projectId =
+    typeof value.projectId === "string" ? value.projectId.trim() : "";
+  const deploymentName =
+    typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
   if (!projectId || !deploymentName) {
     return null;
   }
@@ -295,7 +314,11 @@ function readAzureUtilitySelectionTargetFromUnknown(
 function readAzurePrincipalTypeFromUnknown(
   value: unknown,
 ): AzurePrincipalProfile["principalType"] {
-  if (value === "user" || value === "servicePrincipal" || value === "managedIdentity") {
+  if (
+    value === "user" ||
+    value === "servicePrincipal" ||
+    value === "managedIdentity"
+  ) {
     return value;
   }
   return "unknown";
@@ -305,10 +328,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
 
-function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null {
+function readReasoningEffortFromUnknown(
+  value: unknown,
+): ReasoningEffort | null {
   if (
     typeof value === "string" &&
-    HOME_REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
+    REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
   ) {
     return value as ReasoningEffort;
   }
@@ -316,7 +341,9 @@ function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null 
   return null;
 }
 
-function readReasoningEffortOptionsFromUnknown(value: unknown): ReasoningEffort[] {
+function readReasoningEffortOptionsFromUnknown(
+  value: unknown,
+): ReasoningEffort[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -347,7 +374,9 @@ function mergeReasoningEffortOptions(
   return orderReasoningEffortOptions([...current, ...incoming]);
 }
 
-function orderReasoningEffortOptions(options: ReasoningEffort[]): ReasoningEffort[] {
+function orderReasoningEffortOptions(
+  options: ReasoningEffort[],
+): ReasoningEffort[] {
   const optionSet = new Set(options);
-  return HOME_REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
+  return REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
 }

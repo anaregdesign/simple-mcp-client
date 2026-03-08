@@ -1,13 +1,14 @@
 import {
   AGENT_SKILL_NAME_PATTERN,
-  HOME_DEFAULT_SKILL_REGISTRY_OPTIONS,
+  DEFAULT_SKILL_REGISTRY_OPTIONS,
 } from "~/lib/constants/skills";
 
-export const SKILL_REGISTRY_OPTIONS = HOME_DEFAULT_SKILL_REGISTRY_OPTIONS;
+export const SKILL_REGISTRY_OPTIONS = DEFAULT_SKILL_REGISTRY_OPTIONS;
 
 export type SkillRegistryOption = (typeof SKILL_REGISTRY_OPTIONS)[number];
 export type SkillRegistryId = SkillRegistryOption["id"];
-export type SkillRegistrySkillPathLayout = SkillRegistryOption["skillPathLayout"];
+export type SkillRegistrySkillPathLayout =
+  SkillRegistryOption["skillPathLayout"];
 
 export type ParsedSkillRegistrySkillName = {
   normalizedSkillName: string;
@@ -120,7 +121,9 @@ export function readSkillRegistryLabelFromSkillLocation(
     return null;
   }
 
-  const segments = normalizedLocation.split("/").filter((segment) => segment.length > 0);
+  const segments = normalizedLocation
+    .split("/")
+    .filter((segment) => segment.length > 0);
   for (let index = 0; index < segments.length - 1; index += 1) {
     if (segments[index] !== "skills") {
       continue;
@@ -164,7 +167,11 @@ function readNormalizedPathSegments(value: string): string[] | null {
   const segments: string[] = [];
   for (const segment of rawSegments) {
     const normalizedSegment = segment.trim();
-    if (!normalizedSegment || normalizedSegment === "." || normalizedSegment === "..") {
+    if (
+      !normalizedSegment ||
+      normalizedSegment === "." ||
+      normalizedSegment === ".."
+    ) {
       return null;
     }
 

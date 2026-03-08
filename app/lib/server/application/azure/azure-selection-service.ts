@@ -6,8 +6,8 @@ import {
   prisma,
 } from "~/lib/server/persistence/prisma";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
-import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
-import { HOME_DEFAULT_THEME } from "~/lib/constants/client";
+import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import {
   AzureSelectionPreference,
   type AzureSelectionTargetPreference,
@@ -56,14 +56,18 @@ export class AzureSelectionService {
 export const azureSelectionService = new AzureSelectionService();
 export { AzureSelectionPreference };
 
-export function parseAzureSelectionPreference(value: unknown): AzureSelectionPreferencePayload | null {
+export function parseAzureSelectionPreference(
+  value: unknown,
+): AzureSelectionPreferencePayload | null {
   if (!isRecord(value)) {
     return null;
   }
 
   const target = value.target;
-  const projectId = typeof value.projectId === "string" ? value.projectId.trim() : "";
-  const deploymentName = typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
+  const projectId =
+    typeof value.projectId === "string" ? value.projectId.trim() : "";
+  const deploymentName =
+    typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
   const reasoningEffort =
     typeof value.reasoningEffort === "string"
       ? readReasoningEffortFromUnknown(value.reasoningEffort)
@@ -106,12 +110,10 @@ export function parseAzureSelectionPreference(value: unknown): AzureSelectionPre
   };
 }
 
-async function readStoredSelection(
-  identity: {
-    tenantId: string;
-    principalId: string;
-  },
-): Promise<AzureSelectionPreference | null> {
+async function readStoredSelection(identity: {
+  tenantId: string;
+  principalId: string;
+}): Promise<AzureSelectionPreference | null> {
   await ensurePersistenceDatabaseReady();
   const user = await prisma.workspaceUser.findUnique({
     where: {
@@ -164,12 +166,17 @@ async function saveStoredSelection(
     create: {
       userId: user.id,
       projectId: preference.target === "playground" ? preference.projectId : "",
-      deploymentName: preference.target === "playground" ? preference.deploymentName : "",
-      theme: preference.theme ?? HOME_DEFAULT_THEME,
-      utilityProjectId: preference.target === "utility" ? preference.projectId : "",
-      utilityDeploymentName: preference.target === "utility" ? preference.deploymentName : "",
+      deploymentName:
+        preference.target === "playground" ? preference.deploymentName : "",
+      theme: preference.theme ?? DEFAULT_THEME_MODE,
+      utilityProjectId:
+        preference.target === "utility" ? preference.projectId : "",
+      utilityDeploymentName:
+        preference.target === "utility" ? preference.deploymentName : "",
       utilityReasoningEffort:
-        preference.target === "utility" ? preference.reasoningEffort ?? "high" : "high",
+        preference.target === "utility"
+          ? (preference.reasoningEffort ?? "high")
+          : "high",
     },
     update: {
       ...(preference.target === "playground"
@@ -259,8 +266,11 @@ function mapSelectionRecord(
   return new AzureSelectionPreference({
     tenantId: user.tenantId,
     principalId: user.principalId,
-    theme: readThemeModeFromUnknown(selection.theme) ?? HOME_DEFAULT_THEME,
-    playground: mapSelectionTarget(selection.projectId, selection.deploymentName),
+    theme: readThemeModeFromUnknown(selection.theme) ?? DEFAULT_THEME_MODE,
+    playground: mapSelectionTarget(
+      selection.projectId,
+      selection.deploymentName,
+    ),
     utility: mapUtilitySelectionTarget(
       selection.utilityProjectId,
       selection.utilityDeploymentName,
@@ -295,7 +305,8 @@ function mapUtilitySelectionTarget(
     return null;
   }
 
-  const normalizedReasoningEffort = readReasoningEffortFromUnknown(reasoningEffort) ?? "high";
+  const normalizedReasoningEffort =
+    readReasoningEffortFromUnknown(reasoningEffort) ?? "high";
   return {
     ...base,
     reasoningEffort: normalizedReasoningEffort,
@@ -310,11 +321,13 @@ export function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
 }
 
-function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null {
+function readReasoningEffortFromUnknown(
+  value: unknown,
+): ReasoningEffort | null {
   if (typeof value !== "string") {
     return null;
   }
-  if (HOME_REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)) {
+  if (REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)) {
     return value as ReasoningEffort;
   }
 

@@ -2,8 +2,25 @@
  * Server chat request parser module.
  */
 import { normalizeAzureOpenAIBaseURL } from "~/lib/server/infrastructure/azure/dependencies";
-import { CHAT_ATTACHMENT_ALLOWED_EXTENSIONS, CHAT_ATTACHMENT_MAX_FILES, CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH, CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES, CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES, CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES, CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES, CHAT_MAX_AGENT_INSTRUCTION_LENGTH, CHAT_MAX_MCP_SERVERS, DEFAULT_AGENT_INSTRUCTION, HOME_REASONING_EFFORT_OPTIONS, TEMPERATURE_MAX, TEMPERATURE_MIN } from "~/lib/constants/chat";
-import { AGENT_SKILL_NAME_MAX_LENGTH, CHAT_MAX_ACTIVE_SKILLS } from "~/lib/constants/skills";
+import {
+  CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
+  CHAT_ATTACHMENT_MAX_FILES,
+  CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH,
+  CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES,
+  CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES,
+  CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES,
+  CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES,
+  CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
+  CHAT_MAX_MCP_SERVERS,
+  DEFAULT_AGENT_INSTRUCTION,
+  REASONING_EFFORT_OPTIONS,
+  TEMPERATURE_MAX,
+  TEMPERATURE_MIN,
+} from "~/lib/constants/chat";
+import {
+  AGENT_SKILL_NAME_MAX_LENGTH,
+  CHAT_MAX_ACTIVE_SKILLS,
+} from "~/lib/constants/skills";
 import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
@@ -51,7 +68,9 @@ type ClientMcpStdioServerConfig = {
   env: Record<string, string>;
 };
 
-export type ClientMcpServerConfig = ClientMcpHttpServerConfig | ClientMcpStdioServerConfig;
+export type ClientMcpServerConfig =
+  | ClientMcpHttpServerConfig
+  | ClientMcpStdioServerConfig;
 export type ClientSkillSelection = ThreadSkillActivation;
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -113,7 +132,9 @@ export type ChatRequestParseResult =
 
 const MINIMAL_UNSUPPORTED_REASONING_DEPLOYMENT_PREFIXES = ["gpt-5.4"] as const;
 
-export async function parseChatRequest(request: Request): Promise<ChatRequestParseResult> {
+export async function parseChatRequest(
+  request: Request,
+): Promise<ChatRequestParseResult> {
   let payload: unknown;
   try {
     payload = await request.json();
@@ -155,7 +176,9 @@ export function parseChatRequestPayload(
 
   const supportsReasoningEffort = readSupportsReasoningEffort(payload);
   const webSearchEnabled = readWebSearchEnabled(payload);
-  const reasoningEffort = supportsReasoningEffort ? readReasoningEffort(payload) : null;
+  const reasoningEffort = supportsReasoningEffort
+    ? readReasoningEffort(payload)
+    : null;
   if (
     reasoningEffort &&
     webSearchEnabled &&
@@ -172,7 +195,8 @@ export function parseChatRequestPayload(
     return failure("invalid_temperature_payload", temperatureResult.error);
   }
 
-  const instructionContextTogglesResult = readInstructionContextToggles(payload);
+  const instructionContextTogglesResult =
+    readInstructionContextToggles(payload);
   if (!instructionContextTogglesResult.ok) {
     return failure(
       "invalid_instruction_context_toggles_payload",
@@ -182,7 +206,10 @@ export function parseChatRequestPayload(
 
   const threadEnvironmentResult = readThreadEnvironment(payload);
   if (!threadEnvironmentResult.ok) {
-    return failure("invalid_thread_environment_payload", threadEnvironmentResult.error);
+    return failure(
+      "invalid_thread_environment_payload",
+      threadEnvironmentResult.error,
+    );
   }
 
   const skillsResult = readSkills(payload);
@@ -206,7 +233,10 @@ export function parseChatRequestPayload(
 
   if (
     reasoningEffort &&
-    !isDeploymentReasoningEffortCompatible(azureConfig.deploymentName, reasoningEffort)
+    !isDeploymentReasoningEffortCompatible(
+      azureConfig.deploymentName,
+      reasoningEffort,
+    )
   ) {
     return failure(
       "invalid_reasoning_effort_for_deployment",
@@ -214,17 +244,25 @@ export function parseChatRequestPayload(
     );
   }
 
-  const mcpServersResult = readMcpServers(payload, { requestUrl: options.requestUrl });
+  const mcpServersResult = readMcpServers(payload, {
+    requestUrl: options.requestUrl,
+  });
   if (!mcpServersResult.ok) {
     return failure("invalid_mcp_servers_payload", mcpServersResult.error);
   }
 
   if (!azureConfig.baseUrl) {
-    return failure("missing_azure_base_url", "Azure OpenAI base URL is missing.");
+    return failure(
+      "missing_azure_base_url",
+      "Azure OpenAI base URL is missing.",
+    );
   }
 
   if (!azureConfig.deploymentName) {
-    return failure("missing_azure_deployment_name", "Azure deployment name is missing.");
+    return failure(
+      "missing_azure_deployment_name",
+      "Azure deployment name is missing.",
+    );
   }
 
   if (azureConfig.apiVersion && azureConfig.apiVersion !== "v1") {
@@ -279,7 +317,10 @@ export function readTurnId(payload: unknown): string | null {
   return readOptionalPayloadLabel(payload, "turnId");
 }
 
-function readOptionalPayloadLabel(payload: unknown, key: string): string | null {
+function readOptionalPayloadLabel(
+  payload: unknown,
+  key: string,
+): string | null {
   if (!isRecord(payload)) {
     return null;
   }
@@ -319,7 +360,10 @@ function readHistory(payload: unknown): ParseResult<ClientMessage[]> {
 
     const role = entry.role;
     const content = entry.content;
-    if ((role !== "user" && role !== "assistant") || typeof content !== "string") {
+    if (
+      (role !== "user" && role !== "assistant") ||
+      typeof content !== "string"
+    ) {
       continue;
     }
 
@@ -330,7 +374,10 @@ function readHistory(payload: unknown): ParseResult<ClientMessage[]> {
 
     const attachmentsResult =
       role === "user"
-        ? parseAttachmentList(entry.attachments, `history[${index}].attachments`)
+        ? parseAttachmentList(
+            entry.attachments,
+            `history[${index}].attachments`,
+          )
         : { ok: true as const, value: [] as ClientAttachment[] };
     if (!attachmentsResult.ok) {
       return attachmentsResult;
@@ -346,7 +393,9 @@ function readHistory(payload: unknown): ParseResult<ClientMessage[]> {
   return { ok: true, value: parsedHistory };
 }
 
-export function readAttachments(payload: unknown): ParseResult<ClientAttachment[]> {
+export function readAttachments(
+  payload: unknown,
+): ParseResult<ClientAttachment[]> {
   if (!isRecord(payload)) {
     return { ok: true, value: [] };
   }
@@ -354,7 +403,10 @@ export function readAttachments(payload: unknown): ParseResult<ClientAttachment[
   return parseAttachmentList(payload.attachments, "attachments");
 }
 
-function parseAttachmentList(rawValue: unknown, pathLabel: string): ParseResult<ClientAttachment[]> {
+function parseAttachmentList(
+  rawValue: unknown,
+  pathLabel: string,
+): ParseResult<ClientAttachment[]> {
   if (rawValue === undefined || rawValue === null) {
     return { ok: true, value: [] };
   }
@@ -379,9 +431,13 @@ function parseAttachmentList(rawValue: unknown, pathLabel: string): ParseResult<
       return { ok: false, error: `\`${pathLabel}[${index}]\` is invalid.` };
     }
 
-    const name = typeof rawAttachment.name === "string" ? rawAttachment.name.trim() : "";
+    const name =
+      typeof rawAttachment.name === "string" ? rawAttachment.name.trim() : "";
     if (!name) {
-      return { ok: false, error: `\`${pathLabel}[${index}].name\` is required.` };
+      return {
+        ok: false,
+        error: `\`${pathLabel}[${index}].name\` is required.`,
+      };
     }
 
     if (name.length > CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH) {
@@ -450,7 +506,10 @@ function parseAttachmentList(rawValue: unknown, pathLabel: string): ParseResult<
     let mimeType = dataUrlResult.value.mimeType;
     if (rawMimeType !== undefined && rawMimeType !== null) {
       if (typeof rawMimeType !== "string") {
-        return { ok: false, error: `\`${pathLabel}[${index}].mimeType\` must be a string.` };
+        return {
+          ok: false,
+          error: `\`${pathLabel}[${index}].mimeType\` must be a string.`,
+        };
       }
 
       const trimmed = rawMimeType.trim().toLowerCase();
@@ -530,7 +589,9 @@ function parseAttachmentDataUrl(
     .split(";")
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
-  const hasBase64 = metadataParts.some((part) => part.toLowerCase() === "base64");
+  const hasBase64 = metadataParts.some(
+    (part) => part.toLowerCase() === "base64",
+  );
   if (!hasBase64) {
     return {
       ok: false,
@@ -583,7 +644,7 @@ function readReasoningEffort(payload: unknown): ReasoningEffort {
   const value = payload.reasoningEffort;
   if (
     typeof value === "string" &&
-    HOME_REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
+    REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
   ) {
     return value as ReasoningEffort;
   }
@@ -591,7 +652,9 @@ function readReasoningEffort(payload: unknown): ReasoningEffort {
   return "none";
 }
 
-export function isWebSearchCompatibleReasoningEffort(reasoningEffort: ReasoningEffort): boolean {
+export function isWebSearchCompatibleReasoningEffort(
+  reasoningEffort: ReasoningEffort,
+): boolean {
   return reasoningEffort !== "minimal";
 }
 
@@ -633,7 +696,11 @@ export function readWebSearchEnabled(payload: unknown): boolean {
 }
 
 export function readTemperature(payload: unknown): ParseResult<number | null> {
-  if (!isRecord(payload) || payload.temperature === undefined || payload.temperature === null) {
+  if (
+    !isRecord(payload) ||
+    payload.temperature === undefined ||
+    payload.temperature === null
+  ) {
     return { ok: true, value: null };
   }
 
@@ -652,7 +719,8 @@ export function readTemperature(payload: unknown): ParseResult<number | null> {
   if (!Number.isFinite(parsed)) {
     return {
       ok: false,
-      error: "`temperature` must be a number between 0 and 2, or omitted (None).",
+      error:
+        "`temperature` must be a number between 0 and 2, or omitted (None).",
     };
   }
 
@@ -691,7 +759,9 @@ export function readInstructionContextToggles(
     return { ok: false, error: "`instructionContextToggles` is required." };
   }
 
-  if (!Object.prototype.hasOwnProperty.call(payload, "instructionContextToggles")) {
+  if (
+    !Object.prototype.hasOwnProperty.call(payload, "instructionContextToggles")
+  ) {
     return { ok: false, error: "`instructionContextToggles` is required." };
   }
 
@@ -702,14 +772,16 @@ export function readInstructionContextToggles(
     return {
       ok: false,
       error:
-        "`instructionContextToggles` must include all known boolean keys (for example `{ \"system\": true }`).",
+        '`instructionContextToggles` must include all known boolean keys (for example `{ "system": true }`).',
     };
   }
 
   return { ok: true, value: parsed };
 }
 
-export function readThreadEnvironment(payload: unknown): ParseResult<ThreadEnvironment> {
+export function readThreadEnvironment(
+  payload: unknown,
+): ParseResult<ThreadEnvironment> {
   if (!isRecord(payload)) {
     return { ok: true, value: {} };
   }
@@ -725,7 +797,9 @@ export function readThreadEnvironment(payload: unknown): ParseResult<ThreadEnvir
   return { ok: true, value: parsed.value };
 }
 
-export function readSkills(payload: unknown): ParseResult<ClientSkillSelection[]> {
+export function readSkills(
+  payload: unknown,
+): ParseResult<ClientSkillSelection[]> {
   if (!isRecord(payload) || payload.skills === undefined) {
     return { ok: true, value: [] };
   }
@@ -750,7 +824,8 @@ export function readSkills(payload: unknown): ParseResult<ClientSkillSelection[]
     }
 
     const name = typeof entry.name === "string" ? entry.name.trim() : "";
-    const location = typeof entry.location === "string" ? entry.location.trim() : "";
+    const location =
+      typeof entry.location === "string" ? entry.location.trim() : "";
     if (!name) {
       return { ok: false, error: `skills[${index}].name is required.` };
     }
@@ -784,7 +859,9 @@ export function readSkills(payload: unknown): ParseResult<ClientSkillSelection[]
   return { ok: true, value: result };
 }
 
-export function readExplicitSkillLocations(payload: unknown): ParseResult<string[]> {
+export function readExplicitSkillLocations(
+  payload: unknown,
+): ParseResult<string[]> {
   if (!isRecord(payload) || payload.explicitSkillLocations === undefined) {
     return { ok: true, value: [] };
   }
@@ -851,7 +928,10 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     return { ok: false, error: "`azureConfig` must be an object." };
   }
 
-  if (value.projectName !== undefined && typeof value.projectName !== "string") {
+  if (
+    value.projectName !== undefined &&
+    typeof value.projectName !== "string"
+  ) {
     return { ok: false, error: "`azureConfig.projectName` must be a string." };
   }
 
@@ -867,13 +947,22 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     return { ok: false, error: "`azureConfig.apiVersion` must be a string." };
   }
 
-  if (value.deploymentName !== undefined && typeof value.deploymentName !== "string") {
-    return { ok: false, error: "`azureConfig.deploymentName` must be a string." };
+  if (
+    value.deploymentName !== undefined &&
+    typeof value.deploymentName !== "string"
+  ) {
+    return {
+      ok: false,
+      error: "`azureConfig.deploymentName` must be a string.",
+    };
   }
 
-  const tenantId = typeof value.tenantId === "string" ? value.tenantId.trim() : "";
+  const tenantId =
+    typeof value.tenantId === "string" ? value.tenantId.trim() : "";
   const baseUrl =
-    typeof value.baseUrl === "string" ? normalizeAzureOpenAIBaseURL(value.baseUrl) : "";
+    typeof value.baseUrl === "string"
+      ? normalizeAzureOpenAIBaseURL(value.baseUrl)
+      : "";
   const apiVersion =
     typeof value.apiVersion === "string" && value.apiVersion.trim()
       ? value.apiVersion.trim()
@@ -897,7 +986,8 @@ function readAzureConfig(payload: unknown): ParseResult<ResolvedAzureConfig> {
     ok: true,
     value: {
       tenantId,
-      projectName: typeof value.projectName === "string" ? value.projectName.trim() : "",
+      projectName:
+        typeof value.projectName === "string" ? value.projectName.trim() : "",
       baseUrl,
       apiVersion,
       deploymentName,
@@ -925,7 +1015,10 @@ export function readMcpServers(
   }
 
   if (value.length > CHAT_MAX_MCP_SERVERS) {
-    return { ok: false, error: `You can add up to ${CHAT_MAX_MCP_SERVERS} MCP servers.` };
+    return {
+      ok: false,
+      error: `You can add up to ${CHAT_MAX_MCP_SERVERS} MCP servers.`,
+    };
   }
 
   const result: ClientMcpServerConfig[] = [];

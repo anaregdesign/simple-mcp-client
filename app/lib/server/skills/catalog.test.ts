@@ -24,7 +24,9 @@ afterEach(async () => {
 
 describe("resolveCodexHomeDirectory", () => {
   it("uses explicit codex home when provided", () => {
-    expect(resolveCodexHomeDirectory("/tmp/.codex-custom")).toBe("/tmp/.codex-custom");
+    expect(resolveCodexHomeDirectory("/tmp/.codex-custom")).toBe(
+      "/tmp/.codex-custom",
+    );
   });
 });
 
@@ -33,7 +35,7 @@ describe("resolveSkillCatalogRoots", () => {
     const roots = resolveSkillCatalogRoots({
       workspaceUserId: 42,
       codexHome: "/Users/hiroki/.codex",
-      foundryConfigDirectory: "/Users/hiroki/.foundry_local_playground",
+      workspaceStorageDirectory: "/Users/hiroki/.foundry_local_playground",
     });
 
     expect(roots).toEqual([
@@ -52,7 +54,8 @@ describe("resolveSkillCatalogRoots", () => {
 
   it("uses SQLite directory for app data skills when DATABASE_URL is set", () => {
     const previousDatabaseUrl = process.env.DATABASE_URL;
-    const previousLocalPlaygroundDatabaseUrl = process.env.LOCAL_PLAYGROUND_DATABASE_URL;
+    const previousLocalPlaygroundDatabaseUrl =
+      process.env.LOCAL_PLAYGROUND_DATABASE_URL;
     process.env.DATABASE_URL = "file:/tmp/local-playground.sqlite";
     delete process.env.LOCAL_PLAYGROUND_DATABASE_URL;
 
@@ -77,7 +80,8 @@ describe("resolveSkillCatalogRoots", () => {
       if (previousLocalPlaygroundDatabaseUrl === undefined) {
         delete process.env.LOCAL_PLAYGROUND_DATABASE_URL;
       } else {
-        process.env.LOCAL_PLAYGROUND_DATABASE_URL = previousLocalPlaygroundDatabaseUrl;
+        process.env.LOCAL_PLAYGROUND_DATABASE_URL =
+          previousLocalPlaygroundDatabaseUrl;
       }
     }
   });
@@ -86,10 +90,16 @@ describe("resolveSkillCatalogRoots", () => {
 describe("discoverSkillCatalog", () => {
   it("discovers valid skills from CODEX_HOME skills directory", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "skill-codex-"));
-    const foundryConfigDirectory = await mkdtemp(path.join(tmpdir(), "skill-foundry-"));
-    tempDirectories.push(codexHome, foundryConfigDirectory);
+    const workspaceStorageDirectory = await mkdtemp(
+      path.join(tmpdir(), "skill-foundry-"),
+    );
+    tempDirectories.push(codexHome, workspaceStorageDirectory);
 
-    const skillDirectory = path.join(codexHome, "skills", "local-playground-dev");
+    const skillDirectory = path.join(
+      codexHome,
+      "skills",
+      "local-playground-dev",
+    );
     await mkdir(skillDirectory, { recursive: true });
     await writeFile(
       path.join(skillDirectory, "SKILL.md"),
@@ -106,7 +116,7 @@ describe("discoverSkillCatalog", () => {
     const result = await discoverSkillCatalog({
       workspaceUserId: 5,
       codexHome,
-      foundryConfigDirectory,
+      workspaceStorageDirectory,
     });
 
     expect(result.skills).toHaveLength(1);
@@ -120,17 +130,23 @@ describe("discoverSkillCatalog", () => {
 
   it("reports warnings for invalid frontmatter", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "skill-codex-"));
-    const foundryConfigDirectory = await mkdtemp(path.join(tmpdir(), "skill-foundry-"));
-    tempDirectories.push(codexHome, foundryConfigDirectory);
+    const workspaceStorageDirectory = await mkdtemp(
+      path.join(tmpdir(), "skill-foundry-"),
+    );
+    tempDirectories.push(codexHome, workspaceStorageDirectory);
 
     const skillDirectory = path.join(codexHome, "skills", "bad-skill");
     await mkdir(skillDirectory, { recursive: true });
-    await writeFile(path.join(skillDirectory, "SKILL.md"), "# missing frontmatter", "utf8");
+    await writeFile(
+      path.join(skillDirectory, "SKILL.md"),
+      "# missing frontmatter",
+      "utf8",
+    );
 
     const result = await discoverSkillCatalog({
       workspaceUserId: 5,
       codexHome,
-      foundryConfigDirectory,
+      workspaceStorageDirectory,
     });
 
     expect(result.skills).toEqual([]);
@@ -139,30 +155,37 @@ describe("discoverSkillCatalog", () => {
 
   it("creates app data skills directory when missing", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "skill-codex-"));
-    const foundryConfigDirectory = path.join(
+    const workspaceStorageDirectory = path.join(
       await mkdtemp(path.join(tmpdir(), "skill-foundry-parent-")),
       "nested-config",
     );
-    tempDirectories.push(codexHome, path.dirname(foundryConfigDirectory));
+    tempDirectories.push(codexHome, path.dirname(workspaceStorageDirectory));
 
     await discoverSkillCatalog({
       workspaceUserId: 9,
       codexHome,
-      foundryConfigDirectory,
+      workspaceStorageDirectory,
     });
 
-    const appDataSkillsDirectory = path.join(foundryConfigDirectory, "users", "9", "skills");
+    const appDataSkillsDirectory = path.join(
+      workspaceStorageDirectory,
+      "users",
+      "9",
+      "skills",
+    );
     const directoryStats = await stat(appDataSkillsDirectory);
     expect(directoryStats.isDirectory()).toBe(true);
   });
 
   it("discovers app data skills nested under a registry directory", async () => {
     const codexHome = await mkdtemp(path.join(tmpdir(), "skill-codex-"));
-    const foundryConfigDirectory = await mkdtemp(path.join(tmpdir(), "skill-foundry-"));
-    tempDirectories.push(codexHome, foundryConfigDirectory);
+    const workspaceStorageDirectory = await mkdtemp(
+      path.join(tmpdir(), "skill-foundry-"),
+    );
+    tempDirectories.push(codexHome, workspaceStorageDirectory);
 
     const nestedSkillDirectory = path.join(
-      foundryConfigDirectory,
+      workspaceStorageDirectory,
       "users",
       "31",
       "skills",
@@ -185,7 +208,7 @@ describe("discoverSkillCatalog", () => {
     const result = await discoverSkillCatalog({
       workspaceUserId: 31,
       codexHome,
-      foundryConfigDirectory,
+      workspaceStorageDirectory,
     });
 
     expect(result.skills).toHaveLength(1);
@@ -195,7 +218,9 @@ describe("discoverSkillCatalog", () => {
       source: "app_data",
     });
     expect(
-      result.skills[0]?.location.endsWith("/users/31/skills/openai-curated/gh-fix-ci/SKILL.md"),
+      result.skills[0]?.location.endsWith(
+        "/users/31/skills/openai-curated/gh-fix-ci/SKILL.md",
+      ),
     ).toBe(true);
     expect(result.warnings).toEqual([]);
   });
@@ -204,10 +229,16 @@ describe("discoverSkillCatalog", () => {
     "continues discovery when an unreadable directory exists",
     async () => {
       const codexHome = await mkdtemp(path.join(tmpdir(), "skill-codex-"));
-      const foundryConfigDirectory = await mkdtemp(path.join(tmpdir(), "skill-foundry-"));
-      tempDirectories.push(codexHome, foundryConfigDirectory);
+      const workspaceStorageDirectory = await mkdtemp(
+        path.join(tmpdir(), "skill-foundry-"),
+      );
+      tempDirectories.push(codexHome, workspaceStorageDirectory);
 
-      const readableSkillDirectory = path.join(codexHome, "skills", "local-playground-dev");
+      const readableSkillDirectory = path.join(
+        codexHome,
+        "skills",
+        "local-playground-dev",
+      );
       await mkdir(readableSkillDirectory, { recursive: true });
       await writeFile(
         path.join(readableSkillDirectory, "SKILL.md"),
@@ -222,14 +253,16 @@ describe("discoverSkillCatalog", () => {
       );
 
       const unreadableDirectory = path.join(codexHome, "skills", "unreadable");
-      await mkdir(path.join(unreadableDirectory, "nested"), { recursive: true });
+      await mkdir(path.join(unreadableDirectory, "nested"), {
+        recursive: true,
+      });
       await chmod(unreadableDirectory, 0o000);
 
       try {
         const result = await discoverSkillCatalog({
           workspaceUserId: 12,
           codexHome,
-          foundryConfigDirectory,
+          workspaceStorageDirectory,
         });
 
         expect(result.skills).toHaveLength(1);
@@ -264,10 +297,13 @@ describe("readSkillFrontmatter", () => {
       "utf8",
     );
 
-    const frontmatter = await readSkillFrontmatter(path.join(skillDirectory, "SKILL.md"));
+    const frontmatter = await readSkillFrontmatter(
+      path.join(skillDirectory, "SKILL.md"),
+    );
     expect(frontmatter).toEqual({
       name: "pdf-processing",
-      description: "Extract text and tables from PDF files, fill forms, merge documents.",
+      description:
+        "Extract text and tables from PDF files, fill forms, merge documents.",
     });
   });
 });

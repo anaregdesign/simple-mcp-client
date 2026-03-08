@@ -1,117 +1,151 @@
 /**
- * Foundry local configuration module.
+ * Workspace storage path module.
  */
 import nodeOs from "node:os";
 import path from "node:path";
 import nodeUrl from "node:url";
-import { FOUNDRY_LEGACY_CONFIG_DIRECTORY_NAME, FOUNDRY_SKILLS_DIRECTORY_NAME, FOUNDRY_SQLITE_DATABASE_FILE_NAME, FOUNDRY_THREADS_DIRECTORY_NAME, FOUNDRY_USERS_DIRECTORY_NAME, FOUNDRY_WINDOWS_CONFIG_DIRECTORY_NAME } from "~/lib/constants/persistence";
+import {
+  LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+  WORKSPACE_SKILLS_DIRECTORY_NAME,
+  LOCAL_PLAYGROUND_SQLITE_DATABASE_FILE_NAME,
+  WORKSPACE_THREADS_DIRECTORY_NAME,
+  WORKSPACE_USERS_DIRECTORY_NAME,
+  WINDOWS_WORKSPACE_STORAGE_DIRECTORY_NAME,
+} from "~/lib/constants/persistence";
 
-type ResolveFoundryConfigDirectoryOptions = {
+type ResolveWorkspaceStorageDirectoryOptions = {
   platform?: NodeJS.Platform;
   homeDirectory?: string;
   appDataDirectory?: string | null;
   xdgDataHomeDirectory?: string | null;
 };
 
-type ResolveFoundryDatabaseUrlOptions = ResolveFoundryConfigDirectoryOptions & {
-  envDatabaseUrl?: string | null;
-  cwd?: string;
-};
+type ResolveWorkspaceDatabaseUrlOptions =
+  ResolveWorkspaceStorageDirectoryOptions & {
+    envDatabaseUrl?: string | null;
+    cwd?: string;
+  };
 
-type ResolveFoundryWorkspaceUserDirectoryOptions = ResolveFoundryConfigDirectoryOptions & {
-  workspaceUserId: number;
-};
+type ResolveWorkspaceUserDirectoryOptions =
+  ResolveWorkspaceStorageDirectoryOptions & {
+    workspaceUserId: number;
+  };
 
-type ResolveFoundryWorkspaceThreadDirectoryOptions = ResolveFoundryWorkspaceUserDirectoryOptions & {
-  threadId: string;
-};
+type ResolveWorkspaceThreadDirectoryOptions =
+  ResolveWorkspaceUserDirectoryOptions & {
+    threadId: string;
+  };
 
 type NormalizePrismaSqliteDatabaseUrlOptions = {
   cwd?: string;
   platform: NodeJS.Platform;
 };
 
-export function resolveLegacyFoundryConfigDirectory(
-  options: ResolveFoundryConfigDirectoryOptions = {},
+export function resolveLegacyWorkspaceStorageDirectory(
+  options: ResolveWorkspaceStorageDirectoryOptions = {},
 ): string {
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? nodeOs.homedir();
   const pathModule = platform === "win32" ? path.win32 : path.posix;
-  return pathModule.join(homeDirectory, FOUNDRY_LEGACY_CONFIG_DIRECTORY_NAME);
+  return pathModule.join(
+    homeDirectory,
+    LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+  );
 }
 
-export function resolveFoundryConfigDirectory(
-  options: ResolveFoundryConfigDirectoryOptions = {},
+export function resolveWorkspaceStorageDirectory(
+  options: ResolveWorkspaceStorageDirectoryOptions = {},
 ): string {
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? nodeOs.homedir();
 
   if (platform === "win32") {
-    const appDataDirectory = (options.appDataDirectory ?? process.env.APPDATA ?? "").trim();
+    const appDataDirectory = (
+      options.appDataDirectory ??
+      process.env.APPDATA ??
+      ""
+    ).trim();
     if (!appDataDirectory) {
-      return path.win32.join(homeDirectory, FOUNDRY_LEGACY_CONFIG_DIRECTORY_NAME);
+      return path.win32.join(
+        homeDirectory,
+        LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+      );
     }
 
-    return path.win32.join(appDataDirectory, FOUNDRY_WINDOWS_CONFIG_DIRECTORY_NAME);
+    return path.win32.join(
+      appDataDirectory,
+      WINDOWS_WORKSPACE_STORAGE_DIRECTORY_NAME,
+    );
   }
 
   if (platform === "darwin" || platform === "linux") {
-    return path.posix.join(homeDirectory, FOUNDRY_LEGACY_CONFIG_DIRECTORY_NAME);
+    return path.posix.join(
+      homeDirectory,
+      LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+    );
   }
 
-  return resolveLegacyFoundryConfigDirectory(options);
+  return resolveLegacyWorkspaceStorageDirectory(options);
 }
 
-export function resolveFoundryDatabaseFilePath(
-  options: ResolveFoundryConfigDirectoryOptions = {},
+export function resolveWorkspaceDatabaseFilePath(
+  options: ResolveWorkspaceStorageDirectoryOptions = {},
 ): string {
-  const primaryDirectoryPath = resolveFoundryConfigDirectory(options);
-  const platform = options.platform ?? process.platform;
-  const pathModule = platform === "win32" ? path.win32 : path.posix;
-  return pathModule.join(primaryDirectoryPath, FOUNDRY_SQLITE_DATABASE_FILE_NAME);
-}
-
-export function resolveFoundryWorkspaceUserDirectory(
-  options: ResolveFoundryWorkspaceUserDirectoryOptions,
-): string {
-  const primaryDirectoryPath = resolveFoundryConfigDirectory(options);
+  const primaryDirectoryPath = resolveWorkspaceStorageDirectory(options);
   const platform = options.platform ?? process.platform;
   const pathModule = platform === "win32" ? path.win32 : path.posix;
   return pathModule.join(
     primaryDirectoryPath,
-    FOUNDRY_USERS_DIRECTORY_NAME,
+    LOCAL_PLAYGROUND_SQLITE_DATABASE_FILE_NAME,
+  );
+}
+
+export function resolveWorkspaceUserDirectory(
+  options: ResolveWorkspaceUserDirectoryOptions,
+): string {
+  const primaryDirectoryPath = resolveWorkspaceStorageDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    primaryDirectoryPath,
+    WORKSPACE_USERS_DIRECTORY_NAME,
     readWorkspaceUserDirectoryName(options.workspaceUserId),
   );
 }
 
-export function resolveFoundryWorkspaceUserSkillsDirectory(
-  options: ResolveFoundryWorkspaceUserDirectoryOptions,
+export function resolveWorkspaceUserSkillsDirectory(
+  options: ResolveWorkspaceUserDirectoryOptions,
 ): string {
-  const workspaceUserDirectoryPath = resolveFoundryWorkspaceUserDirectory(options);
-  const platform = options.platform ?? process.platform;
-  const pathModule = platform === "win32" ? path.win32 : path.posix;
-  return pathModule.join(workspaceUserDirectoryPath, FOUNDRY_SKILLS_DIRECTORY_NAME);
-}
-
-export function resolveFoundryWorkspaceThreadDirectory(
-  options: ResolveFoundryWorkspaceThreadDirectoryOptions,
-): string {
-  const workspaceUserDirectoryPath = resolveFoundryWorkspaceUserDirectory(options);
+  const workspaceUserDirectoryPath = resolveWorkspaceUserDirectory(options);
   const platform = options.platform ?? process.platform;
   const pathModule = platform === "win32" ? path.win32 : path.posix;
   return pathModule.join(
     workspaceUserDirectoryPath,
-    FOUNDRY_THREADS_DIRECTORY_NAME,
+    WORKSPACE_SKILLS_DIRECTORY_NAME,
+  );
+}
+
+export function resolveWorkspaceThreadDirectory(
+  options: ResolveWorkspaceThreadDirectoryOptions,
+): string {
+  const workspaceUserDirectoryPath = resolveWorkspaceUserDirectory(options);
+  const platform = options.platform ?? process.platform;
+  const pathModule = platform === "win32" ? path.win32 : path.posix;
+  return pathModule.join(
+    workspaceUserDirectoryPath,
+    WORKSPACE_THREADS_DIRECTORY_NAME,
     readWorkspaceThreadDirectoryName(options.threadId),
   );
 }
 
-export function resolveFoundryDatabaseUrl(
-  options: ResolveFoundryDatabaseUrlOptions = {},
+export function resolveWorkspaceDatabaseUrl(
+  options: ResolveWorkspaceDatabaseUrlOptions = {},
 ): string {
   const platform = options.platform ?? process.platform;
   const configuredUrl =
-    typeof options.envDatabaseUrl === "string" ? options.envDatabaseUrl.trim() : "";
+    typeof options.envDatabaseUrl === "string"
+      ? options.envDatabaseUrl.trim()
+      : "";
   if (configuredUrl) {
     return normalizePrismaSqliteDatabaseUrl(configuredUrl, {
       cwd: options.cwd,
@@ -119,10 +153,11 @@ export function resolveFoundryDatabaseUrl(
     });
   }
 
-  const resolvedPath = resolveFoundryDatabaseFilePath(options);
+  const resolvedPath = resolveWorkspaceDatabaseFilePath(options);
   const pathModule = platform === "win32" ? path.win32 : path.posix;
   const fallbackPath =
-    resolvedPath.trim() || pathModule.resolve(options.cwd ?? process.cwd(), "local-playground.sqlite");
+    resolvedPath.trim() ||
+    pathModule.resolve(options.cwd ?? process.cwd(), "local-playground.sqlite");
   return buildPrismaSqliteDatabaseUrl(fallbackPath, platform);
 }
 
@@ -135,16 +170,25 @@ function normalizePrismaSqliteDatabaseUrl(
     return trimmedUrl;
   }
 
-  if (!trimmedUrl.startsWith("file:") || isInMemorySqliteDatabaseUrl(trimmedUrl)) {
+  if (
+    !trimmedUrl.startsWith("file:") ||
+    isInMemorySqliteDatabaseUrl(trimmedUrl)
+  ) {
     const pathModule = options.platform === "win32" ? path.win32 : path.posix;
     if (pathModule.isAbsolute(trimmedUrl)) {
-      return buildPrismaSqliteDatabaseUrl(pathModule.normalize(trimmedUrl), options.platform);
+      return buildPrismaSqliteDatabaseUrl(
+        pathModule.normalize(trimmedUrl),
+        options.platform,
+      );
     }
 
     return trimmedUrl;
   }
 
-  const absoluteDatabasePath = resolveSqliteDatabaseFilePath(trimmedUrl, options);
+  const absoluteDatabasePath = resolveSqliteDatabaseFilePath(
+    trimmedUrl,
+    options,
+  );
   if (!absoluteDatabasePath) {
     return trimmedUrl;
   }
@@ -199,7 +243,9 @@ function resolveSqliteDatabaseFilePath(
 
   const withoutPrefix = databaseUrl.slice("file:".length);
   const queryIndex = withoutPrefix.indexOf("?");
-  const rawPath = (queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix).trim();
+  const rawPath = (
+    queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix
+  ).trim();
   if (!rawPath || rawPath === ":memory:") {
     return null;
   }
@@ -212,7 +258,10 @@ function resolveSqliteDatabaseFilePath(
   return pathModule.resolve(options.cwd ?? process.cwd(), decodedPath);
 }
 
-function buildPrismaSqliteDatabaseUrl(databaseFilePath: string, platform: NodeJS.Platform): string {
+function buildPrismaSqliteDatabaseUrl(
+  databaseFilePath: string,
+  platform: NodeJS.Platform,
+): string {
   if (platform === "win32") {
     const normalizedPath = databaseFilePath.replaceAll("\\", "/");
     if (/^[A-Za-z]:\//.test(normalizedPath)) {

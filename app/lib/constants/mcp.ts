@@ -18,10 +18,13 @@ export const MCP_DEFAULT_AZURE_AUTH_SCOPE = AZURE_COGNITIVE_SERVICES_SCOPE;
 export const MCP_DEFAULT_HTTP_HEADERS: Record<string, string> = {
   "Content-Type": "application/json",
 };
-export const MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER = "X-Local-Playground-Thread-Id";
+export const MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER =
+  "X-Local-Playground-Thread-Id";
 export const MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER = "X-Local-Playground-Turn-Id";
-export const MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER = "X-Local-Playground-Client-User-Agent";
-export const MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER = "X-Local-Playground-Client-Platform";
+export const MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER =
+  "X-Local-Playground-Client-User-Agent";
+export const MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER =
+  "X-Local-Playground-Client-Platform";
 export const MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES = [
   "@modelcontextprotocol/server-git",
   "@modelcontextprotocol/server-http",
@@ -56,8 +59,8 @@ export type DefaultWorkspaceMcpServerProfileRow =
   | DefaultWorkspaceMcpServerProfileHttpRow
   | DefaultWorkspaceMcpServerProfileStdioRow;
 
-export const HOME_DEFAULT_MCP_TRANSPORT = "streamable_http" as const;
-export const HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS = [
+export const DEFAULT_MCP_TRANSPORT = "streamable_http" as const;
+export const DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS = [
   {
     name: "openai-docs",
     transport: "streamable_http",

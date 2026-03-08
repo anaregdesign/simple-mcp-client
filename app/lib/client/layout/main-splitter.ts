@@ -1,8 +1,14 @@
 /**
  * Client runtime support module.
  */
-import { HOME_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX, HOME_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX } from "~/lib/constants/client";
+import {
+  CLIENT_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX,
+  CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
+} from "~/lib/constants/client";
 
 export function resolveMainSplitterMaxRightWidth(totalWidthPx: number): number {
-  return Math.max(HOME_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX, totalWidthPx - HOME_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX);
+  return Math.max(
+    CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
+    totalWidthPx - CLIENT_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX,
+  );
 }

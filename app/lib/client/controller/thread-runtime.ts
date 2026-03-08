@@ -1,9 +1,12 @@
 /**
  * Client controller thread runtime helpers.
  */
-import { HOME_DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants/client";
+import { DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants/client";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import type { ThreadSnapshot, ThreadSummary } from "~/lib/contracts/threads/types";
+import type {
+  ThreadSnapshot,
+  ThreadSummary,
+} from "~/lib/contracts/threads/types";
 import type { ThreadRequestState } from "~/lib/client/controller/types";
 
 export type ThreadListOption = {
@@ -37,8 +40,9 @@ export function buildThreadListOptions(options: {
     deletedAt: thread.deletedAt,
     messageCount: thread.messageCount,
     mcpServerCount: thread.mcpServerCount,
-    isAwaitingResponse:
-      (options.threadRequestStateById[thread.id] ?? HOME_DEFAULT_THREAD_REQUEST_STATE).isSending,
+    isAwaitingResponse: (
+      options.threadRequestStateById[thread.id] ?? DEFAULT_THREAD_REQUEST_STATE
+    ).isSending,
   }));
 }
 

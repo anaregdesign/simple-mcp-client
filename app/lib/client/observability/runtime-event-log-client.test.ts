@@ -23,7 +23,9 @@ describe("runtime-event-log-client", () => {
 
   it("deduplicates repeated events within the debounce window", async () => {
     vi.resetModules();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 202 }));
     vi.stubGlobal("fetch", fetchMock);
     const module = await import("./runtime-event-log-client");
 
@@ -43,7 +45,9 @@ describe("runtime-event-log-client", () => {
 
   it("evicts old dedupe signatures to keep cache bounded", async () => {
     vi.resetModules();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 202 }));
     vi.stubGlobal("fetch", fetchMock);
     const module = await import("./runtime-event-log-client");
 
@@ -71,13 +75,15 @@ describe("runtime-event-log-client", () => {
 
   it("sends structured payload for reportClientError", async () => {
     vi.resetModules();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 202 }));
     vi.stubGlobal("fetch", fetchMock);
     const module = await import("./runtime-event-log-client");
 
     module.reportClientError("client_error_event", new Error("boom"), {
       category: "frontend",
-      location: "home.send",
+      location: "client.controller.send",
       action: "send_message",
       statusCode: 500,
       threadId: "thread-1",
@@ -98,7 +104,7 @@ describe("runtime-event-log-client", () => {
         eventName: "client_error_event",
         message: "boom",
         errorName: "Error",
-        location: "home.send",
+        location: "client.controller.send",
         action: "send_message",
         statusCode: 500,
         threadId: "thread-1",

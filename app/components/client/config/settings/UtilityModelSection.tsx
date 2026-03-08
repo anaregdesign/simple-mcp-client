@@ -8,8 +8,11 @@ import type {
   AzureConnectionOptionView,
   ReasoningEffort,
 } from "~/lib/client/shared/view-types";
-import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
-import { HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL, HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL } from "~/lib/constants/client";
+import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import {
+  NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
+  NO_AVAILABLE_PROJECTS_OPTION_LABEL,
+} from "~/lib/constants/client";
 
 const { Select, Spinner } = FluentUI;
 
@@ -57,11 +60,17 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
       description="Used for instruction enhancement and utility workflows."
     >
       {isAzureAuthRequired ? (
-        <p className="field-hint">Sign in from Azure Connection to configure Utility Model.</p>
+        <p className="field-hint">
+          Sign in from Azure Connection to configure Utility Model.
+        </p>
       ) : (
         <>
           {isLoadingAzureConnections || isLoadingUtilityAzureDeployments ? (
-            <div className="azure-loading-notice" role="status" aria-live="polite">
+            <div
+              className="azure-loading-notice"
+              role="status"
+              aria-live="polite"
+            >
               <Spinner size="tiny" />
               {isLoadingAzureConnections
                 ? "Loading projects from Azure..."
@@ -77,11 +86,15 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
             onChange={(_, data) => {
               onUtilityProjectChange(data.value);
             }}
-            disabled={isSending || isLoadingAzureConnections || azureConnections.length === 0}
+            disabled={
+              isSending ||
+              isLoadingAzureConnections ||
+              azureConnections.length === 0
+            }
             title="Select the Azure project used by Utility Model."
           >
             {azureConnections.length > 0 ? null : (
-              <option value="">{HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL}</option>
+              <option value="">{NO_AVAILABLE_PROJECTS_OPTION_LABEL}</option>
             )}
             {azureConnections.map((connection) => (
               <option key={connection.id} value={connection.id}>
@@ -107,7 +120,7 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
             title="Select the Azure deployment used by Utility Model."
           >
             {utilityAzureDeployments.length > 0 ? null : (
-              <option value="">{HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL}</option>
+              <option value="">{NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL}</option>
             )}
             {utilityAzureDeployments.map((deploymentName) => (
               <option key={deploymentName} value={deploymentName}>
@@ -123,18 +136,27 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
               },
             ]}
           />
-          <label className="input-label" htmlFor="utility-model-reasoning-effort">
+          <label
+            className="input-label"
+            htmlFor="utility-model-reasoning-effort"
+          >
             Utility Reasoning Effort
           </label>
           <Select
             id="utility-model-reasoning-effort"
             value={utilityReasoningEffort}
             onChange={(_, data) => {
-              if (HOME_REASONING_EFFORT_OPTIONS.includes(data.value as ReasoningEffort)) {
+              if (
+                REASONING_EFFORT_OPTIONS.includes(data.value as ReasoningEffort)
+              ) {
                 onUtilityReasoningEffortChange(data.value as ReasoningEffort);
               }
             }}
-            disabled={isSending || isLoadingAzureConnections || !isUtilityReasoningEffortSupported}
+            disabled={
+              isSending ||
+              isLoadingAzureConnections ||
+              !isUtilityReasoningEffortSupported
+            }
             title={
               isUtilityReasoningEffortSupported
                 ? "Select reasoning effort for Utility Model runs."
@@ -149,8 +171,8 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
           </Select>
           {isUtilityReasoningEffortSupported ? null : (
             <p className="field-hint">
-              This deployment does not support Reasoning Effort. Value is fixed to None and omitted
-              from requests.
+              This deployment does not support Reasoning Effort. Value is fixed
+              to None and omitted from requests.
             </p>
           )}
         </>

@@ -6,10 +6,20 @@ import nodeFs from "node:fs";
 import nodeFsPromises from "node:fs/promises";
 import path from "node:path";
 import nodeUrl from "node:url";
-import { FOUNDRY_SKILLS_DIRECTORY_NAME, FOUNDRY_USERS_DIRECTORY_NAME } from "~/lib/constants/persistence";
-import { AGENT_SKILL_NAME_PATTERN, SKILL_REGISTRY_LIST_CACHE_TTL_MS, SKILL_REGISTRY_TREE_CACHE_TTL_MS } from "~/lib/constants/skills";
-import { resolveFoundryWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { parseSkillFrontmatter, validateSkillFrontmatter } from "~/lib/contracts/skills/frontmatter";
+import {
+  WORKSPACE_SKILLS_DIRECTORY_NAME,
+  WORKSPACE_USERS_DIRECTORY_NAME,
+} from "~/lib/constants/persistence";
+import {
+  AGENT_SKILL_NAME_PATTERN,
+  SKILL_REGISTRY_LIST_CACHE_TTL_MS,
+  SKILL_REGISTRY_TREE_CACHE_TTL_MS,
+} from "~/lib/constants/skills";
+import { resolveWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import {
+  parseSkillFrontmatter,
+  validateSkillFrontmatter,
+} from "~/lib/contracts/skills/frontmatter";
 import {
   parseSkillRegistrySkillName,
   readSkillRegistryOptionById,
@@ -27,7 +37,7 @@ import {
 type ResolveSkillRegistryOptions = {
   workspaceUserId: number;
   forceRefresh?: boolean;
-  foundryConfigDirectory?: string;
+  workspaceStorageDirectory?: string;
   platform?: NodeJS.Platform;
   homeDirectory?: string;
   appDataDirectory?: string | null;
@@ -138,7 +148,10 @@ export async function installSkillFromRegistry(
     throw new Error("Unsupported skill registry.");
   }
 
-  const parsedSkillName = parseSkillRegistrySkillName(registry.id, options.skillName);
+  const parsedSkillName = parseSkillRegistrySkillName(
+    registry.id,
+    options.skillName,
+  );
   if (!parsedSkillName) {
     throw new Error(readSkillRegistrySkillNameValidationMessage(registry.id));
   }
@@ -146,8 +159,14 @@ export async function installSkillFromRegistry(
   const normalizedSkillName = parsedSkillName.skillName;
 
   const appDataSkillsRoot = resolveAppDataSkillsRoot(options);
-  const registryInstallRoot = path.join(appDataSkillsRoot, registry.installDirectoryName);
-  const skillInstallRoot = path.join(registryInstallRoot, ...registrySkillName.split("/"));
+  const registryInstallRoot = path.join(
+    appDataSkillsRoot,
+    registry.installDirectoryName,
+  );
+  const skillInstallRoot = path.join(
+    registryInstallRoot,
+    ...registrySkillName.split("/"),
+  );
   const installLocation = path.join(skillInstallRoot, "SKILL.md");
   const sourceRootPath = normalizeRepoPath(registry.sourcePath);
   const skillPrefix = `${sourceRootPath}/${registrySkillName}/`;
@@ -157,12 +176,14 @@ export async function installSkillFromRegistry(
     skillPath: registrySkillName,
     forceRefresh: true,
   });
-  const remoteVersionChecksum = buildVersionChecksumFromBlobEntries(matchingBlobEntries);
+  const remoteVersionChecksum =
+    buildVersionChecksumFromBlobEntries(matchingBlobEntries);
 
   await nodeFsPromises.mkdir(registryInstallRoot, { recursive: true });
   const alreadyInstalled = await directoryExists(skillInstallRoot);
   if (alreadyInstalled) {
-    const installedMetadata = await readInstalledSkillMetadata(skillInstallRoot);
+    const installedMetadata =
+      await readInstalledSkillMetadata(skillInstallRoot);
     const isCurrentVersion = isInstalledSkillMetadataCurrent({
       metadata: installedMetadata,
       registryId: registry.id,
@@ -200,7 +221,9 @@ export async function installSkillFromRegistry(
         throw new Error(`Registry file path escapes skill root: ${blobPath}`);
       }
 
-      await nodeFsPromises.mkdir(path.dirname(destinationPath), { recursive: true });
+      await nodeFsPromises.mkdir(path.dirname(destinationPath), {
+        recursive: true,
+      });
       const sourceFileUrl = buildRawFileUrl({
         repository: registry.repository,
         ref: registry.ref,
@@ -244,15 +267,24 @@ export async function deleteInstalledSkillFromRegistry(
     throw new Error("Unsupported skill registry.");
   }
 
-  const parsedSkillName = parseSkillRegistrySkillName(registry.id, options.skillName);
+  const parsedSkillName = parseSkillRegistrySkillName(
+    registry.id,
+    options.skillName,
+  );
   if (!parsedSkillName) {
     throw new Error(readSkillRegistrySkillNameValidationMessage(registry.id));
   }
   const registrySkillName = parsedSkillName.normalizedSkillName;
 
   const appDataSkillsRoot = resolveAppDataSkillsRoot(options);
-  const registryInstallRoot = path.join(appDataSkillsRoot, registry.installDirectoryName);
-  const skillInstallRoot = path.join(registryInstallRoot, ...registrySkillName.split("/"));
+  const registryInstallRoot = path.join(
+    appDataSkillsRoot,
+    registry.installDirectoryName,
+  );
+  const skillInstallRoot = path.join(
+    registryInstallRoot,
+    ...registrySkillName.split("/"),
+  );
   const installLocation = path.join(skillInstallRoot, "SKILL.md");
 
   const exists = await directoryExists(skillInstallRoot);
@@ -285,7 +317,10 @@ async function readSkillRegistryCatalog(
   const registrySkills = await readRegistrySkills(registry, {
     forceRefresh: options.forceRefresh,
   });
-  const registryInstallRoot = path.join(options.appDataSkillsRoot, registry.installDirectoryName);
+  const registryInstallRoot = path.join(
+    options.appDataSkillsRoot,
+    registry.installDirectoryName,
+  );
   const sourceRootPath = normalizeRepoPath(registry.sourcePath);
   const installedSkillEntries = await Promise.all(
     registrySkills.map(async (registrySkill) => {
@@ -295,7 +330,9 @@ async function readSkillRegistryCatalog(
       );
       const installLocation = path.join(skillInstallRoot, "SKILL.md");
       const isInstalled = await fileExists(installLocation);
-      const metadata = isInstalled ? await readInstalledSkillMetadata(skillInstallRoot) : null;
+      const metadata = isInstalled
+        ? await readInstalledSkillMetadata(skillInstallRoot)
+        : null;
 
       return {
         id: registrySkill.id,
@@ -305,7 +342,9 @@ async function readSkillRegistryCatalog(
       };
     }),
   );
-  const hasInstalledSkills = installedSkillEntries.some((entry) => entry.isInstalled);
+  const hasInstalledSkills = installedSkillEntries.some(
+    (entry) => entry.isInstalled,
+  );
   const versionChecksumBySkillPath = hasInstalledSkills
     ? await readRegistryVersionChecksumBySkillPath({
         registry,
@@ -321,9 +360,14 @@ async function readSkillRegistryCatalog(
       const installedSkillEntry = installedSkillEntryById.get(registrySkill.id);
       const installLocation = installedSkillEntry?.installLocation
         ? installedSkillEntry.installLocation
-        : path.join(registryInstallRoot, ...registrySkill.id.split("/"), "SKILL.md");
+        : path.join(
+            registryInstallRoot,
+            ...registrySkill.id.split("/"),
+            "SKILL.md",
+          );
       const isInstalled = installedSkillEntry?.isInstalled === true;
-      const remoteVersionChecksum = versionChecksumBySkillPath.get(registrySkill.id) ?? "";
+      const remoteVersionChecksum =
+        versionChecksumBySkillPath.get(registrySkill.id) ?? "";
       const isUpdateAvailable =
         isInstalled &&
         Boolean(remoteVersionChecksum) &&
@@ -368,25 +412,34 @@ async function readRegistrySkills(
   }
 
   const cacheKey = buildRegistryListCacheKey(registry);
-  return await readCacheValue(cacheKey, async () => {
-    const endpoint = buildRepositoryContentsApiUrl({
-      repository: registry.repository,
-      ref: registry.ref,
-      contentPath: registry.sourcePath,
-    });
-    const payload = await fetchJson(endpoint);
-    const skills = readSkillNamesFromContentsPayload(payload).map((skillName) => ({
-      id: skillName,
-      name: skillName,
-      tag: null,
-    }));
-    if (skills.length === 0) {
-      throw new Error(`No installable Skill directories were found for ${registry.label}.`);
-    }
-    return skills;
-  }, SKILL_REGISTRY_LIST_CACHE_TTL_MS, {
-    forceRefresh: options.forceRefresh,
-  });
+  return await readCacheValue(
+    cacheKey,
+    async () => {
+      const endpoint = buildRepositoryContentsApiUrl({
+        repository: registry.repository,
+        ref: registry.ref,
+        contentPath: registry.sourcePath,
+      });
+      const payload = await fetchJson(endpoint);
+      const skills = readSkillNamesFromContentsPayload(payload).map(
+        (skillName) => ({
+          id: skillName,
+          name: skillName,
+          tag: null,
+        }),
+      );
+      if (skills.length === 0) {
+        throw new Error(
+          `No installable Skill directories were found for ${registry.label}.`,
+        );
+      }
+      return skills;
+    },
+    SKILL_REGISTRY_LIST_CACHE_TTL_MS,
+    {
+      forceRefresh: options.forceRefresh,
+    },
+  );
 }
 
 async function readTaggedRepositorySkills(
@@ -394,63 +447,73 @@ async function readTaggedRepositorySkills(
   options: { forceRefresh?: boolean } = {},
 ): Promise<RegistryCatalogSkill[]> {
   const cacheKey = buildRegistryListCacheKey(registry);
-  return await readCacheValue(cacheKey, async () => {
-    const blobEntries = await readRegistryBlobEntries(registry, {
-      forceRefresh: options.forceRefresh,
-    });
-    const sourceRootPath = normalizeRepoPath(registry.sourcePath);
-    const sourcePrefix = `${sourceRootPath}/`;
-    const skills = new Map<string, RegistryCatalogSkill>();
-
-    for (const blobEntry of blobEntries) {
-      if (!blobEntry.path.startsWith(sourcePrefix)) {
-        continue;
-      }
-
-      const relativePath = blobEntry.path.slice(sourcePrefix.length);
-      const segments = relativePath
-        .split("/")
-        .map((segment) => segment.trim())
-        .filter((segment) => segment.length > 0);
-      if (segments.length !== 3) {
-        continue;
-      }
-
-      const [tag, skillName, fileName] = segments;
-      if (!tag || !skillName || fileName !== "SKILL.md") {
-        continue;
-      }
-
-      const parsed = parseSkillRegistrySkillName(registry.id, `${tag}/${skillName}`);
-      if (!parsed) {
-        continue;
-      }
-
-      skills.set(parsed.normalizedSkillName, {
-        id: parsed.normalizedSkillName,
-        name: parsed.skillName,
-        tag: parsed.tag,
+  return await readCacheValue(
+    cacheKey,
+    async () => {
+      const blobEntries = await readRegistryBlobEntries(registry, {
+        forceRefresh: options.forceRefresh,
       });
-    }
+      const sourceRootPath = normalizeRepoPath(registry.sourcePath);
+      const sourcePrefix = `${sourceRootPath}/`;
+      const skills = new Map<string, RegistryCatalogSkill>();
 
-    const sortedSkills = Array.from(skills.values()).sort((left, right) => {
-      const leftTag = left.tag ?? "";
-      const rightTag = right.tag ?? "";
-      const byTag = leftTag.localeCompare(rightTag);
-      if (byTag !== 0) {
-        return byTag;
+      for (const blobEntry of blobEntries) {
+        if (!blobEntry.path.startsWith(sourcePrefix)) {
+          continue;
+        }
+
+        const relativePath = blobEntry.path.slice(sourcePrefix.length);
+        const segments = relativePath
+          .split("/")
+          .map((segment) => segment.trim())
+          .filter((segment) => segment.length > 0);
+        if (segments.length !== 3) {
+          continue;
+        }
+
+        const [tag, skillName, fileName] = segments;
+        if (!tag || !skillName || fileName !== "SKILL.md") {
+          continue;
+        }
+
+        const parsed = parseSkillRegistrySkillName(
+          registry.id,
+          `${tag}/${skillName}`,
+        );
+        if (!parsed) {
+          continue;
+        }
+
+        skills.set(parsed.normalizedSkillName, {
+          id: parsed.normalizedSkillName,
+          name: parsed.skillName,
+          tag: parsed.tag,
+        });
       }
 
-      return left.name.localeCompare(right.name);
-    });
-    if (sortedSkills.length === 0) {
-      throw new Error(`No installable Skill directories were found for ${registry.label}.`);
-    }
+      const sortedSkills = Array.from(skills.values()).sort((left, right) => {
+        const leftTag = left.tag ?? "";
+        const rightTag = right.tag ?? "";
+        const byTag = leftTag.localeCompare(rightTag);
+        if (byTag !== 0) {
+          return byTag;
+        }
 
-    return sortedSkills;
-  }, SKILL_REGISTRY_LIST_CACHE_TTL_MS, {
-    forceRefresh: options.forceRefresh,
-  });
+        return left.name.localeCompare(right.name);
+      });
+      if (sortedSkills.length === 0) {
+        throw new Error(
+          `No installable Skill directories were found for ${registry.label}.`,
+        );
+      }
+
+      return sortedSkills;
+    },
+    SKILL_REGISTRY_LIST_CACHE_TTL_MS,
+    {
+      forceRefresh: options.forceRefresh,
+    },
+  );
 }
 
 async function readRegistryBlobEntries(
@@ -458,16 +521,21 @@ async function readRegistryBlobEntries(
   options: { forceRefresh?: boolean } = {},
 ): Promise<RegistryBlobEntry[]> {
   const cacheKey = buildRegistryTreeCacheKey(registry);
-  return await readCacheValue(cacheKey, async () => {
-    const endpoint = buildRepositoryTreeApiUrl({
-      repository: registry.repository,
-      ref: registry.ref,
-    });
-    const payload = await fetchJson(endpoint);
-    return readBlobEntriesFromTreePayload(payload);
-  }, SKILL_REGISTRY_TREE_CACHE_TTL_MS, {
-    forceRefresh: options.forceRefresh,
-  });
+  return await readCacheValue(
+    cacheKey,
+    async () => {
+      const endpoint = buildRepositoryTreeApiUrl({
+        repository: registry.repository,
+        ref: registry.ref,
+      });
+      const payload = await fetchJson(endpoint);
+      return readBlobEntriesFromTreePayload(payload);
+    },
+    SKILL_REGISTRY_TREE_CACHE_TTL_MS,
+    {
+      forceRefresh: options.forceRefresh,
+    },
+  );
 }
 
 async function validateInstalledSkill(
@@ -475,13 +543,18 @@ async function validateInstalledSkill(
   expectedSkillName: string,
 ): Promise<void> {
   const skillFilePath = path.join(skillInstallRoot, "SKILL.md");
-  const skillFileContent = await nodeFsPromises.readFile(skillFilePath, "utf8").catch(() => "");
+  const skillFileContent = await nodeFsPromises
+    .readFile(skillFilePath, "utf8")
+    .catch(() => "");
   const frontmatter = parseSkillFrontmatter(skillFileContent);
   if (!frontmatter) {
     throw new Error("Installed Skill is missing valid frontmatter.");
   }
 
-  const validationError = validateSkillFrontmatter(frontmatter, expectedSkillName);
+  const validationError = validateSkillFrontmatter(
+    frontmatter,
+    expectedSkillName,
+  );
   if (validationError) {
     throw new Error(validationError);
   }
@@ -510,8 +583,15 @@ async function writeInstalledSkillMetadata(options: {
     contentChecksum: options.contentChecksum,
   };
 
-  const metadataPath = path.join(options.skillInstallRoot, INSTALLED_SKILL_METADATA_FILE_NAME);
-  await nodeFsPromises.writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+  const metadataPath = path.join(
+    options.skillInstallRoot,
+    INSTALLED_SKILL_METADATA_FILE_NAME,
+  );
+  await nodeFsPromises.writeFile(
+    metadataPath,
+    `${JSON.stringify(metadata, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 async function readRegistrySkillBlobEntries(options: {
@@ -529,7 +609,9 @@ async function readRegistrySkillBlobEntries(options: {
     .sort((left, right) => left.path.localeCompare(right.path));
 
   if (matchingBlobEntries.length === 0) {
-    throw new Error(`Skill "${options.skillPath}" was not found in ${options.registry.label}.`);
+    throw new Error(
+      `Skill "${options.skillPath}" was not found in ${options.registry.label}.`,
+    );
   }
 
   return matchingBlobEntries;
@@ -561,8 +643,14 @@ async function readRegistryVersionChecksumBySkillPath(options: {
   }
 
   const checksumBySkillPath = new Map<string, string>();
-  for (const [skillPath, skillBlobEntries] of blobEntriesBySkillPath.entries()) {
-    checksumBySkillPath.set(skillPath, buildVersionChecksumFromBlobEntries(skillBlobEntries));
+  for (const [
+    skillPath,
+    skillBlobEntries,
+  ] of blobEntriesBySkillPath.entries()) {
+    checksumBySkillPath.set(
+      skillPath,
+      buildVersionChecksumFromBlobEntries(skillBlobEntries),
+    );
   }
 
   return checksumBySkillPath;
@@ -601,9 +689,13 @@ function readRegistrySkillPathFromBlobPath(options: {
   return parsed ? parsed.normalizedSkillName : null;
 }
 
-function buildVersionChecksumFromBlobEntries(blobEntries: RegistryBlobEntry[]): string {
+function buildVersionChecksumFromBlobEntries(
+  blobEntries: RegistryBlobEntry[],
+): string {
   const checksumHash = nodeCrypto.createHash("sha256");
-  const sortedBlobEntries = [...blobEntries].sort((left, right) => left.path.localeCompare(right.path));
+  const sortedBlobEntries = [...blobEntries].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
   for (const blobEntry of sortedBlobEntries) {
     checksumHash.update(blobEntry.path);
     checksumHash.update(":");
@@ -613,9 +705,16 @@ function buildVersionChecksumFromBlobEntries(blobEntries: RegistryBlobEntry[]): 
   return checksumHash.digest("hex");
 }
 
-async function readInstalledSkillMetadata(skillInstallRoot: string): Promise<InstalledSkillMetadata | null> {
-  const metadataPath = path.join(skillInstallRoot, INSTALLED_SKILL_METADATA_FILE_NAME);
-  const metadataContent = await nodeFsPromises.readFile(metadataPath, "utf8").catch(() => "");
+async function readInstalledSkillMetadata(
+  skillInstallRoot: string,
+): Promise<InstalledSkillMetadata | null> {
+  const metadataPath = path.join(
+    skillInstallRoot,
+    INSTALLED_SKILL_METADATA_FILE_NAME,
+  );
+  const metadataContent = await nodeFsPromises
+    .readFile(metadataPath, "utf8")
+    .catch(() => "");
   if (!metadataContent.trim()) {
     return null;
   }
@@ -628,21 +727,34 @@ async function readInstalledSkillMetadata(skillInstallRoot: string): Promise<Ins
   }
 }
 
-function readInstalledSkillMetadataFromUnknown(value: unknown): InstalledSkillMetadata | null {
+function readInstalledSkillMetadataFromUnknown(
+  value: unknown,
+): InstalledSkillMetadata | null {
   if (!isRecord(value)) {
     return null;
   }
 
   const formatVersion =
-    typeof value.formatVersion === "number" && Number.isInteger(value.formatVersion)
+    typeof value.formatVersion === "number" &&
+    Number.isInteger(value.formatVersion)
       ? value.formatVersion
       : 0;
-  const registryId = typeof value.registryId === "string" ? value.registryId.trim() : "";
-  const sourcePath = typeof value.sourcePath === "string" ? normalizeRepoPath(value.sourcePath) : "";
-  const skillName = typeof value.skillName === "string" ? value.skillName.trim() : "";
-  const skillPath = typeof value.skillPath === "string" ? normalizeRepoPath(value.skillPath) : "";
+  const registryId =
+    typeof value.registryId === "string" ? value.registryId.trim() : "";
+  const sourcePath =
+    typeof value.sourcePath === "string"
+      ? normalizeRepoPath(value.sourcePath)
+      : "";
+  const skillName =
+    typeof value.skillName === "string" ? value.skillName.trim() : "";
+  const skillPath =
+    typeof value.skillPath === "string"
+      ? normalizeRepoPath(value.skillPath)
+      : "";
   const versionChecksum =
-    typeof value.versionChecksum === "string" ? value.versionChecksum.trim() : "";
+    typeof value.versionChecksum === "string"
+      ? value.versionChecksum.trim()
+      : "";
   if (
     formatVersion !== 1 ||
     !registryId ||
@@ -683,18 +795,22 @@ function isInstalledSkillMetadataCurrent(options: {
   );
 }
 
-function resolveAppDataSkillsRoot(options: ResolveSkillRegistryOptions): string {
+function resolveAppDataSkillsRoot(
+  options: ResolveSkillRegistryOptions,
+): string {
   const workspaceUserSkillsDirectoryName = readWorkspaceUserSkillsDirectoryName(
     options.workspaceUserId,
   );
-  const configuredFoundryDirectory =
-    typeof options.foundryConfigDirectory === "string" ? options.foundryConfigDirectory.trim() : "";
-  if (configuredFoundryDirectory) {
+  const configuredWorkspaceStorageDirectory =
+    typeof options.workspaceStorageDirectory === "string"
+      ? options.workspaceStorageDirectory.trim()
+      : "";
+  if (configuredWorkspaceStorageDirectory) {
     return path.resolve(
-      configuredFoundryDirectory,
-      FOUNDRY_USERS_DIRECTORY_NAME,
+      configuredWorkspaceStorageDirectory,
+      WORKSPACE_USERS_DIRECTORY_NAME,
       workspaceUserSkillsDirectoryName,
-      FOUNDRY_SKILLS_DIRECTORY_NAME,
+      WORKSPACE_SKILLS_DIRECTORY_NAME,
     );
   }
 
@@ -704,14 +820,14 @@ function resolveAppDataSkillsRoot(options: ResolveSkillRegistryOptions): string 
     if (sqliteFilePath) {
       return path.resolve(
         path.dirname(sqliteFilePath),
-        FOUNDRY_USERS_DIRECTORY_NAME,
+        WORKSPACE_USERS_DIRECTORY_NAME,
         workspaceUserSkillsDirectoryName,
-        FOUNDRY_SKILLS_DIRECTORY_NAME,
+        WORKSPACE_SKILLS_DIRECTORY_NAME,
       );
     }
   }
 
-  return resolveFoundryWorkspaceUserSkillsDirectory({
+  return resolveWorkspaceUserSkillsDirectory({
     workspaceUserId: options.workspaceUserId,
     platform: options.platform,
     homeDirectory: options.homeDirectory,
@@ -813,7 +929,8 @@ function readBlobEntriesFromTreePayload(payload: unknown): RegistryBlobEntry[] {
     }
 
     const type = typeof entry.type === "string" ? entry.type.trim() : "";
-    const blobPath = typeof entry.path === "string" ? normalizeRepoPath(entry.path) : "";
+    const blobPath =
+      typeof entry.path === "string" ? normalizeRepoPath(entry.path) : "";
     const blobSha = typeof entry.sha === "string" ? entry.sha.trim() : "";
     if (type !== "blob" || !blobPath || !blobSha) {
       continue;
@@ -869,7 +986,9 @@ function isSafeRelativePath(value: string): boolean {
   }
 
   const segments = normalized.replaceAll("\\", "/").split("/");
-  return segments.every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+  return segments.every(
+    (segment) => segment.length > 0 && segment !== "." && segment !== "..",
+  );
 }
 
 async function fetchJson(url: string): Promise<unknown> {
@@ -922,7 +1041,9 @@ function buildRegistryTreeCacheKey(registry: SkillRegistryOption): string {
   return `${REGISTRY_TREE_CACHE_KEY_PREFIX}${CACHE_VERSION}:${registry.id}:${registry.repository}:${registry.ref}`;
 }
 
-async function invalidateSkillRegistryListCache(registryId: SkillRegistryId): Promise<void> {
+async function invalidateSkillRegistryListCache(
+  registryId: SkillRegistryId,
+): Promise<void> {
   await ensurePersistenceDatabaseReady();
   const listPrefix = `${REGISTRY_LIST_CACHE_KEY_PREFIX}${CACHE_VERSION}:${registryId}:`;
   await prisma.skillRegistryCache.deleteMany({
@@ -966,22 +1087,26 @@ async function readCachedPayload<T>(cacheKey: string): Promise<T | null> {
   const nowTime = Date.now();
   const expiresAtTime = Date.parse(row.expiresAt);
   if (Number.isNaN(expiresAtTime) || expiresAtTime <= nowTime) {
-    await prisma.skillRegistryCache.delete({
-      where: {
-        cacheKey,
-      },
-    }).catch(() => undefined);
+    await prisma.skillRegistryCache
+      .delete({
+        where: {
+          cacheKey,
+        },
+      })
+      .catch(() => undefined);
     return null;
   }
 
   try {
     return JSON.parse(row.payloadJson) as T;
   } catch {
-    await prisma.skillRegistryCache.delete({
-      where: {
-        cacheKey,
-      },
-    }).catch(() => undefined);
+    await prisma.skillRegistryCache
+      .delete({
+        where: {
+          cacheKey,
+        },
+      })
+      .catch(() => undefined);
     return null;
   }
 }
@@ -1044,7 +1169,10 @@ async function removeEmptyAncestorDirectories(
 
 async function directoryExists(directoryPath: string): Promise<boolean> {
   try {
-    await nodeFsPromises.access(directoryPath, fsConstants.F_OK | fsConstants.R_OK);
+    await nodeFsPromises.access(
+      directoryPath,
+      fsConstants.F_OK | fsConstants.R_OK,
+    );
     return true;
   } catch {
     return false;
@@ -1111,7 +1239,9 @@ function resolveSqliteDatabaseFilePath(databaseUrl: string): string | null {
 
   const withoutPrefix = databaseUrl.slice("file:".length);
   const queryIndex = withoutPrefix.indexOf("?");
-  const rawPath = (queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix).trim();
+  const rawPath = (
+    queryIndex >= 0 ? withoutPrefix.slice(0, queryIndex) : withoutPrefix
+  ).trim();
   if (!rawPath || rawPath === ":memory:") {
     return null;
   }

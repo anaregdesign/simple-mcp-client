@@ -56,8 +56,9 @@ export const CHAT_ATTACHMENT_ALLOWED_EXTENSIONS = new Set([
   "xml",
   "zip",
 ]);
-export const DEFAULT_AGENT_INSTRUCTION = "You are a concise assistant for a local playground app.";
-export const HOME_REASONING_EFFORT_OPTIONS = [
+export const DEFAULT_AGENT_INSTRUCTION =
+  "You are a concise assistant for a local playground app.";
+export const REASONING_EFFORT_OPTIONS = [
   "none",
   "minimal",
   "low",
@@ -65,9 +66,9 @@ export const HOME_REASONING_EFFORT_OPTIONS = [
   "high",
   "xhigh",
 ] as const;
-export const HOME_DEFAULT_REASONING_EFFORT = "none" as const;
-export const HOME_DEFAULT_UTILITY_REASONING_EFFORT = "high" as const;
-export const HOME_DEFAULT_WEB_SEARCH_ENABLED = false;
+export const DEFAULT_REASONING_EFFORT = "none" as const;
+export const DEFAULT_UTILITY_REASONING_EFFORT = "high" as const;
+export const DEFAULT_WEB_SEARCH_ENABLED = false;
 export const THREAD_AUTO_TITLE_MAX_LENGTH = 20;
 export const THREAD_AUTO_TITLE_SYSTEM_PROMPT = [
   "<thread_auto_title_policy>",

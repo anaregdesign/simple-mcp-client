@@ -3,8 +3,12 @@
  */
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
-import { HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS, MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS } from "~/lib/constants/mcp";
-import { resolveFoundryConfigDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import {
+  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
+  MCP_DEFAULT_AZURE_AUTH_SCOPE,
+  MCP_DEFAULT_TIMEOUT_SECONDS,
+} from "~/lib/constants/mcp";
+import { resolveWorkspaceStorageDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import { mcpServersRouteTestUtils } from "./api.mcp.servers";
 
 const {
@@ -15,7 +19,7 @@ const {
   resolveDefaultFilesystemWorkingDirectory,
 } = mcpServersRouteTestUtils;
 type DefaultWorkspaceMcpServerProfileRow =
-  (typeof HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
+  (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
   DefaultWorkspaceMcpServerProfileRow,
   { transport: "stdio" }
@@ -24,21 +28,33 @@ type DefaultWorkspaceMcpServerProfileHttpRow = Extract<
   DefaultWorkspaceMcpServerProfileRow,
   { transport: "streamable_http" | "sse" }
 >;
-const defaultOpenaiDocsMcpServerProfile = readDefaultHttpMcpServerProfile("openai-docs");
-const defaultMicrosoftLearnMcpServerProfile = readDefaultHttpMcpServerProfile("microsoft-learn");
+const defaultOpenaiDocsMcpServerProfile =
+  readDefaultHttpMcpServerProfile("openai-docs");
+const defaultMicrosoftLearnMcpServerProfile =
+  readDefaultHttpMcpServerProfile("microsoft-learn");
 const defaultCmdMcpServerProfile = readDefaultHttpMcpServerProfile("cmd");
-const defaultFilesystemMcpServerProfile = readDefaultStdioMcpServerProfile("filesystem");
-const defaultWorkiqMcpServerProfile = readDefaultStdioMcpServerProfile("workiq");
-const defaultMemoryMcpServerProfile = readDefaultStdioMcpServerProfile("server-memory");
-const defaultEverythingMcpServerProfile = readDefaultStdioMcpServerProfile("server-everything");
-const defaultAzureMcpServerProfile = readDefaultStdioMcpServerProfile("azure-mcp");
-const defaultPlaywrightMcpServerProfile = readDefaultStdioMcpServerProfile("playwright");
-const defaultDrawioMcpServerProfile = readDefaultStdioMcpServerProfile("drawio");
-const defaultMermaidMcpServerProfile = readDefaultStdioMcpServerProfile("mcp-mermaid");
+const defaultFilesystemMcpServerProfile =
+  readDefaultStdioMcpServerProfile("filesystem");
+const defaultWorkiqMcpServerProfile =
+  readDefaultStdioMcpServerProfile("workiq");
+const defaultMemoryMcpServerProfile =
+  readDefaultStdioMcpServerProfile("server-memory");
+const defaultEverythingMcpServerProfile =
+  readDefaultStdioMcpServerProfile("server-everything");
+const defaultAzureMcpServerProfile =
+  readDefaultStdioMcpServerProfile("azure-mcp");
+const defaultPlaywrightMcpServerProfile =
+  readDefaultStdioMcpServerProfile("playwright");
+const defaultDrawioMcpServerProfile =
+  readDefaultStdioMcpServerProfile("drawio");
+const defaultMermaidMcpServerProfile =
+  readDefaultStdioMcpServerProfile("mcp-mermaid");
 const defaultWorkspaceUserId = 42;
 
-function readDefaultStdioMcpServerProfile(name: string): DefaultWorkspaceMcpServerProfileStdioRow {
-  const profile = HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
+function readDefaultStdioMcpServerProfile(
+  name: string,
+): DefaultWorkspaceMcpServerProfileStdioRow {
+  const profile = DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
     (entry): entry is DefaultWorkspaceMcpServerProfileStdioRow =>
       entry.transport === "stdio" && entry.name === name,
   );
@@ -49,8 +65,10 @@ function readDefaultStdioMcpServerProfile(name: string): DefaultWorkspaceMcpServ
   return profile;
 }
 
-function readDefaultHttpMcpServerProfile(name: string): DefaultWorkspaceMcpServerProfileHttpRow {
-  const profile = HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
+function readDefaultHttpMcpServerProfile(
+  name: string,
+): DefaultWorkspaceMcpServerProfileHttpRow {
+  const profile = DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
     (entry): entry is DefaultWorkspaceMcpServerProfileHttpRow =>
       entry.transport !== "stdio" && entry.name === name,
   );
@@ -153,7 +171,8 @@ describe("parseIncomingMcpServer", () => {
       }),
     ).toEqual({
       ok: false,
-      error: '`headers` must not include "Content-Type". It is fixed to "application/json".',
+      error:
+        '`headers` must not include "Content-Type". It is fixed to "application/json".',
     });
 
     expect(
@@ -363,7 +382,10 @@ describe("deleteWorkspaceMcpServerProfile", () => {
       },
     ];
 
-    const result = deleteWorkspaceMcpServerProfile(currentProfiles, "profile-1");
+    const result = deleteWorkspaceMcpServerProfile(
+      currentProfiles,
+      "profile-1",
+    );
 
     expect(result.deleted).toBe(true);
     expect(result.profiles).toHaveLength(1);
@@ -385,7 +407,10 @@ describe("deleteWorkspaceMcpServerProfile", () => {
       },
     ];
 
-    const result = deleteWorkspaceMcpServerProfile(currentProfiles, "missing-id");
+    const result = deleteWorkspaceMcpServerProfile(
+      currentProfiles,
+      "missing-id",
+    );
 
     expect(result.deleted).toBe(false);
     expect(result.profiles).toEqual(currentProfiles);
@@ -394,18 +419,24 @@ describe("deleteWorkspaceMcpServerProfile", () => {
 
 describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
   it("resolves user-scoped absolute default filesystem working directory", () => {
-    const resolved = resolveDefaultFilesystemWorkingDirectory(defaultWorkspaceUserId);
+    const resolved = resolveDefaultFilesystemWorkingDirectory(
+      defaultWorkspaceUserId,
+    );
     expect(nodePath.isAbsolute(resolved)).toBe(true);
     expect(resolved.replaceAll("\\", "/")).toContain("/users/42");
   });
 
   it("adds the default vendor profiles when missing", () => {
-    const expectedFilesystemWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(
+    const expectedFilesystemWorkingDirectory =
+      resolveDefaultFilesystemWorkingDirectory(defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      [],
       defaultWorkspaceUserId,
     );
-    const result = mergeDefaultWorkspaceMcpServerProfiles([], defaultWorkspaceUserId);
 
-    expect(result).toHaveLength(HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.length);
+    expect(result).toHaveLength(
+      DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.length,
+    );
     expect(result).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -435,7 +466,8 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
           useAzureAuth: false,
           azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
           timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
-          connectOnThreadCreate: defaultCmdMcpServerProfile.connectOnThreadCreate,
+          connectOnThreadCreate:
+            defaultCmdMcpServerProfile.connectOnThreadCreate,
         }),
         expect.objectContaining({
           name: defaultFilesystemMcpServerProfile.name,
@@ -444,7 +476,8 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
           args: [...defaultFilesystemMcpServerProfile.args],
           cwd: expectedFilesystemWorkingDirectory,
           env: {},
-          connectOnThreadCreate: defaultFilesystemMcpServerProfile.connectOnThreadCreate,
+          connectOnThreadCreate:
+            defaultFilesystemMcpServerProfile.connectOnThreadCreate,
         }),
         expect.objectContaining({
           name: defaultWorkiqMcpServerProfile.name,
@@ -505,9 +538,8 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
   });
 
   it("does not duplicate defaults when matching profiles already exist", () => {
-    const expectedFilesystemWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(
-      defaultWorkspaceUserId,
-    );
+    const expectedFilesystemWorkingDirectory =
+      resolveDefaultFilesystemWorkingDirectory(defaultWorkspaceUserId);
     const existing = [
       {
         id: "profile-openai-docs",
@@ -573,7 +605,8 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       {
         id: "profile-filesystem",
         name: "Filesystem (Custom Name)",
-        connectOnThreadCreate: defaultFilesystemMcpServerProfile.connectOnThreadCreate,
+        connectOnThreadCreate:
+          defaultFilesystemMcpServerProfile.connectOnThreadCreate,
         transport: "stdio" as const,
         command: defaultFilesystemMcpServerProfile.command,
         args: [...defaultFilesystemMcpServerProfile.args],
@@ -620,15 +653,17 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
-    const result = mergeDefaultWorkspaceMcpServerProfiles(existing, defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      existing,
+      defaultWorkspaceUserId,
+    );
 
     expect(result).toEqual(existing);
   });
 
   it("adds only missing defaults when some profiles already exist", () => {
-    const expectedFilesystemWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(
-      defaultWorkspaceUserId,
-    );
+    const expectedFilesystemWorkingDirectory =
+      resolveDefaultFilesystemWorkingDirectory(defaultWorkspaceUserId);
     const existing = [
       {
         id: "profile-workiq",
@@ -642,9 +677,14 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
-    const result = mergeDefaultWorkspaceMcpServerProfiles(existing, defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      existing,
+      defaultWorkspaceUserId,
+    );
 
-    expect(result).toHaveLength(HOME_DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.length);
+    expect(result).toHaveLength(
+      DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.length,
+    );
     expect(result).toEqual(
       expect.arrayContaining([
         existing[0],
@@ -659,7 +699,8 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
         expect.objectContaining({
           transport: "streamable_http",
           url: defaultCmdMcpServerProfile.url,
-          connectOnThreadCreate: defaultCmdMcpServerProfile.connectOnThreadCreate,
+          connectOnThreadCreate:
+            defaultCmdMcpServerProfile.connectOnThreadCreate,
         }),
         expect.objectContaining({
           transport: "stdio",
@@ -734,7 +775,10 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
-    const result = mergeDefaultWorkspaceMcpServerProfiles(existing, defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      existing,
+      defaultWorkspaceUserId,
+    );
     const names = result.map((entry) => entry.name);
     expect(names).not.toContain("server-http");
     expect(names).not.toContain("server-shell");
@@ -742,9 +786,8 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
   });
 
   it("upgrades legacy default mermaid profile without cwd", () => {
-    const expectedFilesystemWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(
-      defaultWorkspaceUserId,
-    );
+    const expectedFilesystemWorkingDirectory =
+      resolveDefaultFilesystemWorkingDirectory(defaultWorkspaceUserId);
     const existing = [
       {
         id: "legacy-mermaid",
@@ -757,13 +800,18 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
-    const result = mergeDefaultWorkspaceMcpServerProfiles(existing, defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      existing,
+      defaultWorkspaceUserId,
+    );
     const mermaidProfiles = result.filter(
       (entry) =>
         entry.transport === "stdio" &&
         entry.command === defaultMermaidMcpServerProfile.command &&
         entry.args.length === defaultMermaidMcpServerProfile.args.length &&
-        entry.args.every((arg, index) => arg === defaultMermaidMcpServerProfile.args[index]),
+        entry.args.every(
+          (arg, index) => arg === defaultMermaidMcpServerProfile.args[index],
+        ),
     );
 
     expect(mermaidProfiles).toHaveLength(1);
@@ -776,10 +824,9 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
   });
 
   it("upgrades legacy default filesystem profile with shared working directory", () => {
-    const expectedFilesystemWorkingDirectory = resolveDefaultFilesystemWorkingDirectory(
-      defaultWorkspaceUserId,
-    );
-    const legacyFilesystemWorkingDirectory = resolveFoundryConfigDirectory();
+    const expectedFilesystemWorkingDirectory =
+      resolveDefaultFilesystemWorkingDirectory(defaultWorkspaceUserId);
+    const legacyFilesystemWorkingDirectory = resolveWorkspaceStorageDirectory();
     const existing = [
       {
         id: "legacy-filesystem",
@@ -793,13 +840,18 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
-    const result = mergeDefaultWorkspaceMcpServerProfiles(existing, defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      existing,
+      defaultWorkspaceUserId,
+    );
     const filesystemProfiles = result.filter(
       (entry) =>
         entry.transport === "stdio" &&
         entry.command === defaultFilesystemMcpServerProfile.command &&
         entry.args.length === defaultFilesystemMcpServerProfile.args.length &&
-        entry.args.every((arg, index) => arg === defaultFilesystemMcpServerProfile.args[index]),
+        entry.args.every(
+          (arg, index) => arg === defaultFilesystemMcpServerProfile.args[index],
+        ),
     );
 
     expect(filesystemProfiles).toHaveLength(1);
@@ -844,7 +896,10 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
-    const result = mergeDefaultWorkspaceMcpServerProfiles(existing, defaultWorkspaceUserId);
+    const result = mergeDefaultWorkspaceMcpServerProfiles(
+      existing,
+      defaultWorkspaceUserId,
+    );
     const names = result.map((entry) => entry.name);
     expect(names).toContain(defaultMicrosoftLearnMcpServerProfile.name);
     expect(names).toContain(defaultAzureMcpServerProfile.name);

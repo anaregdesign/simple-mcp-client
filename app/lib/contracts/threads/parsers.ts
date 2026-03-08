@@ -1,4 +1,4 @@
-import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
@@ -10,7 +10,10 @@ import { readThreadSkillActivationList } from "~/lib/contracts/skills/parsers";
 import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
 import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/contracts/threads/instruction-context";
-import type { ThreadSnapshot, ThreadSummary } from "~/lib/contracts/threads/types";
+import type {
+  ThreadSnapshot,
+  ThreadSummary,
+} from "~/lib/contracts/threads/types";
 
 type ReadThreadSnapshotOptions = {
   fallbackInstruction?: string;
@@ -70,14 +73,19 @@ export function readThreadSnapshotFromUnknown(
   const agentInstructionValue = value.agentInstruction;
   const fallbackInstruction = options.fallbackInstruction ?? "";
   const agentInstruction =
-    typeof agentInstructionValue === "string" ? agentInstructionValue : fallbackInstruction;
-  const instructionContextToggles = readThreadInstructionContextTogglesFromUnknown(
-    value.instructionContextToggles,
-  );
+    typeof agentInstructionValue === "string"
+      ? agentInstructionValue
+      : fallbackInstruction;
+  const instructionContextToggles =
+    readThreadInstructionContextTogglesFromUnknown(
+      value.instructionContextToggles,
+    );
   if (!instructionContextToggles) {
     return null;
   }
-  const threadEnvironment = readThreadEnvironmentFromUnknown(value.threadEnvironment);
+  const threadEnvironment = readThreadEnvironmentFromUnknown(
+    value.threadEnvironment,
+  );
 
   const messages = readThreadMessageList(value.messages);
   const mcpServers = readThreadMcpServerList(value.mcpServers);
@@ -145,12 +153,19 @@ function readThreadMessageFromUnknown(value: unknown): ThreadMessage | null {
   const content = typeof value.content === "string" ? value.content : "";
   const createdAt = readTrimmedString(value.createdAt);
   const turnId = readTrimmedString(value.turnId);
-  if (!id || (role !== "user" && role !== "assistant") || !createdAt || !turnId) {
+  if (
+    !id ||
+    (role !== "user" && role !== "assistant") ||
+    !createdAt ||
+    !turnId
+  ) {
     return null;
   }
 
   const attachments = readChatAttachmentList(value.attachments);
-  const skillActivations = readThreadSkillActivationList(value.skillActivations);
+  const skillActivations = readThreadSkillActivationList(
+    value.skillActivations,
+  );
 
   return {
     id,
@@ -224,7 +239,9 @@ function readThreadMcpServerList(value: unknown): ThreadSnapshot["mcpServers"] {
   return servers;
 }
 
-function readThreadOperationLogEntryList(value: unknown): ThreadOperationLogEntry[] {
+function readThreadOperationLogEntryList(
+  value: unknown,
+): ThreadOperationLogEntry[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -282,17 +299,23 @@ function readNullableTrimmedString(value: unknown): string | null | undefined {
 }
 
 function readSafeInteger(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isSafeInteger(value)) {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isSafeInteger(value)
+  ) {
     return null;
   }
 
   return value;
 }
 
-function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null {
+function readReasoningEffortFromUnknown(
+  value: unknown,
+): ReasoningEffort | null {
   if (
     typeof value === "string" &&
-    HOME_REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
+    REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
   ) {
     return value as ReasoningEffort;
   }

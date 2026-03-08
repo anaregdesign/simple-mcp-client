@@ -28,15 +28,12 @@ import type {
 } from "~/lib/client/shared/view-types";
 import { resolveDesktopUpdaterActionState } from "~/lib/client/controller/desktop-updater";
 import { formatChatAttachmentSize } from "~/lib/client/chat/attachments";
-import { HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL, HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL } from "~/lib/constants/client";
+import {
+  NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
+  NO_AVAILABLE_PROJECTS_OPTION_LABEL,
+} from "~/lib/constants/client";
 
-const {
-  Button,
-  Select,
-  Spinner,
-  Switch,
-  Textarea,
-} = FluentUI;
+const { Button, Select, Spinner, Switch, Textarea } = FluentUI;
 
 type PlaygroundPanelProps<
   TMessage extends ThreadMessageView,
@@ -54,7 +51,10 @@ type PlaygroundPanelProps<
   activeThreadName: string;
   isThreadOperationBusy: boolean;
   isCreatingThread: boolean;
-  renderMessageContent: (message: TMessage, onCopyText: (content: string) => void) => ReactNode;
+  renderMessageContent: (
+    message: TMessage,
+    onCopyText: (content: string) => void,
+  ) => ReactNode;
   renderTurnOperationLog: (
     entries: TThreadOperationLogEntry[],
     isLive: boolean,
@@ -80,7 +80,10 @@ type PlaygroundPanelProps<
   draft: string;
   messageAttachments: ThreadMessageAttachmentView[];
   messageAttachmentError: string | null;
-  onDraftChange: (event: ChangeEvent<HTMLTextAreaElement>, value: string) => void;
+  onDraftChange: (
+    event: ChangeEvent<HTMLTextAreaElement>,
+    value: string,
+  ) => void;
   onInputSelect: (event: SyntheticEvent<HTMLTextAreaElement>) => void;
   onOpenMessageAttachmentPicker: () => void;
   onMessageAttachmentFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -203,7 +206,8 @@ export function PlaygroundPanel<
     chatCommandMenu && chatCommandMenu.suggestions.length > 0
       ? `chat-command-option-${chatCommandMenu.highlightedIndex}`
       : undefined;
-  const desktopUpdaterActionState = resolveDesktopUpdaterActionState(desktopUpdaterStatus);
+  const desktopUpdaterActionState =
+    resolveDesktopUpdaterActionState(desktopUpdaterStatus);
 
   function renderLabeledTooltip(
     title: string,
@@ -237,7 +241,9 @@ export function PlaygroundPanel<
     title: string,
   ) {
     const elementId =
-      target === "project" ? "chat-azure-project-action" : "chat-azure-deployment-action";
+      target === "project"
+        ? "chat-azure-project-action"
+        : "chat-azure-deployment-action";
 
     return (
       <Select
@@ -264,15 +270,25 @@ export function PlaygroundPanel<
   }
 
   function renderAddedSkillAndMcpBubbles() {
-    if (selectedThreadSkills.length === 0 && selectedMessageSkillActivations.length === 0 && mcpServers.length === 0) {
+    if (
+      selectedThreadSkills.length === 0 &&
+      selectedMessageSkillActivations.length === 0 &&
+      mcpServers.length === 0
+    ) {
       return null;
     }
 
     return (
-      <section className="chat-skill-strip-compact" aria-label="Added thread skill activations, message skill activations, and thread MCP connections">
+      <section
+        className="chat-skill-strip-compact"
+        aria-label="Added thread skill activations, message skill activations, and thread MCP connections"
+      >
         <div className="chat-skill-bubbles chat-skill-bubbles-compact">
           {selectedMessageSkillActivations.map((skill) => (
-            <div key={`message_activation:${skill.location}`} className="chat-skill-bubble-item">
+            <div
+              key={`message_activation:${skill.location}`}
+              className="chat-skill-bubble-item"
+            >
               <LabeledTooltip
                 title={skill.name}
                 lines={[`Source: ${skill.location}`]}
@@ -284,7 +300,9 @@ export function PlaygroundPanel<
                     appearance="subtle"
                     size="small"
                     className="chat-skill-bubble-remove"
-                    onClick={() => onRemoveMessageSkillActivation(skill.location)}
+                    onClick={() =>
+                      onRemoveMessageSkillActivation(skill.location)
+                    }
                     disabled={isSending || isThreadReadOnly}
                     aria-label={`Remove message skill activation ${skill.name}`}
                     title={`Remove message skill activation ${skill.name}`}
@@ -296,7 +314,10 @@ export function PlaygroundPanel<
             </div>
           ))}
           {selectedThreadSkills.map((skill) => (
-            <div key={`thread:${skill.location}`} className="chat-skill-bubble-item">
+            <div
+              key={`thread:${skill.location}`}
+              className="chat-skill-bubble-item"
+            >
               <LabeledTooltip
                 title={skill.name}
                 lines={[`Source: ${skill.location}`]}
@@ -328,7 +349,9 @@ export function PlaygroundPanel<
                     ? [
                         "Transport: stdio",
                         `Command: ${server.command}${server.args.length > 0 ? ` ${server.args.join(" ")}` : ""}`,
-                        ...(server.cwd ? [`Working directory: ${server.cwd}`] : []),
+                        ...(server.cwd
+                          ? [`Working directory: ${server.cwd}`]
+                          : []),
                         `Environment variables: ${Object.keys(server.env).length}`,
                       ]
                     : [
@@ -370,7 +393,10 @@ export function PlaygroundPanel<
 
     if (chatCommandMenu.suggestions.length === 0) {
       return (
-        <section className="chat-command-menu" aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}>
+        <section
+          className="chat-command-menu"
+          aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
+        >
           <p className="chat-command-empty" role="status">
             {chatCommandMenu.emptyHint}
           </p>
@@ -379,7 +405,10 @@ export function PlaygroundPanel<
     }
 
     return (
-      <section className="chat-command-menu" aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}>
+      <section
+        className="chat-command-menu"
+        aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
+      >
         <ul
           id={chatCommandListboxId}
           className="chat-command-list"
@@ -412,7 +441,9 @@ export function PlaygroundPanel<
                   disabled={isUnavailable}
                 >
                   <span className="chat-command-item-title-row">
-                    <span className="chat-command-item-label">{suggestion.label}</span>
+                    <span className="chat-command-item-label">
+                      {suggestion.label}
+                    </span>
                     {suggestion.isSelected ? (
                       <span className="chat-command-item-state">Added</span>
                     ) : null}
@@ -422,8 +453,12 @@ export function PlaygroundPanel<
                       </span>
                     ) : null}
                   </span>
-                  <span className="chat-command-item-description">{suggestion.description}</span>
-                  <span className="chat-command-item-detail">{suggestion.detail}</span>
+                  <span className="chat-command-item-description">
+                    {suggestion.description}
+                  </span>
+                  <span className="chat-command-item-detail">
+                    {suggestion.detail}
+                  </span>
                 </button>
               </li>
             );
@@ -444,7 +479,9 @@ export function PlaygroundPanel<
           {messageAttachments.map((attachment) => (
             <div key={attachment.id} className="chat-attachment-bubble-item">
               <span className="chat-attachment-bubble">
-                <span className="chat-attachment-bubble-name">{attachment.name}</span>
+                <span className="chat-attachment-bubble-name">
+                  {attachment.name}
+                </span>
                 <span className="chat-attachment-bubble-size">
                   {formatChatAttachmentSize(attachment.sizeBytes)}
                 </span>
@@ -479,14 +516,22 @@ export function PlaygroundPanel<
     }
 
     return (
-      <div className="message-skill-activation-row" aria-label="Message Skill Activations used in this turn">
+      <div
+        className="message-skill-activation-row"
+        aria-label="Message Skill Activations used in this turn"
+      >
         {skillActivations.map((skill) => (
-          <div key={`${message.id}:message-skill-activation:${skill.location}`} className="message-skill-activation-item">
+          <div
+            key={`${message.id}:message-skill-activation:${skill.location}`}
+            className="message-skill-activation-item"
+          >
             <LabeledTooltip
               title={skill.name}
               lines={[`Source: ${skill.location}`]}
             >
-              <span className="message-skill-activation-bubble">{skill.name}</span>
+              <span className="message-skill-activation-bubble">
+                {skill.name}
+              </span>
             </LabeledTooltip>
           </div>
         ))}
@@ -501,10 +546,16 @@ export function PlaygroundPanel<
           <div className="chat-header-main">
             <div className="chat-header-title-row">
               <div className="chat-header-title">
-                <img className="chat-header-symbol" src="/foundry-symbol.svg" alt="" aria-hidden="true" />
+                <img
+                  className="chat-header-symbol"
+                  src="/local-playground-symbol.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
                 <h1>Local Playground</h1>
               </div>
-              {desktopUpdaterStatus.supported && desktopUpdaterActionState === "check" ? (
+              {desktopUpdaterStatus.supported &&
+              desktopUpdaterActionState === "check" ? (
                 <Button
                   type="button"
                   appearance="subtle"
@@ -517,12 +568,17 @@ export function PlaygroundPanel<
                       : "Check for updates."
                   }
                   onClick={onCheckDesktopUpdates}
-                  disabled={desktopUpdaterStatus.checking || isApplyingDesktopUpdate}
+                  disabled={
+                    desktopUpdaterStatus.checking || isApplyingDesktopUpdate
+                  }
                 >
-                  {desktopUpdaterStatus.checking ? "Checking…" : "Check Updates"}
+                  {desktopUpdaterStatus.checking
+                    ? "Checking…"
+                    : "Check Updates"}
                 </Button>
               ) : null}
-              {desktopUpdaterStatus.supported && desktopUpdaterActionState === "downloading" ? (
+              {desktopUpdaterStatus.supported &&
+              desktopUpdaterActionState === "downloading" ? (
                 <Button
                   type="button"
                   appearance="subtle"
@@ -539,7 +595,8 @@ export function PlaygroundPanel<
                   Downloading…
                 </Button>
               ) : null}
-              {desktopUpdaterStatus.supported && desktopUpdaterActionState === "upgrade" ? (
+              {desktopUpdaterStatus.supported &&
+              desktopUpdaterActionState === "upgrade" ? (
                 <Button
                   type="button"
                   appearance="subtle"
@@ -558,7 +615,10 @@ export function PlaygroundPanel<
                 </Button>
               ) : null}
               <div className="chat-thread-header-controls">
-                <span className="chat-thread-name-label" title={activeThreadName}>
+                <span
+                  className="chat-thread-name-label"
+                  title={activeThreadName}
+                >
                   {activeThreadName}
                 </span>
                 <Button
@@ -581,13 +641,19 @@ export function PlaygroundPanel<
 
       <div className="chat-log" aria-live="polite">
         {messages.map((message) => {
-          const turnOperationLogs = threadOperationLogsByTurnId.get(message.turnId) ?? [];
-          const shouldRenderTurnOperationLog = message.role === "assistant" && turnOperationLogs.length > 0;
+          const turnOperationLogs =
+            threadOperationLogsByTurnId.get(message.turnId) ?? [];
+          const shouldRenderTurnOperationLog =
+            message.role === "assistant" && turnOperationLogs.length > 0;
 
           return (
             <div key={message.id} className={`turn-entry ${message.role}`}>
-              <article className={`message-row ${message.role === "user" ? "user" : "assistant"}`}>
-                <div className="message-content">{renderMessageContent(message, onCopyMessage)}</div>
+              <article
+                className={`message-row ${message.role === "user" ? "user" : "assistant"}`}
+              >
+                <div className="message-content">
+                  {renderMessageContent(message, onCopyMessage)}
+                </div>
                 <CopyIconButton
                   className="message-copy-btn"
                   ariaLabel="Copy message"
@@ -615,7 +681,14 @@ export function PlaygroundPanel<
               {sendProgressMessages.length > 0 ? (
                 <ul className="typing-progress-list">
                   {sendProgressMessages.map((status, index) => (
-                    <li key={`${index}-${status}`} className={index === sendProgressMessages.length - 1 ? "active" : ""}>
+                    <li
+                      key={`${index}-${status}`}
+                      className={
+                        index === sendProgressMessages.length - 1
+                          ? "active"
+                          : ""
+                      }
+                    >
                       {status}
                     </li>
                   ))}
@@ -655,7 +728,10 @@ export function PlaygroundPanel<
             },
           ]}
         />
-        {error || azureLoginError || messageAttachmentError || isThreadReadOnly ? (
+        {error ||
+        azureLoginError ||
+        messageAttachmentError ||
+        isThreadReadOnly ? (
           <StatusMessageList
             className="chat-error-stack"
             messages={[
@@ -668,7 +744,11 @@ export function PlaygroundPanel<
               },
               { intent: "error", title: "Request failed", text: error },
               { intent: "error", text: azureLoginError },
-              { intent: "error", title: "Attachment", text: messageAttachmentError },
+              {
+                intent: "error",
+                title: "Attachment",
+                text: messageAttachmentError,
+              },
             ]}
           />
         ) : null}
@@ -747,7 +827,11 @@ export function PlaygroundPanel<
                   ],
                   <div className="chat-quick-control">
                     {isLoadingAzureConnections ? (
-                      <span className="chat-control-loader chat-control-loader-project" role="status" aria-live="polite">
+                      <span
+                        className="chat-control-loader chat-control-loader-project"
+                        role="status"
+                        aria-live="polite"
+                      >
                         <Spinner size="tiny" />
                         Loading projects...
                       </span>
@@ -762,7 +846,7 @@ export function PlaygroundPanel<
                       renderChatAzureActionSelect(
                         "project",
                         "Project",
-                        HOME_NO_AVAILABLE_PROJECTS_OPTION_LABEL,
+                        NO_AVAILABLE_PROJECTS_OPTION_LABEL,
                         "No available projects in the selected tenant. Click to reload Azure projects.",
                       )
                     ) : (
@@ -800,11 +884,15 @@ export function PlaygroundPanel<
                             : "Select a project first."
                           : azureDeployments.length === 0
                             ? "Selected tenant has no available deployments."
-                          : "Used to run the model.",
+                            : "Used to run the model.",
                   ],
                   <div className="chat-quick-control">
                     {isLoadingAzureConnections || isLoadingAzureDeployments ? (
-                      <span className="chat-control-loader chat-control-loader-deployment" role="status" aria-live="polite">
+                      <span
+                        className="chat-control-loader chat-control-loader-deployment"
+                        role="status"
+                        aria-live="polite"
+                      >
                         <Spinner size="tiny" />
                         Loading deployments...
                       </span>
@@ -815,7 +903,7 @@ export function PlaygroundPanel<
                         isAzureAuthRequired
                           ? "Deployment"
                           : azureConnections.length === 0
-                            ? HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL
+                            ? NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL
                             : "Reload deployments",
                         isAzureAuthRequired
                           ? "Click to sign in with Azure and load deployments."
@@ -827,7 +915,7 @@ export function PlaygroundPanel<
                       renderChatAzureActionSelect(
                         "deployment",
                         "Deployment",
-                        HOME_NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
+                        NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
                         "No available deployments in the selected tenant. Click to reload deployments for the selected project.",
                       )
                     ) : (
@@ -872,7 +960,11 @@ export function PlaygroundPanel<
                             : "This deployment does not support Reasoning Effort."
                         }
                         value={reasoningEffort}
-                        onChange={(event) => onReasoningEffortChange(event.target.value as ReasoningEffort)}
+                        onChange={(event) =>
+                          onReasoningEffortChange(
+                            event.target.value as ReasoningEffort,
+                          )
+                        }
                         disabled={isSending || !isReasoningEffortSupported}
                       >
                         <optgroup label="Reasoning effort">
@@ -911,7 +1003,9 @@ export function PlaygroundPanel<
                 isSending
                   ? ["Cancel all in-progress processing for this thread."]
                   : isThreadReadOnly
-                    ? ["Archived thread is read-only. Restore it from Archives to send messages."]
+                    ? [
+                        "Archived thread is read-only. Restore it from Archives to send messages.",
+                      ]
                     : ["Send current message."],
                 isSending ? (
                   <Button

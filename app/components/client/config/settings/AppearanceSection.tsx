@@ -4,7 +4,7 @@
 import { FluentUI } from "~/components/client/shared/fluent";
 import { ConfigSection } from "~/components/client/shared/ConfigSection";
 import { SubSection } from "~/components/client/shared/SubSection";
-import { HOME_THEME_OPTIONS } from "~/lib/constants/client";
+import { THEME_MODE_OPTIONS } from "~/lib/constants/client";
 import type { ThemeMode } from "~/lib/client/shared/view-types";
 
 const { Select } = FluentUI;
@@ -40,7 +40,7 @@ export function AppearanceSection(props: AppearanceSectionProps) {
           }}
           title="Select Playground theme."
         >
-          {HOME_THEME_OPTIONS.map((option) => (
+          {THEME_MODE_OPTIONS.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
             </option>

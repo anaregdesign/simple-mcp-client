@@ -5,15 +5,25 @@ import {
   getAzureDependencies,
   normalizeAzureOpenAIBaseURL,
 } from "~/lib/server/infrastructure/azure/dependencies";
-import { AZURE_ARM_SCOPE, AZURE_COGNITIVE_API_VERSION, AZURE_GRAPH_SCOPE, AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION, AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT, AZURE_MAX_MODELS_PER_ACCOUNT, AZURE_MAX_SUBSCRIPTIONS, AZURE_MAX_TENANTS, AZURE_OPENAI_DEFAULT_API_VERSION, AZURE_SUBSCRIPTIONS_API_VERSION, AZURE_TENANTS_API_VERSION } from "~/lib/constants/azure";
-import { HOME_REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import {
+  AZURE_ARM_SCOPE,
+  AZURE_COGNITIVE_API_VERSION,
+  AZURE_GRAPH_SCOPE,
+  AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
+  AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT,
+  AZURE_MAX_MODELS_PER_ACCOUNT,
+  AZURE_MAX_SUBSCRIPTIONS,
+  AZURE_MAX_TENANTS,
+  AZURE_OPENAI_DEFAULT_API_VERSION,
+  AZURE_SUBSCRIPTIONS_API_VERSION,
+  AZURE_TENANTS_API_VERSION,
+} from "~/lib/constants/azure";
+import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import {
   readAzureArmUserContext,
   type AzurePrincipalType,
 } from "~/lib/server/auth/azure-user";
-import {
-  logServerRouteEvent,
-} from "~/lib/server/observability/runtime-event-log";
+import { logServerRouteEvent } from "~/lib/server/observability/runtime-event-log";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
@@ -195,7 +205,9 @@ async function loadAzureTenantsWithFallback(
   }
 }
 
-export async function listAzureProjects(accessToken: string): Promise<AzureProject[]> {
+export async function listAzureProjects(
+  accessToken: string,
+): Promise<AzureProject[]> {
   const subscriptions = await fetchArmPaged<ArmSubscription>(
     `https://management.azure.com/subscriptions?api-version=${AZURE_SUBSCRIPTIONS_API_VERSION}`,
     accessToken,
@@ -205,10 +217,17 @@ export async function listAzureProjects(accessToken: string): Promise<AzureProje
   const enabledSubscriptionIds = subscriptions
     .map((subscription) => {
       const subscriptionId =
-        typeof subscription.subscriptionId === "string" ? subscription.subscriptionId.trim() : "";
+        typeof subscription.subscriptionId === "string"
+          ? subscription.subscriptionId.trim()
+          : "";
       const subscriptionState =
-        typeof subscription.state === "string" ? subscription.state.toLowerCase() : "";
-      if (!subscriptionId || (subscriptionState && subscriptionState !== "enabled")) {
+        typeof subscription.state === "string"
+          ? subscription.state.toLowerCase()
+          : "";
+      if (
+        !subscriptionId ||
+        (subscriptionState && subscriptionState !== "enabled")
+      ) {
         return "";
       }
 
@@ -220,7 +239,9 @@ export async function listAzureProjects(accessToken: string): Promise<AzureProje
     await mapWithConcurrency(
       enabledSubscriptionIds,
       AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY,
-      async (subscriptionId): Promise<Array<AzureProject & { resourceGroup: string }>> => {
+      async (
+        subscriptionId,
+      ): Promise<Array<AzureProject & { resourceGroup: string }>> => {
         let accounts: ArmCognitiveAccount[];
         try {
           accounts = await fetchArmPaged<ArmCognitiveAccount>(
@@ -248,8 +269,10 @@ export async function listAzureProjects(accessToken: string): Promise<AzureProje
             continue;
           }
 
-          const accountName = typeof account.name === "string" ? account.name.trim() : "";
-          const accountId = typeof account.id === "string" ? account.id.trim() : "";
+          const accountName =
+            typeof account.name === "string" ? account.name.trim() : "";
+          const accountId =
+            typeof account.id === "string" ? account.id.trim() : "";
           if (!accountName || !accountId) {
             continue;
           }
@@ -260,7 +283,8 @@ export async function listAzureProjects(accessToken: string): Promise<AzureProje
           }
 
           const endpoint =
-            typeof account.properties?.endpoint === "string" && account.properties.endpoint.trim()
+            typeof account.properties?.endpoint === "string" &&
+            account.properties.endpoint.trim()
               ? account.properties.endpoint
               : `https://${accountName}.openai.azure.com/`;
           const baseUrl = normalizeAzureOpenAIBaseURL(endpoint);
@@ -308,7 +332,10 @@ export async function listAzureProjects(accessToken: string): Promise<AzureProje
       const nameKey = project.projectName.toLowerCase();
       const duplicateCount = nameCounts.get(nameKey) ?? 0;
       return duplicateCount > 1
-        ? { ...project, projectName: `${project.projectName} (${resourceGroup})` }
+        ? {
+            ...project,
+            projectName: `${project.projectName} (${resourceGroup})`,
+          }
         : project;
     })
     .sort((left, right) => left.projectName.localeCompare(right.projectName));
@@ -337,7 +364,9 @@ export async function listAzureTenants(
     const tenantKey = tenantId.toLowerCase();
 
     const defaultDomain =
-      typeof tenant.defaultDomain === "string" ? tenant.defaultDomain.trim() : "";
+      typeof tenant.defaultDomain === "string"
+        ? tenant.defaultDomain.trim()
+        : "";
     const displayNameRaw =
       typeof tenant.displayName === "string" ? tenant.displayName.trim() : "";
     const displayName = displayNameRaw || defaultDomain || tenantId;
@@ -397,7 +426,8 @@ export async function listProjectDeployments(
   const deploymentsByName = new Map<string, AzureDeployment>();
 
   for (const deployment of deployments) {
-    const name = typeof deployment.name === "string" ? deployment.name.trim() : "";
+    const name =
+      typeof deployment.name === "string" ? deployment.name.trim() : "";
     if (!name) {
       continue;
     }
@@ -411,8 +441,12 @@ export async function listProjectDeployments(
     }
 
     const model = deployment.properties?.model;
-    const modelName = typeof model?.name === "string" ? model.name.trim().toLowerCase() : "";
-    const modelVersion = typeof model?.version === "string" ? model.version.trim().toLowerCase() : "";
+    const modelName =
+      typeof model?.name === "string" ? model.name.trim().toLowerCase() : "";
+    const modelVersion =
+      typeof model?.version === "string"
+        ? model.version.trim().toLowerCase()
+        : "";
     const capabilities =
       modelCapabilities.get(createModelKey(modelName, modelVersion)) ??
       modelCapabilities.get(createModelKey(modelName, ""));
@@ -437,7 +471,9 @@ export async function listProjectDeployments(
     });
   }
 
-  return [...deploymentsByName.values()].sort((left, right) => left.name.localeCompare(right.name));
+  return [...deploymentsByName.values()].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  );
 }
 
 async function listAccountModels(
@@ -479,8 +515,12 @@ function buildModelCapabilitiesMap(
       continue;
     }
 
-    const name = typeof model.name === "string" ? model.name.trim().toLowerCase() : "";
-    const version = typeof model.version === "string" ? model.version.trim().toLowerCase() : "";
+    const name =
+      typeof model.name === "string" ? model.name.trim().toLowerCase() : "";
+    const version =
+      typeof model.version === "string"
+        ? model.version.trim().toLowerCase()
+        : "";
     if (!name) {
       continue;
     }
@@ -511,12 +551,18 @@ function readModelCapabilities(value: unknown): ModelCapabilities {
       continue;
     }
     flags[key] = parseCapabilityBoolean(rawValue);
-    collectReasoningEffortOptionsFromCapability(rawKey, rawValue, reasoningEffortOptionSet);
+    collectReasoningEffortOptionsFromCapability(
+      rawKey,
+      rawValue,
+      reasoningEffortOptionSet,
+    );
   }
 
   return {
     flags,
-    reasoningEffortOptions: orderReasoningEffortOptions([...reasoningEffortOptionSet]),
+    reasoningEffortOptions: orderReasoningEffortOptions([
+      ...reasoningEffortOptionSet,
+    ]),
   };
 }
 
@@ -532,7 +578,12 @@ function parseCapabilityBoolean(value: unknown): boolean {
   }
 
   const normalized = value.trim().toLowerCase();
-  return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "enabled";
+  return (
+    normalized === "true" ||
+    normalized === "1" ||
+    normalized === "yes" ||
+    normalized === "enabled"
+  );
 }
 
 function isAgentsSdkCompatibleDeployment(
@@ -544,9 +595,12 @@ function isAgentsSdkCompatibleDeployment(
     return false;
   }
 
-  const modelName = typeof model.name === "string" ? model.name.trim().toLowerCase() : "";
-  const modelVersion = typeof model.version === "string" ? model.version.trim().toLowerCase() : "";
-  const format = typeof model.format === "string" ? model.format.trim().toLowerCase() : "";
+  const modelName =
+    typeof model.name === "string" ? model.name.trim().toLowerCase() : "";
+  const modelVersion =
+    typeof model.version === "string" ? model.version.trim().toLowerCase() : "";
+  const format =
+    typeof model.format === "string" ? model.format.trim().toLowerCase() : "";
 
   if (!modelName || isUnsupportedModelName(modelName)) {
     return false;
@@ -573,7 +627,9 @@ function isAgentsSdkCompatibleDeployment(
   return looksLikeChatModelName(modelName);
 }
 
-function supportsChatCompletion(capabilities: Record<string, boolean>): boolean {
+function supportsChatCompletion(
+  capabilities: Record<string, boolean>,
+): boolean {
   return (
     capabilities.chatcompletion === true ||
     capabilities.chatcompletions === true ||
@@ -603,7 +659,8 @@ function resolveDeploymentReasoningEffortOptions(
   modelName: string,
   capabilities: ModelCapabilities | undefined,
 ): ReasoningEffort[] {
-  const modelSpecificOptions = resolveReasoningEffortOptionsByModelName(modelName);
+  const modelSpecificOptions =
+    resolveReasoningEffortOptionsByModelName(modelName);
   if (modelSpecificOptions.length > 0) {
     return modelSpecificOptions;
   }
@@ -615,7 +672,9 @@ function resolveDeploymentReasoningEffortOptions(
   return [];
 }
 
-export function resolveReasoningEffortOptionsByModelName(modelName: string): ReasoningEffort[] {
+export function resolveReasoningEffortOptionsByModelName(
+  modelName: string,
+): ReasoningEffort[] {
   if (!modelName) {
     return [];
   }
@@ -632,7 +691,10 @@ export function resolveReasoningEffortOptionsByModelName(modelName: string): Rea
     return ["none", "low", "medium", "high", "xhigh"];
   }
 
-  if (modelName.startsWith("gpt-5-chat") || modelName.startsWith("gpt-5-codex")) {
+  if (
+    modelName.startsWith("gpt-5-chat") ||
+    modelName.startsWith("gpt-5-codex")
+  ) {
     return ["low", "medium", "high", "xhigh"];
   }
 
@@ -663,7 +725,9 @@ function collectReasoningEffortOptionsFromCapability(
 
   const keyLooksLikeReasoningEffort =
     key.includes("reasoning") &&
-    (key.includes("effort") || key.includes("level") || key.includes("setting"));
+    (key.includes("effort") ||
+      key.includes("level") ||
+      key.includes("setting"));
   const keyLooksLikeReasoning = key.includes("reasoning");
 
   if (keyLooksLikeReasoningEffort) {
@@ -714,7 +778,9 @@ function addReasoningEffortOptionsFromUnknown(
   }
 }
 
-export function parseReasoningEffortOptionsFromString(value: string): ReasoningEffort[] {
+export function parseReasoningEffortOptionsFromString(
+  value: string,
+): ReasoningEffort[] {
   const normalized = value.trim().toLowerCase();
   if (!normalized) {
     return [];
@@ -723,7 +789,7 @@ export function parseReasoningEffortOptionsFromString(value: string): ReasoningE
   let tokens = normalized.split(/[^a-z]+/g).filter(Boolean);
   if (tokens.length === 1) {
     try {
-      const parsed = JSON.parse(normalized.replace(/'/g, "\"")) as unknown;
+      const parsed = JSON.parse(normalized.replace(/'/g, '"')) as unknown;
       if (Array.isArray(parsed)) {
         tokens = parsed
           .filter((entry): entry is string => typeof entry === "string")
@@ -736,7 +802,7 @@ export function parseReasoningEffortOptionsFromString(value: string): ReasoningE
   }
 
   const tokenSet = new Set(tokens);
-  return HOME_REASONING_EFFORT_OPTIONS.filter((option) => tokenSet.has(option));
+  return REASONING_EFFORT_OPTIONS.filter((option) => tokenSet.has(option));
 }
 
 function mergeReasoningEffortOptions(
@@ -752,9 +818,11 @@ function mergeReasoningEffortOptions(
   return orderReasoningEffortOptions([...current, ...incoming]);
 }
 
-function orderReasoningEffortOptions(options: ReasoningEffort[]): ReasoningEffort[] {
+function orderReasoningEffortOptions(
+  options: ReasoningEffort[],
+): ReasoningEffort[] {
   const optionSet = new Set(options);
-  return HOME_REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
+  return REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
 }
 
 function isUnsupportedModelName(modelName: string): boolean {
@@ -800,10 +868,15 @@ export function parseProjectId(projectId: string): AzureProjectRef | null {
     }
 
     const subscriptionId =
-      typeof parsed.subscriptionId === "string" ? parsed.subscriptionId.trim() : "";
+      typeof parsed.subscriptionId === "string"
+        ? parsed.subscriptionId.trim()
+        : "";
     const resourceGroup =
-      typeof parsed.resourceGroup === "string" ? parsed.resourceGroup.trim() : "";
-    const accountName = typeof parsed.accountName === "string" ? parsed.accountName.trim() : "";
+      typeof parsed.resourceGroup === "string"
+        ? parsed.resourceGroup.trim()
+        : "";
+    const accountName =
+      typeof parsed.accountName === "string" ? parsed.accountName.trim() : "";
     if (!subscriptionId || !resourceGroup || !accountName) {
       return null;
     }
@@ -815,9 +888,12 @@ export function parseProjectId(projectId: string): AzureProjectRef | null {
 }
 
 function isAzureOpenAIProject(account: ArmCognitiveAccount): boolean {
-  const kind = typeof account.kind === "string" ? account.kind.toLowerCase() : "";
+  const kind =
+    typeof account.kind === "string" ? account.kind.toLowerCase() : "";
   const endpoint =
-    typeof account.properties?.endpoint === "string" ? account.properties.endpoint.toLowerCase() : "";
+    typeof account.properties?.endpoint === "string"
+      ? account.properties.endpoint.toLowerCase()
+      : "";
 
   return (
     kind === "openai" ||
@@ -861,25 +937,36 @@ export async function getArmAccessToken(
   preferredTenantId = "",
 ): Promise<ArmAccessTokenResult> {
   const normalizedPreferredTenantId = preferredTenantId.trim();
-  let userContext = await readAzureArmUserContext(dependencies, normalizedPreferredTenantId);
+  let userContext = await readAzureArmUserContext(
+    dependencies,
+    normalizedPreferredTenantId,
+  );
   if (!userContext) {
     return { ok: false };
   }
 
   if (
     normalizedPreferredTenantId &&
-    userContext.tenantId.toLowerCase() !== normalizedPreferredTenantId.toLowerCase()
+    userContext.tenantId.toLowerCase() !==
+      normalizedPreferredTenantId.toLowerCase()
   ) {
     try {
-      await dependencies.authenticateAzure(AZURE_ARM_SCOPE, normalizedPreferredTenantId);
+      await dependencies.authenticateAzure(
+        AZURE_ARM_SCOPE,
+        normalizedPreferredTenantId,
+      );
     } catch {
       return { ok: false };
     }
 
-    userContext = await readAzureArmUserContext(dependencies, normalizedPreferredTenantId);
+    userContext = await readAzureArmUserContext(
+      dependencies,
+      normalizedPreferredTenantId,
+    );
     if (
       !userContext ||
-      userContext.tenantId.toLowerCase() !== normalizedPreferredTenantId.toLowerCase()
+      userContext.tenantId.toLowerCase() !==
+        normalizedPreferredTenantId.toLowerCase()
     ) {
       return { ok: false };
     }
@@ -938,7 +1025,9 @@ export async function resolveAzurePrincipalProfile(
       },
     );
     const graphRequestDurationMs = Date.now() - graphRequestStartedAtMs;
-    const payload = (await response.json().catch(() => null)) as GraphMeResponse | null;
+    const payload = (await response
+      .json()
+      .catch(() => null)) as GraphMeResponse | null;
     if (!response.ok) {
       await logServerRouteEvent({
         route: AZURE_PROJECTS_ROUTE,
@@ -973,8 +1062,12 @@ export async function resolveAzurePrincipalProfile(
       },
     });
 
-    const graphPrincipalId = typeof payload?.id === "string" ? payload.id.trim() : "";
-    const graphDisplayName = typeof payload?.displayName === "string" ? payload.displayName.trim() : "";
+    const graphPrincipalId =
+      typeof payload?.id === "string" ? payload.id.trim() : "";
+    const graphDisplayName =
+      typeof payload?.displayName === "string"
+        ? payload.displayName.trim()
+        : "";
     const graphPrincipalName =
       typeof payload?.userPrincipalName === "string"
         ? payload.userPrincipalName.trim()
@@ -988,7 +1081,9 @@ export async function resolveAzurePrincipalProfile(
       displayName: graphDisplayName || fallbackProfile.displayName,
       principalName: graphPrincipalName || fallbackProfile.principalName,
       principalType:
-        fallbackProfile.principalType === "unknown" ? "user" : fallbackProfile.principalType,
+        fallbackProfile.principalType === "unknown"
+          ? "user"
+          : fallbackProfile.principalType,
     });
   } catch (error) {
     await logServerRouteEvent({
@@ -1008,11 +1103,14 @@ export async function resolveAzurePrincipalProfile(
   }
 }
 
-function normalizeAzurePrincipalProfile(profile: AzurePrincipalProfile): AzurePrincipalProfile {
+function normalizeAzurePrincipalProfile(
+  profile: AzurePrincipalProfile,
+): AzurePrincipalProfile {
   const tenantId = profile.tenantId.trim();
   const principalId = profile.principalId.trim();
   const principalName = profile.principalName.trim();
-  const displayName = profile.displayName.trim() || principalName || principalId;
+  const displayName =
+    profile.displayName.trim() || principalName || principalId;
 
   return {
     tenantId,
@@ -1063,7 +1161,9 @@ async function fetchArmPaged<T>(
       throw error;
     }
 
-    const payload = (await response.json().catch(() => null)) as ArmPagedResponse<T> | null;
+    const payload = (await response
+      .json()
+      .catch(() => null)) as ArmPagedResponse<T> | null;
     const requestDurationMs = Date.now() - requestStartedAtMs;
     if (!response.ok) {
       await logServerRouteEvent({
@@ -1081,11 +1181,16 @@ async function fetchArmPaged<T>(
           armErrorMessage: readArmErrorMessage(payload) || null,
         },
       });
-      throw new Error(readArmErrorMessage(payload) || response.statusText || "Azure ARM request failed.");
+      throw new Error(
+        readArmErrorMessage(payload) ||
+          response.statusText ||
+          "Azure ARM request failed.",
+      );
     }
 
     const pageItems = Array.isArray(payload?.value) ? payload.value : [];
-    const hasNextLink = typeof payload?.nextLink === "string" && payload.nextLink.length > 0;
+    const hasNextLink =
+      typeof payload?.nextLink === "string" && payload.nextLink.length > 0;
 
     await logServerRouteEvent({
       route: AZURE_PROJECTS_ROUTE,
@@ -1121,7 +1226,10 @@ async function mapWithConcurrency<TItem, TResult>(
     return [];
   }
 
-  const normalizedConcurrency = Math.max(1, Math.min(items.length, concurrency));
+  const normalizedConcurrency = Math.max(
+    1,
+    Math.min(items.length, concurrency),
+  );
   const results = new Array<TResult>(items.length);
   let currentIndex = 0;
 

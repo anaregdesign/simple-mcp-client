@@ -8,7 +8,7 @@ import { SkillsTab } from "~/components/client/config/skills/SkillsTab";
 import { SettingsTab } from "~/components/client/config/settings/SettingsTab";
 import { ThreadsTab } from "~/components/client/config/threads/ThreadsTab";
 import type { MainViewTab } from "~/lib/client/shared/view-types";
-import { HOME_MAIN_VIEW_TAB_OPTIONS } from "~/lib/constants/client";
+import { CLIENT_CONFIG_TAB_OPTIONS } from "~/lib/constants/client";
 
 const { MessageBar, MessageBarBody, Tab, TabList } = FluentUI;
 
@@ -17,7 +17,10 @@ type ConfigPanelProps = {
   onMainTabChange: (nextTab: MainViewTab) => void;
   isChatLocked: boolean;
   settingsTabProps: Omit<ComponentProps<typeof SettingsTab>, "activeMainTab">;
-  mcpServersTabProps: Omit<ComponentProps<typeof McpServersTab>, "activeMainTab">;
+  mcpServersTabProps: Omit<
+    ComponentProps<typeof McpServersTab>,
+    "activeMainTab"
+  >;
   skillsTabProps: Omit<ComponentProps<typeof SkillsTab>, "activeMainTab">;
   threadsTabProps: Omit<ComponentProps<typeof ThreadsTab>, "activeMainTab">;
 };
@@ -39,7 +42,9 @@ export function ConfigPanel(props: ConfigPanelProps) {
     }
 
     if (activeMainTab === "mcp") {
-      return <McpServersTab activeMainTab={activeMainTab} {...mcpServersTabProps} />;
+      return (
+        <McpServersTab activeMainTab={activeMainTab} {...mcpServersTabProps} />
+      );
     }
 
     if (activeMainTab === "skills") {
@@ -71,7 +76,7 @@ export function ConfigPanel(props: ConfigPanelProps) {
             }
           }}
         >
-          {HOME_MAIN_VIEW_TAB_OPTIONS.map((tab) => (
+          {CLIENT_CONFIG_TAB_OPTIONS.map((tab) => (
             <Tab
               key={tab.id}
               value={tab.id}
@@ -83,9 +88,9 @@ export function ConfigPanel(props: ConfigPanelProps) {
                   ? "Open Settings panel."
                   : tab.id === "skills"
                     ? "Open Skills panel."
-                  : tab.id === "mcp"
-                    ? "Open MCP Servers panel."
-                    : "Open Threads panel."
+                    : tab.id === "mcp"
+                      ? "Open MCP Servers panel."
+                      : "Open Threads panel."
               }
             >
               {tab.label}
@@ -94,7 +99,9 @@ export function ConfigPanel(props: ConfigPanelProps) {
         </TabList>
         {isChatLocked ? (
           <MessageBar intent="warning" className="tab-guidance-bar">
-            <MessageBarBody>🔒 Playground is locked. Open Settings and sign in to Azure.</MessageBarBody>
+            <MessageBarBody>
+              🔒 Playground is locked. Open Settings and sign in to Azure.
+            </MessageBarBody>
           </MessageBar>
         ) : null}
       </div>

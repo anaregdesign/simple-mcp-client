@@ -2,8 +2,13 @@
  * Thread application service module.
  */
 import { Prisma } from "@prisma/client";
-import { DEFAULT_AGENT_INSTRUCTION, HOME_DEFAULT_REASONING_EFFORT, HOME_REASONING_EFFORT_OPTIONS, THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
-import { HOME_THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import {
+  DEFAULT_AGENT_INSTRUCTION,
+  DEFAULT_REASONING_EFFORT,
+  REASONING_EFFORT_OPTIONS,
+  THREAD_DEFAULT_NAME,
+} from "~/lib/constants/chat";
+import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
@@ -134,7 +139,10 @@ async function readUserThreads(userId: number): Promise<ThreadSnapshot[]> {
   return threads;
 }
 
-async function readThreadById(userId: number, threadId: string): Promise<Thread | null> {
+async function readThreadById(
+  userId: number,
+  threadId: string,
+): Promise<Thread | null> {
   await ensurePersistenceDatabaseReady();
 
   const record = await prisma.thread.findFirst({
@@ -207,7 +215,10 @@ export type CreateThreadSnapshotResult =
       status: "invalid";
     };
 
-async function readThreadRecordHead(userId: number, threadId: string): Promise<ThreadRecordHead | null> {
+async function readThreadRecordHead(
+  userId: number,
+  threadId: string,
+): Promise<ThreadRecordHead | null> {
   await ensurePersistenceDatabaseReady();
 
   const record = await prisma.thread.findFirst({
@@ -333,7 +344,9 @@ export async function saveThreadSnapshot(
           reasoningEffort: thread.reasoningEffort,
           webSearchEnabled: thread.webSearchEnabled,
           threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
-          instructionContextTogglesJson: JSON.stringify(thread.instructionContextToggles),
+          instructionContextTogglesJson: JSON.stringify(
+            thread.instructionContextToggles,
+          ),
         },
       });
 
@@ -370,7 +383,9 @@ export async function saveThreadSnapshot(
         reasoningEffort: thread.reasoningEffort,
         webSearchEnabled: thread.webSearchEnabled,
         threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
-        instructionContextTogglesJson: JSON.stringify(thread.instructionContextToggles),
+        instructionContextTogglesJson: JSON.stringify(
+          thread.instructionContextToggles,
+        ),
       },
     });
 
@@ -499,7 +514,9 @@ export async function saveThreadSnapshot(
     if (thread.skillSelections.length > 0) {
       await transaction.threadSkillActivation.createMany({
         data: thread.skillSelections.map((selection, index) => {
-          const skillProfileId = skillProfileIdsByLocation.get(selection.location);
+          const skillProfileId = skillProfileIdsByLocation.get(
+            selection.location,
+          );
           if (!skillProfileId) {
             throw new Error(
               `Skill profile is not available for location: ${selection.location}`,
@@ -526,7 +543,9 @@ export async function saveThreadSnapshot(
 
     const messageSkillActivations = thread.messages.flatMap((message) =>
       message.skillActivations.map((selection, index) => {
-        const skillProfileId = skillProfileIdsByLocation.get(selection.location);
+        const skillProfileId = skillProfileIdsByLocation.get(
+          selection.location,
+        );
         if (!skillProfileId) {
           throw new Error(
             `Skill profile is not available for location: ${selection.location}`,
@@ -699,7 +718,9 @@ async function upsertThreadSkillProfiles(options: {
     uniqueSelections.set(location, {
       name,
       location,
-      source: registryOption ? "app_data" : readSkillSourceFromLocation(location),
+      source: registryOption
+        ? "app_data"
+        : readSkillSourceFromLocation(location),
       registryOption,
     });
   }
@@ -715,35 +736,36 @@ async function upsertThreadSkillProfiles(options: {
       continue;
     }
 
-    const registryProfile = await options.transaction.workspaceSkillRegistryProfile.upsert({
-      where: {
-        userId_registryId: {
+    const registryProfile =
+      await options.transaction.workspaceSkillRegistryProfile.upsert({
+        where: {
+          userId_registryId: {
+            userId: options.userId,
+            registryId: registryOption.id,
+          },
+        },
+        create: {
           userId: options.userId,
           registryId: registryOption.id,
+          registryLabel: registryOption.label,
+          registryDescription: registryOption.description,
+          repository: registryOption.repository,
+          repositoryUrl: `https://github.com/${registryOption.repository}`,
+          sourcePath: registryOption.sourcePath,
+          installDirectoryName: registryOption.installDirectoryName,
         },
-      },
-      create: {
-        userId: options.userId,
-        registryId: registryOption.id,
-        registryLabel: registryOption.label,
-        registryDescription: registryOption.description,
-        repository: registryOption.repository,
-        repositoryUrl: `https://github.com/${registryOption.repository}`,
-        sourcePath: registryOption.sourcePath,
-        installDirectoryName: registryOption.installDirectoryName,
-      },
-      update: {
-        registryLabel: registryOption.label,
-        registryDescription: registryOption.description,
-        repository: registryOption.repository,
-        repositoryUrl: `https://github.com/${registryOption.repository}`,
-        sourcePath: registryOption.sourcePath,
-        installDirectoryName: registryOption.installDirectoryName,
-      },
-      select: {
-        id: true,
-      },
-    });
+        update: {
+          registryLabel: registryOption.label,
+          registryDescription: registryOption.description,
+          repository: registryOption.repository,
+          repositoryUrl: `https://github.com/${registryOption.repository}`,
+          sourcePath: registryOption.sourcePath,
+          installDirectoryName: registryOption.installDirectoryName,
+        },
+        select: {
+          id: true,
+        },
+      });
 
     registryProfileIdByRegistryId.set(registryOption.id, registryProfile.id);
   }
@@ -751,33 +773,35 @@ async function upsertThreadSkillProfiles(options: {
   const skillProfileIdByLocation = new Map<string, number>();
   for (const selection of uniqueSelections.values()) {
     const registryProfileId = selection.registryOption
-      ? registryProfileIdByRegistryId.get(selection.registryOption.id) ?? null
+      ? (registryProfileIdByRegistryId.get(selection.registryOption.id) ?? null)
       : null;
 
-    const skillProfile = await options.transaction.workspaceSkillProfile.upsert({
-      where: {
-        userId_location: {
+    const skillProfile = await options.transaction.workspaceSkillProfile.upsert(
+      {
+        where: {
+          userId_location: {
+            userId: options.userId,
+            location: selection.location,
+          },
+        },
+        create: {
           userId: options.userId,
+          registryProfileId,
+          name: selection.name,
           location: selection.location,
+          source: selection.source,
+        },
+        update: {
+          registryProfileId,
+          name: selection.name,
+          source: selection.source,
+        },
+        select: {
+          id: true,
+          location: true,
         },
       },
-      create: {
-        userId: options.userId,
-        registryProfileId,
-        name: selection.name,
-        location: selection.location,
-        source: selection.source,
-      },
-      update: {
-        registryProfileId,
-        name: selection.name,
-        source: selection.source,
-      },
-      select: {
-        id: true,
-        location: true,
-      },
-    });
+    );
 
     skillProfileIdByLocation.set(skillProfile.location, skillProfile.id);
   }
@@ -823,7 +847,10 @@ function readSkillRegistryOptionFromSkillLocation(
 }
 
 function readSkillSourceFromLocation(location: string): string {
-  const normalizedLocation = location.trim().replaceAll("\\", "/").toLowerCase();
+  const normalizedLocation = location
+    .trim()
+    .replaceAll("\\", "/")
+    .toLowerCase();
   if (!normalizedLocation) {
     return "workspace";
   }
@@ -939,7 +966,10 @@ function mapStoredThreadToSnapshot(value: {
       reasoningEffort: readThreadReasoningEffort(value.reasoningEffort),
       webSearchEnabled: value.webSearchEnabled === true,
       agentInstruction: value.instruction?.content ?? DEFAULT_AGENT_INSTRUCTION,
-      instructionContextToggles: readJsonValue(value.instructionContextTogglesJson, null),
+      instructionContextToggles: readJsonValue(
+        value.instructionContextTogglesJson,
+        null,
+      ),
       threadEnvironment: readJsonValue(value.threadEnvironmentJson, {}),
       messages: value.messages.map((message) => ({
         id: message.id,
@@ -1029,15 +1059,21 @@ export function isThreadRestorePayload(value: unknown): boolean {
 }
 
 function normalizeThreadName(value: string): string {
-  return value.trim().slice(0, HOME_THREAD_NAME_MAX_LENGTH);
+  return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
 }
 
-function readThreadReasoningEffort(value: string): ThreadSnapshot["reasoningEffort"] {
-  if (HOME_REASONING_EFFORT_OPTIONS.includes(value as ThreadSnapshot["reasoningEffort"])) {
+function readThreadReasoningEffort(
+  value: string,
+): ThreadSnapshot["reasoningEffort"] {
+  if (
+    REASONING_EFFORT_OPTIONS.includes(
+      value as ThreadSnapshot["reasoningEffort"],
+    )
+  ) {
     return value as ThreadSnapshot["reasoningEffort"];
   }
 
-  return HOME_DEFAULT_REASONING_EFFORT;
+  return DEFAULT_REASONING_EFFORT;
 }
 
 export async function readAuthenticatedUser(): Promise<{ id: number } | null> {
