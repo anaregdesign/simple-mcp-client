@@ -29,13 +29,13 @@ export default function Home() {
     isMainSplitterResizing,
     onMainSplitterPointerDown,
     isAzureAuthRequired,
-    homeTheme,
+    theme,
     unauthenticatedPanelProps,
     configPanelProps,
     playgroundPanelProps,
   } = useWorkspaceController();
 
-  const fluentTheme = homeTheme === "dark" ? webDarkTheme : webLightTheme;
+  const fluentTheme = theme === "dark" ? webDarkTheme : webLightTheme;
 
   if (isAzureAuthRequired) {
     return (

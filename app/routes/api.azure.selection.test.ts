@@ -64,7 +64,7 @@ describe("parseAzureSelectionPreference", () => {
     expect(result?.projectId).toBe("project-a");
     expect(result?.deploymentName).toBe("deploy-a");
     expect(result?.reasoningEffort).toBeNull();
-    expect(result?.homeTheme).toBeNull();
+    expect(result?.theme).toBeNull();
   });
 
   it("accepts utility target", () => {
@@ -80,13 +80,13 @@ describe("parseAzureSelectionPreference", () => {
       projectId: "project-b",
       deploymentName: "deploy-b",
       reasoningEffort: "medium",
-      homeTheme: null,
+      theme: null,
     });
   });
 
   it("accepts theme-only payload", () => {
     const result = parseAzureSelectionPreference({
-      homeTheme: "dark",
+      theme: "dark",
     });
 
     expect(result).toEqual({
@@ -94,7 +94,7 @@ describe("parseAzureSelectionPreference", () => {
       projectId: "",
       deploymentName: "",
       reasoningEffort: null,
-      homeTheme: "dark",
+      theme: "dark",
     });
   });
 
@@ -149,7 +149,7 @@ describe("/api/azure/selection", () => {
       azureSelection: {
         projectId: "project-a",
         deploymentName: "deploy-a",
-        homeTheme: "dark",
+        theme: "dark",
         utilityProjectId: "project-b",
         utilityDeploymentName: "deploy-b",
         utilityReasoningEffort: "medium",
@@ -160,7 +160,7 @@ describe("/api/azure/selection", () => {
     azureSelectionUpsertMock.mockResolvedValue({
       projectId: "project-a",
       deploymentName: "deploy-a",
-      homeTheme: "dark",
+      theme: "dark",
       utilityProjectId: "project-b",
       utilityDeploymentName: "deploy-b",
       utilityReasoningEffort: "medium",
@@ -234,7 +234,7 @@ describe("/api/azure/selection", () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          homeTheme: "dark",
+          theme: "dark",
         }),
       }),
     } as never);
@@ -243,7 +243,7 @@ describe("/api/azure/selection", () => {
     expect(azureSelectionUpsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({
-          homeTheme: "dark",
+          theme: "dark",
         }),
       }),
     );

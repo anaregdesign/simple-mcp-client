@@ -10,12 +10,12 @@ import type { HomeTheme } from "~/lib/home/shared/view-types";
 const { Select } = FluentUI;
 
 type AppearanceSectionProps = {
-  homeTheme: HomeTheme;
+  theme: HomeTheme;
   onHomeThemeChange: (nextTheme: HomeTheme) => void;
 };
 
 export function AppearanceSection(props: AppearanceSectionProps) {
-  const { homeTheme, onHomeThemeChange } = props;
+  const { theme, onHomeThemeChange } = props;
 
   return (
     <ConfigSection
@@ -31,7 +31,7 @@ export function AppearanceSection(props: AppearanceSectionProps) {
         <Select
           id="appearance-theme-select"
           aria-label="Theme"
-          value={homeTheme}
+          value={theme}
           onChange={(_, data) => {
             const nextTheme = data.value;
             if (nextTheme === "light" || nextTheme === "dark") {

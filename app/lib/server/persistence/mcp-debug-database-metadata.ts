@@ -40,7 +40,7 @@ export const databaseDebugTableDefinitions: DatabaseDebugTableDefinition[] = [
     tableName: "AzureSelectionPreference",
     toolName: "debug_read_azure_selection_preference_table",
     purpose:
-      "Stores last-used Azure project/deployment preferences and home theme per user.",
+      "Stores last-used Azure project/deployment preferences and theme per user.",
     accumulatesErrors: false,
     fields: [
       {
@@ -68,10 +68,10 @@ export const databaseDebugTableDefinitions: DatabaseDebugTableDefinition[] = [
         description: "Selected deployment name for chat execution.",
       },
       {
-        name: "homeTheme",
+        name: "theme",
         type: "TEXT",
         nullable: false,
-        description: "Selected Home theme value (light or dark).",
+        description: "Selected theme value (light or dark).",
       },
       {
         name: "utilityProjectId",
@@ -868,4 +868,3 @@ export const databaseDebugTableDefinitions: DatabaseDebugTableDefinition[] = [
     ],
   },
 ];
-

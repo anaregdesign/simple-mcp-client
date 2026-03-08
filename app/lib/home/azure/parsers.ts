@@ -34,7 +34,7 @@ export type AzurePrincipalProfile = {
 export type AzureSelectionPreference = {
   tenantId: string;
   principalId: string;
-  homeTheme: HomeTheme;
+  theme: HomeTheme;
   playground: AzureSelectionTargetPreference | null;
   utility: AzureUtilitySelectionTargetPreference | null;
 };
@@ -112,15 +112,15 @@ export function readAzureSelectionFromUnknown(
 
   const playground = readAzureSelectionTargetFromUnknown(value.playground);
   const utility = readAzureUtilitySelectionTargetFromUnknown(value.utility);
-  const homeTheme = readHomeThemeFromUnknown(value.homeTheme);
-  if (!playground && !utility && !homeTheme) {
+  const theme = readHomeThemeFromUnknown(value.theme);
+  if (!playground && !utility && !theme) {
     return null;
   }
 
   return {
     tenantId,
     principalId,
-    homeTheme: homeTheme ?? HOME_DEFAULT_THEME,
+    theme: theme ?? HOME_DEFAULT_THEME,
     playground,
     utility,
   };

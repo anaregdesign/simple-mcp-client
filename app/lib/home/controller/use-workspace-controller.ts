@@ -290,7 +290,7 @@ export function useWorkspaceController() {
   const [draftAttachments, setDraftAttachments] = useState<DraftChatAttachment[]>([]);
   const [chatAttachmentError, setChatAttachmentError] = useState<string | null>(null);
   const [activeMainTab, setActiveMainTab] = useState<MainViewTab>("threads");
-  const [homeTheme, setHomeTheme] = useState<HomeTheme>(HOME_DEFAULT_THEME);
+  const [theme, setHomeTheme] = useState<HomeTheme>(HOME_DEFAULT_THEME);
   const [selectedPlaygroundAzureConnectionId, setSelectedPlaygroundAzureConnectionId] = useState("");
   const [selectedPlaygroundAzureDeploymentName, setSelectedPlaygroundAzureDeploymentName] =
     useState("");
@@ -845,9 +845,9 @@ export function useWorkspaceController() {
   // Keep refs synchronized with state to avoid stale closures in async handlers.
   useEffect(() => {
     if (typeof document !== "undefined") {
-      document.documentElement.dataset.homeTheme = homeTheme;
+      document.documentElement.dataset.theme = theme;
     }
-  }, [homeTheme]);
+  }, [theme]);
 
   useEffect(() => {
     activeMainTabRef.current = activeMainTab;
@@ -3138,7 +3138,7 @@ export function useWorkspaceController() {
       hasIdentityScopedPreferredSelection
         ? {
             ...currentPreferredSelection,
-            homeTheme: currentPreferredSelection.homeTheme,
+            theme: currentPreferredSelection.theme,
             playground: currentPreferredSelection.playground
               ? { ...currentPreferredSelection.playground }
               : null,
@@ -3149,7 +3149,7 @@ export function useWorkspaceController() {
         : {
             tenantId: selection.tenantId,
             principalId: selection.principalId,
-            homeTheme,
+            theme,
             playground: null,
             utility: null,
           };
@@ -3168,7 +3168,7 @@ export function useWorkspaceController() {
     }
     preferredAzureSelectionRef.current = nextPreferredSelection;
     const persistedHomeTheme = hasIdentityScopedPreferredSelection
-      ? currentPreferredSelection.homeTheme
+      ? currentPreferredSelection.theme
       : null;
 
     try {
@@ -3181,7 +3181,7 @@ export function useWorkspaceController() {
           target: selection.target,
           projectId: selection.projectId,
           deploymentName: selection.deploymentName,
-          homeTheme: persistedHomeTheme,
+          theme: persistedHomeTheme,
           ...(selection.target === "utility"
             ? { reasoningEffort: selection.reasoningEffort }
             : {}),
@@ -3212,7 +3212,7 @@ export function useWorkspaceController() {
       currentPreferredSelection.principalId === principalId
         ? {
             ...currentPreferredSelection,
-            homeTheme: nextHomeTheme,
+            theme: nextHomeTheme,
             playground: currentPreferredSelection.playground
               ? { ...currentPreferredSelection.playground }
               : null,
@@ -3223,7 +3223,7 @@ export function useWorkspaceController() {
         : {
             tenantId,
             principalId,
-            homeTheme: nextHomeTheme,
+            theme: nextHomeTheme,
             playground: null,
             utility: null,
           };
@@ -3236,7 +3236,7 @@ export function useWorkspaceController() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          homeTheme: nextHomeTheme,
+          theme: nextHomeTheme,
         }),
       });
       if (!response.ok) {
@@ -3551,8 +3551,8 @@ export function useWorkspaceController() {
             };
           }
           preferredAzureSelectionRef.current = preferredSelection;
-          if (preferredSelection?.homeTheme) {
-            setHomeTheme(preferredSelection.homeTheme);
+          if (preferredSelection?.theme) {
+            setHomeTheme(preferredSelection.theme);
           }
           const preferredPlaygroundProjectId = preferredSelection?.playground?.projectId ?? "";
           const preferredUtilityProjectId = preferredSelection?.utility?.projectId ?? "";
@@ -3681,8 +3681,8 @@ export function useWorkspaceController() {
         };
       }
       preferredAzureSelectionRef.current = preferredSelection;
-      if (preferredSelection?.homeTheme) {
-        setHomeTheme(preferredSelection.homeTheme);
+      if (preferredSelection?.theme) {
+        setHomeTheme(preferredSelection.theme);
       }
       if (tenantId && principalId) {
         cacheAzureProjectCatalog({
@@ -5983,7 +5983,7 @@ export function useWorkspaceController() {
   // Panel prop composition for Client route rendering.
   const settingsTabProps = {
     appearanceSectionProps: {
-      homeTheme,
+      theme,
       onHomeThemeChange: (nextTheme: HomeTheme) => {
         setHomeTheme(nextTheme);
         void saveHomeThemePreference(nextTheme);
@@ -6291,7 +6291,7 @@ export function useWorkspaceController() {
     isMainSplitterResizing: activeResizeHandle === "main",
     onMainSplitterPointerDown: handleMainSplitterPointerDown,
     isAzureAuthRequired,
-    homeTheme,
+    theme,
     unauthenticatedPanelProps,
     configPanelProps: {
       activeMainTab,

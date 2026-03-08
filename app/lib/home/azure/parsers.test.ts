@@ -104,7 +104,7 @@ describe("readAzureSelectionFromUnknown", () => {
         {
           tenantId: " tenant-a ",
           principalId: " principal-a ",
-          homeTheme: "dark",
+          theme: "dark",
           playground: {
             projectId: " project-a ",
             deploymentName: " deploy-a ",
@@ -121,7 +121,7 @@ describe("readAzureSelectionFromUnknown", () => {
     ).toEqual({
       tenantId: "tenant-a",
       principalId: "principal-a",
-      homeTheme: "dark",
+      theme: "dark",
       playground: {
         projectId: "project-a",
         deploymentName: "deploy-a",
@@ -152,7 +152,7 @@ describe("readAzureSelectionFromUnknown", () => {
     ).toEqual({
       tenantId: "tenant-a",
       principalId: "principal-a",
-      homeTheme: "light",
+      theme: "light",
       playground: {
         projectId: "project-a",
         deploymentName: "deploy-a",
@@ -197,7 +197,7 @@ describe("readAzureSelectionFromUnknown", () => {
     ).toEqual({
       tenantId: "tenant-a",
       principalId: "principal-a",
-      homeTheme: "light",
+      theme: "light",
       playground: null,
       utility: {
         projectId: "project-a",
@@ -213,7 +213,7 @@ describe("readAzureSelectionFromUnknown", () => {
         {
           tenantId: "tenant-a",
           principalId: "principal-a",
-          homeTheme: "dark",
+          theme: "dark",
         },
         "tenant-a",
         "principal-a",
@@ -221,7 +221,7 @@ describe("readAzureSelectionFromUnknown", () => {
     ).toEqual({
       tenantId: "tenant-a",
       principalId: "principal-a",
-      homeTheme: "dark",
+      theme: "dark",
       playground: null,
       utility: null,
     });

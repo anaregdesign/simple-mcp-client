@@ -29,7 +29,7 @@ type AzureSelectionPreferencePayload = {
   projectId: string;
   deploymentName: string;
   reasoningEffort: ReasoningEffort | null;
-  homeTheme: HomeTheme | null;
+  theme: HomeTheme | null;
 };
 
 type AzureSelectionTarget = "playground" | "utility";
@@ -46,7 +46,7 @@ type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreference & {
 type AzureSelectionPreference = {
   tenantId: string;
   principalId: string;
-  homeTheme: HomeTheme;
+  theme: HomeTheme;
   playground: AzureSelectionTargetPreference | null;
   utility: AzureUtilitySelectionTargetPreference | null;
 };
@@ -161,12 +161,12 @@ export async function action({ request }: Route.ActionArgs) {
       level: "warning",
       statusCode: 422,
       message:
-        "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `homeTheme` only.",
+        "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `theme` only.",
     });
 
     return validationErrorResponse(
       "invalid_selection_payload",
-      "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `homeTheme` only.",
+      "Provide valid selection fields (`target`, `projectId`, `deploymentName`, and utility `reasoningEffort`) or `theme` only.",
     );
   }
 
@@ -198,7 +198,7 @@ export async function action({ request }: Route.ActionArgs) {
         projectId: preference.projectId,
         deploymentName: preference.deploymentName,
         reasoningEffort: preference.reasoningEffort,
-        homeTheme: preference.homeTheme,
+        theme: preference.theme,
       },
     });
 
@@ -222,7 +222,7 @@ export function parseAzureSelectionPreference(value: unknown): AzureSelectionPre
     typeof value.reasoningEffort === "string"
       ? readReasoningEffortFromUnknown(value.reasoningEffort)
       : null;
-  const homeTheme = readHomeThemeFromUnknown(value.homeTheme);
+  const theme = readHomeThemeFromUnknown(value.theme);
   const hasSelectionInput =
     value.target !== undefined ||
     value.projectId !== undefined ||
@@ -230,7 +230,7 @@ export function parseAzureSelectionPreference(value: unknown): AzureSelectionPre
     value.reasoningEffort !== undefined;
 
   if (!hasSelectionInput) {
-    if (!homeTheme) {
+    if (!theme) {
       return null;
     }
     return {
@@ -238,7 +238,7 @@ export function parseAzureSelectionPreference(value: unknown): AzureSelectionPre
       projectId: "",
       deploymentName: "",
       reasoningEffort: null,
-      homeTheme,
+      theme,
     };
   }
 
@@ -256,7 +256,7 @@ export function parseAzureSelectionPreference(value: unknown): AzureSelectionPre
     projectId,
     deploymentName,
     reasoningEffort,
-    homeTheme,
+    theme,
   };
 }
 
@@ -319,7 +319,7 @@ async function saveStoredSelection(
       userId: user.id,
       projectId: preference.target === "playground" ? preference.projectId : "",
       deploymentName: preference.target === "playground" ? preference.deploymentName : "",
-      homeTheme: preference.homeTheme ?? HOME_DEFAULT_THEME,
+      theme: preference.theme ?? HOME_DEFAULT_THEME,
       utilityProjectId: preference.target === "utility" ? preference.projectId : "",
       utilityDeploymentName: preference.target === "utility" ? preference.deploymentName : "",
       utilityReasoningEffort:
@@ -339,9 +339,9 @@ async function saveStoredSelection(
             utilityReasoningEffort: preference.reasoningEffort ?? "high",
           }
         : {}),
-      ...(preference.homeTheme
+      ...(preference.theme
         ? {
-            homeTheme: preference.homeTheme,
+            theme: preference.theme,
           }
         : {}),
     },
@@ -401,7 +401,7 @@ function mapSelectionRecord(
   selection: {
     projectId: string;
     deploymentName: string;
-    homeTheme: string;
+    theme: string;
     utilityProjectId: string;
     utilityDeploymentName: string;
     utilityReasoningEffort: string;
@@ -410,7 +410,7 @@ function mapSelectionRecord(
   return {
     tenantId: user.tenantId,
     principalId: user.principalId,
-    homeTheme: readHomeThemeFromUnknown(selection.homeTheme) ?? HOME_DEFAULT_THEME,
+    theme: readHomeThemeFromUnknown(selection.theme) ?? HOME_DEFAULT_THEME,
     playground: mapSelectionTarget(selection.projectId, selection.deploymentName),
     utility: mapUtilitySelectionTarget(
       selection.utilityProjectId,

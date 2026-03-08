@@ -99,7 +99,7 @@ async function ensureAzureSelectionSchema(prisma: PrismaClient): Promise<void> {
       "userId" INTEGER NOT NULL UNIQUE,
       "projectId" TEXT NOT NULL DEFAULT '',
       "deploymentName" TEXT NOT NULL DEFAULT '',
-      "homeTheme" TEXT NOT NULL DEFAULT 'light',
+      "theme" TEXT NOT NULL DEFAULT 'light',
       "utilityProjectId" TEXT NOT NULL DEFAULT '',
       "utilityDeploymentName" TEXT NOT NULL DEFAULT '',
       "utilityReasoningEffort" TEXT NOT NULL DEFAULT 'high',
@@ -110,14 +110,25 @@ async function ensureAzureSelectionSchema(prisma: PrismaClient): Promise<void> {
   const columns = (await prisma.$queryRawUnsafe<Array<{ name?: string }>>(
     `PRAGMA table_info("AzureSelectionPreference")`,
   )) ?? [];
-  const hasHomeThemeColumn = columns.some(
+  const hasThemeColumn = columns.some(
+    (column) => typeof column.name === "string" && column.name.trim().toLowerCase() === "theme",
+  );
+  const hasLegacyHomeThemeColumn = columns.some(
     (column) =>
       typeof column.name === "string" && column.name.trim().toLowerCase() === "hometheme",
   );
-  if (!hasHomeThemeColumn) {
+  if (!hasThemeColumn && hasLegacyHomeThemeColumn) {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "AzureSelectionPreference"
-      ADD COLUMN "homeTheme" TEXT NOT NULL DEFAULT 'light'
+      RENAME COLUMN "homeTheme" TO "theme"
+    `);
+    return;
+  }
+
+  if (!hasThemeColumn) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "AzureSelectionPreference"
+      ADD COLUMN "theme" TEXT NOT NULL DEFAULT 'light'
     `);
   }
 }
