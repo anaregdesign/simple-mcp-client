@@ -19,12 +19,13 @@ import {
   type SkillDiscoveryResult,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import { threadQueryService } from "~/lib/server/usecase/threads/thread-service";
-import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
+import type { AuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 
 type WorkspaceBootstrapOptions = {
   request: Request;
+  user: AuthenticatedWorkspaceUser;
 };
 
 type WorkspaceBootstrapData = {
@@ -57,12 +58,7 @@ export class WorkspaceBootstrapService {
       return null;
     }
 
-    const user = await getOrCreateUserByIdentity({
-      tenantId: tokenResult.tenantId,
-      principalId: tokenResult.principalId,
-    });
-
-    await mcpServerProfileService.ensureDefaultMcpServersForUser(user.id);
+    await mcpServerProfileService.ensureDefaultMcpServersForUser(options.user.id);
 
     const [
       principal,
@@ -81,13 +77,13 @@ export class WorkspaceBootstrapService {
         tokenResult.tenantId,
       ),
       azureSelectionService.readStoredSelection({
-        tenantId: tokenResult.tenantId,
-        principalId: tokenResult.principalId,
+        tenantId: options.user.tenantId,
+        principalId: options.user.principalId,
       }),
-      threadQueryService.readUserThreads(user.id),
-      mcpServerProfileService.readWorkspaceMcpServerProfiles(user.id),
+      threadQueryService.readUserThreads(options.user.id),
+      mcpServerProfileService.readWorkspaceMcpServerProfiles(options.user.id),
       workspaceSkillService.discoverWorkspaceSkills({
-        userId: user.id,
+        userId: options.user.id,
         forceRefresh: false,
       }),
     ]);
@@ -98,8 +94,8 @@ export class WorkspaceBootstrapService {
     );
 
     return {
-      tenantId: tokenResult.tenantId,
-      principalId: tokenResult.principalId,
+      tenantId: options.user.tenantId,
+      principalId: options.user.principalId,
       principal,
       azureProjects,
       azureTenants,

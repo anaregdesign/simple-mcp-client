@@ -1,4 +1,5 @@
 import { structuredAuthRequiredResponse, structuredErrorResponse, methodNotAllowedResponse, successResponse } from "~/lib/server/http";
+import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import { workspaceBootstrapService } from "~/lib/server/usecase/workspace/workspace-bootstrap-service";
 import {
   installGlobalServerErrorLogging,
@@ -15,8 +16,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     return methodNotAllowedResponse(WORKSPACE_BOOTSTRAP_ALLOWED_METHODS);
   }
 
+  const user = await readAuthenticatedWorkspaceUser();
+  if (!user) {
+    return structuredAuthRequiredResponse();
+  }
+
   try {
-    const data = await workspaceBootstrapService.loadWorkspaceBootstrap({ request });
+    const data = await workspaceBootstrapService.loadWorkspaceBootstrap({ request, user });
     if (!data) {
       return structuredAuthRequiredResponse();
     }
