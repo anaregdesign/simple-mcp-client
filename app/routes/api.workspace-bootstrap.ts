@@ -17,6 +17,9 @@ import {
   createWorkspaceSkillService,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import {
+  createAzureArmPagedFetchGateway,
+} from "~/lib/server/infrastructure/gateways/azure/arm-paged-fetch-gateway";
+import {
   createAzureArmAccessGateway,
 } from "~/lib/server/infrastructure/azure/arm-access-context";
 import {
@@ -56,7 +59,10 @@ const WORKSPACE_BOOTSTRAP_ALLOWED_METHODS = ["GET"] as const;
 function getWorkspaceBootstrapService() {
   return createWorkspaceBootstrapService({
     azureArmAccessGateway: createAzureArmAccessGateway(),
-    azureProjectQueryService: createAzureProjectQueryService(logServerRouteEvent),
+    azureProjectQueryService: createAzureProjectQueryService({
+      logEvent: logServerRouteEvent,
+      armPagedFetchGateway: createAzureArmPagedFetchGateway(),
+    }),
     azureSelectionService: createAzureSelectionService(
       createAzureSelectionPreferencePersistenceRepository(),
     ),

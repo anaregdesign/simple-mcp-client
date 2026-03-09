@@ -1,6 +1,8 @@
 /**
  * API route module for /api/azure/projects/:projectId/deployments.
  */
+import { parseProjectId } from "~/lib/contracts/api/azure-project-id";
+import { createAzureArmPagedFetchGateway } from "~/lib/server/infrastructure/gateways/azure/arm-paged-fetch-gateway";
 import {
   authRequiredResponse,
   errorResponse,
@@ -14,7 +16,6 @@ import {
 import {
   createAzureProjectQueryService,
   isLikelyAzureAuthError,
-  parseProjectId,
   readErrorMessage,
 } from "~/lib/server/usecase/azure/azure-project-service";
 import {
@@ -30,7 +31,10 @@ import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
 
 function getAzureProjectQueryService() {
-  return createAzureProjectQueryService(logServerRouteEvent);
+  return createAzureProjectQueryService({
+    logEvent: logServerRouteEvent,
+    armPagedFetchGateway: createAzureArmPagedFetchGateway(),
+  });
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {

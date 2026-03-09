@@ -11,12 +11,12 @@ import {
   buildChatExecutionSuccessLogContext,
 } from "~/lib/server/usecase/chat/chat-execution-log-context";
 import {
-  RequestCanceledError,
   buildUpstreamErrorMessage,
   buildUpstreamErrorPayload,
+  ChatCanceledError,
   createInitialChatMcpRuntimeMetrics,
   hasNonPdfAttachments,
-  isRequestCanceledError,
+  isChatCanceledError,
   isTransientNetworkTerminationError,
   runAgentWithTimeout,
   shouldRetryChatExecution,
@@ -558,24 +558,24 @@ describe("buildUpstreamErrorMessage", () => {
 
 describe("stream cancellation classification", () => {
   it("treats canceled requests as non-upstream failures", () => {
-    const canceledError = new RequestCanceledError();
-    expect(isRequestCanceledError(canceledError)).toBe(true);
+    const canceledError = new ChatCanceledError();
+    expect(isChatCanceledError(canceledError)).toBe(true);
     expect(
       buildUpstreamErrorPayload(canceledError, "gpt-5.2"),
     ).toEqual({
       payload: {
         code: "request_canceled",
-        error: "Request was canceled by client disconnect.",
+        error: "Chat execution was canceled by client disconnect.",
       },
       status: 499,
     });
   });
 
-  it("throws RequestCanceledError when abort signal is already canceled", () => {
+  it("throws ChatCanceledError when abort signal is already canceled", () => {
     const controller = new AbortController();
     controller.abort();
 
-    expect(() => throwIfAborted(controller.signal)).toThrow(RequestCanceledError);
+    expect(() => throwIfAborted(controller.signal)).toThrow(ChatCanceledError);
   });
 });
 

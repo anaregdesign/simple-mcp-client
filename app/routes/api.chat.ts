@@ -115,6 +115,9 @@ import {
   type RunStreamProgressEvent,
 } from "~/lib/server/infrastructure/gateways/chat/run-stream-progress";
 import {
+  createCodeInterpreterContainerWithAttachments,
+} from "~/lib/server/infrastructure/gateways/chat/code-interpreter-attachment-gateway";
+import {
   resolveThreadDirectoryContext,
   resolveThreadDirectoryPath,
 } from "~/lib/server/infrastructure/gateways/chat/thread-directory-context";
@@ -148,11 +151,11 @@ import {
   type UpstreamErrorPayload,
   buildUpstreamErrorMessage as buildUpstreamErrorMessageUsecase,
   buildUpstreamErrorPayload as buildUpstreamErrorPayloadUsecase,
+  isChatCanceledError as isChatCanceledErrorUsecase,
   createInitialChatMcpRuntimeMetrics as createInitialChatMcpRuntimeMetricsUsecase,
   executeChat as executeChatUsecase,
   executeChatWithTransientRetry as executeChatWithTransientRetryUsecase,
   hasNonPdfAttachments as hasNonPdfAttachmentsUsecase,
-  isRequestCanceledError as isRequestCanceledErrorUsecase,
   isTransientNetworkTerminationError as isTransientNetworkTerminationErrorUsecase,
   runAgentWithTimeout as runAgentWithTimeoutUsecase,
   shouldRetryChatExecution as shouldRetryChatExecutionUsecase,
@@ -279,6 +282,7 @@ const chatExecutionDependencies = {
   buildAgentRunContext,
   readProgressEventFromRunStreamEvent,
   cleanupChatRuntime,
+  createCodeInterpreterContainerWithAttachments,
 };
 
 export function loader({}: Route.LoaderArgs) {
@@ -503,7 +507,7 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         context: buildChatExecutionSuccessLogContext(options, result),
       });
     } catch (error) {
-      if (signal.aborted || isRequestCanceledError(error)) {
+      if (signal.aborted || isChatCanceledError(error)) {
         await logServerRouteEvent({
           route: "/api/chat",
           eventName: "chat_stream_canceled",
@@ -1802,8 +1806,8 @@ function buildUpstreamErrorPayload(
   return buildUpstreamErrorPayloadUsecase(error, deploymentName);
 }
 
-function isRequestCanceledError(error: unknown): boolean {
-  return isRequestCanceledErrorUsecase(error);
+function isChatCanceledError(error: unknown): boolean {
+  return isChatCanceledErrorUsecase(error);
 }
 
 function buildUpstreamErrorMessage(

@@ -13,7 +13,6 @@ import {
   OpenAIResponsesModel,
   codeInterpreterTool,
 } from "@openai/agents-openai";
-import { toFile } from "openai";
 import {
   CHAT_CLEANUP_TIMEOUT_MS,
   CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
@@ -37,8 +36,6 @@ import type {
   ActiveSkillRuntimeEntry,
   SkillRuntimeContext,
 } from "~/lib/server/usecase/chat/skill-runtime-types";
-
-type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 const chatTransientTerminationRetryMaxAttempts = 2;
 const chatTransientTerminationRetryDelayMs = 250;
@@ -383,12 +380,16 @@ export type ChatExecutionDependencies = {
     ) => Promise<T>;
     cleanupTimeoutMs: number;
   }) => Promise<void>;
+  createCodeInterpreterContainerWithAttachments: (
+    attachments: ClientAttachment[],
+    client: AzureOpenAIClient,
+  ) => Promise<string>;
 };
 
-export class RequestCanceledError extends Error {
-  constructor(message = "Request was canceled.") {
+export class ChatCanceledError extends Error {
+  constructor(message = "Chat execution was canceled.") {
     super(message);
-    this.name = "RequestCanceledError";
+    this.name = "ChatCanceledError";
   }
 }
 
@@ -640,7 +641,7 @@ export async function executeChat(
           });
           try {
             codeInterpreterContainerId =
-              await createCodeInterpreterContainerWithAttachments(
+              await dependencies.createCodeInterpreterContainerWithAttachments(
                 nonPdfAttachments,
                 azureOpenAIClient,
               );
@@ -944,86 +945,6 @@ function collectNonPdfAttachments(
   return [...dedupedByKey.values()];
 }
 
-async function createCodeInterpreterContainerWithAttachments(
-  attachments: ClientAttachment[],
-  client: AzureOpenAIClient,
-): Promise<string> {
-  const container = await awaitWithTimeout(
-    client.containers.create({
-      name: "local-playground-chat",
-    }),
-    CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
-    "Timed out while creating a Code Interpreter container.",
-  );
-  const containerId =
-    typeof container.id === "string" ? container.id.trim() : "";
-  if (!containerId) {
-    throw new Error("Failed to initialize a Code Interpreter container.");
-  }
-
-  try {
-    for (const attachment of attachments) {
-      const parsedAttachmentDataUrl = parseAttachmentDataUrl(
-        attachment.dataUrl,
-        `attachments[\"${attachment.name}\"].dataUrl`,
-      );
-      if (!parsedAttachmentDataUrl.ok) {
-        throw new Error(parsedAttachmentDataUrl.error);
-      }
-
-      const base64Payload = readDataUrlBase64Payload(
-        parsedAttachmentDataUrl.value.dataUrl,
-      );
-      const attachmentBuffer = Buffer.from(base64Payload, "base64");
-      const normalizedMimeType =
-        attachment.mimeType ||
-        parsedAttachmentDataUrl.value.mimeType ||
-        "application/octet-stream";
-      const file = await toFile(attachmentBuffer, attachment.name, {
-        type: normalizedMimeType,
-      });
-      try {
-        await awaitWithTimeout(
-          client.containers.files.create(containerId, { file }),
-          CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
-          `Timed out while uploading \"${attachment.name}\" to Code Interpreter.`,
-        );
-      } catch (error) {
-        throw buildCodeInterpreterAttachmentUploadError(attachment.name, error);
-      }
-    }
-
-    return containerId;
-  } catch (error) {
-    try {
-      await client.containers.delete(containerId);
-    } catch {
-      // Best-effort cleanup when attachment upload fails.
-    }
-    throw error;
-  }
-}
-
-function buildCodeInterpreterAttachmentUploadError(
-  fileName: string,
-  error: unknown,
-): Error {
-  const message = readErrorMessage(error);
-  if (
-    /unsupported extension/i.test(message) ||
-    /invalid filename/i.test(message) ||
-    /filename contains an invalid filename/i.test(message)
-  ) {
-    return new Error(
-      `Code Interpreter rejected \"${fileName}\" on this deployment. ${message}`,
-    );
-  }
-
-  return new Error(
-    `Failed to upload attachment \"${fileName}\" for Code Interpreter: ${message}`,
-  );
-}
-
 function readCodeInterpreterAttachmentAvailabilityCache(): CodeInterpreterAttachmentAvailabilityCache | null {
   const cache = codeInterpreterAttachmentAvailabilityCache;
   if (!cache) {
@@ -1204,15 +1125,6 @@ function createResilientCompactionSession(
   };
 }
 
-function readDataUrlBase64Payload(dataUrl: string): string {
-  const match = /^data:[^,]*,([\s\S]*)$/i.exec(dataUrl.trim());
-  if (!match) {
-    return "";
-  }
-
-  return (match[1] ?? "").replace(/\s+/g, "");
-}
-
 function buildAttachmentKey(attachment: ClientAttachment): string {
   return `${attachment.name}\u0000${attachment.sizeBytes}\u0000${attachment.dataUrl}`;
 }
@@ -1220,83 +1132,6 @@ function buildAttachmentKey(attachment: ClientAttachment): string {
 function readFileExtension(fileName: string): string {
   const parts = fileName.toLowerCase().split(".");
   return parts.length > 1 ? parts[parts.length - 1] : "";
-}
-
-function parseAttachmentDataUrl(
-  rawDataUrl: unknown,
-  pathLabel: string,
-): ParseResult<{
-  dataUrl: string;
-  mimeType: string;
-  sizeBytes: number;
-}> {
-  if (typeof rawDataUrl !== "string") {
-    return { ok: false, error: `\`${pathLabel}\` must be a string.` };
-  }
-
-  const dataUrl = rawDataUrl.trim();
-  if (!dataUrl) {
-    return { ok: false, error: `\`${pathLabel}\` is required.` };
-  }
-
-  const dataUrlMatch = /^data:([^,]*),([\s\S]*)$/i.exec(dataUrl);
-  if (!dataUrlMatch) {
-    return {
-      ok: false,
-      error: `\`${pathLabel}\` must be a valid data URL.`,
-    };
-  }
-
-  const metadata = (dataUrlMatch[1] ?? "").trim();
-  const payload = (dataUrlMatch[2] ?? "").trim();
-  if (!payload) {
-    return { ok: false, error: `\`${pathLabel}\` must include data.` };
-  }
-
-  const metadataParts = metadata
-    .split(";")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-  const hasBase64 = metadataParts.some(
-    (part) => part.toLowerCase() === "base64",
-  );
-  if (!hasBase64) {
-    return {
-      ok: false,
-      error: `\`${pathLabel}\` must use base64 encoding.`,
-    };
-  }
-
-  const normalizedBase64 = payload.replace(/\s+/g, "");
-  if (
-    normalizedBase64.length === 0 ||
-    normalizedBase64.length % 4 !== 0 ||
-    !/^[A-Za-z0-9+/]+={0,2}$/.test(normalizedBase64)
-  ) {
-    return {
-      ok: false,
-      error: `\`${pathLabel}\` contains invalid base64 data.`,
-    };
-  }
-
-  const sizeBytes = Buffer.from(normalizedBase64, "base64").byteLength;
-  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
-    return {
-      ok: false,
-      error: `\`${pathLabel}\` is empty.`,
-    };
-  }
-
-  const rawMimeType = metadataParts[0]?.toLowerCase() ?? "";
-  const mimeType = rawMimeType && rawMimeType !== "base64" ? rawMimeType : "";
-  return {
-    ok: true,
-    value: {
-      dataUrl,
-      mimeType,
-      sizeBytes,
-    },
-  };
 }
 
 async function awaitWithTimeout<T>(
@@ -1369,7 +1204,7 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
     return;
   }
 
-  throw new RequestCanceledError();
+  throw new ChatCanceledError();
 }
 
 export function buildUpstreamErrorPayload(
@@ -1379,11 +1214,11 @@ export function buildUpstreamErrorPayload(
   payload: UpstreamErrorPayload;
   status: number;
 } {
-  if (isRequestCanceledError(error)) {
+  if (isChatCanceledError(error)) {
     return {
       payload: {
         code: "request_canceled",
-        error: "Request was canceled by client disconnect.",
+        error: "Chat execution was canceled by client disconnect.",
       },
       status: 499,
     };
@@ -1408,14 +1243,15 @@ export function buildUpstreamErrorPayload(
   };
 }
 
-export function isRequestCanceledError(error: unknown): boolean {
-  if (error instanceof RequestCanceledError) {
+export function isChatCanceledError(error: unknown): boolean {
+  if (error instanceof ChatCanceledError) {
     return true;
   }
 
   return (
     error instanceof Error &&
-    (error.name === "AbortError" || error.message === "Request was canceled.")
+    (error.name === "AbortError" ||
+      error.message === "Chat execution was canceled.")
   );
 }
 

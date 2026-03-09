@@ -1,6 +1,7 @@
 /**
  * API route module for /api/azure/projects.
  */
+import { createAzureArmPagedFetchGateway } from "~/lib/server/infrastructure/gateways/azure/arm-paged-fetch-gateway";
 import {
   createAzureProjectQueryService,
   isLikelyAzureAuthError,
@@ -39,7 +40,10 @@ const AZURE_PROJECTS_ALLOWED_METHODS = ["GET"] as const;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
 
 function getAzureProjectQueryService() {
-  return createAzureProjectQueryService(logServerRouteEvent);
+  return createAzureProjectQueryService({
+    logEvent: logServerRouteEvent,
+    armPagedFetchGateway: createAzureArmPagedFetchGateway(),
+  });
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

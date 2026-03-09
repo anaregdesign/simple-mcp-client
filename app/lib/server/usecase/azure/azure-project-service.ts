@@ -2,8 +2,16 @@
  * Azure project query service module.
  */
 import {
+  createProjectId,
+  type AzureProjectRef,
+} from "~/lib/contracts/api/azure-project-id";
+import {
   normalizeAzureOpenAIBaseURL,
 } from "~/lib/server/usecase/azure/azure-openai-url";
+import type {
+  AzureArmPagedFetchGateway,
+  AzureArmPagedFetchLogEvent,
+} from "~/lib/domain/repositories/azure-arm-paged-fetch-gateway";
 import {
   AZURE_COGNITIVE_API_VERSION,
   AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
@@ -19,17 +27,6 @@ import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
-
-type AzureProjectEventLogger = (input: {
-  route: string;
-  eventName: string;
-  action: string;
-  level?: "info" | "warning" | "error";
-  statusCode?: number;
-  message?: string;
-  error?: unknown;
-  context?: unknown;
-}) => Promise<void>;
 
 export type AzureProject = {
   id: string;
@@ -47,17 +44,6 @@ export type AzureTenant = {
   tenantId: string;
   displayName: string;
   defaultDomain: string;
-};
-
-export type AzureProjectRef = {
-  subscriptionId: string;
-  resourceGroup: string;
-  accountName: string;
-};
-
-type ArmPagedResponse<T> = {
-  value?: T[];
-  nextLink?: string;
 };
 
 type ArmSubscription = {
@@ -107,13 +93,18 @@ type ModelCapabilities = {
 
 export class AzureProjectQueryService {
   constructor(
-    private readonly logEvent: AzureProjectEventLogger,
+    private readonly logEvent: AzureArmPagedFetchLogEvent,
+    private readonly armPagedFetchGateway: AzureArmPagedFetchGateway,
   ) {}
 
   async loadAzureProjectsWithFallback(
     accessToken: string,
   ): Promise<AzureProject[]> {
-    return loadAzureProjectsWithFallback(accessToken, this.logEvent);
+    return loadAzureProjectsWithFallback(
+      accessToken,
+      this.logEvent,
+      this.armPagedFetchGateway,
+    );
   }
 
   async loadAzureTenantsWithFallback(
@@ -124,6 +115,7 @@ export class AzureProjectQueryService {
       accessToken,
       activeTenantId,
       this.logEvent,
+      this.armPagedFetchGateway,
     );
   }
 
@@ -131,22 +123,34 @@ export class AzureProjectQueryService {
     accessToken: string,
     projectRef: AzureProjectRef,
   ): Promise<AzureDeployment[]> {
-    return listProjectDeployments(accessToken, projectRef, this.logEvent);
+    return listProjectDeployments(
+      accessToken,
+      projectRef,
+      this.logEvent,
+      this.armPagedFetchGateway,
+    );
   }
 }
 
 export function createAzureProjectQueryService(
-  logEvent: AzureProjectEventLogger,
+  options: {
+    logEvent: AzureArmPagedFetchLogEvent;
+    armPagedFetchGateway: AzureArmPagedFetchGateway;
+  },
 ): AzureProjectQueryService {
-  return new AzureProjectQueryService(logEvent);
+  return new AzureProjectQueryService(
+    options.logEvent,
+    options.armPagedFetchGateway,
+  );
 }
 
 async function loadAzureProjectsWithFallback(
   accessToken: string,
-  logEvent: AzureProjectEventLogger,
+  logEvent: AzureArmPagedFetchLogEvent,
+  armPagedFetchGateway: AzureArmPagedFetchGateway,
 ): Promise<AzureProject[]> {
   try {
-    return await listAzureProjects(accessToken, logEvent);
+    return await listAzureProjects(accessToken, logEvent, armPagedFetchGateway);
   } catch (error) {
     await logEvent({
       route: AZURE_PROJECTS_ROUTE,
@@ -165,10 +169,16 @@ async function loadAzureProjectsWithFallback(
 async function loadAzureTenantsWithFallback(
   accessToken: string,
   activeTenantId: string,
-  logEvent: AzureProjectEventLogger,
+  logEvent: AzureArmPagedFetchLogEvent,
+  armPagedFetchGateway: AzureArmPagedFetchGateway,
 ): Promise<AzureTenant[]> {
   try {
-    return await listAzureTenants(accessToken, activeTenantId, logEvent);
+    return await listAzureTenants(
+      accessToken,
+      activeTenantId,
+      logEvent,
+      armPagedFetchGateway,
+    );
   } catch (error) {
     await logEvent({
       route: AZURE_PROJECTS_ROUTE,
@@ -195,14 +205,15 @@ async function loadAzureTenantsWithFallback(
 
 export async function listAzureProjects(
   accessToken: string,
-  logEvent: AzureProjectEventLogger,
+  logEvent: AzureArmPagedFetchLogEvent,
+  armPagedFetchGateway: AzureArmPagedFetchGateway,
 ): Promise<AzureProject[]> {
-  const subscriptions = await fetchArmPaged<ArmSubscription>(
-    `https://management.azure.com/subscriptions?api-version=${AZURE_SUBSCRIPTIONS_API_VERSION}`,
+  const subscriptions = await armPagedFetchGateway.fetchPaged<ArmSubscription>({
+    url: `https://management.azure.com/subscriptions?api-version=${AZURE_SUBSCRIPTIONS_API_VERSION}`,
     accessToken,
-    AZURE_MAX_SUBSCRIPTIONS,
+    maxItems: AZURE_MAX_SUBSCRIPTIONS,
     logEvent,
-  );
+  });
 
   const enabledSubscriptionIds = subscriptions
     .map((subscription) => {
@@ -234,12 +245,12 @@ export async function listAzureProjects(
       ): Promise<Array<AzureProject & { resourceGroup: string }>> => {
         let accounts: ArmCognitiveAccount[];
         try {
-          accounts = await fetchArmPaged<ArmCognitiveAccount>(
-            `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/providers/Microsoft.CognitiveServices/accounts?api-version=${AZURE_COGNITIVE_API_VERSION}`,
+          accounts = await armPagedFetchGateway.fetchPaged<ArmCognitiveAccount>({
+            url: `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/providers/Microsoft.CognitiveServices/accounts?api-version=${AZURE_COGNITIVE_API_VERSION}`,
             accessToken,
-            AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
+            maxItems: AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
             logEvent,
-          );
+          });
         } catch (error) {
           await logEvent({
             route: AZURE_PROJECTS_ROUTE,
@@ -337,16 +348,17 @@ export async function listAzureProjects(
 export async function listAzureTenants(
   accessToken: string,
   activeTenantId: string,
-  logEvent: AzureProjectEventLogger,
+  logEvent: AzureArmPagedFetchLogEvent,
+  armPagedFetchGateway: AzureArmPagedFetchGateway,
   abortSignal?: AbortSignal,
 ): Promise<AzureTenant[]> {
-  const discovered = await fetchArmPaged<ArmTenant>(
-    `https://management.azure.com/tenants?api-version=${AZURE_TENANTS_API_VERSION}`,
+  const discovered = await armPagedFetchGateway.fetchPaged<ArmTenant>({
+    url: `https://management.azure.com/tenants?api-version=${AZURE_TENANTS_API_VERSION}`,
     accessToken,
-    AZURE_MAX_TENANTS,
+    maxItems: AZURE_MAX_TENANTS,
     logEvent,
     abortSignal,
-  );
+  });
 
   const tenantsById = new Map<string, AzureTenant>();
   for (const tenant of discovered) {
@@ -405,17 +417,23 @@ export async function listAzureTenants(
 export async function listProjectDeployments(
   accessToken: string,
   projectRef: AzureProjectRef,
-  logEvent: AzureProjectEventLogger,
+  logEvent: AzureArmPagedFetchLogEvent,
+  armPagedFetchGateway: AzureArmPagedFetchGateway,
 ): Promise<AzureDeployment[]> {
   const { subscriptionId, resourceGroup, accountName } = projectRef;
-  const deployments = await fetchArmPaged<ArmCognitiveDeployment>(
-    `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/deployments?api-version=${AZURE_COGNITIVE_API_VERSION}`,
+  const deployments = await armPagedFetchGateway.fetchPaged<ArmCognitiveDeployment>({
+    url: `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/deployments?api-version=${AZURE_COGNITIVE_API_VERSION}`,
     accessToken,
-    AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT,
+    maxItems: AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT,
     logEvent,
-  );
+  });
 
-  const accountModels = await listAccountModels(accessToken, projectRef, logEvent);
+  const accountModels = await listAccountModels(
+    accessToken,
+    projectRef,
+    logEvent,
+    armPagedFetchGateway,
+  );
   const modelCapabilities = buildModelCapabilitiesMap(accountModels);
 
   const deploymentsByName = new Map<string, AzureDeployment>();
@@ -474,16 +492,17 @@ export async function listProjectDeployments(
 async function listAccountModels(
   accessToken: string,
   projectRef: AzureProjectRef,
-  logEvent: AzureProjectEventLogger,
+  logEvent: AzureArmPagedFetchLogEvent,
+  armPagedFetchGateway: AzureArmPagedFetchGateway,
 ): Promise<ArmAccountModel[]> {
   const { subscriptionId, resourceGroup, accountName } = projectRef;
   try {
-    return await fetchArmPaged<ArmAccountModel>(
-      `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/models?api-version=${AZURE_COGNITIVE_API_VERSION}`,
+    return await armPagedFetchGateway.fetchPaged<ArmAccountModel>({
+      url: `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/models?api-version=${AZURE_COGNITIVE_API_VERSION}`,
       accessToken,
-      AZURE_MAX_MODELS_PER_ACCOUNT,
+      maxItems: AZURE_MAX_MODELS_PER_ACCOUNT,
       logEvent,
-    );
+    });
   } catch (error) {
     await logEvent({
       route: AZURE_PROJECTS_ROUTE,
@@ -851,39 +870,6 @@ function createModelKey(modelName: string, modelVersion: string): string {
   return `${modelName}::${modelVersion}`;
 }
 
-function createProjectId(projectRef: AzureProjectRef): string {
-  const raw = JSON.stringify(projectRef);
-  return Buffer.from(raw, "utf8").toString("base64url");
-}
-
-export function parseProjectId(projectId: string): AzureProjectRef | null {
-  try {
-    const decoded = Buffer.from(projectId, "base64url").toString("utf8");
-    const parsed = JSON.parse(decoded) as unknown;
-    if (!isRecord(parsed)) {
-      return null;
-    }
-
-    const subscriptionId =
-      typeof parsed.subscriptionId === "string"
-        ? parsed.subscriptionId.trim()
-        : "";
-    const resourceGroup =
-      typeof parsed.resourceGroup === "string"
-        ? parsed.resourceGroup.trim()
-        : "";
-    const accountName =
-      typeof parsed.accountName === "string" ? parsed.accountName.trim() : "";
-    if (!subscriptionId || !resourceGroup || !accountName) {
-      return null;
-    }
-
-    return { subscriptionId, resourceGroup, accountName };
-  } catch {
-    return null;
-  }
-}
-
 function isAzureOpenAIProject(account: ArmCognitiveAccount): boolean {
   const kind =
     typeof account.kind === "string" ? account.kind.toLowerCase() : "";
@@ -917,103 +903,6 @@ function readArmTenantId(tenant: ArmTenant): string {
   return match?.[1]?.trim() ?? "";
 }
 
-async function fetchArmPaged<T>(
-  url: string,
-  accessToken: string,
-  maxItems: number,
-  logEvent: AzureProjectEventLogger,
-  abortSignal?: AbortSignal,
-): Promise<T[]> {
-  const items: T[] = [];
-  let nextUrl = url;
-  let pageNumber = 0;
-
-  while (nextUrl && items.length < maxItems) {
-    pageNumber += 1;
-    const requestStartedAtMs = Date.now();
-
-    let response: Response;
-    try {
-      response = await fetch(nextUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        signal: abortSignal,
-      });
-    } catch (error) {
-      await logEvent({
-        route: AZURE_PROJECTS_ROUTE,
-        eventName: "azure_arm_api_call_failed",
-        action: "fetch_arm_page",
-        level: "warning",
-        message: "Azure ARM API call failed before response.",
-        error,
-        context: {
-          requestUrl: summarizeUrlForLog(nextUrl),
-          durationMs: Date.now() - requestStartedAtMs,
-          pageNumber,
-        },
-      });
-      throw error;
-    }
-
-    const payload = (await response
-      .json()
-      .catch(() => null)) as ArmPagedResponse<T> | null;
-    const requestDurationMs = Date.now() - requestStartedAtMs;
-    if (!response.ok) {
-      await logEvent({
-        route: AZURE_PROJECTS_ROUTE,
-        eventName: "azure_arm_api_call_failed",
-        action: "fetch_arm_page",
-        level: "warning",
-        statusCode: response.status,
-        message: "Azure ARM API call failed.",
-        context: {
-          requestUrl: summarizeUrlForLog(nextUrl),
-          durationMs: requestDurationMs,
-          pageNumber,
-          statusText: response.statusText || null,
-          armErrorMessage: readArmErrorMessage(payload) || null,
-        },
-      });
-      throw new Error(
-        readArmErrorMessage(payload) ||
-          response.statusText ||
-          "Azure ARM request failed.",
-      );
-    }
-
-    const pageItems = Array.isArray(payload?.value) ? payload.value : [];
-    const hasNextLink =
-      typeof payload?.nextLink === "string" && payload.nextLink.length > 0;
-
-    await logEvent({
-      route: AZURE_PROJECTS_ROUTE,
-      eventName: "azure_arm_api_call_succeeded",
-      action: "fetch_arm_page",
-      level: "info",
-      statusCode: response.status,
-      message: "Azure ARM API call succeeded.",
-      context: {
-        requestUrl: summarizeUrlForLog(nextUrl),
-        durationMs: requestDurationMs,
-        pageNumber,
-        pageItemCount: pageItems.length,
-        hasNextLink,
-      },
-    });
-
-    const remaining = maxItems - items.length;
-    items.push(...pageItems.slice(0, remaining));
-
-    nextUrl = typeof payload?.nextLink === "string" ? payload.nextLink : "";
-  }
-
-  return items;
-}
-
 async function mapWithConcurrency<TItem, TResult>(
   items: TItem[],
   concurrency: number,
@@ -1041,32 +930,6 @@ async function mapWithConcurrency<TItem, TResult>(
   );
 
   return results;
-}
-
-function readArmErrorMessage(payload: unknown): string {
-  if (!isRecord(payload)) {
-    return "";
-  }
-
-  const errorValue = payload.error;
-  if (!isRecord(errorValue)) {
-    return "";
-  }
-
-  const message = errorValue.message;
-  return typeof message === "string" ? message : "";
-}
-
-function summarizeUrlForLog(rawUrl: string): string {
-  try {
-    const parsed = new URL(rawUrl);
-    const apiVersion = parsed.searchParams.get("api-version");
-    return apiVersion
-      ? `${parsed.origin}${parsed.pathname}?api-version=${apiVersion}`
-      : `${parsed.origin}${parsed.pathname}`;
-  } catch {
-    return rawUrl.slice(0, 512);
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

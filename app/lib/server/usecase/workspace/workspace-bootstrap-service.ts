@@ -1,3 +1,4 @@
+import { parseProjectId } from "~/lib/contracts/api/azure-project-id";
 import {
   type AzureArmAccessGateway,
   type AzurePrincipalProfile,
@@ -6,7 +7,6 @@ import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } f
 import type { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
 import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
 import {
-  parseProjectId,
   type AzureProjectQueryService,
   type AzureDeployment,
   type AzureProject,
