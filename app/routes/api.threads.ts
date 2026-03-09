@@ -2,13 +2,6 @@
  * API route module for /api/threads.
  */
 import {
-  createThreadApplicationService,
-  createThreadQueryService,
-} from "~/lib/server/usecase/threads/thread-service";
-import {
-  createThreadPersistenceRepository,
-} from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
-import {
   authRequiredResponse,
   methodNotAllowedResponse,
 } from "~/lib/server/http";
@@ -20,17 +13,12 @@ import {
   handleThreadCollectionAction,
   handleThreadCollectionLoader,
 } from "~/lib/server/http/threads/thread-collection-action";
+import {
+  createThreadServicesWithInfrastructure,
+} from "~/lib/server/infrastructure/threads/thread-service-factory";
 import type { Route } from "./+types/api.threads";
 
 const THREADS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
-
-function getThreadServices() {
-  const repository = createThreadPersistenceRepository();
-  return {
-    threadApplicationService: createThreadApplicationService(repository),
-    threadQueryService: createThreadQueryService(repository),
-  };
-}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -47,7 +35,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return await handleThreadCollectionLoader({
     request,
     userId: user.id,
-    threadQueryService: getThreadServices().threadQueryService,
+    threadQueryService: createThreadServicesWithInfrastructure().threadQueryService,
   });
 }
 
@@ -66,6 +54,7 @@ export async function action({ request }: Route.ActionArgs) {
   return await handleThreadCollectionAction({
     request,
     userId: user.id,
-    threadApplicationService: getThreadServices().threadApplicationService,
+    threadApplicationService:
+      createThreadServicesWithInfrastructure().threadApplicationService,
   });
 }

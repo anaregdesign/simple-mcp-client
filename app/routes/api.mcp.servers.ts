@@ -7,26 +7,17 @@ import {
 } from "~/lib/server/http";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
-  createMcpServerProfileService,
-} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
-import {
-  createWorkspaceMcpServerProfilePersistenceRepository,
-} from "~/lib/server/infrastructure/repositories/workspace-mcp-server-profile-persistence-repository";
-import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   handleMcpServerCollectionAction,
   handleMcpServerCollectionLoader,
 } from "~/lib/server/http/mcp/mcp-server-collection-action";
+import {
+  createMcpServerProfileServiceWithInfrastructure,
+} from "~/lib/server/infrastructure/mcp/mcp-server-profile-service-factory";
 import type { Route } from "./+types/api.mcp.servers";
 const MCP_SERVERS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
-
-function getMcpServerProfileService() {
-  return createMcpServerProfileService(
-    createWorkspaceMcpServerProfilePersistenceRepository(),
-  );
-}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -43,7 +34,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return handleMcpServerCollectionLoader({
     request,
     userId: user.id,
-    mcpServerProfileService: getMcpServerProfileService(),
+    mcpServerProfileService: createMcpServerProfileServiceWithInfrastructure(),
   });
 }
 
@@ -62,6 +53,6 @@ export async function action({ request }: Route.ActionArgs) {
   return handleMcpServerCollectionAction({
     request,
     userId: user.id,
-    mcpServerProfileService: getMcpServerProfileService(),
+    mcpServerProfileService: createMcpServerProfileServiceWithInfrastructure(),
   });
 }

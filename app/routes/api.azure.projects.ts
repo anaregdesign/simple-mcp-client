@@ -1,9 +1,7 @@
 /**
  * API route module for /api/azure/projects.
  */
-import { createAzureArmPagedFetchGateway } from "~/lib/server/infrastructure/gateways/azure/arm-paged-fetch-gateway";
 import {
-  createAzureProjectQueryService,
   isLikelyAzureAuthError,
   parseReasoningEffortOptionsFromString,
   resolveReasoningEffortOptionsByModelName,
@@ -16,8 +14,10 @@ import {
 } from "~/lib/server/http/azure/azure-project-collection-loader";
 import {
   installGlobalServerErrorLogging,
-  logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  createAzureProjectQueryServiceWithInfrastructure,
+} from "~/lib/server/infrastructure/azure/azure-service-factory";
 import type { Route } from "./+types/api.azure.projects";
 
 export {
@@ -27,17 +27,10 @@ export {
   resolveReasoningEffortOptionsByModelName,
 };
 
-function getAzureProjectQueryService() {
-  return createAzureProjectQueryService({
-    logEvent: logServerRouteEvent,
-    armPagedFetchGateway: createAzureArmPagedFetchGateway(),
-  });
-}
-
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
   return handleAzureProjectCollectionLoader({
     request,
-    azureProjectQueryService: getAzureProjectQueryService(),
+    azureProjectQueryService: createAzureProjectQueryServiceWithInfrastructure(),
   });
 }

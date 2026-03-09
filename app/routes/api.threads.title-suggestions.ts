@@ -3,9 +3,6 @@
  */
 import type { Route } from "./+types/api.threads.title-suggestions";
 import {
-  createThreadTitleGenerationGateway,
-} from "~/lib/server/infrastructure/gateways/chat/thread-title-generation-gateway";
-import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
@@ -13,12 +10,8 @@ import {
   handleThreadTitleSuggestionLoader,
 } from "~/lib/server/http/threads/thread-title-suggestion-action";
 import {
-  createThreadTitleSuggestionService,
-} from "~/lib/server/usecase/threads/thread-title-suggestion-service";
-
-function getThreadTitleSuggestionService() {
-  return createThreadTitleSuggestionService(createThreadTitleGenerationGateway());
-}
+  createThreadTitleSuggestionServiceWithInfrastructure,
+} from "~/lib/server/infrastructure/threads/thread-service-factory";
 
 export function loader({}: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -31,6 +24,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   return handleThreadTitleSuggestionAction({
     request,
-    threadTitleSuggestionService: getThreadTitleSuggestionService(),
+    threadTitleSuggestionService:
+      createThreadTitleSuggestionServiceWithInfrastructure(),
   });
 }
