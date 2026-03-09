@@ -2,7 +2,7 @@ import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependen
 import {
   readAzureArmUserContext,
   type AzurePrincipalType,
-} from "~/lib/server/auth/azure-user";
+} from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import {
   AZURE_ARM_SCOPE,
   AZURE_GRAPH_SCOPE,

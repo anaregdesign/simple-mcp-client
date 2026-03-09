@@ -2,7 +2,7 @@ import nodeOs from "node:os";
 import {
   readAzureArmUserContext,
   type AzurePrincipalType,
-} from "~/lib/server/auth/azure-user";
+} from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import {
   readLatestThreadNameForInstruction,
   readPlaygroundSelectionForInstruction,

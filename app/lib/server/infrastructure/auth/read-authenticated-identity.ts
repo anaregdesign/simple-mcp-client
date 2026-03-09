@@ -1,4 +1,4 @@
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
+import { readAzureArmUserContext } from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 
 export type AuthenticatedIdentity = {
   tenantId: string;

@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   readAzureArmUserContext,
   getOrCreateUserByIdentity,
-  findMany,
-  createMany,
-  deleteMany,
-  transaction,
+  createMcpServerProfileService,
+  ensureDefaultMcpServersForUser,
+  readWorkspaceMcpServerProfiles,
+  writeWorkspaceMcpServerProfiles,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAzureArmUserContext: vi.fn(async () => ({
@@ -21,14 +21,14 @@ const {
     tenantId: "tenant-a",
     principalId: "principal-a",
   })),
-  findMany: vi.fn(async () => []),
-  createMany: vi.fn(async () => ({ count: 0 })),
-  deleteMany: vi.fn(async () => ({ count: 0 })),
-  transaction: vi.fn(async (..._args: unknown[]) => undefined),
+  createMcpServerProfileService: vi.fn(),
+  ensureDefaultMcpServersForUser: vi.fn(async () => undefined),
+  readWorkspaceMcpServerProfiles: vi.fn(async () => []),
+  writeWorkspaceMcpServerProfiles: vi.fn(async () => undefined),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
+vi.mock("~/lib/server/infrastructure/auth/azure-arm-user-context", () => ({
   readAzureArmUserContext,
 }));
 
@@ -36,17 +36,22 @@ vi.mock("~/lib/server/infrastructure/persistence/user", () => ({
   getOrCreateUserByIdentity,
 }));
 
-vi.mock("~/lib/server/infrastructure/persistence/prisma", () => ({
-  ensurePersistenceDatabaseReady: vi.fn(async () => undefined),
-  prisma: {
-    workspaceMcpServerProfile: {
-      findMany,
-      createMany,
-      deleteMany,
-    },
-    $transaction: transaction,
-  },
-}));
+vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/lib/server/usecase/mcp/mcp-server-profile-service")
+  >("~/lib/server/usecase/mcp/mcp-server-profile-service");
+
+  return {
+    ...actual,
+    createMcpServerProfileService: createMcpServerProfileService.mockReturnValue(
+      {
+        ensureDefaultMcpServersForUser,
+        readWorkspaceMcpServerProfiles,
+        writeWorkspaceMcpServerProfiles,
+      },
+    ),
+  };
+});
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
   installGlobalServerErrorLogging: vi.fn(),
@@ -68,28 +73,13 @@ describe("/api/mcp/servers collection", () => {
       tenantId: "tenant-a",
       principalId: "principal-a",
     });
-    findMany.mockReset();
-    findMany.mockResolvedValue([]);
-    createMany.mockReset();
-    createMany.mockResolvedValue({ count: 0 });
-    deleteMany.mockReset();
-    deleteMany.mockResolvedValue({ count: 0 });
-    transaction.mockReset();
-    transaction.mockImplementation(async (...args: unknown[]) => {
-      const callback = args[0] as (tx: {
-        workspaceMcpServerProfile: {
-          createMany: typeof createMany;
-          deleteMany: typeof deleteMany;
-        };
-      }) => Promise<unknown>;
-      await callback({
-        workspaceMcpServerProfile: {
-          createMany,
-          deleteMany,
-        },
-      });
-      return undefined;
-    });
+    createMcpServerProfileService.mockClear();
+    ensureDefaultMcpServersForUser.mockReset();
+    ensureDefaultMcpServersForUser.mockResolvedValue(undefined);
+    readWorkspaceMcpServerProfiles.mockReset();
+    readWorkspaceMcpServerProfiles.mockResolvedValue([]);
+    writeWorkspaceMcpServerProfiles.mockReset();
+    writeWorkspaceMcpServerProfiles.mockResolvedValue(undefined);
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
   });
@@ -100,10 +90,9 @@ describe("/api/mcp/servers collection", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(findMany).toHaveBeenCalledTimes(2);
-    expect(transaction).toHaveBeenCalledTimes(1);
-    expect(deleteMany).toHaveBeenCalledTimes(1);
-    expect(createMany).toHaveBeenCalledTimes(1);
+    expect(createMcpServerProfileService).toHaveBeenCalledTimes(1);
+    expect(ensureDefaultMcpServersForUser).toHaveBeenCalledTimes(1);
+    expect(readWorkspaceMcpServerProfiles).toHaveBeenCalledTimes(1);
   });
 
   it("returns 405 with Allow for unsupported loader methods", async () => {

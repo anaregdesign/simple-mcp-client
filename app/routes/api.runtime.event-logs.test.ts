@@ -15,7 +15,7 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
+vi.mock("~/lib/server/infrastructure/auth/azure-arm-user-context", () => ({
   readAzureArmUserContext: readAzureArmUserContextMock,
 }));
 

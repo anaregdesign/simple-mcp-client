@@ -10,7 +10,7 @@ import {
   readPrincipalNameFromAccessToken,
   readPrincipalTypeFromAccessToken,
   readTenantIdFromAccessToken,
-} from "~/lib/server/auth/azure-user";
+} from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import {
   getArmAccessToken,
   isLikelyAzureAuthError,

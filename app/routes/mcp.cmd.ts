@@ -13,7 +13,7 @@ import {
   MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
 } from "~/lib/constants/mcp";
 import { resolveWorkspaceThreadDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
+import { readAzureArmUserContext } from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
