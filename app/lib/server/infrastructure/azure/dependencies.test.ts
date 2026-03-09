@@ -319,6 +319,41 @@ describe("createAzureDependencies", () => {
     expect(getToken.mock.calls[1]).toEqual(["scope-b", { tenantId: "tenant-b" }]);
   });
 
+  it("keeps generic interactive login fast when the immediate token exchange still needs silent retry", async () => {
+    const scopeAToken = createAzureAccessToken({
+      tid: "tenant-a",
+      oid: "principal-a",
+      tokenUse: "scope-a",
+    });
+    const getToken = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "AuthenticationRequiredError: Automatic authentication has been disabled. You may call the authentication() method.",
+        ),
+      )
+      .mockResolvedValueOnce({
+        token: scopeAToken,
+        expiresOnTimestamp: Date.now() + 120_000,
+      });
+    const authenticate = vi.fn(async () => undefined);
+    const createCredential = vi.fn(() => ({ getToken, authenticate }));
+
+    const dependencies = createAzureDependencies({
+      createCredential: createCredential as never,
+      createOpenAIClient: vi.fn(() => ({}) as never),
+    });
+
+    await expect(dependencies.authenticateAzure("scope-a")).resolves.toBeUndefined();
+    const token = await dependencies.getAzureBearerToken("scope-a", "tenant-a");
+
+    expect(token).toBe(scopeAToken);
+    expect(authenticate).toHaveBeenCalledWith("scope-a");
+    expect(createCredential).toHaveBeenCalledTimes(1);
+    expect(getToken).toHaveBeenCalledTimes(2);
+    expect(getToken.mock.calls[1]).toEqual(["scope-a", { tenantId: "tenant-a" }]);
+  });
+
   it("rejects ARM token when requested tenant and tid do not match", async () => {
     const getToken = vi.fn(async () => ({
       token: createAzureAccessToken({

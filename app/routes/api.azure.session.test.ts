@@ -8,11 +8,7 @@ const {
   endSession,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
-  startSession: vi.fn(async () => ({
-    tenantId: "tenant-a",
-    principalId: "principal-a",
-    userId: 10,
-  })),
+  startSession: vi.fn(async () => undefined),
   endSession: vi.fn(),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
@@ -34,11 +30,7 @@ import { action, loader } from "./api.azure.session";
 describe("/api/azure/session", () => {
   beforeEach(() => {
     startSession.mockReset();
-    startSession.mockResolvedValue({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-      userId: 10,
-    });
+    startSession.mockResolvedValue(undefined);
     endSession.mockReset();
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
@@ -75,12 +67,6 @@ describe("/api/azure/session", () => {
   });
 
   it("passes requested tenantId to the session service", async () => {
-    startSession.mockResolvedValueOnce({
-      tenantId: "tenant-b",
-      principalId: "principal-b",
-      userId: 11,
-    });
-
     const response = await action({
       request: new Request("http://localhost/api/azure/session", {
         method: "PUT",
