@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ClientSkillSelection } from "~/lib/server/chat/request-parser";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   readSkillFrontmatter,
   readSkillMarkdown,
@@ -31,7 +31,7 @@ export type SkillRuntimeContext = {
 };
 
 export async function buildSkillRuntimeContext(
-  selectedSkills: ClientSkillSelection[],
+  selectedSkills: ThreadSkillActivation[],
   options: {
     explicitSkillLocations?: string[];
   } = {},

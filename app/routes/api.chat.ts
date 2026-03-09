@@ -84,7 +84,7 @@ import {
   readThreadEnvironment,
   readWebSearchEnabled,
   type ClientMcpServerConfig,
-} from "~/lib/server/chat/request-parser";
+} from "~/lib/server/infrastructure/gateways/chat/request-parser";
 import { logChatRequestValidationError } from "~/lib/server/infrastructure/gateways/chat/request-validation-log";
 import { readSkillMarkdown } from "~/lib/server/skills/catalog";
 import {

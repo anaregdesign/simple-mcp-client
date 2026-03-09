@@ -7,7 +7,7 @@ import {
   parseChatRequest,
   parseChatRequestPayload,
   type ParsedChatRequest,
-} from "~/lib/server/chat/request-parser";
+} from "~/lib/server/infrastructure/gateways/chat/request-parser";
 
 function buildValidPayload(): Record<string, unknown> {
   return {
