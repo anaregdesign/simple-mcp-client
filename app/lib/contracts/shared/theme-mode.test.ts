@@ -2,7 +2,7 @@
  * Test module verifying Home theme preference parsing behavior.
  */
 import { describe, expect, it } from "vitest";
-import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
+import { readThemeModeFromUnknown } from "~/lib/domain/value-objects/theme-mode";
 
 describe("readThemeModeFromUnknown", () => {
   it("accepts light and dark values", () => {

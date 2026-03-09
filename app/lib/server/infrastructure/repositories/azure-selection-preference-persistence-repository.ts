@@ -9,7 +9,7 @@ import type {
   AzureSelectionPreferenceRepository,
 } from "~/lib/domain/repositories/azure-selection-preference-repository";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
+import { readThemeModeFromUnknown } from "~/lib/domain/value-objects/theme-mode";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
