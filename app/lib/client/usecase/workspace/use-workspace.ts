@@ -253,6 +253,7 @@ import {
   type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
 import {
+  createMcpProfileHandlers,
   createInstructionEditingHandlers,
   createSkillSelectionHandlers,
   createThreadLifecycleHandlers,
@@ -1597,8 +1598,7 @@ export function useWorkspace() {
       }
 
       const parsedServers = result.profiles;
-      workspaceMcpServerProfilesRef.current = parsedServers;
-      setWorkspaceMcpServerProfiles(parsedServers);
+      applyWorkspaceMcpServerProfiles(parsedServers);
       setWorkspaceMcpServerProfileError(null);
     } catch (loadError) {
       if (requestSeq !== workspaceMcpServerProfileRequestSeqRef.current) {
@@ -1810,10 +1810,14 @@ export function useWorkspace() {
     clearWorkspaceMcpServerProfileLoginRetryTimeout();
     setEditingMcpServerId("");
     setIsDeletingWorkspaceMcpServerProfile(false);
-    workspaceMcpServerProfilesRef.current = [];
-    setWorkspaceMcpServerProfiles([]);
+    applyWorkspaceMcpServerProfiles([]);
     setWorkspaceMcpServerProfileError(nextError);
     setIsLoadingWorkspaceMcpServerProfiles(false);
+  }
+
+  function applyWorkspaceMcpServerProfiles(profiles: McpServerConfig[]) {
+    workspaceMcpServerProfilesRef.current = profiles;
+    setWorkspaceMcpServerProfiles(profiles);
   }
 
   function resetMcpServerFormInputs() {
@@ -3901,15 +3905,13 @@ export function useWorkspace() {
 
     const profiles = result.profiles;
     if (profiles.length > 0) {
-      workspaceMcpServerProfilesRef.current = profiles;
-      setWorkspaceMcpServerProfiles(profiles);
+      applyWorkspaceMcpServerProfiles(profiles);
     } else {
       const nextWorkspaceMcpServerProfiles = upsertMcpServer(
         workspaceMcpServerProfilesRef.current,
         profile,
       );
-      workspaceMcpServerProfilesRef.current = nextWorkspaceMcpServerProfiles;
-      setWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
+      applyWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
     }
 
     return {
@@ -4458,114 +4460,6 @@ export function useWorkspace() {
     }
   }
 
-  function handleReloadWorkspaceMcpServerProfiles() {
-    setWorkspaceMcpServerProfileError(null);
-    void loadWorkspaceMcpServerProfiles();
-  }
-
-  function handleCancelMcpServerEdit() {
-    clearMcpServerEditState();
-    setWorkspaceMcpServerProfileError(null);
-  }
-
-  function handleEditWorkspaceMcpServerProfile(serverIdRaw: string) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      setWorkspaceMcpServerProfileError(
-        "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-      );
-      return;
-    }
-
-    const serverId = serverIdRaw.trim();
-    if (!serverId) {
-      return;
-    }
-
-    const selected = workspaceMcpServerProfiles.find(
-      (server) => server.id === serverId,
-    );
-    if (!selected) {
-      setWorkspaceMcpServerProfileError(
-        "Selected MCP server is not available.",
-      );
-      return;
-    }
-
-    setEditingMcpServerId(serverId);
-    populateMcpServerFormForEdit(selected);
-    setMcpFormError(null);
-    setMcpFormWarning(null);
-    setWorkspaceMcpServerProfileError(null);
-  }
-
-  async function handleDeleteWorkspaceMcpServerProfile(serverIdRaw: string) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      setWorkspaceMcpServerProfileError(
-        "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-      );
-      return;
-    }
-
-    if (isDeletingWorkspaceMcpServerProfile) {
-      return;
-    }
-
-    const serverId = serverIdRaw.trim();
-    if (!serverId) {
-      return;
-    }
-
-    const selected = workspaceMcpServerProfiles.find(
-      (server) => server.id === serverId,
-    );
-    if (!selected) {
-      setWorkspaceMcpServerProfileError(
-        "Selected MCP server is not available.",
-      );
-      return;
-    }
-
-    setIsDeletingWorkspaceMcpServerProfile(true);
-    setWorkspaceMcpServerProfileError(null);
-
-    try {
-      const nextWorkspaceMcpServerProfiles =
-        await deleteWorkspaceMcpServerProfileFromConfig(serverId);
-      workspaceMcpServerProfilesRef.current = nextWorkspaceMcpServerProfiles;
-      setWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
-
-      const deletedKey = buildMcpServerKey(selected);
-      const activeId = activeThreadIdRef.current.trim();
-      if (activeId) {
-        updateThreadStateById(activeId, (thread) => ({
-          ...thread,
-          mcpServers: thread.mcpServers.filter(
-            (server) => buildMcpServerKey(server) !== deletedKey,
-          ),
-        }));
-      }
-
-      if (editingMcpServerId === serverId) {
-        clearMcpServerEditState();
-      }
-    } catch (deleteError) {
-      logClientError("delete_mcp_server_failed", deleteError, {
-        action: "delete_saved_mcp_server",
-        context: {
-          serverId,
-          serverName: selected.name,
-        },
-      });
-      setWorkspaceMcpServerProfileError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Failed to delete MCP server.",
-      );
-    } finally {
-      setIsDeletingWorkspaceMcpServerProfile(false);
-    }
-  }
-
   function handleReloadSkills() {
     const now = Date.now();
     if (
@@ -4595,6 +4489,33 @@ export function useWorkspace() {
     setSelectedMessageSkillActivations,
     setSkillsError,
     updateSkillRegistrySkill,
+  });
+
+  const {
+    handleReloadWorkspaceMcpServerProfiles,
+    handleCancelMcpServerEdit,
+    handleEditWorkspaceMcpServerProfile,
+    handleDeleteWorkspaceMcpServerProfile,
+    handleToggleWorkspaceMcpServerProfile,
+    handleRemoveMcpServer,
+  } = createMcpProfileHandlers({
+    isArchivedThread,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
+    readEditingMcpServerId: () => editingMcpServerId,
+    isDeletingWorkspaceMcpServerProfile,
+    setWorkspaceMcpServerProfileError,
+    loadWorkspaceMcpServerProfiles,
+    clearMcpServerEditState,
+    setEditingMcpServerId,
+    populateMcpServerFormForEdit,
+    setMcpFormError,
+    setMcpFormWarning,
+    setIsDeletingWorkspaceMcpServerProfile,
+    applyWorkspaceMcpServerProfiles,
+    deleteWorkspaceMcpServerProfileFromConfig,
+    updateThreadStateById,
+    logClientError,
   });
 
   function handleSelectActiveChatCommandSuggestion(suggestionIdRaw: string) {
@@ -5520,69 +5441,6 @@ export function useWorkspace() {
     }
     setEditingMcpServerId("");
     resetMcpServerFormInputs();
-  }
-
-  function handleToggleWorkspaceMcpServerProfile(serverIdRaw: string) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      setWorkspaceMcpServerProfileError(
-        "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-      );
-      return;
-    }
-
-    const serverId = serverIdRaw.trim();
-    if (!serverId) {
-      return;
-    }
-
-    const selected = workspaceMcpServerProfiles.find(
-      (server) => server.id === serverId,
-    );
-    if (!selected) {
-      setWorkspaceMcpServerProfileError(
-        "Selected MCP server is not available.",
-      );
-      return;
-    }
-
-    const selectedKey = buildMcpServerKey(selected);
-    const activeId = activeThreadIdRef.current.trim();
-    if (!activeId) {
-      return;
-    }
-    updateThreadStateById(activeId, (thread) => {
-      const alreadyConnected = thread.mcpServers.some(
-        (server) => buildMcpServerKey(server) === selectedKey,
-      );
-      if (alreadyConnected) {
-        return {
-          ...thread,
-          mcpServers: thread.mcpServers.filter(
-            (server) => buildMcpServerKey(server) !== selectedKey,
-          ),
-        };
-      }
-
-      return {
-        ...thread,
-        mcpServers: [...thread.mcpServers, selected],
-      };
-    });
-    setWorkspaceMcpServerProfileError(null);
-  }
-
-  function handleRemoveMcpServer(id: string) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-    const activeId = activeThreadIdRef.current.trim();
-    if (!activeId) {
-      return;
-    }
-    updateThreadStateById(activeId, (thread) => ({
-      ...thread,
-      mcpServers: thread.mcpServers.filter((server) => server.id !== id),
-    }));
   }
 
   async function handleApplyDesktopUpdate() {

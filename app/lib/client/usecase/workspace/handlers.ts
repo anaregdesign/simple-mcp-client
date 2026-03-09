@@ -13,6 +13,10 @@ import type {
   SkillRegistryCatalog,
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
+import {
+  buildMcpServerKey,
+  type McpServerConfig,
+} from "~/lib/contracts/mcp/profile";
 import type {
   ThreadInstructionContextToggles,
   ThreadInstructionContextToggleKey,
@@ -154,6 +158,46 @@ export type SkillSelectionHandlers = {
   handleAddThreadSkill: (locationRaw: string) => void;
   handleRemoveThreadSkill: (locationRaw: string) => void;
   handleToggleThreadSkill: (locationRaw: string) => void;
+};
+
+type McpProfileHandlerDependencies = {
+  isArchivedThread: (threadIdRaw: string) => boolean;
+  readActiveThreadId: () => string;
+  readWorkspaceMcpServerProfiles: () => McpServerConfig[];
+  readEditingMcpServerId: () => string;
+  isDeletingWorkspaceMcpServerProfile: boolean;
+  setWorkspaceMcpServerProfileError: (value: string | null) => void;
+  loadWorkspaceMcpServerProfiles: () => Promise<void>;
+  clearMcpServerEditState: () => void;
+  setEditingMcpServerId: (value: string) => void;
+  populateMcpServerFormForEdit: (server: McpServerConfig) => void;
+  setMcpFormError: (value: string | null) => void;
+  setMcpFormWarning: (value: string | null) => void;
+  setIsDeletingWorkspaceMcpServerProfile: (value: boolean) => void;
+  applyWorkspaceMcpServerProfiles: (profiles: McpServerConfig[]) => void;
+  deleteWorkspaceMcpServerProfileFromConfig: (
+    serverId: string,
+  ) => Promise<McpServerConfig[]>;
+  updateThreadStateById: (
+    threadId: string,
+    updater: (current: ThreadState) => ThreadState,
+  ) => void;
+  logClientError: (
+    eventName: string,
+    error: unknown,
+    options?: ThreadLogOptions,
+  ) => void;
+};
+
+export type McpProfileHandlers = {
+  handleReloadWorkspaceMcpServerProfiles: () => void;
+  handleCancelMcpServerEdit: () => void;
+  handleEditWorkspaceMcpServerProfile: (serverIdRaw: string) => void;
+  handleDeleteWorkspaceMcpServerProfile: (
+    serverIdRaw: string,
+  ) => Promise<void>;
+  handleToggleWorkspaceMcpServerProfile: (serverIdRaw: string) => void;
+  handleRemoveMcpServer: (id: string) => void;
 };
 
 type InstructionEditingHandlerDependencies = {
@@ -881,6 +925,185 @@ export function createSkillSelectionHandlers(
         };
       });
       deps.setSkillsError(null);
+    },
+  };
+}
+
+export function createMcpProfileHandlers(
+  deps: McpProfileHandlerDependencies,
+): McpProfileHandlers {
+  return {
+    handleReloadWorkspaceMcpServerProfiles() {
+      deps.setWorkspaceMcpServerProfileError(null);
+      void deps.loadWorkspaceMcpServerProfiles();
+    },
+
+    handleCancelMcpServerEdit() {
+      deps.clearMcpServerEditState();
+      deps.setWorkspaceMcpServerProfileError(null);
+    },
+
+    handleEditWorkspaceMcpServerProfile(serverIdRaw: string) {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        deps.setWorkspaceMcpServerProfileError(
+          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
+        );
+        return;
+      }
+
+      const serverId = serverIdRaw.trim();
+      if (!serverId) {
+        return;
+      }
+
+      const selected = deps
+        .readWorkspaceMcpServerProfiles()
+        .find((server) => server.id === serverId);
+      if (!selected) {
+        deps.setWorkspaceMcpServerProfileError(
+          "Selected MCP server is not available.",
+        );
+        return;
+      }
+
+      deps.setEditingMcpServerId(serverId);
+      deps.populateMcpServerFormForEdit(selected);
+      deps.setMcpFormError(null);
+      deps.setMcpFormWarning(null);
+      deps.setWorkspaceMcpServerProfileError(null);
+    },
+
+    async handleDeleteWorkspaceMcpServerProfile(serverIdRaw: string) {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        deps.setWorkspaceMcpServerProfileError(
+          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
+        );
+        return;
+      }
+
+      if (deps.isDeletingWorkspaceMcpServerProfile) {
+        return;
+      }
+
+      const serverId = serverIdRaw.trim();
+      if (!serverId) {
+        return;
+      }
+
+      const selected = deps
+        .readWorkspaceMcpServerProfiles()
+        .find((server) => server.id === serverId);
+      if (!selected) {
+        deps.setWorkspaceMcpServerProfileError(
+          "Selected MCP server is not available.",
+        );
+        return;
+      }
+
+      deps.setIsDeletingWorkspaceMcpServerProfile(true);
+      deps.setWorkspaceMcpServerProfileError(null);
+
+      try {
+        const nextWorkspaceMcpServerProfiles =
+          await deps.deleteWorkspaceMcpServerProfileFromConfig(serverId);
+        deps.applyWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
+
+        const deletedKey = buildMcpServerKey(selected);
+        const activeId = deps.readActiveThreadId().trim();
+        if (activeId) {
+          deps.updateThreadStateById(activeId, (thread) => ({
+            ...thread,
+            mcpServers: thread.mcpServers.filter(
+              (server) => buildMcpServerKey(server) !== deletedKey,
+            ),
+          }));
+        }
+
+        if (deps.readEditingMcpServerId().trim() === serverId) {
+          deps.clearMcpServerEditState();
+        }
+      } catch (deleteError) {
+        deps.logClientError("delete_mcp_server_failed", deleteError, {
+          action: "delete_saved_mcp_server",
+          context: {
+            serverId,
+            serverName: selected.name,
+          },
+        });
+        deps.setWorkspaceMcpServerProfileError(
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Failed to delete MCP server.",
+        );
+      } finally {
+        deps.setIsDeletingWorkspaceMcpServerProfile(false);
+      }
+    },
+
+    handleToggleWorkspaceMcpServerProfile(serverIdRaw: string) {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        deps.setWorkspaceMcpServerProfileError(
+          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
+        );
+        return;
+      }
+
+      const serverId = serverIdRaw.trim();
+      if (!serverId) {
+        return;
+      }
+
+      const selected = deps
+        .readWorkspaceMcpServerProfiles()
+        .find((server) => server.id === serverId);
+      if (!selected) {
+        deps.setWorkspaceMcpServerProfileError(
+          "Selected MCP server is not available.",
+        );
+        return;
+      }
+
+      const selectedKey = buildMcpServerKey(selected);
+      const activeId = deps.readActiveThreadId().trim();
+      if (!activeId) {
+        return;
+      }
+
+      deps.updateThreadStateById(activeId, (thread) => {
+        const alreadyConnected = thread.mcpServers.some(
+          (server) => buildMcpServerKey(server) === selectedKey,
+        );
+        if (alreadyConnected) {
+          return {
+            ...thread,
+            mcpServers: thread.mcpServers.filter(
+              (server) => buildMcpServerKey(server) !== selectedKey,
+            ),
+          };
+        }
+
+        return {
+          ...thread,
+          mcpServers: [...thread.mcpServers, selected],
+        };
+      });
+      deps.setWorkspaceMcpServerProfileError(null);
+    },
+
+    handleRemoveMcpServer(id: string) {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        return;
+      }
+
+      const activeId = deps.readActiveThreadId().trim();
+      if (!activeId) {
+        return;
+      }
+
+      deps.updateThreadStateById(activeId, (thread) => ({
+        ...thread,
+        mcpServers: thread.mcpServers.filter((server) => server.id !== id),
+      }));
     },
   };
 }
