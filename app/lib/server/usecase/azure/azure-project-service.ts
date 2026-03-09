@@ -16,7 +16,7 @@ import {
   AZURE_TENANTS_API_VERSION,
 } from "~/lib/constants/azure";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
-import { logServerRouteEvent } from "~/lib/server/observability/runtime-event-log";
+import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;

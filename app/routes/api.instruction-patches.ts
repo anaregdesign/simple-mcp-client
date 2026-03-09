@@ -10,7 +10,7 @@ import {
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
-} from "~/lib/server/observability/runtime-event-log";
+} from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   errorResponse,
   invalidJsonResponse,

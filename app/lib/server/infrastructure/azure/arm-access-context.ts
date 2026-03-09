@@ -7,7 +7,7 @@ import {
   AZURE_ARM_SCOPE,
   AZURE_GRAPH_SCOPE,
 } from "~/lib/constants/azure";
-import { logServerRouteEvent } from "~/lib/server/observability/runtime-event-log";
+import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";

@@ -11,7 +11,7 @@ import {
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
-} from "~/lib/server/observability/runtime-event-log";
+} from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   createWorkspaceSkillRegistryMutationGateway,
 } from "~/lib/server/infrastructure/gateways/skills/skill-registry-gateway";

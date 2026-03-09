@@ -1,7 +1,7 @@
 /**
  * Runtime event log application service module.
  */
-import { readRuntimeEventLogByIdForUser } from "~/lib/server/observability/runtime-event-log";
+import { readRuntimeEventLogByIdForUser } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { AuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 
 export type RuntimeEventLogReadResult =

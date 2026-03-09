@@ -2,7 +2,7 @@
  * Server chat request validation log helpers.
  */
 import type { ChatRequestValidationError } from "~/lib/server/infrastructure/gateways/chat/request-parser";
-import { logServerRouteEvent } from "~/lib/server/observability/runtime-event-log";
+import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 
 const CHAT_ROUTE_PATH = "/api/chat";
 

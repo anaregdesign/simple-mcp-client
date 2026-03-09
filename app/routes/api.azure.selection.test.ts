@@ -21,7 +21,7 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
 }));

@@ -12,7 +12,7 @@ import {
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
-} from "~/lib/server/observability/runtime-event-log";
+} from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { Route } from "./+types/api.runtime.event-logs.$eventLogId";
 
 const RUNTIME_EVENT_LOG_ITEM_ALLOWED_METHODS = ["GET"] as const;

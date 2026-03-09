@@ -18,7 +18,7 @@ import {
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
-} from "~/lib/server/observability/runtime-event-log";
+} from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { Route } from "./+types/api.workspace-skill-profiles";
 
 const WORKSPACE_SKILL_PROFILES_ALLOWED_METHODS = ["GET", "PUT"] as const;

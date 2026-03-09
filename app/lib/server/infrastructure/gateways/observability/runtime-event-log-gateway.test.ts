@@ -22,7 +22,7 @@ import {
   logRuntimeEvent,
   logRuntimeEventWithId,
   logServerRouteEvent,
-} from "./runtime-event-log";
+} from "./runtime-event-log-gateway";
 
 describe("logRuntimeEvent", () => {
   beforeEach(() => {
@@ -192,7 +192,7 @@ describe("readRuntimeEventLogByIdForUser", () => {
       },
     });
 
-    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log");
+    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log-gateway");
     const eventLog = await readRuntimeEventLogByIdForUser({
       eventLogId: "event-1",
       tenantId: "tenant-a",
@@ -212,7 +212,7 @@ describe("readRuntimeEventLogByIdForUser", () => {
   });
 
   it("returns null when event log id is blank", async () => {
-    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log");
+    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log-gateway");
     const eventLog = await readRuntimeEventLogByIdForUser({
       eventLogId: "   ",
       tenantId: "tenant-a",
@@ -225,7 +225,7 @@ describe("readRuntimeEventLogByIdForUser", () => {
   });
 
   it("returns null when event log is not found", async () => {
-    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log");
+    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log-gateway");
     const eventLog = await readRuntimeEventLogByIdForUser({
       eventLogId: "missing",
       tenantId: "tenant-a",
