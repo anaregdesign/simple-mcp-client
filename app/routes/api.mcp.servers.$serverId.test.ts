@@ -45,11 +45,11 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
   createMcpServerProfileService: createMcpServerProfileService.mockReturnValue({
     readWorkspaceMcpServerProfiles,
+    deleteWorkspaceMcpServerProfile,
+    mergeDefaultWorkspaceMcpServerProfiles,
+    upsertWorkspaceMcpServerProfile,
     writeWorkspaceMcpServerProfiles,
   }),
-  deleteWorkspaceMcpServerProfile,
-  mergeDefaultWorkspaceMcpServerProfiles,
-  upsertWorkspaceMcpServerProfile,
 }));
 
 vi.mock("~/lib/contracts/mcp/server-config-parser", () => ({
