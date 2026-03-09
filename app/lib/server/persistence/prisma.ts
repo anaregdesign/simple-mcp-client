@@ -6,6 +6,7 @@ import {
   buildSqlDatabaseUrlWithPassword,
   resolvePersistenceDatabaseConfig,
 } from "~/lib/server/persistence/database-config";
+import { createPrismaAdapter } from "~/lib/server/persistence/prisma-adapter";
 import {
   resolveSqlAzureIdentityDatabaseUrl,
   type SqlAzureIdentityTokenState,
@@ -83,11 +84,10 @@ export async function ensurePersistenceDatabaseReady(): Promise<void> {
 
 function createPrismaClient(databaseUrl: string): PrismaClient {
   return new PrismaClient({
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
+    adapter: createPrismaAdapter({
+      provider: resolvedDatabaseProvider,
+      databaseUrl,
+    }),
   });
 }
 
