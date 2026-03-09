@@ -7,7 +7,7 @@ import {
   acquireThreadMcpServerSession,
   threadMcpServerSessionPoolTestUtils,
   type ThreadMcpServerSession,
-} from "~/lib/server/mcp/thread-mcp-server-session-pool";
+} from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
 
 type RefreshState = {
   turnId: string;

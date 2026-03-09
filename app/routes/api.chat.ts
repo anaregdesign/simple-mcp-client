@@ -14,8 +14,8 @@ import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
   type ThreadMcpServerSession,
-} from "~/lib/server/mcp/thread-mcp-server-session-pool";
-import { registerThreadMcpServerSessionPoolShutdownHooks } from "~/lib/server/mcp/thread-mcp-server-session-pool-shutdown";
+} from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
+import { registerThreadMcpServerSessionPoolShutdownHooks } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool-shutdown";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

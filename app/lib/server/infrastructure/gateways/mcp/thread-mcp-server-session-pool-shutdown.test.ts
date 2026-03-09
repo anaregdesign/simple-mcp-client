@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   registerThreadMcpServerSessionPoolShutdownHooks,
   threadMcpServerSessionPoolShutdownTestUtils,
-} from "~/lib/server/mcp/thread-mcp-server-session-pool-shutdown";
+} from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool-shutdown";
 
 afterEach(() => {
   threadMcpServerSessionPoolShutdownTestUtils.resetRegistration();

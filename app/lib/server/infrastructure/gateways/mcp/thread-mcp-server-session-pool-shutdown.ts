@@ -1,7 +1,7 @@
 /**
  * Runtime support module for MCP session-pool shutdown hooks.
  */
-import { closeAllThreadMcpServerSessions } from "~/lib/server/mcp/thread-mcp-server-session-pool";
+import { closeAllThreadMcpServerSessions } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
 
 type ShutdownSignal = "SIGINT" | "SIGTERM";
 type ShutdownHookProcess = {
