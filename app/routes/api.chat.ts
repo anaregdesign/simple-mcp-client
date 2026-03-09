@@ -94,12 +94,8 @@ import {
   type SkillResourceKind,
 } from "~/lib/server/skills/runtime";
 import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stream";
-import {
-  buildAgentRunContext,
-  cleanupChatRuntime,
-  prepareMcpRuntime,
-  prepareSkillRuntime,
-} from "~/lib/server/chat/chat-runtime-stages";
+import { cleanupChatRuntime } from "~/lib/server/infrastructure/gateways/chat/chat-runtime-cleanup";
+import { prepareMcpRuntime } from "~/lib/server/infrastructure/gateways/mcp/chat-mcp-runtime";
 import {
   readOptionalRequestHeaderValue,
   readWebSearchUserLocationFromRequest,
@@ -116,10 +112,12 @@ import {
   type ActiveSkillRuntimeEntry,
   type SkillRuntimeContext,
 } from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime";
+import { prepareSkillRuntime } from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime-preparation";
 import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,
 } from "~/lib/server/chat/stdio-runtime-path";
+import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-context";
 import {
   createAzureOpenAIClient,
   getAzureBearerTokenForScope,
