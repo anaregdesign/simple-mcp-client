@@ -17,7 +17,7 @@ import {
   deleteInstalledSkillFromRegistry,
   discoverSkillRegistries,
   installSkillFromRegistry,
-} from "~/lib/server/skills/registry";
+} from "~/lib/server/infrastructure/gateways/skills/skill-registry-gateway";
 import {
   parseSkillRegistryMutationPath,
   syncWorkspaceSkillMasters,

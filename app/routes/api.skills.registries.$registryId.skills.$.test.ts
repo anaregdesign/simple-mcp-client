@@ -46,7 +46,7 @@ vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
   syncWorkspaceSkillMasters,
 }));
 
-vi.mock("~/lib/server/skills/registry", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/skills/skill-registry-gateway", () => ({
   installSkillFromRegistry,
   deleteInstalledSkillFromRegistry,
   discoverSkillRegistries,

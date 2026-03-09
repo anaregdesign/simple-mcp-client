@@ -1,5 +1,5 @@
 import { discoverSkillCatalog } from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
-import { discoverSkillRegistries } from "~/lib/server/skills/registry";
+import { discoverSkillRegistries } from "~/lib/server/infrastructure/gateways/skills/skill-registry-gateway";
 
 export async function discoverWorkspaceSkillCatalog(options: {
   workspaceUserId: number;
