@@ -116,7 +116,7 @@ import {
   reportClientEvent,
   reportClientError,
   reportClientWarning,
-} from "~/lib/client/observability/runtime-event-log-client";
+} from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
   buildThreadSummary,
   convertThreadResourceToState,
