@@ -9,7 +9,7 @@ import type {
   AzureSelectionPreferenceSnapshot,
   AzureSelectionTargetPreference,
   AzureUtilitySelectionTargetPreference,
-} from "~/lib/domain/azure/azure-selection-preference";
+} from "~/lib/domain/entities/azure-selection-preference";
 
 export type AzureSelectionPreference = AzureSelectionPreferenceSnapshot;
 

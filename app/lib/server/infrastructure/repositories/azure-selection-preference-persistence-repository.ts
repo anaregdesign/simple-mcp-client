@@ -3,7 +3,7 @@ import {
   AzureSelectionPreference,
   type AzureSelectionTargetPreference,
   type AzureUtilitySelectionTargetPreference,
-} from "~/lib/domain/azure/azure-selection-preference";
+} from "~/lib/domain/entities/azure-selection-preference";
 import type {
   AzureSelectionIdentity,
   AzureSelectionPreferenceRepository,

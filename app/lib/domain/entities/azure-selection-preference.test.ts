@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AzureSelectionPreference } from "~/lib/domain/azure/azure-selection-preference";
+import { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
 
 describe("AzureSelectionPreference", () => {
   it("keeps playground and utility selections in one model", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AzureSelectionPreference,
-} from "~/lib/domain/azure/azure-selection-preference";
+} from "~/lib/domain/entities/azure-selection-preference";
 import type {
   AzureSelectionPreferenceRepository,
 } from "~/lib/domain/repositories/azure-selection-preference-repository";

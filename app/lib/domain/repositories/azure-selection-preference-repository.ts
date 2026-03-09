@@ -1,4 +1,4 @@
-import type { AzureSelectionPreference } from "~/lib/domain/azure/azure-selection-preference";
+import type { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
 
 export type AzureSelectionIdentity = {
   tenantId: string;
