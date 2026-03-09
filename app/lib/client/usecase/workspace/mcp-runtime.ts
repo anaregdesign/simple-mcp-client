@@ -1,26 +1,8 @@
 /**
  * Client controller MCP runtime helpers.
  */
+import type { ChatRequestMcpServer } from "~/lib/contracts/chat/request";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-
-export type ChatRequestMcpServer =
-  | {
-      name: string;
-      transport: "stdio";
-      command: string;
-      args: string[];
-      cwd?: string;
-      env: Record<string, string>;
-    }
-  | {
-      name: string;
-      transport: "streamable_http" | "sse";
-      url: string;
-      headers: Record<string, string>;
-      useAzureAuth: boolean;
-      azureAuthScope: string;
-      timeoutSeconds: number;
-    };
 
 export function serializeMcpServersForChatRequest(
   servers: McpServerConfig[],

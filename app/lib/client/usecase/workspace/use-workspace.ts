@@ -46,11 +46,9 @@ import {
 import type { ThreadMessage } from "~/lib/client/chat/messages";
 import { createThreadMessage } from "~/lib/client/chat/messages";
 import type {
-  ChatApiResponse,
   ThreadOperationLogEntry,
 } from "~/lib/client/chat/stream";
 import {
-  readChatEventStreamPayload,
   upsertThreadOperationLogEntry,
 } from "~/lib/client/chat/stream";
 import {
@@ -158,7 +156,6 @@ import {
 import {
   applySendResult,
   buildChatRequestPayload,
-  consumeChatResponseStream,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
 import {
@@ -167,6 +164,7 @@ import {
   requestClientApi,
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
+import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
@@ -2742,23 +2740,9 @@ export function useWorkspace() {
         mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
       });
 
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "text/event-stream, application/json",
-        },
-        signal: sendAbortController.signal,
-        body: JSON.stringify(requestPayload),
-      });
-
-      const { payload, isEventStream, operationLogCount } =
-        await consumeChatResponseStream({
-          response,
-          readChatEventStreamPayload: (streamResponse, handlers) =>
-            readChatEventStreamPayload(streamResponse, handlers),
-          readJsonPayload: (jsonResponse) =>
-            readJsonPayload<ChatApiResponse>(jsonResponse, "chat"),
+      const { response, payload, isEventStream, operationLogCount } =
+        await chatApiClient.sendMessage(requestPayload, {
+          signal: sendAbortController.signal,
           onProgress: (message) => {
             appendThreadProgressMessage(threadId, message);
           },

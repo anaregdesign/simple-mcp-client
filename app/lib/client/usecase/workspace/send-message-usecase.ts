@@ -1,50 +1,9 @@
 /**
  * Client controller send-message use-case helpers.
  */
-import type { ChatApiResponse, ThreadOperationLogEntry } from "~/lib/client/chat/stream";
+import type { ChatApiRequestPayload } from "~/lib/contracts/chat/request";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
-import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
-import type { ChatRequestMcpServer } from "~/lib/client/usecase/workspace/mcp-runtime";
-
-export type ClientApiChatAttachment = {
-  name: string;
-  mimeType: string;
-  dataUrl: string;
-  sizeBytes: number;
-};
-
-export type ClientApiChatHistoryEntry = {
-  role: "user" | "assistant";
-  content: string;
-  attachments?: ClientApiChatAttachment[];
-};
-
-export type ClientApiChatRequestPayload = {
-  threadId: string;
-  turnId: string;
-  message: string;
-  attachments: ClientApiChatAttachment[];
-  history: ClientApiChatHistoryEntry[];
-  azureConfig: {
-    tenantId: string;
-    projectName: string;
-    baseUrl: string;
-    apiVersion: string;
-    deploymentName: string;
-  };
-  supportsReasoningEffort: boolean;
-  webSearchEnabled: boolean;
-  agentInstruction: string;
-  instructionContextToggles: ThreadInstructionContextToggles;
-  threadEnvironment: ThreadEnvironment;
-  skills: ThreadSkillActivation[];
-  explicitSkillLocations: string[];
-  mcpServers: ChatRequestMcpServer[];
-  reasoningEffort?: ReasoningEffort;
-};
 
 export type SendPreconditionViolation = {
   type: "thread_error" | "ui_error";
@@ -161,10 +120,10 @@ export function validateSendPreconditions(options: {
 }
 
 export function buildChatRequestPayload(
-  options: Omit<ClientApiChatRequestPayload, "reasoningEffort"> & {
+  options: Omit<ChatApiRequestPayload, "reasoningEffort"> & {
     reasoningEffort: ReasoningEffort;
   },
-): ClientApiChatRequestPayload {
+): ChatApiRequestPayload {
   return {
     threadId: options.threadId,
     turnId: options.turnId,
@@ -236,50 +195,6 @@ export function applySendResult(
     activeTurnId: null,
     lastErrorTurnId: options.turnId,
     error: mapSendError(options.error),
-  };
-}
-
-export async function consumeChatResponseStream(options: {
-  response: Response;
-  readChatEventStreamPayload: (
-    response: Response,
-    handlers: {
-      onProgress: (message: string) => void;
-      onOperationLogRecord: (entry: ThreadOperationLogEntry) => void;
-    },
-  ) => Promise<ChatApiResponse>;
-  readJsonPayload: (response: Response) => Promise<ChatApiResponse>;
-  onProgress: (message: string) => void;
-  onOperationLogRecord: (entry: ThreadOperationLogEntry) => void;
-}): Promise<{
-  payload: ChatApiResponse;
-  isEventStream: boolean;
-  operationLogCount: number;
-}> {
-  const contentType = options.response.headers.get("content-type") ?? "";
-  const isEventStream = contentType.toLowerCase().includes("text/event-stream");
-  let operationLogCount = 0;
-
-  if (isEventStream) {
-    const payload = await options.readChatEventStreamPayload(options.response, {
-      onProgress: options.onProgress,
-      onOperationLogRecord: (entry) => {
-        operationLogCount += 1;
-        options.onOperationLogRecord(entry);
-      },
-    });
-    return {
-      payload,
-      isEventStream,
-      operationLogCount,
-    };
-  }
-
-  const payload = await options.readJsonPayload(options.response);
-  return {
-    payload,
-    isEventStream: false,
-    operationLogCount: 0,
   };
 }
 

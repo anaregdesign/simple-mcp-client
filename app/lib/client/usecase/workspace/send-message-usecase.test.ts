@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applySendResult,
   buildChatRequestPayload,
-  consumeChatResponseStream,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
 
@@ -161,96 +160,5 @@ describe("applySendResult", () => {
         error: "unknown",
       }).error,
     ).toBe("Could not reach the server.");
-  });
-});
-
-describe("consumeChatResponseStream", () => {
-  it("consumes event-stream payloads and aggregates operation log count", async () => {
-    const onProgress = vi.fn();
-    const onOperationLogRecord = vi.fn();
-
-    const result = await consumeChatResponseStream({
-      response: new Response("", {
-        headers: {
-          "content-type": "text/event-stream",
-        },
-      }),
-      readChatEventStreamPayload: async (_response, handlers) => {
-        handlers.onProgress("Preparing request...");
-        handlers.onOperationLogRecord({
-          id: "op-1",
-          sequence: 1,
-          operationType: "mcp",
-          serverName: "debug",
-          method: "tools/call",
-          startedAt: "2026-01-01T00:00:00.000Z",
-          completedAt: "2026-01-01T00:00:01.000Z",
-          request: {},
-          response: {},
-          isError: false,
-          turnId: "turn-1",
-        });
-        handlers.onOperationLogRecord({
-          id: "op-2",
-          sequence: 2,
-          operationType: "mcp",
-          serverName: "debug",
-          method: "tools/call",
-          startedAt: "2026-01-01T00:00:01.000Z",
-          completedAt: "2026-01-01T00:00:02.000Z",
-          request: {},
-          response: {},
-          isError: false,
-          turnId: "turn-1",
-        });
-        return {
-          message: "done",
-        };
-      },
-      readJsonPayload: async () => ({
-        message: "unused",
-      }),
-      onProgress,
-      onOperationLogRecord,
-    });
-
-    expect(result).toEqual({
-      payload: {
-        message: "done",
-      },
-      isEventStream: true,
-      operationLogCount: 2,
-    });
-    expect(onProgress).toHaveBeenCalledWith("Preparing request...");
-    expect(onOperationLogRecord).toHaveBeenCalledTimes(2);
-  });
-
-  it("uses JSON payload reader for non-stream responses", async () => {
-    const readJsonPayload = vi.fn(async () => ({
-      message: "json",
-    }));
-
-    const result = await consumeChatResponseStream({
-      response: new Response("{}", {
-        headers: {
-          "content-type": "application/json",
-        },
-      }),
-      readChatEventStreamPayload: async () => ({
-        message: "stream",
-      }),
-      readJsonPayload,
-      onProgress: vi.fn(),
-      onOperationLogRecord: vi.fn(),
-    });
-
-    expect(result).toEqual({
-      payload: {
-        message: "json",
-      },
-      isEventStream: false,
-      operationLogCount: 0,
-    });
-    expect(readJsonPayload).toHaveBeenCalledTimes(1);
   });
 });
