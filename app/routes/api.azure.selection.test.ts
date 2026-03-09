@@ -8,7 +8,6 @@ const {
   readStoredSelectionMock,
   saveStoredSelectionMock,
   deleteStoredSelectionMock,
-  readErrorMessageMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
@@ -16,7 +15,6 @@ const {
   readStoredSelectionMock: vi.fn(),
   saveStoredSelectionMock: vi.fn(),
   deleteStoredSelectionMock: vi.fn(),
-  readErrorMessageMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
@@ -24,6 +22,10 @@ const {
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
+}));
+
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-identity", () => ({
+  readAuthenticatedIdentity: readAuthenticatedIdentityMock,
 }));
 
 vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
@@ -38,8 +40,6 @@ vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
       saveStoredSelection: saveStoredSelectionMock,
       deleteStoredSelection: deleteStoredSelectionMock,
     },
-    readAuthenticatedIdentity: readAuthenticatedIdentityMock,
-    readErrorMessage: readErrorMessageMock,
   };
 });
 
@@ -168,7 +168,6 @@ describe("/api/azure/selection", () => {
       created: false,
     });
     deleteStoredSelectionMock.mockResolvedValue(true);
-    readErrorMessageMock.mockReturnValue("Unknown error.");
     logServerRouteEventMock.mockResolvedValue(undefined);
   });
 

@@ -5,7 +5,6 @@ import {
   ensurePersistenceDatabaseReady,
   prisma,
 } from "~/lib/server/infrastructure/persistence/prisma";
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import {
@@ -232,21 +231,6 @@ async function deleteStoredSelection(identity: {
     },
   });
   return deleteResult.count > 0;
-}
-
-export async function readAuthenticatedIdentity(): Promise<{
-  tenantId: string;
-  principalId: string;
-} | null> {
-  const context = await readAzureArmUserContext();
-  if (!context) {
-    return null;
-  }
-
-  return {
-    tenantId: context.tenantId,
-    principalId: context.principalId,
-  };
 }
 
 function mapSelectionRecord(

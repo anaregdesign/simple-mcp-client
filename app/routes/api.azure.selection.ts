@@ -4,16 +4,17 @@
 import {
   azureSelectionService,
   parseAzureSelectionPreference,
-  readAuthenticatedIdentity,
-  readErrorMessage,
 } from "~/lib/server/usecase/azure/azure-selection-service";
 import {
   authRequiredResponse,
   errorResponse,
   invalidJsonResponse,
   methodNotAllowedResponse,
+  readErrorMessage,
+  readJsonPayload,
   validationErrorResponse,
 } from "~/lib/server/http";
+import { readAuthenticatedIdentity } from "~/lib/server/infrastructure/auth/read-authenticated-identity";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -107,10 +108,8 @@ export async function action({ request }: Route.ActionArgs) {
     }
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
+  const payload = await readJsonPayload(request);
+  if (!payload.ok) {
     await logServerRouteEvent({
       request,
       route: "/api/azure/selection",
@@ -124,7 +123,7 @@ export async function action({ request }: Route.ActionArgs) {
     return invalidJsonResponse();
   }
 
-  const preference = parseAzureSelectionPreference(payload);
+  const preference = parseAzureSelectionPreference(payload.value);
   if (!preference) {
     await logServerRouteEvent({
       request,

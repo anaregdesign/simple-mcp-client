@@ -1,4 +1,4 @@
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
+import { readAuthenticatedIdentity } from "~/lib/server/infrastructure/auth/read-authenticated-identity";
 import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 
 export type AuthenticatedUser = {
@@ -6,15 +6,12 @@ export type AuthenticatedUser = {
 };
 
 export async function readAuthenticatedUser(): Promise<AuthenticatedUser | null> {
-  const userContext = await readAzureArmUserContext();
-  if (!userContext) {
+  const identity = await readAuthenticatedIdentity();
+  if (!identity) {
     return null;
   }
 
-  const user = await getOrCreateUserByIdentity({
-    tenantId: userContext.tenantId,
-    principalId: userContext.principalId,
-  });
+  const user = await getOrCreateUserByIdentity(identity);
 
   return {
     id: user.id,
