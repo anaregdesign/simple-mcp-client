@@ -54,7 +54,6 @@ import {
   readTemperature,
   readThreadEnvironment,
   readWebSearchEnabled,
-  type ClientMcpServerConfig,
 } from "~/lib/server/infrastructure/gateways/chat/request-parser";
 import { logChatRequestValidationError } from "~/lib/server/infrastructure/gateways/chat/request-validation-log";
 import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
@@ -88,6 +87,10 @@ import {
   type RunStreamProgressEvent,
 } from "~/lib/server/infrastructure/gateways/chat/run-stream-progress";
 import {
+  describeMcpServer,
+  getAzureMcpAuthorizationToken,
+} from "~/lib/server/infrastructure/gateways/chat/chat-execution-dependencies";
+import {
   createCodeInterpreterContainerWithAttachments,
 } from "~/lib/server/infrastructure/gateways/chat/code-interpreter-attachment-gateway";
 import {
@@ -115,23 +118,13 @@ import { resolveExecutableCommand } from "~/lib/server/infrastructure/gateways/c
 import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-context";
 import {
   createAzureOpenAIClient,
-  getAzureBearerTokenForScope,
 } from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
 import {
   type ChatExecutionOptions,
-  type UpstreamErrorPayload,
-  buildUpstreamErrorMessage as buildUpstreamErrorMessageUsecase,
-  buildUpstreamErrorPayload as buildUpstreamErrorPayloadUsecase,
-  isChatCanceledError as isChatCanceledErrorUsecase,
-  createInitialChatMcpRuntimeMetrics as createInitialChatMcpRuntimeMetricsUsecase,
+  buildUpstreamErrorPayload,
+  isChatCanceledError,
   executeChat as executeChatUsecase,
   executeChatWithTransientRetry as executeChatWithTransientRetryUsecase,
-  hasNonPdfAttachments as hasNonPdfAttachmentsUsecase,
-  isTransientNetworkTerminationError as isTransientNetworkTerminationErrorUsecase,
-  runAgentWithTimeout as runAgentWithTimeoutUsecase,
-  shouldRetryChatExecution as shouldRetryChatExecutionUsecase,
-  sleep as sleepUsecase,
-  throwIfAborted as throwIfAbortedUsecase,
 } from "~/lib/server/usecase/chat/chat-execution";
 import { buildAgentInstructionWithSkills } from "~/lib/server/usecase/chat/skill-instruction-builder";
 import {
@@ -473,77 +466,4 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
       });
     }
   });
-}
-
-function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
-  return createInitialChatMcpRuntimeMetricsUsecase();
-}
-
-async function getAzureMcpAuthorizationToken(
-  scope: string,
-  tenantId: string,
-): Promise<string> {
-  try {
-    return await getAzureBearerTokenForScope(scope, tenantId);
-  } catch {
-    throw new Error(
-      `Azure credential failed to acquire token for MCP Authorization header (scope: ${scope}). Run Azure Login and try again.`,
-    );
-  }
-}
-
-function describeMcpServer(config: ClientMcpServerConfig): string {
-  if (config.transport === "stdio") {
-    const argsPart = config.args.length > 0 ? ` ${config.args.join(" ")}` : "";
-    return `stdio:${config.command}${argsPart}`;
-  }
-
-  return config.useAzureAuth
-    ? `${config.url} (azure auth: ${config.azureAuthScope}, timeout: ${config.timeoutSeconds}s)`
-    : `${config.url} (timeout: ${config.timeoutSeconds}s)`;
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  return throwIfAbortedUsecase(signal);
-}
-
-function buildUpstreamErrorPayload(
-  error: unknown,
-  deploymentName: string,
-): {
-  payload: UpstreamErrorPayload;
-  status: number;
-} {
-  return buildUpstreamErrorPayloadUsecase(error, deploymentName);
-}
-
-function isChatCanceledError(error: unknown): boolean {
-  return isChatCanceledErrorUsecase(error);
-}
-
-function buildUpstreamErrorMessage(
-  error: unknown,
-  deploymentName: string,
-): string {
-  return buildUpstreamErrorMessageUsecase(error, deploymentName);
-}
-
-function isTransientNetworkTerminationError(error: unknown): boolean {
-  return isTransientNetworkTerminationErrorUsecase(error);
-}
-
-function shouldRetryChatExecution(
-  error: unknown,
-  attempt: number,
-  maxAttempts: number,
-): boolean {
-  return shouldRetryChatExecutionUsecase(error, attempt, maxAttempts);
-}
-
-function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error.";
-}
-
-function sleep(durationMs: number): Promise<void> {
-  return sleepUsecase(durationMs);
 }
