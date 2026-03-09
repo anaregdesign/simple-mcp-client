@@ -1,12 +1,22 @@
+import type { ChangeEvent } from "react";
 import type { MainViewTab } from "~/lib/client/shared/view-types";
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import {
+  INSTRUCTION_ALLOWED_EXTENSIONS,
+  INSTRUCTION_MAX_FILE_SIZE_BYTES,
+  INSTRUCTION_MAX_FILE_SIZE_LABEL,
+} from "~/lib/constants/instruction";
 import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
+import type {
+  ThreadInstructionContextToggles,
+  ThreadInstructionContextToggleKey,
+} from "~/lib/contracts/threads/instruction-context";
 import {
   convertThreadResourceToState,
   readThreadResourceFromUnknown,
@@ -25,12 +35,14 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import { getFileExtension } from "~/lib/client/shared/files";
 import {
   canStartThreadOperation,
   type ThreadOperationPhase,
 } from "~/lib/client/usecase/workspace/thread-operation-phase";
 import { findThreadStateById } from "~/lib/client/usecase/workspace/thread-runtime";
 import type {
+  InstructionEnhanceComparison,
   ThreadRequestState,
   ThreadsApiResponse,
 } from "~/lib/client/usecase/workspace/types";
@@ -142,6 +154,43 @@ export type SkillSelectionHandlers = {
   handleAddThreadSkill: (locationRaw: string) => void;
   handleRemoveThreadSkill: (locationRaw: string) => void;
   handleToggleThreadSkill: (locationRaw: string) => void;
+};
+
+type InstructionEditingHandlerDependencies = {
+  isArchivedThread: (threadIdRaw: string) => boolean;
+  readActiveThreadId: () => string;
+  setInstructionContextToggles: (
+    updater: (
+      current: ThreadInstructionContextToggles,
+    ) => ThreadInstructionContextToggles,
+  ) => void;
+  setAgentInstruction: (value: string) => void;
+  setLoadedInstructionFileName: (value: string | null) => void;
+  setInstructionFileError: (value: string | null) => void;
+  setInstructionSaveError: (value: string | null) => void;
+  setInstructionSaveSuccess: (value: string | null) => void;
+  setInstructionEnhanceError: (value: string | null) => void;
+  setInstructionEnhanceSuccess: (value: string | null) => void;
+  setInstructionEnhanceComparison: (
+    value: InstructionEnhanceComparison | null,
+  ) => void;
+  logClientError: (
+    eventName: string,
+    error: unknown,
+    options?: ThreadLogOptions,
+  ) => void;
+};
+
+export type InstructionEditingHandlers = {
+  handleInstructionContextToggleChange: (
+    toggleKey: ThreadInstructionContextToggleKey,
+    nextValue: boolean,
+  ) => void;
+  handleAgentInstructionChange: (value: string) => void;
+  handleClearInstruction: () => void;
+  handleInstructionFileChange: (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => Promise<void>;
 };
 
 export function createThreadLifecycleHandlers(
@@ -832,6 +881,104 @@ export function createSkillSelectionHandlers(
         };
       });
       deps.setSkillsError(null);
+    },
+  };
+}
+
+export function createInstructionEditingHandlers(
+  deps: InstructionEditingHandlerDependencies,
+): InstructionEditingHandlers {
+  const resetInstructionMutationStatus = () => {
+    deps.setInstructionSaveError(null);
+    deps.setInstructionSaveSuccess(null);
+    deps.setInstructionEnhanceError(null);
+    deps.setInstructionEnhanceSuccess(null);
+    deps.setInstructionEnhanceComparison(null);
+  };
+
+  return {
+    handleInstructionContextToggleChange(toggleKey, nextValue) {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        return;
+      }
+
+      deps.setInstructionContextToggles((current) => ({
+        ...current,
+        [toggleKey]: nextValue,
+      }));
+      resetInstructionMutationStatus();
+    },
+
+    handleAgentInstructionChange(value: string) {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        return;
+      }
+
+      deps.setAgentInstruction(value);
+      resetInstructionMutationStatus();
+    },
+
+    handleClearInstruction() {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        return;
+      }
+
+      deps.setAgentInstruction("");
+      deps.setLoadedInstructionFileName(null);
+      deps.setInstructionFileError(null);
+      resetInstructionMutationStatus();
+    },
+
+    async handleInstructionFileChange(
+      event: ChangeEvent<HTMLInputElement>,
+    ): Promise<void> {
+      const input = event.currentTarget;
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        input.value = "";
+        return;
+      }
+
+      const file = input.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      deps.setInstructionFileError(null);
+
+      const extension = getFileExtension(file.name);
+      if (!INSTRUCTION_ALLOWED_EXTENSIONS.has(extension)) {
+        deps.setInstructionFileError(
+          "Only .md, .txt, .xml, and .json files are supported.",
+        );
+        input.value = "";
+        return;
+      }
+
+      if (file.size > INSTRUCTION_MAX_FILE_SIZE_BYTES) {
+        deps.setInstructionFileError(
+          `Instruction file is too large. Max ${INSTRUCTION_MAX_FILE_SIZE_LABEL}.`,
+        );
+        input.value = "";
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        deps.setAgentInstruction(text);
+        deps.setLoadedInstructionFileName(file.name);
+        resetInstructionMutationStatus();
+      } catch (readInstructionError) {
+        deps.logClientError("read_instruction_file_failed", readInstructionError, {
+          action: "load_instruction_file",
+          context: {
+            fileName: file.name,
+            fileSize: file.size,
+          },
+        });
+        deps.setInstructionFileError("Failed to read the selected instruction file.");
+      } finally {
+        input.value = "";
+      }
     },
   };
 }

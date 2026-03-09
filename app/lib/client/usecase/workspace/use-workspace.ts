@@ -253,6 +253,7 @@ import {
   type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
 import {
+  createInstructionEditingHandlers,
   createSkillSelectionHandlers,
   createThreadLifecycleHandlers,
 } from "~/lib/client/usecase/workspace/handlers";
@@ -4996,107 +4997,25 @@ export function useWorkspace() {
     setUiError(null);
   }
 
-  function handleInstructionContextToggleChange(
-    toggleKey: ThreadInstructionContextToggleKey,
-    nextValue: boolean,
-  ) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    setInstructionContextToggles((current) => ({
-      ...current,
-      [toggleKey]: nextValue,
-    }));
-    setInstructionSaveError(null);
-    setInstructionSaveSuccess(null);
-    setInstructionEnhanceError(null);
-    setInstructionEnhanceSuccess(null);
-    setInstructionEnhanceComparison(null);
-  }
-
-  function handleAgentInstructionChange(value: string) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    setAgentInstruction(value);
-    setInstructionSaveError(null);
-    setInstructionSaveSuccess(null);
-    setInstructionEnhanceError(null);
-    setInstructionEnhanceSuccess(null);
-    setInstructionEnhanceComparison(null);
-  }
-
-  function handleClearInstruction() {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    setAgentInstruction("");
-    setLoadedInstructionFileName(null);
-    setInstructionFileError(null);
-    setInstructionSaveError(null);
-    setInstructionSaveSuccess(null);
-    setInstructionEnhanceError(null);
-    setInstructionEnhanceSuccess(null);
-    setInstructionEnhanceComparison(null);
-  }
-
-  async function handleInstructionFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const input = event.currentTarget;
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      input.value = "";
-      return;
-    }
-    const file = input.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    setInstructionFileError(null);
-
-    const extension = getFileExtension(file.name);
-    if (!INSTRUCTION_ALLOWED_EXTENSIONS.has(extension)) {
-      setInstructionFileError(
-        "Only .md, .txt, .xml, and .json files are supported.",
-      );
-      input.value = "";
-      return;
-    }
-
-    if (file.size > INSTRUCTION_MAX_FILE_SIZE_BYTES) {
-      setInstructionFileError(
-        `Instruction file is too large. Max ${INSTRUCTION_MAX_FILE_SIZE_LABEL}.`,
-      );
-      input.value = "";
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      setAgentInstruction(text);
-      setLoadedInstructionFileName(file.name);
-      setInstructionSaveError(null);
-      setInstructionSaveSuccess(null);
-      setInstructionEnhanceError(null);
-      setInstructionEnhanceSuccess(null);
-      setInstructionEnhanceComparison(null);
-    } catch (readInstructionError) {
-      logClientError("read_instruction_file_failed", readInstructionError, {
-        action: "load_instruction_file",
-        context: {
-          fileName: file.name,
-          fileSize: file.size,
-        },
-      });
-      setInstructionFileError("Failed to read the selected instruction file.");
-    } finally {
-      input.value = "";
-    }
-  }
+  const {
+    handleInstructionContextToggleChange,
+    handleAgentInstructionChange,
+    handleClearInstruction,
+    handleInstructionFileChange,
+  } = createInstructionEditingHandlers({
+    isArchivedThread,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    setInstructionContextToggles,
+    setAgentInstruction,
+    setLoadedInstructionFileName,
+    setInstructionFileError,
+    setInstructionSaveError,
+    setInstructionSaveSuccess,
+    setInstructionEnhanceError,
+    setInstructionEnhanceSuccess,
+    setInstructionEnhanceComparison,
+    logClientError,
+  });
 
   async function handleSaveInstructionPrompt() {
     if (isArchivedThread(activeThreadIdRef.current)) {
