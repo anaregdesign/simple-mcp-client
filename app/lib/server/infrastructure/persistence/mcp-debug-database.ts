@@ -1,7 +1,10 @@
 /**
  * Database debug metadata and read helpers for MCP tools.
  */
-import { prisma } from "~/lib/server/infrastructure/persistence/prisma";
+import {
+  ensurePersistenceDatabaseReady,
+  prisma,
+} from "~/lib/server/infrastructure/persistence/prisma";
 import { databaseDebugTableDefinitions } from "./mcp-debug-database-metadata";
 import type {
   DatabaseDebugTableDefinition,
@@ -191,6 +194,10 @@ export function buildDatabaseDebugLatestThreadToolDescription(): string {
   ];
 
   return lines.join("\n");
+}
+
+export async function ensureDatabaseDebugReady(): Promise<void> {
+  await ensurePersistenceDatabaseReady();
 }
 
 export function normalizeDatabaseDebugLatestThreadReadOptions(

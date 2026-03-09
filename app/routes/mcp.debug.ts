@@ -27,8 +27,8 @@ import {
   normalizeDatabaseDebugReadOptions,
   readDatabaseDebugLatestThreadSnapshot,
   readDatabaseDebugTableRows,
+  ensureDatabaseDebugReady,
 } from "~/lib/server/infrastructure/persistence/mcp-debug-database";
-import { ensurePersistenceDatabaseReady } from "~/lib/server/infrastructure/persistence/prisma";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -203,7 +203,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
   });
 
   try {
-    await ensurePersistenceDatabaseReady();
+    await ensureDatabaseDebugReady();
     await server.connect(transport);
     return await transport.handleRequest(request);
   } catch (error) {
