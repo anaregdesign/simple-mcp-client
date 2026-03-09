@@ -86,17 +86,15 @@ describe("/api/workspace-skill-profiles", () => {
     expect(response.status).toBe(401);
   });
 
-  it("loader returns a data envelope", async () => {
+  it("loader returns a raw response object", async () => {
     const response = await loader({
       request: new Request("http://localhost/api/workspace-skill-profiles", { method: "GET" }),
     } as never);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      data: {
-        workspaceSkillProfiles: [],
-        workspaceSkillRegistryProfiles: [],
-      },
+      workspaceSkillProfiles: [],
+      workspaceSkillRegistryProfiles: [],
     });
   });
 
@@ -128,23 +126,23 @@ describe("/api/workspace-skill-profiles", () => {
     });
   });
 
-  it("action returns reconcile result in a data envelope", async () => {
+  it("action returns reconcile result as a raw response object", async () => {
     const response = await action({
       request: new Request("http://localhost/api/workspace-skill-profiles", { method: "PUT" }),
     } as never);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      data: {
-        message: "Workspace Skill profiles reconciled from installed Skills.",
-        skills: [],
-        skillRegistries: [],
-        skillWarnings: [],
-        registryWarnings: [],
-        warnings: [],
-        workspaceSkillProfileCount: 0,
-        workspaceSkillRegistryProfileCount: 0,
-      },
+      message: "Workspace Skill profiles reconciled from installed Skills.",
+      skills: [],
+      skillRegistries: [],
+      skillWarnings: [],
+      registryWarnings: [],
+      warnings: [],
+      workspaceSkillProfileCount: 0,
+      workspaceSkillRegistryProfileCount: 0,
+      workspaceSkillProfiles: [],
+      workspaceSkillRegistryProfiles: [],
     });
   });
 });

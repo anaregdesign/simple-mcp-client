@@ -13,7 +13,6 @@ import {
 } from "~/lib/server/application/azure/azure-selection-service";
 import {
   mcpServerProfileService,
-  type WorkspaceMcpServerProfileConfig,
 } from "~/lib/server/application/mcp/mcp-server-profile-service";
 import {
   workspaceSkillService,
@@ -21,7 +20,8 @@ import {
 } from "~/lib/server/application/skills/workspace-skill-service";
 import { threadQueryService } from "~/lib/server/application/threads/thread-service";
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
-import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
+import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
+import type { ThreadResource } from "~/lib/contracts/threads/types";
 
 type WorkspaceBootstrapOptions = {
   request: Request;
@@ -37,8 +37,8 @@ type WorkspaceBootstrapData = {
   azureTenants: AzureTenant[];
   azureSelection: AzureSelectionPreference | null;
   azureDeploymentsByProjectId: Record<string, AzureDeployment[]>;
-  threads: ThreadSnapshot[];
-  workspaceMcpServerProfiles: WorkspaceMcpServerProfileConfig[];
+  threads: ThreadResource[];
+  workspaceMcpServerProfiles: WorkspaceMcpServerProfileResource[];
   skills: SkillDiscoveryResult["skills"];
   skillRegistries: SkillDiscoveryResult["registries"];
   skillWarnings: string[];

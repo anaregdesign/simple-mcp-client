@@ -4,7 +4,7 @@
 import { DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants/client";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type {
-  ThreadSnapshot,
+  ThreadState,
   ThreadSummary,
 } from "~/lib/contracts/threads/types";
 import type { ThreadRequestState } from "~/lib/client/controller/types";
@@ -66,10 +66,10 @@ export function mergeSkillSelections(
   return Array.from(byLocation.values());
 }
 
-export function findThreadSnapshotById(
-  threads: ThreadSnapshot[],
+export function findThreadStateById(
+  threads: ThreadState[],
   threadIdRaw: string,
-): ThreadSnapshot | null {
+): ThreadState | null {
   const threadId = threadIdRaw.trim();
   if (!threadId) {
     return null;

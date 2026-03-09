@@ -5,14 +5,17 @@ import {
 import { readJsonPayload } from "~/lib/client/controller/http";
 import type { McpServersApiResponse } from "~/lib/client/controller/types";
 import {
-  readMcpServerFromUnknown,
-  readMcpServerList,
+  readMcpServerFromWorkspaceProfileResource,
+  readWorkspaceMcpServerProfileResourceList,
   serializeMcpServerForSave,
   type McpServerConfig,
+  type WorkspaceMcpServerProfileResource,
 } from "~/lib/contracts/mcp/profile";
 import { isMcpServersAuthRequired } from "~/lib/client/mcp/workspace-mcp-server-profiles";
 
 export type McpServersSnapshot = {
+  profileResource: WorkspaceMcpServerProfileResource | null;
+  profileResources: WorkspaceMcpServerProfileResource[];
   profile: McpServerConfig | null;
   profiles: McpServerConfig[];
   warning: string | null;
@@ -125,9 +128,18 @@ export class McpServersApiClient {
 export const mcpServersApiClient = new McpServersApiClient();
 
 function readMcpServersSnapshot(payload: McpServersApiResponse): McpServersSnapshot {
+  const profileResources = readWorkspaceMcpServerProfileResourceList(payload.profiles);
+  const profileResource = payload.profile
+    ? readWorkspaceMcpServerProfileResourceList([payload.profile])[0] ?? null
+    : null;
+
   return {
-    profile: readMcpServerFromUnknown(payload.profile),
-    profiles: readMcpServerList(payload.profiles),
+    profileResource,
+    profileResources,
+    profile: profileResource ? readMcpServerFromWorkspaceProfileResource(profileResource) : null,
+    profiles: profileResources
+      .map((profile) => readMcpServerFromWorkspaceProfileResource(profile))
+      .filter((profile): profile is McpServerConfig => profile !== null),
     warning: typeof payload.warning === "string" ? payload.warning : null,
     payload,
   };

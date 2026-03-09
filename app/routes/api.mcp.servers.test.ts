@@ -4,6 +4,12 @@
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildMcpServerKey,
+  readMcpServerFromWorkspaceProfileResource,
+  type McpServerConfig,
+  type WorkspaceMcpServerProfileResource,
+} from "~/lib/contracts/mcp/profile";
+import {
   DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_TIMEOUT_SECONDS,
@@ -77,6 +83,79 @@ function readDefaultHttpMcpServerProfile(
   }
 
   return profile;
+}
+
+function createWorkspaceMcpServerProfileResource(
+  profile: McpServerConfig,
+  userId = defaultWorkspaceUserId,
+  profileOrder = 0,
+): WorkspaceMcpServerProfileResource {
+  const configKey = buildMcpServerKey(profile);
+  if (profile.transport === "stdio") {
+    return {
+      id: profile.id,
+      userId,
+      profileOrder,
+      connectOnThreadCreate: profile.connectOnThreadCreate === true,
+      configKey,
+      name: profile.name,
+      transport: profile.transport,
+      url: null,
+      headersJson: null,
+      useAzureAuth: false,
+      azureAuthScope: null,
+      timeoutSeconds: null,
+      command: profile.command,
+      argsJson: JSON.stringify(profile.args),
+      cwd: profile.cwd ?? null,
+      envJson: JSON.stringify(profile.env),
+    };
+  }
+
+  return {
+    id: profile.id,
+    userId,
+    profileOrder,
+    connectOnThreadCreate: profile.connectOnThreadCreate === true,
+    configKey,
+    name: profile.name,
+    transport: profile.transport,
+    url: profile.url,
+    headersJson: JSON.stringify(profile.headers),
+    useAzureAuth: profile.useAzureAuth,
+    azureAuthScope: profile.azureAuthScope,
+    timeoutSeconds: profile.timeoutSeconds,
+    command: null,
+    argsJson: null,
+    cwd: null,
+    envJson: null,
+  };
+}
+
+function createWorkspaceMcpServerProfileResources(
+  profiles: McpServerConfig[],
+  userId = defaultWorkspaceUserId,
+): WorkspaceMcpServerProfileResource[] {
+  return profiles.map((profile, index) =>
+    createWorkspaceMcpServerProfileResource(profile, userId, index),
+  );
+}
+
+function readWorkspaceMcpServerProfileConfig(
+  profile: WorkspaceMcpServerProfileResource,
+): McpServerConfig {
+  const config = readMcpServerFromWorkspaceProfileResource(profile);
+  if (!config) {
+    throw new Error(`Invalid workspace MCP server profile: ${profile.id}`);
+  }
+
+  return config;
+}
+
+function readWorkspaceMcpServerProfileConfigs(
+  profiles: WorkspaceMcpServerProfileResource[],
+): McpServerConfig[] {
+  return profiles.map((profile) => readWorkspaceMcpServerProfileConfig(profile));
 }
 
 describe("parseIncomingMcpServer", () => {
@@ -237,10 +316,14 @@ describe("upsertWorkspaceMcpServerProfile", () => {
       timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
     };
 
-    const result = upsertWorkspaceMcpServerProfile(currentProfiles, incoming);
+    const result = upsertWorkspaceMcpServerProfile(
+      defaultWorkspaceUserId,
+      createWorkspaceMcpServerProfileResources(currentProfiles),
+      incoming,
+    );
 
     expect(result.profile.id).toBe("profile-1");
-    expect(result.profile.name).toBe("Renamed Server");
+    expect(readWorkspaceMcpServerProfileConfig(result.profile).name).toBe("Renamed Server");
     expect(result.profiles).toHaveLength(1);
     expect(result.warning).toBe(
       'An MCP server with the same configuration already exists. Renamed it from "Original Name" to "Renamed Server".',
@@ -274,10 +357,14 @@ describe("upsertWorkspaceMcpServerProfile", () => {
       timeoutSeconds: 60,
     };
 
-    const result = upsertWorkspaceMcpServerProfile(currentProfiles, incoming);
+    const result = upsertWorkspaceMcpServerProfile(
+      defaultWorkspaceUserId,
+      createWorkspaceMcpServerProfileResources(currentProfiles),
+      incoming,
+    );
 
     expect(result.profiles).toHaveLength(1);
-    expect(result.profile).toEqual({
+    expect(readWorkspaceMcpServerProfileConfig(result.profile)).toEqual({
       id: "profile-1",
       name: "Server",
       connectOnThreadCreate: false,
@@ -317,7 +404,11 @@ describe("upsertWorkspaceMcpServerProfile", () => {
       timeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
     };
 
-    const result = upsertWorkspaceMcpServerProfile(currentProfiles, incoming);
+    const result = upsertWorkspaceMcpServerProfile(
+      defaultWorkspaceUserId,
+      createWorkspaceMcpServerProfileResources(currentProfiles),
+      incoming,
+    );
     expect(result.profile.connectOnThreadCreate).toBe(true);
   });
 
@@ -349,7 +440,11 @@ describe("upsertWorkspaceMcpServerProfile", () => {
       },
     };
 
-    const result = upsertWorkspaceMcpServerProfile(currentProfiles, incoming);
+    const result = upsertWorkspaceMcpServerProfile(
+      defaultWorkspaceUserId,
+      createWorkspaceMcpServerProfileResources(currentProfiles),
+      incoming,
+    );
 
     expect(result.profiles).toHaveLength(2);
     expect(result.profile.id).toBe("profile-2");
@@ -383,7 +478,7 @@ describe("deleteWorkspaceMcpServerProfile", () => {
     ];
 
     const result = deleteWorkspaceMcpServerProfile(
-      currentProfiles,
+      createWorkspaceMcpServerProfileResources(currentProfiles),
       "profile-1",
     );
 
@@ -407,13 +502,11 @@ describe("deleteWorkspaceMcpServerProfile", () => {
       },
     ];
 
-    const result = deleteWorkspaceMcpServerProfile(
-      currentProfiles,
-      "missing-id",
-    );
+    const expectedProfiles = createWorkspaceMcpServerProfileResources(currentProfiles);
+    const result = deleteWorkspaceMcpServerProfile(expectedProfiles, "missing-id");
 
     expect(result.deleted).toBe(false);
-    expect(result.profiles).toEqual(currentProfiles);
+    expect(result.profiles).toEqual(expectedProfiles);
   });
 });
 
@@ -433,11 +526,12 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       [],
       defaultWorkspaceUserId,
     );
+    const resultConfigs = readWorkspaceMcpServerProfileConfigs(result);
 
     expect(result).toHaveLength(
       DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.length,
     );
-    expect(result).toEqual(
+    expect(resultConfigs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: defaultOpenaiDocsMcpServerProfile.name,
@@ -653,12 +747,13 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
       },
     ];
 
+    const existingProfiles = createWorkspaceMcpServerProfileResources(existing);
     const result = mergeDefaultWorkspaceMcpServerProfiles(
-      existing,
+      existingProfiles,
       defaultWorkspaceUserId,
     );
 
-    expect(result).toEqual(existing);
+    expect(result).toEqual(existingProfiles);
   });
 
   it("adds only missing defaults when some profiles already exist", () => {
@@ -678,14 +773,15 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     ];
 
     const result = mergeDefaultWorkspaceMcpServerProfiles(
-      existing,
+      createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
     );
+    const resultConfigs = readWorkspaceMcpServerProfileConfigs(result);
 
     expect(result).toHaveLength(
       DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.length,
     );
-    expect(result).toEqual(
+    expect(resultConfigs).toEqual(
       expect.arrayContaining([
         existing[0],
         expect.objectContaining({
@@ -776,10 +872,10 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     ];
 
     const result = mergeDefaultWorkspaceMcpServerProfiles(
-      existing,
+      createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
     );
-    const names = result.map((entry) => entry.name);
+    const names = readWorkspaceMcpServerProfileConfigs(result).map((entry) => entry.name);
     expect(names).not.toContain("server-http");
     expect(names).not.toContain("server-shell");
     expect(names).toContain("custom-local");
@@ -801,10 +897,10 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     ];
 
     const result = mergeDefaultWorkspaceMcpServerProfiles(
-      existing,
+      createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
     );
-    const mermaidProfiles = result.filter(
+    const mermaidProfiles = readWorkspaceMcpServerProfileConfigs(result).filter(
       (entry) =>
         entry.transport === "stdio" &&
         entry.command === defaultMermaidMcpServerProfile.command &&
@@ -841,10 +937,10 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     ];
 
     const result = mergeDefaultWorkspaceMcpServerProfiles(
-      existing,
+      createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
     );
-    const filesystemProfiles = result.filter(
+    const filesystemProfiles = readWorkspaceMcpServerProfileConfigs(result).filter(
       (entry) =>
         entry.transport === "stdio" &&
         entry.command === defaultFilesystemMcpServerProfile.command &&
@@ -897,10 +993,10 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     ];
 
     const result = mergeDefaultWorkspaceMcpServerProfiles(
-      existing,
+      createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
     );
-    const names = result.map((entry) => entry.name);
+    const names = readWorkspaceMcpServerProfileConfigs(result).map((entry) => entry.name);
     expect(names).toContain(defaultMicrosoftLearnMcpServerProfile.name);
     expect(names).toContain(defaultAzureMcpServerProfile.name);
     expect(names).toContain("custom-local");

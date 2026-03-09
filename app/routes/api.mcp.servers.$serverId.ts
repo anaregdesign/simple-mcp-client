@@ -113,10 +113,14 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     const profilesWithoutTarget = profilesWithDefaults.filter((profile) => profile.id !== serverId);
-    const { profile, profiles, warning } = upsertWorkspaceMcpServerProfile(profilesWithoutTarget, {
-      ...parsed.value,
-      id: serverId,
-    });
+    const { profile, profiles, warning } = upsertWorkspaceMcpServerProfile(
+      user.id,
+      profilesWithoutTarget,
+      {
+        ...parsed.value,
+        id: serverId,
+      },
+    );
 
     await writeWorkspaceMcpServerProfiles(user.id, profiles);
     return Response.json({ profile, profiles, warning });

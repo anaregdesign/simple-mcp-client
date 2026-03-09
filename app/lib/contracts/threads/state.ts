@@ -14,7 +14,7 @@ import {
   cloneThreadInstructionContextToggles,
   hasNonDefaultThreadInstructionContextToggles,
 } from "~/lib/contracts/threads/instruction-context";
-import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
+import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
 
 export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
   return value.map((message) => ({
@@ -60,18 +60,22 @@ export function cloneThreadSkillActivations(
 export { cloneThreadEnvironment };
 
 export function cloneThreadInstructionContexts(
-  value: ThreadSnapshot["instructionContextToggles"],
-): ThreadSnapshot["instructionContextToggles"] {
+  value: ThreadWritePayload["instructionContextToggles"],
+): ThreadWritePayload["instructionContextToggles"] {
   return cloneThreadInstructionContextToggles(value);
 }
 
-export function buildThreadSaveSignature(snapshot: ThreadSnapshot): string {
+export function buildThreadSaveSignature(
+  snapshot: ThreadWritePayload | ThreadState,
+): string {
   return JSON.stringify({
     name: snapshot.name,
-    deletedAt: snapshot.deletedAt,
     reasoningEffort: snapshot.reasoningEffort,
     webSearchEnabled: snapshot.webSearchEnabled,
-    agentInstruction: snapshot.agentInstruction,
+    instruction:
+      "instruction" in snapshot
+        ? snapshot.instruction
+        : { content: snapshot.agentInstruction },
     instructionContextToggles: snapshot.instructionContextToggles,
     threadEnvironment: snapshot.threadEnvironment,
     messages: snapshot.messages,
@@ -82,8 +86,8 @@ export function buildThreadSaveSignature(snapshot: ThreadSnapshot): string {
 }
 
 export function hasThreadInteraction(
-  snapshot: Pick<ThreadSnapshot, "messages"> &
-    Partial<Pick<ThreadSnapshot, "skillSelections">>,
+  snapshot: Pick<ThreadWritePayload, "messages"> &
+    Partial<Pick<ThreadWritePayload, "skillSelections">>,
 ): boolean {
   if (snapshot.messages.length > 0) {
     return true;
@@ -94,14 +98,14 @@ export function hasThreadInteraction(
 
 export function hasThreadPersistableState(
   snapshot: Pick<
-    ThreadSnapshot,
+    ThreadWritePayload,
     | "messages"
     | "reasoningEffort"
     | "webSearchEnabled"
     | "instructionContextToggles"
     | "threadEnvironment"
   > &
-    Partial<Pick<ThreadSnapshot, "skillSelections">>,
+    Partial<Pick<ThreadWritePayload, "skillSelections">>,
 ): boolean {
   if (hasThreadInteraction(snapshot)) {
     return true;
@@ -117,16 +121,14 @@ export function hasThreadPersistableState(
   );
 }
 
-export function isThreadSnapshotArchived(
-  snapshot: Pick<ThreadSnapshot, "deletedAt"> | null | undefined,
+export function isThreadArchived(
+  thread: Pick<ThreadState, "deletedAt"> | null | undefined,
 ): boolean {
-  return (
-    snapshot !== null && snapshot !== undefined && snapshot.deletedAt !== null
-  );
+  return thread !== null && thread !== undefined && thread.deletedAt !== null;
 }
 
 export function isThreadArchivedById(
-  snapshots: Array<Pick<ThreadSnapshot, "id" | "deletedAt">>,
+  snapshots: Array<Pick<ThreadState, "id" | "deletedAt">>,
   threadIdRaw: string,
 ): boolean {
   const threadId = threadIdRaw.trim();
@@ -134,14 +136,14 @@ export function isThreadArchivedById(
     return false;
   }
 
-  const snapshot = snapshots.find((entry) => entry.id === threadId);
-  return isThreadSnapshotArchived(snapshot);
+  const thread = snapshots.find((entry) => entry.id === threadId);
+  return isThreadArchived(thread);
 }
 
-export function upsertThreadSnapshot(
-  current: ThreadSnapshot[],
-  next: ThreadSnapshot,
-): ThreadSnapshot[] {
+export function upsertThreadState(
+  current: ThreadState[],
+  next: ThreadState,
+): ThreadState[] {
   const existingIndex = current.findIndex((thread) => thread.id === next.id);
   if (existingIndex < 0) {
     return [next, ...current].sort((left, right) =>
@@ -157,32 +159,32 @@ export function upsertThreadSnapshot(
   );
 }
 
-export function readThreadSnapshotById(
-  snapshots: ThreadSnapshot[],
+export function readThreadStateById(
+  threads: ThreadState[],
   threadIdRaw: string,
-): ThreadSnapshot | null {
+): ThreadState | null {
   const threadId = threadIdRaw.trim();
   if (!threadId) {
     return null;
   }
 
-  return snapshots.find((thread) => thread.id === threadId) ?? null;
+  return threads.find((thread) => thread.id === threadId) ?? null;
 }
 
 export function readThreadRuntimeStateById(
-  snapshots: ThreadSnapshot[],
+  threads: ThreadState[],
   threadIdRaw: string,
 ): {
-  activeThreadSnapshot: ThreadSnapshot | null;
+  activeThreadState: ThreadState | null;
   messages: ThreadMessage[];
   mcpServers: McpServerConfig[];
   mcpRpcLogs: ThreadOperationLogEntry[];
   skillSelections: ThreadSkillActivation[];
 } {
-  const activeThreadSnapshot = readThreadSnapshotById(snapshots, threadIdRaw);
-  if (!activeThreadSnapshot) {
+  const activeThreadState = readThreadStateById(threads, threadIdRaw);
+  if (!activeThreadState) {
     return {
-      activeThreadSnapshot: null,
+      activeThreadState: null,
       messages: [],
       mcpServers: [],
       mcpRpcLogs: [],
@@ -191,33 +193,33 @@ export function readThreadRuntimeStateById(
   }
 
   return {
-    activeThreadSnapshot,
-    messages: cloneMessages(activeThreadSnapshot.messages),
-    mcpServers: cloneMcpServers(activeThreadSnapshot.mcpServers),
-    mcpRpcLogs: cloneThreadOperationLogs(activeThreadSnapshot.mcpRpcLogs),
+    activeThreadState,
+    messages: cloneMessages(activeThreadState.messages),
+    mcpServers: cloneMcpServers(activeThreadState.mcpServers),
+    mcpRpcLogs: cloneThreadOperationLogs(activeThreadState.mcpRpcLogs),
     skillSelections: cloneThreadSkillActivations(
-      activeThreadSnapshot.skillSelections,
+      activeThreadState.skillSelections,
     ),
   };
 }
 
-export function updateThreadSnapshotCollectionById(
-  snapshots: ThreadSnapshot[],
+export function updateThreadStateCollectionById(
+  threads: ThreadState[],
   threadIdRaw: string,
-  updater: (current: ThreadSnapshot) => ThreadSnapshot,
-): ThreadSnapshot[] {
+  updater: (current: ThreadState) => ThreadState,
+): ThreadState[] {
   const threadId = threadIdRaw.trim();
   if (!threadId) {
-    return snapshots;
+    return threads;
   }
 
-  const currentThread = readThreadSnapshotById(snapshots, threadId);
+  const currentThread = readThreadStateById(threads, threadId);
   if (!currentThread) {
-    return snapshots;
+    return threads;
   }
 
   const nextThread = updater(currentThread);
-  return upsertThreadSnapshot(snapshots, {
+  return upsertThreadState(threads, {
     ...nextThread,
     updatedAt: nextThread.updatedAt || new Date().toISOString(),
   });

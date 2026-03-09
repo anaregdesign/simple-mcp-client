@@ -6,29 +6,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   readAuthenticatedUser,
   readJsonPayload,
-  updateThreadSnapshot,
+  updateThread,
   logicalDeleteThread,
   logicalRestoreThread,
   isThreadRestorePayload,
   readErrorMessage,
-  readThreadSnapshotFromUnknown,
+  readThreadWritePayloadFromUnknown,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
   readJsonPayload: vi.fn(async () => ({ ok: true as const, value: {} })),
-  updateThreadSnapshot: vi.fn<any>(async () => ({ status: "not_found" })),
+  updateThread: vi.fn<any>(async () => ({ status: "not_found" })),
   logicalDeleteThread: vi.fn<any>(async () => ({ status: "not_found" as const })),
   logicalRestoreThread: vi.fn(async () => ({ status: "not_found" as const })),
   isThreadRestorePayload: vi.fn(() => false),
   readErrorMessage: vi.fn(() => "Unknown error."),
-  readThreadSnapshotFromUnknown: vi.fn<any>(() => null),
+  readThreadWritePayloadFromUnknown: vi.fn<any>(() => null),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
 vi.mock("~/lib/server/application/threads/thread-service", () => ({
   readAuthenticatedUser,
   readJsonPayload,
-  updateThreadSnapshot,
+  updateThread,
   logicalDeleteThread,
   logicalRestoreThread,
   isThreadRestorePayload,
@@ -36,7 +36,7 @@ vi.mock("~/lib/server/application/threads/thread-service", () => ({
 }));
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
-  readThreadSnapshotFromUnknown,
+  readThreadWritePayloadFromUnknown,
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -46,14 +46,38 @@ vi.mock("~/lib/server/observability/runtime-event-log", () => ({
 
 import { action, loader } from "./api.threads.$threadId";
 
+function createThreadResource(threadId = "thread-a") {
+  return {
+    id: threadId,
+    userId: 1,
+    name: "Thread A",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    deletedAt: null,
+    reasoningEffort: "medium",
+    webSearchEnabled: false,
+    threadEnvironmentJson: "{}",
+    instructionContextTogglesJson: "{\"system\":true}",
+    instruction: {
+      id: 1,
+      threadId,
+      content: "",
+    },
+    messages: [],
+    mcpServers: [],
+    mcpRpcLogs: [],
+    skillSelections: [],
+  };
+}
+
 describe("/api/threads/:threadId", () => {
   beforeEach(() => {
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
     readJsonPayload.mockReset();
     readJsonPayload.mockResolvedValue({ ok: true, value: {} });
-    updateThreadSnapshot.mockReset();
-    updateThreadSnapshot.mockResolvedValue({ status: "not_found" });
+    updateThread.mockReset();
+    updateThread.mockResolvedValue({ status: "not_found" });
     logicalDeleteThread.mockReset();
     logicalDeleteThread.mockResolvedValue({ status: "not_found" });
     logicalRestoreThread.mockReset();
@@ -62,8 +86,8 @@ describe("/api/threads/:threadId", () => {
     isThreadRestorePayload.mockReturnValue(false);
     readErrorMessage.mockReset();
     readErrorMessage.mockReturnValue("Unknown error.");
-    readThreadSnapshotFromUnknown.mockReset();
-    readThreadSnapshotFromUnknown.mockReturnValue(null);
+    readThreadWritePayloadFromUnknown.mockReset();
+    readThreadWritePayloadFromUnknown.mockReturnValue(null);
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
   });
@@ -85,8 +109,19 @@ describe("/api/threads/:threadId", () => {
   });
 
   it("returns 422 when PUT payload thread id does not match path id", async () => {
-    readThreadSnapshotFromUnknown.mockReturnValue({
+    readThreadWritePayloadFromUnknown.mockReturnValue({
       id: "thread-b",
+      name: "Thread B",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      reasoningEffort: "medium",
+      webSearchEnabled: false,
+      instruction: {
+        content: "",
+      },
+      instructionContextToggles: {
+        system: true,
+      },
+      threadEnvironment: {},
       messages: [],
       mcpServers: [],
       mcpRpcLogs: [],
@@ -104,14 +139,25 @@ describe("/api/threads/:threadId", () => {
   });
 
   it("returns 404 when PUT target thread does not exist", async () => {
-    readThreadSnapshotFromUnknown.mockReturnValue({
+    readThreadWritePayloadFromUnknown.mockReturnValue({
       id: "thread-a",
+      name: "Thread A",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      reasoningEffort: "medium",
+      webSearchEnabled: false,
+      instruction: {
+        content: "",
+      },
+      instructionContextToggles: {
+        system: true,
+      },
+      threadEnvironment: {},
       messages: [],
       mcpServers: [],
       mcpRpcLogs: [],
       skillSelections: [],
     });
-    updateThreadSnapshot.mockResolvedValueOnce({ status: "not_found" });
+    updateThread.mockResolvedValueOnce({ status: "not_found" });
 
     const response = await action({
       request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
@@ -124,22 +170,27 @@ describe("/api/threads/:threadId", () => {
   });
 
   it("returns 200 on successful PUT update", async () => {
-    readThreadSnapshotFromUnknown.mockReturnValue({
+    readThreadWritePayloadFromUnknown.mockReturnValue({
       id: "thread-a",
+      name: "Thread A",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      reasoningEffort: "medium",
+      webSearchEnabled: false,
+      instruction: {
+        content: "",
+      },
+      instructionContextToggles: {
+        system: true,
+      },
+      threadEnvironment: {},
       messages: [],
       mcpServers: [],
       mcpRpcLogs: [],
       skillSelections: [],
     });
-    updateThreadSnapshot.mockResolvedValueOnce({
+    updateThread.mockResolvedValueOnce({
       status: "ok",
-      thread: {
-        id: "thread-a",
-        messages: [],
-        mcpServers: [],
-        mcpRpcLogs: [],
-        skillSelections: [],
-      },
+      thread: createThreadResource("thread-a"),
     });
 
     const response = await action({
@@ -152,14 +203,25 @@ describe("/api/threads/:threadId", () => {
   });
 
   it("returns 409 when PUT target thread is archived", async () => {
-    readThreadSnapshotFromUnknown.mockReturnValue({
+    readThreadWritePayloadFromUnknown.mockReturnValue({
       id: "thread-a",
+      name: "Thread A",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      reasoningEffort: "medium",
+      webSearchEnabled: false,
+      instruction: {
+        content: "",
+      },
+      instructionContextToggles: {
+        system: true,
+      },
+      threadEnvironment: {},
       messages: [],
       mcpServers: [],
       mcpRpcLogs: [],
       skillSelections: [],
     });
-    updateThreadSnapshot.mockResolvedValueOnce({ status: "archived" });
+    updateThread.mockResolvedValueOnce({ status: "archived" });
 
     const response = await action({
       request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),

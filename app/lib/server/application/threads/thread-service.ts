@@ -2,53 +2,82 @@
  * Thread application service module.
  */
 import { Prisma } from "@prisma/client";
-import {
-  DEFAULT_AGENT_INSTRUCTION,
-  DEFAULT_REASONING_EFFORT,
-  REASONING_EFFORT_OPTIONS,
-  THREAD_DEFAULT_NAME,
-} from "~/lib/constants/chat";
+import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
+import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
+import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
 } from "~/lib/server/persistence/prisma";
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
-import { readThreadSnapshotFromUnknown } from "~/lib/contracts/threads/parsers";
 import {
   buildThreadMessageSkillActivationRowId,
-  buildThreadOperationLogRowId,
   buildThreadMcpServerRowId,
+  buildThreadOperationLogRowId,
   buildThreadSkillActivationRowId,
 } from "~/lib/server/shared/thread-row-ids";
-import {
-  hasThreadInteraction,
-  hasThreadPersistableState,
-} from "~/lib/contracts/threads/snapshot-state";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
-import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
-import { Thread } from "~/lib/domain/threads/thread";
+
+const threadResourceArgs = {
+  include: {
+    instruction: true,
+    messages: {
+      orderBy: {
+        conversationOrder: "asc",
+      },
+      include: {
+        skillActivations: {
+          orderBy: {
+            selectionOrder: "asc",
+          },
+          include: {
+            skillProfile: true,
+          },
+        },
+      },
+    },
+    mcpServers: {
+      orderBy: {
+        selectionOrder: "asc",
+      },
+    },
+    mcpRpcLogs: {
+      orderBy: {
+        conversationOrder: "asc",
+      },
+    },
+    skillSelections: {
+      orderBy: {
+        selectionOrder: "asc",
+      },
+      include: {
+        skillProfile: true,
+      },
+    },
+  },
+} satisfies Prisma.ThreadDefaultArgs;
 
 export class ThreadQueryService {
-  async readUserThreads(userId: number): Promise<ThreadSnapshot[]> {
+  async readUserThreads(userId: number): Promise<ThreadResource[]> {
     return readUserThreads(userId);
   }
 }
 
 export class ThreadApplicationService {
-  async createThreadSnapshot(
+  async createThread(
     userId: number,
-    snapshot: ThreadSnapshot,
-  ): Promise<CreateThreadSnapshotResult> {
-    return createThreadSnapshot(userId, snapshot);
+    payload: ThreadWritePayload,
+  ): Promise<CreateThreadResult> {
+    return createThread(userId, payload);
   }
 
-  async updateThreadSnapshot(
+  async updateThread(
     userId: number,
-    snapshot: ThreadSnapshot,
-  ): Promise<UpdateThreadSnapshotResult> {
-    return updateThreadSnapshot(userId, snapshot);
+    payload: ThreadWritePayload,
+  ): Promise<UpdateThreadResult> {
+    return updateThread(userId, payload);
   }
 
   async logicalDeleteThread(
@@ -69,10 +98,10 @@ export class ThreadApplicationService {
 export const threadQueryService = new ThreadQueryService();
 export const threadApplicationService = new ThreadApplicationService();
 
-async function readUserThreads(userId: number): Promise<ThreadSnapshot[]> {
+async function readUserThreads(userId: number): Promise<ThreadResource[]> {
   await ensurePersistenceDatabaseReady();
 
-  const records = await prisma.thread.findMany({
+  return prisma.thread.findMany({
     where: {
       userId,
     },
@@ -84,129 +113,33 @@ async function readUserThreads(userId: number): Promise<ThreadSnapshot[]> {
         createdAt: "desc",
       },
     ],
-    include: {
-      instruction: true,
-      messages: {
-        orderBy: {
-          conversationOrder: "asc",
-        },
-        include: {
-          skillActivations: {
-            orderBy: {
-              selectionOrder: "asc",
-            },
-            include: {
-              skillProfile: true,
-            },
-          },
-        },
-      },
-      mcpServers: {
-        orderBy: {
-          selectionOrder: "asc",
-        },
-      },
-      mcpRpcLogs: {
-        orderBy: {
-          conversationOrder: "asc",
-        },
-      },
-      skillSelections: {
-        orderBy: {
-          selectionOrder: "asc",
-        },
-        include: {
-          skillProfile: {
-            include: {
-              registryProfile: true,
-            },
-          },
-        },
-      },
-    },
+    ...threadResourceArgs,
   });
-
-  const threads: ThreadSnapshot[] = [];
-  for (const record of records) {
-    const thread = mapStoredThreadToSnapshot(record);
-    if (!thread) {
-      continue;
-    }
-
-    threads.push(thread.toSnapshot());
-  }
-
-  return threads;
 }
 
 async function readThreadById(
   userId: number,
   threadId: string,
-): Promise<Thread | null> {
+): Promise<ThreadResource | null> {
   await ensurePersistenceDatabaseReady();
 
-  const record = await prisma.thread.findFirst({
+  return prisma.thread.findFirst({
     where: {
       id: threadId,
       userId,
     },
-    include: {
-      instruction: true,
-      messages: {
-        orderBy: {
-          conversationOrder: "asc",
-        },
-        include: {
-          skillActivations: {
-            orderBy: {
-              selectionOrder: "asc",
-            },
-            include: {
-              skillProfile: true,
-            },
-          },
-        },
-      },
-      mcpServers: {
-        orderBy: {
-          selectionOrder: "asc",
-        },
-      },
-      mcpRpcLogs: {
-        orderBy: {
-          conversationOrder: "asc",
-        },
-      },
-      skillSelections: {
-        orderBy: {
-          selectionOrder: "asc",
-        },
-        include: {
-          skillProfile: {
-            include: {
-              registryProfile: true,
-            },
-          },
-        },
-      },
-    },
+    ...threadResourceArgs,
   });
-
-  if (!record) {
-    return null;
-  }
-
-  return mapStoredThreadToSnapshot(record);
 }
 
 type ThreadRecordHead = {
   deletedAt: string | null;
 };
 
-export type CreateThreadSnapshotResult =
+export type CreateThreadResult =
   | {
       status: "created";
-      thread: ThreadSnapshot;
+      thread: ThreadResource;
     }
   | {
       status: "conflict";
@@ -221,7 +154,7 @@ async function readThreadRecordHead(
 ): Promise<ThreadRecordHead | null> {
   await ensurePersistenceDatabaseReady();
 
-  const record = await prisma.thread.findFirst({
+  return prisma.thread.findFirst({
     where: {
       id: threadId,
       userId,
@@ -230,15 +163,13 @@ async function readThreadRecordHead(
       deletedAt: true,
     },
   });
-
-  return record;
 }
 
-export async function createThreadSnapshot(
+export async function createThread(
   userId: number,
-  snapshot: ThreadSnapshot,
-): Promise<CreateThreadSnapshotResult> {
-  const existing = await readThreadRecordHead(userId, snapshot.id);
+  payload: ThreadWritePayload,
+): Promise<CreateThreadResult> {
+  const existing = await readThreadRecordHead(userId, payload.id);
   if (existing) {
     return {
       status: "conflict",
@@ -246,7 +177,7 @@ export async function createThreadSnapshot(
   }
 
   try {
-    const saved = await saveThreadSnapshot(userId, snapshot);
+    const saved = await saveThreadPayload(userId, payload);
     if (!saved || !saved.created) {
       return {
         status: "invalid",
@@ -267,10 +198,10 @@ export async function createThreadSnapshot(
   }
 }
 
-export type UpdateThreadSnapshotResult =
+export type UpdateThreadResult =
   | {
       status: "ok";
-      thread: ThreadSnapshot;
+      thread: ThreadResource;
     }
   | {
       status: "not_found";
@@ -279,11 +210,11 @@ export type UpdateThreadSnapshotResult =
       status: "archived";
     };
 
-export async function updateThreadSnapshot(
+export async function updateThread(
   userId: number,
-  snapshot: ThreadSnapshot,
-): Promise<UpdateThreadSnapshotResult> {
-  const existing = await readThreadRecordHead(userId, snapshot.id);
+  payload: ThreadWritePayload,
+): Promise<UpdateThreadResult> {
+  const existing = await readThreadRecordHead(userId, payload.id);
   if (!existing) {
     return { status: "not_found" };
   }
@@ -291,7 +222,7 @@ export async function updateThreadSnapshot(
     return { status: "archived" };
   }
 
-  const saved = await saveThreadSnapshot(userId, snapshot);
+  const saved = await saveThreadPayload(userId, payload);
   if (!saved || saved.created) {
     return { status: "not_found" };
   }
@@ -302,17 +233,16 @@ export async function updateThreadSnapshot(
   };
 }
 
-export async function saveThreadSnapshot(
+export async function saveThreadPayload(
   userId: number,
-  snapshot: ThreadSnapshot,
-): Promise<{ thread: ThreadSnapshot; created: boolean } | null> {
+  payload: ThreadWritePayload,
+): Promise<{ thread: ThreadResource; created: boolean } | null> {
   await ensurePersistenceDatabaseReady();
   let created = false;
-  const thread = Thread.fromSnapshot(snapshot);
 
   let existing = await prisma.thread.findFirst({
     where: {
-      id: thread.id,
+      id: payload.id,
       userId,
     },
     select: {
@@ -323,43 +253,43 @@ export async function saveThreadSnapshot(
   });
 
   if (!existing) {
-    if (!hasThreadPersistableState(thread.toSnapshot())) {
+    if (!hasThreadPersistableState(payload)) {
       return null;
     }
     created = true;
 
     const now = new Date().toISOString();
-    const createdAt = thread.createdAt || now;
-    const nextName = normalizeThreadName(thread.name) || THREAD_DEFAULT_NAME;
+    const createdAt = payload.createdAt || now;
+    const nextName = normalizeThreadName(payload.name) || THREAD_DEFAULT_NAME;
 
     await prisma.$transaction(async (transaction) => {
       await transaction.thread.create({
         data: {
-          id: thread.id,
+          id: payload.id,
           userId,
           name: nextName,
           createdAt,
           updatedAt: now,
           deletedAt: null,
-          reasoningEffort: thread.reasoningEffort,
-          webSearchEnabled: thread.webSearchEnabled,
-          threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
+          reasoningEffort: payload.reasoningEffort,
+          webSearchEnabled: payload.webSearchEnabled,
+          threadEnvironmentJson: JSON.stringify(payload.threadEnvironment),
           instructionContextTogglesJson: JSON.stringify(
-            thread.instructionContextToggles,
+            payload.instructionContextToggles,
           ),
         },
       });
 
       await transaction.threadInstruction.create({
         data: {
-          threadId: thread.id,
-          content: thread.agentInstruction,
+          threadId: payload.id,
+          content: payload.instruction.content,
         },
       });
     });
 
     existing = {
-      id: thread.id,
+      id: payload.id,
       name: nextName,
       deletedAt: null,
     };
@@ -370,7 +300,7 @@ export async function saveThreadSnapshot(
   }
 
   const updatedAt = new Date().toISOString();
-  const nextName = normalizeThreadName(thread.name) || existing.name;
+  const nextName = normalizeThreadName(payload.name) || existing.name;
 
   await prisma.$transaction(async (transaction) => {
     await transaction.thread.update({
@@ -380,11 +310,11 @@ export async function saveThreadSnapshot(
       data: {
         name: nextName,
         updatedAt,
-        reasoningEffort: thread.reasoningEffort,
-        webSearchEnabled: thread.webSearchEnabled,
-        threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
+        reasoningEffort: payload.reasoningEffort,
+        webSearchEnabled: payload.webSearchEnabled,
+        threadEnvironmentJson: JSON.stringify(payload.threadEnvironment),
         instructionContextTogglesJson: JSON.stringify(
-          thread.instructionContextToggles,
+          payload.instructionContextToggles,
         ),
       },
     });
@@ -395,10 +325,10 @@ export async function saveThreadSnapshot(
       },
       create: {
         threadId: existing.id,
-        content: thread.agentInstruction,
+        content: payload.instruction.content,
       },
       update: {
-        content: thread.agentInstruction,
+        content: payload.instruction.content,
       },
     });
 
@@ -408,9 +338,9 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (thread.messages.length > 0) {
+    if (payload.messages.length > 0) {
       await transaction.threadMessage.createMany({
-        data: thread.messages.map((message, index) => ({
+        data: payload.messages.map((message, index) => ({
           id: message.id,
           threadId: existing.id,
           conversationOrder: index,
@@ -429,13 +359,13 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (thread.mcpServers.length > 0) {
+    if (payload.mcpServers.length > 0) {
       await transaction.threadMcpConnection.createMany({
-        data: thread.mcpServers.map((server, index) =>
+        data: payload.mcpServers.map((server, index) =>
           server.transport === "stdio"
             ? {
-                id: buildThreadMcpServerRowId(existing.id, server.id, index),
-                threadId: existing.id,
+                id: buildThreadMcpServerRowId(existing!.id, server.id, index),
+                threadId: existing!.id,
                 selectionOrder: index,
                 name: server.name,
                 transport: server.transport,
@@ -450,8 +380,8 @@ export async function saveThreadSnapshot(
                 envJson: JSON.stringify(server.env),
               }
             : {
-                id: buildThreadMcpServerRowId(existing.id, server.id, index),
-                threadId: existing.id,
+                id: buildThreadMcpServerRowId(existing!.id, server.id, index),
+                threadId: existing!.id,
                 selectionOrder: index,
                 name: server.name,
                 transport: server.transport,
@@ -475,12 +405,12 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (thread.mcpRpcLogs.length > 0) {
+    if (payload.mcpRpcLogs.length > 0) {
       await transaction.threadOperationLog.createMany({
-        data: thread.mcpRpcLogs.map((entry, index) => ({
-          rowId: buildThreadOperationLogRowId(existing.id, entry.id, index),
+        data: payload.mcpRpcLogs.map((entry, index) => ({
+          rowId: buildThreadOperationLogRowId(existing!.id, entry.id, index),
           sourceRpcId: entry.id,
-          threadId: existing.id,
+          threadId: existing!.id,
           conversationOrder: index,
           sequence: entry.sequence,
           operationType: entry.operationType,
@@ -500,8 +430,8 @@ export async function saveThreadSnapshot(
       transaction,
       userId,
       skillSelections: [
-        ...thread.skillSelections,
-        ...thread.messages.flatMap((message) => message.skillActivations),
+        ...payload.skillSelections,
+        ...payload.messages.flatMap((message) => message.skillActivations),
       ],
     });
 
@@ -511,12 +441,10 @@ export async function saveThreadSnapshot(
       },
     });
 
-    if (thread.skillSelections.length > 0) {
+    if (payload.skillSelections.length > 0) {
       await transaction.threadSkillActivation.createMany({
-        data: thread.skillSelections.map((selection, index) => {
-          const skillProfileId = skillProfileIdsByLocation.get(
-            selection.location,
-          );
+        data: payload.skillSelections.map((selection, index) => {
+          const skillProfileId = skillProfileIdsByLocation.get(selection.location);
           if (!skillProfileId) {
             throw new Error(
               `Skill profile is not available for location: ${selection.location}`,
@@ -524,8 +452,8 @@ export async function saveThreadSnapshot(
           }
 
           return {
-            id: buildThreadSkillActivationRowId(existing.id, index),
-            threadId: existing.id,
+            id: buildThreadSkillActivationRowId(existing!.id, index),
+            threadId: existing!.id,
             selectionOrder: index,
             skillProfileId,
           };
@@ -541,11 +469,9 @@ export async function saveThreadSnapshot(
       },
     });
 
-    const messageSkillActivations = thread.messages.flatMap((message) =>
+    const messageSkillActivations = payload.messages.flatMap((message) =>
       message.skillActivations.map((selection, index) => {
-        const skillProfileId = skillProfileIdsByLocation.get(
-          selection.location,
-        );
+        const skillProfileId = skillProfileIdsByLocation.get(selection.location);
         if (!skillProfileId) {
           throw new Error(
             `Skill profile is not available for location: ${selection.location}`,
@@ -574,7 +500,7 @@ export async function saveThreadSnapshot(
   }
 
   return {
-    thread: persistedThread.toSnapshot(),
+    thread: persistedThread,
     created,
   };
 }
@@ -607,7 +533,7 @@ export type LogicalDeleteThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadSnapshot;
+      thread: ThreadResource;
     };
 
 export async function logicalDeleteThread(
@@ -620,7 +546,7 @@ export async function logicalDeleteThread(
   if (!existing) {
     return { status: "not_found" };
   }
-  if (!hasThreadInteraction(existing)) {
+  if (existing.messages.length === 0 && existing.skillSelections.length === 0) {
     return { status: "empty" };
   }
 
@@ -644,7 +570,7 @@ export async function logicalDeleteThread(
 
   return {
     status: "ok",
-    thread: deleted.toSnapshot(),
+    thread: deleted,
   };
 }
 
@@ -654,7 +580,7 @@ export type LogicalRestoreThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadSnapshot;
+      thread: ThreadResource;
     };
 
 export async function logicalRestoreThread(
@@ -688,14 +614,14 @@ export async function logicalRestoreThread(
 
   return {
     status: "ok",
-    thread: restored.toSnapshot(),
+    thread: restored,
   };
 }
 
 async function upsertThreadSkillProfiles(options: {
   transaction: Prisma.TransactionClient;
   userId: number;
-  skillSelections: ThreadSnapshot["skillSelections"];
+  skillSelections: ThreadWritePayload["skillSelections"];
 }): Promise<Map<string, number>> {
   const uniqueSelections = new Map<
     string,
@@ -718,9 +644,7 @@ async function upsertThreadSkillProfiles(options: {
     uniqueSelections.set(location, {
       name,
       location,
-      source: registryOption
-        ? "app_data"
-        : readSkillSourceFromLocation(location),
+      source: registryOption ? "app_data" : readSkillSourceFromLocation(location),
       registryOption,
     });
   }
@@ -776,32 +700,30 @@ async function upsertThreadSkillProfiles(options: {
       ? (registryProfileIdByRegistryId.get(selection.registryOption.id) ?? null)
       : null;
 
-    const skillProfile = await options.transaction.workspaceSkillProfile.upsert(
-      {
-        where: {
-          userId_location: {
-            userId: options.userId,
-            location: selection.location,
-          },
-        },
-        create: {
+    const skillProfile = await options.transaction.workspaceSkillProfile.upsert({
+      where: {
+        userId_location: {
           userId: options.userId,
-          registryProfileId,
-          name: selection.name,
           location: selection.location,
-          source: selection.source,
-        },
-        update: {
-          registryProfileId,
-          name: selection.name,
-          source: selection.source,
-        },
-        select: {
-          id: true,
-          location: true,
         },
       },
-    );
+      create: {
+        userId: options.userId,
+        registryProfileId,
+        name: selection.name,
+        location: selection.location,
+        source: selection.source,
+      },
+      update: {
+        registryProfileId,
+        name: selection.name,
+        source: selection.source,
+      },
+      select: {
+        id: true,
+        location: true,
+      },
+    });
 
     skillProfileIdByLocation.set(skillProfile.location, skillProfile.id);
   }
@@ -868,181 +790,6 @@ function isPositiveIntegerString(value: string): boolean {
   return /^[1-9]\d*$/.test(value.trim());
 }
 
-function mapStoredThreadToSnapshot(value: {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-  reasoningEffort: string;
-  webSearchEnabled: boolean;
-  threadEnvironmentJson: string;
-  instructionContextTogglesJson: string;
-  instruction: {
-    content: string;
-  } | null;
-  messages: Array<{
-    id: string;
-    role: string;
-    content: string;
-    createdAt: string;
-    turnId: string;
-    attachmentsJson: string;
-    skillActivations: Array<{
-      id: string;
-      messageId: string;
-      selectionOrder: number;
-      skillProfileId: number;
-      skillProfile: {
-        id: number;
-        userId: number;
-        registryProfileId: number | null;
-        name: string;
-        location: string;
-        source: string;
-      };
-    }>;
-  }>;
-  mcpServers: Array<{
-    id: string;
-    name: string;
-    transport: string;
-    url: string | null;
-    headersJson: string | null;
-    useAzureAuth: boolean;
-    azureAuthScope: string | null;
-    timeoutSeconds: number | null;
-    command: string | null;
-    argsJson: string | null;
-    cwd: string | null;
-    envJson: string | null;
-  }>;
-  mcpRpcLogs: Array<{
-    rowId: string;
-    sourceRpcId: string;
-    sequence: number;
-    operationType: string;
-    serverName: string;
-    method: string;
-    startedAt: string;
-    completedAt: string;
-    requestJson: string;
-    responseJson: string;
-    isError: boolean;
-    turnId: string;
-  }>;
-  skillSelections: Array<{
-    id: string;
-    selectionOrder: number;
-    skillProfileId: number;
-    skillProfile: {
-      id: number;
-      userId: number;
-      registryProfileId: number | null;
-      name: string;
-      location: string;
-      source: string;
-      registryProfile: {
-        id: number;
-        userId: number;
-        registryId: string;
-        registryLabel: string;
-        registryDescription: string;
-        repository: string;
-        repositoryUrl: string;
-        sourcePath: string;
-        installDirectoryName: string;
-      } | null;
-    };
-  }>;
-}): Thread | null {
-  const parsed = readThreadSnapshotFromUnknown(
-    {
-      id: value.id,
-      name: value.name,
-      createdAt: value.createdAt,
-      updatedAt: value.updatedAt,
-      deletedAt: value.deletedAt,
-      reasoningEffort: readThreadReasoningEffort(value.reasoningEffort),
-      webSearchEnabled: value.webSearchEnabled === true,
-      agentInstruction: value.instruction?.content ?? DEFAULT_AGENT_INSTRUCTION,
-      instructionContextToggles: readJsonValue(
-        value.instructionContextTogglesJson,
-        null,
-      ),
-      threadEnvironment: readJsonValue(value.threadEnvironmentJson, {}),
-      messages: value.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        createdAt: message.createdAt,
-        turnId: message.turnId,
-        attachments: readJsonValue(message.attachmentsJson, []),
-        skillActivations: message.skillActivations.map((activation) => ({
-          name: activation.skillProfile.name,
-          location: activation.skillProfile.location,
-        })),
-      })),
-      mcpServers: value.mcpServers.map((server) =>
-        server.transport === "stdio"
-          ? {
-              id: server.id,
-              name: server.name,
-              transport: server.transport,
-              command: server.command,
-              args: readJsonValue(server.argsJson, []),
-              cwd: server.cwd ?? undefined,
-              env: readJsonValue(server.envJson, {}),
-            }
-          : {
-              id: server.id,
-              name: server.name,
-              transport: server.transport,
-              url: server.url,
-              headers: readJsonValue(server.headersJson, {}),
-              useAzureAuth: server.useAzureAuth,
-              azureAuthScope: server.azureAuthScope,
-              timeoutSeconds: server.timeoutSeconds,
-            },
-      ),
-      mcpRpcLogs: value.mcpRpcLogs.map((entry) => ({
-        id: entry.sourceRpcId,
-        sequence: entry.sequence,
-        operationType: entry.operationType,
-        serverName: entry.serverName,
-        method: entry.method,
-        startedAt: entry.startedAt,
-        completedAt: entry.completedAt,
-        request: readJsonValue(entry.requestJson, null),
-        response: readJsonValue(entry.responseJson, null),
-        isError: entry.isError,
-        turnId: entry.turnId,
-      })),
-      skillSelections: value.skillSelections.map((selection) => ({
-        name: selection.skillProfile.name,
-        location: selection.skillProfile.location,
-      })),
-    },
-    {
-      fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-    },
-  );
-
-  return parsed ? Thread.fromSnapshot(parsed) : null;
-}
-
-function readJsonValue<T>(value: string | null, fallback: T): T {
-  if (typeof value !== "string") {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 export async function readJsonPayload(
   request: Request,
 ): Promise<{ ok: true; value: unknown } | { ok: false }> {
@@ -1060,20 +807,6 @@ export function isThreadRestorePayload(value: unknown): boolean {
 
 function normalizeThreadName(value: string): string {
   return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
-}
-
-function readThreadReasoningEffort(
-  value: string,
-): ThreadSnapshot["reasoningEffort"] {
-  if (
-    REASONING_EFFORT_OPTIONS.includes(
-      value as ThreadSnapshot["reasoningEffort"],
-    )
-  ) {
-    return value as ThreadSnapshot["reasoningEffort"];
-  }
-
-  return DEFAULT_REASONING_EFFORT;
 }
 
 export async function readAuthenticatedUser(): Promise<{ id: number } | null> {
