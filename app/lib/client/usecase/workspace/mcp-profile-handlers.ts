@@ -1,5 +1,4 @@
 import type { McpTransport } from "~/lib/client/usecase/workspace/view-types";
-import { MCP_DEFAULT_AZURE_AUTH_SCOPE } from "~/lib/constants/mcp";
 import {
   buildMcpServerKey,
   type McpServerConfig,
@@ -12,14 +11,9 @@ import {
   toggleThreadMcpServer,
 } from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
 import {
-  parseAzureAuthScopeInput,
-  parseHttpHeadersInput,
-  parseMcpTimeoutSecondsInput,
-} from "~/lib/client/usecase/workspace/mcp-http-inputs";
-import {
-  parseStdioArgsInput,
-  parseStdioEnvInput,
-} from "~/lib/client/usecase/workspace/mcp-stdio-inputs";
+  buildMcpServerFromProfileForm,
+  type McpProfileFormState,
+} from "~/lib/client/usecase/workspace/mcp-profile-form";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
@@ -76,20 +70,7 @@ type McpProfileHandlerDependencies = {
     message: string,
     options?: McpProfileLogOptions,
   ) => void;
-  mcpFormState: {
-    editingMcpServerId: string;
-    mcpNameInput: string;
-    mcpTransport: McpTransport;
-    mcpUrlInput: string;
-    mcpCommandInput: string;
-    mcpArgsInput: string;
-    mcpCwdInput: string;
-    mcpEnvInput: string;
-    mcpHeadersInput: string;
-    mcpUseAzureAuthInput: boolean;
-    mcpAzureAuthScopeInput: string;
-    mcpTimeoutSecondsInput: string;
-  };
+  mcpFormState: McpProfileFormState;
 };
 
 export type McpProfileHandlers = {
@@ -268,22 +249,7 @@ export function createMcpProfileHandlers(
         return;
       }
 
-      const {
-        editingMcpServerId,
-        mcpNameInput,
-        mcpTransport,
-        mcpUrlInput,
-        mcpCommandInput,
-        mcpArgsInput,
-        mcpCwdInput,
-        mcpEnvInput,
-        mcpHeadersInput,
-        mcpUseAzureAuthInput,
-        mcpAzureAuthScopeInput,
-        mcpTimeoutSecondsInput,
-      } = deps.mcpFormState;
-
-      const editingServerId = editingMcpServerId.trim();
+      const editingServerId = deps.mcpFormState.editingMcpServerId.trim();
       const isEditing = editingServerId.length > 0;
       const editingServer = isEditing
         ? (deps
@@ -296,112 +262,19 @@ export function createMcpProfileHandlers(
         return;
       }
 
-      const rawName = mcpNameInput.trim();
       deps.setMcpFormError(null);
       deps.setMcpFormWarning(null);
 
-      let serverToSave: McpServerConfig;
       const serverId = isEditing ? editingServerId : createId("mcp");
-
-      if (mcpTransport === "stdio") {
-        const command = mcpCommandInput.trim();
-        if (!command) {
-          deps.setMcpFormError("MCP stdio command is required.");
-          return;
-        }
-
-        if (/\s/.test(command)) {
-          deps.setMcpFormError("MCP stdio command must not include spaces.");
-          return;
-        }
-
-        const argsResult = parseStdioArgsInput(mcpArgsInput);
-        if (!argsResult.ok) {
-          deps.setMcpFormError(argsResult.error);
-          return;
-        }
-
-        const envResult = parseStdioEnvInput(mcpEnvInput);
-        if (!envResult.ok) {
-          deps.setMcpFormError(envResult.error);
-          return;
-        }
-
-        const cwd = mcpCwdInput.trim();
-        const name = rawName || command;
-
-        serverToSave = {
-          name,
-          transport: "stdio",
-          command,
-          args: argsResult.value,
-          cwd: cwd || undefined,
-          env: envResult.value,
-          id: serverId,
-        };
-      } else {
-        const rawUrl = mcpUrlInput.trim();
-        if (!rawUrl) {
-          deps.setMcpFormError("MCP server URL is required.");
-          return;
-        }
-
-        let parsed: URL;
-        try {
-          parsed = new URL(rawUrl);
-        } catch {
-          deps.setMcpFormError("MCP server URL is invalid.");
-          return;
-        }
-
-        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-          deps.setMcpFormError(
-            "MCP server URL must start with http:// or https://.",
-          );
-          return;
-        }
-
-        const name = rawName || parsed.hostname;
-        if (!name) {
-          deps.setMcpFormError("MCP server name is required.");
-          return;
-        }
-
-        const normalizedUrl = parsed.toString();
-        const headersResult = parseHttpHeadersInput(mcpHeadersInput);
-        if (!headersResult.ok) {
-          deps.setMcpFormError(headersResult.error);
-          return;
-        }
-
-        let azureAuthScope = MCP_DEFAULT_AZURE_AUTH_SCOPE;
-        if (mcpUseAzureAuthInput) {
-          const scopeResult = parseAzureAuthScopeInput(mcpAzureAuthScopeInput);
-          if (!scopeResult.ok) {
-            deps.setMcpFormError(scopeResult.error);
-            return;
-          }
-          azureAuthScope = scopeResult.value;
-        }
-        const timeoutResult = parseMcpTimeoutSecondsInput(
-          mcpTimeoutSecondsInput,
-        );
-        if (!timeoutResult.ok) {
-          deps.setMcpFormError(timeoutResult.error);
-          return;
-        }
-
-        serverToSave = {
-          id: serverId,
-          name,
-          url: normalizedUrl,
-          transport: mcpTransport,
-          headers: headersResult.value,
-          useAzureAuth: mcpUseAzureAuthInput,
-          azureAuthScope,
-          timeoutSeconds: timeoutResult.value,
-        };
+      const buildResult = buildMcpServerFromProfileForm({
+        serverId,
+        formState: deps.mcpFormState,
+      });
+      if (!buildResult.ok) {
+        deps.setMcpFormError(buildResult.error);
+        return;
       }
+      const serverToSave = buildResult.server;
 
       const activeThreadMcpServers = deps.readActiveThreadMcpServers();
       const existingServerIndex = isEditing
