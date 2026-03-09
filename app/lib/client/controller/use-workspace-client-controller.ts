@@ -131,8 +131,10 @@ import {
 } from "~/lib/client/observability/runtime-event-log-client";
 import {
   buildThreadSummary,
-  readThreadSnapshotFromUnknown,
-  readThreadSnapshotList,
+  convertThreadResourceToState,
+  convertThreadStateToWritePayload,
+  readThreadResourceFromUnknown,
+  readThreadStateListFromResources,
 } from "~/lib/contracts/threads/parsers";
 import {
   cloneThreadEnvironment,
@@ -145,11 +147,11 @@ import {
   hasThreadInteraction,
   hasThreadPersistableState,
   isThreadArchivedById,
-  isThreadSnapshotArchived,
+  isThreadArchived,
   readThreadRuntimeStateById,
-  updateThreadSnapshotCollectionById,
-  upsertThreadSnapshot,
-} from "~/lib/contracts/threads/snapshot-state";
+  updateThreadStateCollectionById,
+  upsertThreadState,
+} from "~/lib/contracts/threads/state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
@@ -161,7 +163,7 @@ import {
   normalizeThreadAutoTitle,
 } from "~/lib/contracts/threads/title";
 import type {
-  ThreadSnapshot,
+  ThreadState,
   ThreadSummary,
 } from "~/lib/contracts/threads/types";
 import {
@@ -214,7 +216,7 @@ import {
 } from "~/lib/client/controller/thread-guards";
 import {
   buildThreadListOptions,
-  findThreadSnapshotById,
+  findThreadStateById,
   mergeSkillSelections,
 } from "~/lib/client/controller/thread-runtime";
 import {
@@ -450,7 +452,7 @@ export function useWorkspaceClientController() {
     string | null
   >(null);
   const [azureLogoutError, setAzureLogoutError] = useState<string | null>(null);
-  const [threads, setThreads] = useState<ThreadSnapshot[]>([]);
+  const [threads, setThreads] = useState<ThreadState[]>([]);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [activeThreadNameInput, setActiveThreadNameInput] = useState("");
   const [isSavingThread, setIsSavingThread] = useState(false);
@@ -543,7 +545,7 @@ export function useWorkspaceClientController() {
     new Map<string, AbortController>(),
   );
   const workspaceMcpServerProfilesRef = useRef<McpServerConfig[]>([]);
-  const threadsRef = useRef<ThreadSnapshot[]>([]);
+  const threadsRef = useRef<ThreadState[]>([]);
 
   // Derived UI state and view models consumed by panel props.
   const isChatLocked = isAzureAuthRequired;
@@ -638,9 +640,9 @@ export function useWorkspaceClientController() {
     () => readThreadRuntimeStateById(threads, activeThreadId),
     [activeThreadId, threads],
   );
-  const activeThreadSnapshot = activeThreadRuntimeState.activeThreadSnapshot;
+  const activeThreadState = activeThreadRuntimeState.activeThreadState;
   const messages =
-    activeThreadSnapshot !== null
+    activeThreadState !== null
       ? activeThreadRuntimeState.messages
       : [...INITIAL_THREAD_MESSAGES];
   const mcpServers = activeThreadRuntimeState.mcpServers;
@@ -708,7 +710,7 @@ export function useWorkspaceClientController() {
   const threadSummaries: ThreadSummary[] = threads.map((thread) =>
     buildThreadSummary(thread),
   );
-  const isActiveThreadArchived = isThreadSnapshotArchived(activeThreadSnapshot);
+  const isActiveThreadArchived = isThreadArchived(activeThreadState);
   const isEnhancingInstructionForActiveThread =
     isEnhancingInstruction &&
     instructionEnhancingThreadId.length > 0 &&
@@ -1473,7 +1475,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       currentThreadId,
     );
@@ -1481,8 +1483,8 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const snapshot = buildThreadSnapshotFromCurrentState(baseThread);
-    if (!shouldPersistThreadSnapshot(snapshot)) {
+    const snapshot = buildThreadStateFromCurrentState(baseThread);
+    if (!shouldPersistThreadState(snapshot)) {
       return;
     }
     const signature = buildThreadSaveSignature(snapshot);
@@ -1494,7 +1496,7 @@ export function useWorkspaceClientController() {
     clearThreadSaveTimeout();
     threadSaveTimeoutRef.current = window.setTimeout(() => {
       threadSaveTimeoutRef.current = null;
-      void saveThreadSnapshotToDatabase(snapshot, signature);
+      void saveThreadStateToDatabase(snapshot, signature);
     }, 450);
 
     return () => {
@@ -1534,14 +1536,14 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       currentThreadId,
     );
     if (!baseThread) {
       return;
     }
-    if (!shouldPersistThreadSnapshot(baseThread)) {
+    if (!shouldPersistThreadState(baseThread)) {
       return;
     }
 
@@ -1583,7 +1585,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       currentThreadId,
     );
@@ -1635,7 +1637,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       currentThreadId,
     );
@@ -1991,14 +1993,14 @@ export function useWorkspaceClientController() {
     }
   }
 
-  function setThreadsState(nextThreads: ThreadSnapshot[]): void {
+  function setThreadsState(nextThreads: ThreadState[]): void {
     threadsRef.current = nextThreads;
     setThreads(nextThreads);
   }
 
   function updateThreadsState(
-    updater: (current: ThreadSnapshot[]) => ThreadSnapshot[],
-  ): ThreadSnapshot[] {
+    updater: (current: ThreadState[]) => ThreadState[],
+  ): ThreadState[] {
     const nextThreads = updater(threadsRef.current);
     threadsRef.current = nextThreads;
     setThreads(nextThreads);
@@ -2233,9 +2235,9 @@ export function useWorkspaceClientController() {
     return draftName.slice(0, THREAD_NAME_MAX_LENGTH);
   }
 
-  function shouldPersistThreadSnapshot(
-    snapshot: Pick<
-      ThreadSnapshot,
+  function shouldPersistThreadState(
+    thread: Pick<
+      ThreadState,
       | "id"
       | "messages"
       | "reasoningEffort"
@@ -2243,20 +2245,20 @@ export function useWorkspaceClientController() {
       | "instructionContextToggles"
       | "threadEnvironment"
     > &
-      Partial<Pick<ThreadSnapshot, "skillSelections">>,
+      Partial<Pick<ThreadState, "skillSelections">>,
   ): boolean {
-    if (hasThreadPersistableState(snapshot)) {
+    if (hasThreadPersistableState(thread)) {
       return true;
     }
 
-    return threadSaveSignatureByIdRef.current.has(snapshot.id);
+    return threadSaveSignatureByIdRef.current.has(thread.id);
   }
 
-  function createLocalThreadSnapshot(
+  function createLocalThreadState(
     options: {
       name?: string;
     } = {},
-  ): ThreadSnapshot {
+  ): ThreadState {
     const now = new Date().toISOString();
     const normalizedName = (options.name ?? "")
       .trim()
@@ -2287,12 +2289,12 @@ export function useWorkspaceClientController() {
     };
   }
 
-  function buildThreadSnapshotFromCurrentState(
-    base: ThreadSnapshot,
+  function buildThreadStateFromCurrentState(
+    base: ThreadState,
     options: {
       includeDraftName?: boolean;
     } = {},
-  ): ThreadSnapshot {
+  ): ThreadState {
     const includeDraftName = options.includeDraftName === true;
     return {
       ...base,
@@ -2312,7 +2314,7 @@ export function useWorkspaceClientController() {
     };
   }
 
-  function setThreadSaveSignatures(nextThreads: ThreadSnapshot[]) {
+  function setThreadSaveSignatures(nextThreads: ThreadState[]) {
     const signatureMap = threadSaveSignatureByIdRef.current;
     signatureMap.clear();
     for (const thread of nextThreads) {
@@ -2320,16 +2322,16 @@ export function useWorkspaceClientController() {
     }
   }
 
-  function updateThreadSnapshotById(
+  function updateThreadStateById(
     threadId: string,
-    updater: (current: ThreadSnapshot) => ThreadSnapshot,
+    updater: (current: ThreadState) => ThreadState,
   ): void {
     if (!threadId) {
       return;
     }
 
     updateThreadsState((current) =>
-      updateThreadSnapshotCollectionById(current, threadId, updater),
+      updateThreadStateCollectionById(current, threadId, updater),
     );
   }
 
@@ -2345,7 +2347,7 @@ export function useWorkspaceClientController() {
       })),
     };
 
-    updateThreadSnapshotById(threadId, (thread) => ({
+    updateThreadStateById(threadId, (thread) => ({
       ...thread,
       updatedAt: new Date().toISOString(),
       messages: [...thread.messages, clonedMessage],
@@ -2358,7 +2360,7 @@ export function useWorkspaceClientController() {
   ): void {
     const clonedEntry: ThreadOperationLogEntry = { ...entry };
 
-    updateThreadSnapshotById(threadId, (thread) => ({
+    updateThreadStateById(threadId, (thread) => ({
       ...thread,
       updatedAt: new Date().toISOString(),
       mcpRpcLogs: upsertThreadOperationLogEntry(thread.mcpRpcLogs, clonedEntry),
@@ -2374,14 +2376,14 @@ export function useWorkspaceClientController() {
     }
 
     const nextEnvironment = readThreadEnvironmentFromUnknown(environmentValue);
-    updateThreadSnapshotById(threadId, (thread) => ({
+    updateThreadStateById(threadId, (thread) => ({
       ...thread,
       updatedAt: new Date().toISOString(),
       threadEnvironment: cloneThreadEnvironment(nextEnvironment),
     }));
   }
 
-  function applyThreadSnapshotToState(thread: ThreadSnapshot) {
+  function applyThreadState(thread: ThreadState) {
     isApplyingThreadStateRef.current = true;
 
     activeThreadIdRef.current = thread.id;
@@ -2414,18 +2416,18 @@ export function useWorkspaceClientController() {
   }
 
   function showThreadReloadPlaceholder(): void {
-    const localThread = createLocalThreadSnapshot();
+    const localThread = createLocalThreadState();
     isThreadsReadyRef.current = true;
     setThreadsState([localThread]);
     setThreadRequestStateById({});
-    applyThreadSnapshotToState(localThread);
+    applyThreadState(localThread);
     setThreadError(null);
     beginThreadOperation("loading");
   }
 
   // Thread persistence and title-refresh orchestration.
-  async function saveThreadSnapshotToDatabase(
-    snapshot: ThreadSnapshot,
+  async function saveThreadStateToDatabase(
+    thread: ThreadState,
     signature: string,
     options: {
       showBusy?: boolean;
@@ -2434,7 +2436,7 @@ export function useWorkspaceClientController() {
   ): Promise<boolean> {
     const showBusy = options.showBusy !== false;
     const reportError = options.reportError !== false;
-    if (!shouldPersistThreadSnapshot(snapshot)) {
+    if (!shouldPersistThreadState(thread)) {
       return true;
     }
     const expectedUserKey = activeWorkspaceUserKeyRef.current.trim();
@@ -2442,7 +2444,7 @@ export function useWorkspaceClientController() {
       return false;
     }
 
-    const expectedThreadId = snapshot.id;
+    const expectedThreadId = thread.id;
     const hasPersistedSignature =
       threadSaveSignatureByIdRef.current.has(expectedThreadId);
     const endpoint = hasPersistedSignature
@@ -2463,7 +2465,7 @@ export function useWorkspaceClientController() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(snapshot),
+          body: JSON.stringify(convertThreadStateToWritePayload(thread)),
         },
         readPayload: (response) =>
           readJsonPayload<ThreadsApiResponse>(response, "Threads"),
@@ -2486,12 +2488,13 @@ export function useWorkspaceClientController() {
         },
       });
 
-      const savedThread = readThreadSnapshotFromUnknown(payload.thread, {
-        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-      });
-      if (!savedThread) {
+      const savedThreadResource = readThreadResourceFromUnknown(payload.thread);
+      if (!savedThreadResource) {
         throw new Error("Saved thread payload is invalid.");
       }
+      const savedThread = convertThreadResourceToState(savedThreadResource, {
+        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
+      });
       if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
         return false;
       }
@@ -2501,7 +2504,7 @@ export function useWorkspaceClientController() {
       }
 
       updateThreadsState((current) =>
-        upsertThreadSnapshot(current, savedThread),
+        upsertThreadState(current, savedThread),
       );
       threadSaveSignatureByIdRef.current.set(savedThread.id, signature);
       if (savedThread.id === activeThreadIdRef.current) {
@@ -2548,7 +2551,7 @@ export function useWorkspaceClientController() {
     }
   }
 
-  async function saveThreadSnapshotSilentlyIfNeeded(
+  async function saveThreadStateSilentlyIfNeeded(
     threadId: string,
   ): Promise<void> {
     const normalizedThreadId = threadId.trim();
@@ -2556,14 +2559,14 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const snapshot = findThreadSnapshotById(
+    const snapshot = findThreadStateById(
       threadsRef.current,
       normalizedThreadId,
     );
     if (!snapshot) {
       return;
     }
-    if (!shouldPersistThreadSnapshot(snapshot)) {
+    if (!shouldPersistThreadState(snapshot)) {
       return;
     }
 
@@ -2574,13 +2577,13 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    await saveThreadSnapshotToDatabase(snapshot, signature, {
+    await saveThreadStateToDatabase(snapshot, signature, {
       showBusy: false,
       reportError: false,
     });
   }
 
-  async function flushActiveThreadSnapshot(): Promise<boolean> {
+  async function flushActiveThreadState(): Promise<boolean> {
     const currentThreadId = activeThreadIdRef.current.trim();
     if (!currentThreadId) {
       return true;
@@ -2588,7 +2591,7 @@ export function useWorkspaceClientController() {
 
     clearThreadNameSaveTimeout();
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       currentThreadId,
     );
@@ -2596,10 +2599,10 @@ export function useWorkspaceClientController() {
       return true;
     }
 
-    const snapshot = buildThreadSnapshotFromCurrentState(baseThread, {
+    const snapshot = buildThreadStateFromCurrentState(baseThread, {
       includeDraftName: true,
     });
-    if (!shouldPersistThreadSnapshot(snapshot)) {
+    if (!shouldPersistThreadState(snapshot)) {
       return true;
     }
     const signature = buildThreadSaveSignature(snapshot);
@@ -2610,7 +2613,7 @@ export function useWorkspaceClientController() {
     }
 
     clearThreadSaveTimeout();
-    return await saveThreadSnapshotToDatabase(snapshot, signature);
+    return await saveThreadStateToDatabase(snapshot, signature);
   }
 
   async function saveActiveThreadNameInBackground(
@@ -2626,18 +2629,18 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       normalizedThreadId,
     );
     if (!baseThread || baseThread.name === normalizedName) {
       return;
     }
-    if (!shouldPersistThreadSnapshot(baseThread)) {
+    if (!shouldPersistThreadState(baseThread)) {
       return;
     }
 
-    const snapshot = buildThreadSnapshotFromCurrentState(baseThread, {
+    const snapshot = buildThreadStateFromCurrentState(baseThread, {
       includeDraftName: true,
     });
     snapshot.name = normalizedName;
@@ -2649,7 +2652,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    await saveThreadSnapshotToDatabase(snapshot, signature);
+    await saveThreadStateToDatabase(snapshot, signature);
   }
 
   async function refreshThreadTitleInBackground(options: {
@@ -2682,7 +2685,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(
+    const baseThread = findThreadStateById(
       threadsRef.current,
       normalizedThreadId,
     );
@@ -2751,7 +2754,7 @@ export function useWorkspaceClientController() {
         return;
       }
 
-      const latestThread = findThreadSnapshotById(
+      const latestThread = findThreadStateById(
         threadsRef.current,
         normalizedThreadId,
       );
@@ -2771,7 +2774,7 @@ export function useWorkspaceClientController() {
         return;
       }
 
-      updateThreadSnapshotById(normalizedThreadId, (thread) => ({
+      updateThreadStateById(normalizedThreadId, (thread) => ({
         ...thread,
         updatedAt: new Date().toISOString(),
         name: nextTitle,
@@ -2838,14 +2841,14 @@ export function useWorkspaceClientController() {
         return;
       }
 
-      const parsedThreads = readThreadSnapshotList(payload.threads, {
+      const parsedThreads = readThreadStateListFromResources(payload.threads, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
       });
       const nextThreads = parsedThreads.some(
         (thread) => thread.deletedAt === null,
       )
         ? parsedThreads
-        : upsertThreadSnapshot(parsedThreads, createLocalThreadSnapshot());
+        : upsertThreadState(parsedThreads, createLocalThreadState());
 
       setThreadSaveSignatures(parsedThreads);
       setThreadsState(nextThreads);
@@ -2871,7 +2874,7 @@ export function useWorkspaceClientController() {
         throw new Error("No thread is available.");
       }
 
-      applyThreadSnapshotToState(nextThread);
+      applyThreadState(nextThread);
       logClientInfo("load_threads_succeeded", "Threads loaded.", {
         action: "load_threads",
         context: {
@@ -2921,39 +2924,39 @@ export function useWorkspaceClientController() {
 
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
-      const currentThread = findThreadSnapshotById(
+      const currentThread = findThreadStateById(
         threadsRef.current,
         currentThreadId,
       );
-      const currentThreadSnapshot = currentThread
-        ? buildThreadSnapshotFromCurrentState(currentThread)
+      const currentThreadState = currentThread
+        ? buildThreadStateFromCurrentState(currentThread)
         : null;
 
       if (
         currentThread &&
-        currentThreadSnapshot &&
-        !hasThreadPersistableState(currentThreadSnapshot) &&
+        currentThreadState &&
+        !hasThreadPersistableState(currentThreadState) &&
         !threadSaveSignatureByIdRef.current.has(currentThread.id)
       ) {
-        applyThreadSnapshotToState(currentThread);
+        applyThreadState(currentThread);
         return true;
       }
 
       if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadSnapshot();
+        const saved = await flushActiveThreadState();
         if (!saved) {
           return false;
         }
       }
 
-      const localThread = createLocalThreadSnapshot({
+      const localThread = createLocalThreadState({
         name: options.name,
       });
       updateThreadsState((current) =>
-        upsertThreadSnapshot(current, localThread),
+        upsertThreadState(current, localThread),
       );
       isThreadsReadyRef.current = true;
-      applyThreadSnapshotToState(localThread);
+      applyThreadState(localThread);
       logClientInfo("create_thread_succeeded", "Thread created.", {
         action: "create_thread",
         context: {
@@ -3011,7 +3014,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const targetThread = findThreadStateById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -3027,7 +3030,7 @@ export function useWorkspaceClientController() {
     }
 
     setThreadError(null);
-    updateThreadSnapshotById(threadId, (thread) => ({
+    updateThreadStateById(threadId, (thread) => ({
       ...thread,
       updatedAt: new Date().toISOString(),
       name: normalizedName,
@@ -3037,13 +3040,13 @@ export function useWorkspaceClientController() {
       setActiveThreadNameInput(normalizedName);
     }
 
-    const renamedThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const renamedThread = findThreadStateById(threadsRef.current, threadId);
     if (!renamedThread) {
       return;
     }
 
     const signature = buildThreadSaveSignature(renamedThread);
-    await saveThreadSnapshotToDatabase(renamedThread, signature);
+    await saveThreadStateToDatabase(renamedThread, signature);
   }
 
   function handleThreadCancel(threadIdRaw: string): void {
@@ -3052,7 +3055,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const targetThread = findThreadStateById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -3094,7 +3097,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const targetThread = findThreadStateById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -3118,14 +3121,14 @@ export function useWorkspaceClientController() {
       const targetThreadForSave =
         threadId === activeThreadIdRef.current.trim()
           ? (() => {
-              const activeThread = findThreadSnapshotById(
+              const activeThread = findThreadStateById(
                 threadsRef.current,
                 threadId,
               );
               if (!activeThread) {
                 return null;
               }
-              const snapshot = buildThreadSnapshotFromCurrentState(
+              const snapshot = buildThreadStateFromCurrentState(
                 activeThread,
                 {
                   includeDraftName: true,
@@ -3149,7 +3152,7 @@ export function useWorkspaceClientController() {
       }
 
       updateThreadsState((current) =>
-        upsertThreadSnapshot(current, targetThreadForSave),
+        upsertThreadState(current, targetThreadForSave),
       );
 
       setThreadRequestStateById((current) => {
@@ -3159,11 +3162,11 @@ export function useWorkspaceClientController() {
       });
 
       if (threadId === activeThreadIdRef.current.trim()) {
-        applyThreadSnapshotToState(targetThreadForSave);
+        applyThreadState(targetThreadForSave);
       }
 
       const signature = buildThreadSaveSignature(targetThreadForSave);
-      const saved = await saveThreadSnapshotToDatabase(
+      const saved = await saveThreadStateToDatabase(
         targetThreadForSave,
         signature,
       );
@@ -3210,7 +3213,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const targetThread = findThreadStateById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt !== null) {
       setThreadError("Selected thread is not available.");
       return;
@@ -3230,7 +3233,7 @@ export function useWorkspaceClientController() {
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
       if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadSnapshot();
+        const saved = await flushActiveThreadState();
         if (!saved) {
           return;
         }
@@ -3257,9 +3260,12 @@ export function useWorkspaceClientController() {
         },
       });
 
-      const deletedThread = readThreadSnapshotFromUnknown(payload.thread, {
-        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-      });
+      const deletedThreadResource = readThreadResourceFromUnknown(payload.thread);
+      const deletedThread = deletedThreadResource
+        ? convertThreadResourceToState(deletedThreadResource, {
+            fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
+          })
+        : null;
       if (
         !deletedThread ||
         deletedThread.id !== threadId ||
@@ -3316,7 +3322,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const targetThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const targetThread = findThreadStateById(threadsRef.current, threadId);
     if (!targetThread || targetThread.deletedAt === null) {
       setThreadError("Selected archive is not available.");
       return;
@@ -3327,7 +3333,7 @@ export function useWorkspaceClientController() {
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
       if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadSnapshot();
+        const saved = await flushActiveThreadState();
         if (!saved) {
           return;
         }
@@ -3360,9 +3366,12 @@ export function useWorkspaceClientController() {
         },
       });
 
-      const restoredThread = readThreadSnapshotFromUnknown(payload.thread, {
-        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-      });
+      const restoredThreadResource = readThreadResourceFromUnknown(payload.thread);
+      const restoredThread = restoredThreadResource
+        ? convertThreadResourceToState(restoredThreadResource, {
+            fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
+          })
+        : null;
       if (
         !restoredThread ||
         restoredThread.id !== threadId ||
@@ -3372,13 +3381,13 @@ export function useWorkspaceClientController() {
       }
 
       updateThreadsState((current) =>
-        upsertThreadSnapshot(current, restoredThread),
+        upsertThreadState(current, restoredThread),
       );
       threadSaveSignatureByIdRef.current.set(
         restoredThread.id,
         buildThreadSaveSignature(restoredThread),
       );
-      applyThreadSnapshotToState(restoredThread);
+      applyThreadState(restoredThread);
       logClientInfo("restore_thread_succeeded", "Thread restored.", {
         action: "restore_thread",
         context: {
@@ -3413,7 +3422,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const nextThread = findThreadSnapshotById(threadsRef.current, nextThreadId);
+    const nextThread = findThreadStateById(threadsRef.current, nextThreadId);
     if (!nextThread) {
       setThreadError("Selected thread is not available.");
       return;
@@ -3424,13 +3433,13 @@ export function useWorkspaceClientController() {
     try {
       const currentThreadId = activeThreadIdRef.current.trim();
       if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadSnapshot();
+        const saved = await flushActiveThreadState();
         if (!saved) {
           return;
         }
       }
 
-      applyThreadSnapshotToState(nextThread);
+      applyThreadState(nextThread);
       logClientInfo("switch_thread_succeeded", "Thread switched.", {
         action: "switch_thread",
         context: {
@@ -4517,7 +4526,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    updateThreadSnapshotById(activeId, (thread) => {
+    updateThreadStateById(activeId, (thread) => {
       const existingIndex = thread.mcpServers.findIndex(
         (server) =>
           buildMcpServerKey(server) === buildMcpServerKey(serverToConnect),
@@ -4594,7 +4603,7 @@ export function useWorkspaceClientController() {
       return;
     }
 
-    const baseThread = findThreadSnapshotById(threadsRef.current, threadId);
+    const baseThread = findThreadStateById(threadsRef.current, threadId);
     const shouldRefreshThreadTitleOnFirstMessage =
       !!baseThread &&
       baseThread.deletedAt === null &&
@@ -4819,7 +4828,7 @@ export function useWorkspaceClientController() {
     } finally {
       clearThreadSendAbortController(threadId, sendAbortController);
       window.setTimeout(() => {
-        void saveThreadSnapshotSilentlyIfNeeded(threadId);
+        void saveThreadStateSilentlyIfNeeded(threadId);
       }, 0);
     }
   }
@@ -5118,7 +5127,7 @@ export function useWorkspaceClientController() {
       const deletedKey = buildMcpServerKey(selected);
       const activeId = activeThreadIdRef.current.trim();
       if (activeId) {
-        updateThreadSnapshotById(activeId, (thread) => ({
+        updateThreadStateById(activeId, (thread) => ({
           ...thread,
           mcpServers: thread.mcpServers.filter(
             (server) => buildMcpServerKey(server) !== deletedKey,
@@ -5246,7 +5255,7 @@ export function useWorkspaceClientController() {
     if (!activeId) {
       return;
     }
-    updateThreadSnapshotById(activeId, (thread) => {
+    updateThreadStateById(activeId, (thread) => {
       if (
         thread.skillSelections.some(
           (selection) => selection.location === location,
@@ -5278,7 +5287,7 @@ export function useWorkspaceClientController() {
     if (!activeId) {
       return;
     }
-    updateThreadSnapshotById(activeId, (thread) => ({
+    updateThreadStateById(activeId, (thread) => ({
       ...thread,
       skillSelections: thread.skillSelections.filter(
         (selection) => selection.location !== location,
@@ -5296,7 +5305,7 @@ export function useWorkspaceClientController() {
     if (!activeId) {
       return;
     }
-    updateThreadSnapshotById(activeId, (thread) => {
+    updateThreadStateById(activeId, (thread) => {
       const existingIndex = thread.skillSelections.findIndex(
         (selection) => selection.location === location,
       );
@@ -6245,7 +6254,7 @@ export function useWorkspaceClientController() {
         const nextServerKey = buildMcpServerKey(savedProfile);
         const activeId = activeThreadIdRef.current.trim();
         if (activeId) {
-          updateThreadSnapshotById(activeId, (thread) => {
+          updateThreadStateById(activeId, (thread) => {
             const filtered = thread.mcpServers.filter(
               (server) => buildMcpServerKey(server) !== previousServerKey,
             );
@@ -6363,7 +6372,7 @@ export function useWorkspaceClientController() {
     if (!activeId) {
       return;
     }
-    updateThreadSnapshotById(activeId, (thread) => {
+    updateThreadStateById(activeId, (thread) => {
       const alreadyConnected = thread.mcpServers.some(
         (server) => buildMcpServerKey(server) === selectedKey,
       );
@@ -6392,7 +6401,7 @@ export function useWorkspaceClientController() {
     if (!activeId) {
       return;
     }
-    updateThreadSnapshotById(activeId, (thread) => ({
+    updateThreadStateById(activeId, (thread) => ({
       ...thread,
       mcpServers: thread.mcpServers.filter((server) => server.id !== id),
     }));

@@ -1,6 +1,10 @@
 /**
  * Workspace Skill application service module.
  */
+import type {
+  WorkspaceSkillProfile as WorkspaceSkillProfileResource,
+  WorkspaceSkillRegistryProfile as WorkspaceSkillRegistryProfileResource,
+} from "@prisma/client";
 import {
   isSkillRegistryId,
   parseSkillRegistrySkillName,
@@ -11,11 +15,8 @@ import {
 } from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
-  SkillCatalogSource,
   SkillRegistryCatalog,
 } from "~/lib/contracts/skills/types";
-import { WorkspaceSkillProfile } from "~/lib/domain/skills/workspace-skill-profile";
-import { WorkspaceSkillRegistryProfile } from "~/lib/domain/skills/workspace-skill-registry-profile";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
@@ -33,9 +34,9 @@ export type SkillDiscoveryResult = {
   warnings: string[];
 };
 
-type WorkspaceSkillProfilesSnapshot = {
-  workspaceSkillProfiles: WorkspaceSkillProfile[];
-  workspaceSkillRegistryProfiles: WorkspaceSkillRegistryProfile[];
+type WorkspaceSkillProfilesData = {
+  workspaceSkillProfiles: WorkspaceSkillProfileResource[];
+  workspaceSkillRegistryProfiles: WorkspaceSkillRegistryProfileResource[];
 };
 
 type WorkspaceSkillProfileReconcilePayload = {
@@ -43,7 +44,7 @@ type WorkspaceSkillProfileReconcilePayload = {
 };
 
 export class WorkspaceSkillService {
-  async readWorkspaceSkillProfiles(userId: number): Promise<WorkspaceSkillProfilesSnapshot> {
+  async readWorkspaceSkillProfiles(userId: number): Promise<WorkspaceSkillProfilesData> {
     return readWorkspaceSkillProfiles(userId);
   }
 
@@ -228,11 +229,11 @@ export async function syncWorkspaceSkillMasters(options: {
         continue;
       }
 
-      const registryProfileModel = WorkspaceSkillRegistryProfile.fromCatalog(
+      const registryProfileRecord = buildWorkspaceSkillRegistryProfileRecord(
+        options.userId,
         registry,
         registryOption,
       );
-      const registryProfileRecord = registryProfileModel.toPersistenceRecord(options.userId);
 
       const registryProfile = await transaction.workspaceSkillRegistryProfile.upsert({
         where: {
@@ -308,7 +309,7 @@ export async function syncWorkspaceSkillMasters(options: {
 
 async function readWorkspaceSkillProfiles(
   userId: number,
-): Promise<WorkspaceSkillProfilesSnapshot> {
+): Promise<WorkspaceSkillProfilesData> {
   await ensurePersistenceDatabaseReady();
 
   const [workspaceSkillProfiles, workspaceSkillRegistryProfiles] = await Promise.all([
@@ -326,6 +327,7 @@ async function readWorkspaceSkillProfiles(
       ],
       select: {
         id: true,
+        userId: true,
         registryProfileId: true,
         name: true,
         location: true,
@@ -346,6 +348,7 @@ async function readWorkspaceSkillProfiles(
       ],
       select: {
         id: true,
+        userId: true,
         registryId: true,
         registryLabel: true,
         registryDescription: true,
@@ -358,15 +361,8 @@ async function readWorkspaceSkillProfiles(
   ]);
 
   return {
-    workspaceSkillProfiles: workspaceSkillProfiles.map((profile) =>
-      WorkspaceSkillProfile.fromSnapshot({
-        ...profile,
-        source: profile.source as SkillCatalogSource,
-      }),
-    ),
-    workspaceSkillRegistryProfiles: workspaceSkillRegistryProfiles.map((profile) =>
-      WorkspaceSkillRegistryProfile.fromSnapshot(profile),
-    ),
+    workspaceSkillProfiles,
+    workspaceSkillRegistryProfiles,
   };
 }
 
@@ -429,6 +425,23 @@ function readRegistryInstallDirectoryNameFromSkillLocation(location: string): st
 
 function isPositiveIntegerString(value: string): boolean {
   return /^[1-9]\d*$/.test(value.trim());
+}
+
+function buildWorkspaceSkillRegistryProfileRecord(
+  userId: number,
+  registry: SkillRegistryCatalog,
+  registryOption: NonNullable<ReturnType<typeof readSkillRegistryOptionById>>,
+): Omit<WorkspaceSkillRegistryProfileResource, "id"> {
+  return {
+    userId,
+    registryId: registry.registryId,
+    registryLabel: registry.registryLabel,
+    registryDescription: registry.registryDescription,
+    repository: registry.repository,
+    repositoryUrl: registry.repositoryUrl,
+    sourcePath: registry.sourcePath,
+    installDirectoryName: registryOption.installDirectoryName,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

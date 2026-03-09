@@ -7,15 +7,14 @@ import {
   MCP_DEFAULT_TIMEOUT_SECONDS,
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
 } from "~/lib/constants/mcp";
-import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 import {
-  WorkspaceMcpServerProfile,
-  type WorkspaceMcpServerProfileSnapshot,
-} from "~/lib/domain/mcp/workspace-mcp-server-profile";
+  buildMcpServerKey,
+  readMcpServerFromWorkspaceProfileResource,
+  type McpServerConfig,
+  type WorkspaceMcpServerProfileResource,
+} from "~/lib/contracts/mcp/profile";
 import {
   parseIncomingMcpServer,
-  readTransport,
-  type McpTransport,
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
 import {
@@ -29,24 +28,27 @@ import {
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 
-export { parseIncomingMcpServer, WorkspaceMcpServerProfile };
+export { parseIncomingMcpServer };
 
-export type WorkspaceMcpServerProfileConfig = WorkspaceMcpServerProfileSnapshot;
 export type IncomingMcpServerConfig = ParsedIncomingMcpServerConfig;
+
 const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
 );
+
 type DefaultWorkspaceMcpServerProfileRow =
   (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
   DefaultWorkspaceMcpServerProfileRow,
   { transport: "stdio" }
 >;
+
 const defaultMermaidWorkspaceMcpServerProfile =
   DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
     (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
       profile.transport === "stdio" && profile.name === "mcp-mermaid",
   ) ?? null;
+
 const defaultFilesystemWorkspaceMcpServerProfile =
   DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
     (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
@@ -56,13 +58,13 @@ const defaultFilesystemWorkspaceMcpServerProfile =
 export class McpServerProfileService {
   async readWorkspaceMcpServerProfiles(
     userId: number,
-  ): Promise<WorkspaceMcpServerProfileConfig[]> {
+  ): Promise<WorkspaceMcpServerProfileResource[]> {
     return readWorkspaceMcpServerProfiles(userId);
   }
 
   async writeWorkspaceMcpServerProfiles(
     userId: number,
-    profiles: WorkspaceMcpServerProfileConfig[],
+    profiles: WorkspaceMcpServerProfileResource[],
   ): Promise<void> {
     return writeWorkspaceMcpServerProfiles(userId, profiles);
   }
@@ -72,30 +74,28 @@ export class McpServerProfileService {
   }
 
   mergeDefaultWorkspaceMcpServerProfiles(
-    currentProfiles: WorkspaceMcpServerProfileConfig[],
+    currentProfiles: WorkspaceMcpServerProfileResource[],
     workspaceUserId: number,
-  ): WorkspaceMcpServerProfileConfig[] {
-    return mergeDefaultWorkspaceMcpServerProfiles(
-      currentProfiles,
-      workspaceUserId,
-    );
+  ): WorkspaceMcpServerProfileResource[] {
+    return mergeDefaultWorkspaceMcpServerProfiles(currentProfiles, workspaceUserId);
   }
 
   upsertWorkspaceMcpServerProfile(
-    currentProfiles: WorkspaceMcpServerProfileConfig[],
+    userId: number,
+    currentProfiles: WorkspaceMcpServerProfileResource[],
     incoming: IncomingMcpServerConfig,
   ): {
-    profile: WorkspaceMcpServerProfileConfig;
-    profiles: WorkspaceMcpServerProfileConfig[];
+    profile: WorkspaceMcpServerProfileResource;
+    profiles: WorkspaceMcpServerProfileResource[];
     warning: string | null;
   } {
-    return upsertWorkspaceMcpServerProfile(currentProfiles, incoming);
+    return upsertWorkspaceMcpServerProfile(userId, currentProfiles, incoming);
   }
 
   deleteWorkspaceMcpServerProfile(
-    currentProfiles: WorkspaceMcpServerProfileConfig[],
+    currentProfiles: WorkspaceMcpServerProfileResource[],
     id: string,
-  ): { profiles: WorkspaceMcpServerProfileConfig[]; deleted: boolean } {
+  ): { profiles: WorkspaceMcpServerProfileResource[]; deleted: boolean } {
     return deleteWorkspaceMcpServerProfile(currentProfiles, id);
   }
 }
@@ -104,7 +104,7 @@ export const mcpServerProfileService = new McpServerProfileService();
 
 export async function readWorkspaceMcpServerProfiles(
   userId: number,
-): Promise<WorkspaceMcpServerProfileConfig[]> {
+): Promise<WorkspaceMcpServerProfileResource[]> {
   await ensurePersistenceDatabaseReady();
   const records = await prisma.workspaceMcpServerProfile.findMany({
     where: {
@@ -115,22 +115,22 @@ export async function readWorkspaceMcpServerProfiles(
     },
   });
 
-  const profiles: WorkspaceMcpServerProfileConfig[] = [];
+  const profiles: WorkspaceMcpServerProfileResource[] = [];
   const keys = new Set<string>();
 
   for (const record of records) {
-    const normalized = normalizeStoredMcpServerRecord(record);
-    if (!normalized) {
+    const config = readMcpServerFromWorkspaceProfileResource(record);
+    if (!config) {
       continue;
     }
 
-    const key = buildProfileKey(normalized);
+    const key = buildMcpServerKey(config);
     if (keys.has(key)) {
       continue;
     }
 
     keys.add(key);
-    profiles.push(normalized);
+    profiles.push(record);
   }
 
   return profiles;
@@ -138,7 +138,7 @@ export async function readWorkspaceMcpServerProfiles(
 
 export async function writeWorkspaceMcpServerProfiles(
   userId: number,
-  profiles: WorkspaceMcpServerProfileConfig[],
+  profiles: WorkspaceMcpServerProfileResource[],
 ): Promise<void> {
   await ensurePersistenceDatabaseReady();
   await prisma.$transaction(async (transaction) => {
@@ -158,27 +158,39 @@ export async function writeWorkspaceMcpServerProfiles(
 }
 
 export function mergeDefaultWorkspaceMcpServerProfiles(
-  currentProfiles: WorkspaceMcpServerProfileConfig[],
+  currentProfiles: WorkspaceMcpServerProfileResource[],
   workspaceUserId: number,
-): WorkspaceMcpServerProfileConfig[] {
+): WorkspaceMcpServerProfileResource[] {
   const mergedProfiles = normalizeLegacyDefaultProfiles(
     currentProfiles,
     workspaceUserId,
   );
   const profileKeys = new Set(
-    mergedProfiles.map((profile) => buildProfileKey(profile)),
+    mergedProfiles
+      .map((profile) => readMcpServerFromWorkspaceProfileResource(profile))
+      .filter((profile): profile is McpServerConfig => profile !== null)
+      .map((profile) => buildMcpServerKey(profile)),
   );
+
+  const nextProfiles = [...mergedProfiles];
   for (const profile of buildDefaultMcpServerProfiles(workspaceUserId)) {
-    const profileKey = buildProfileKey(profile);
+    const config = readMcpServerFromWorkspaceProfileResource(profile);
+    if (!config) {
+      continue;
+    }
+
+    const profileKey = buildMcpServerKey(config);
     if (profileKeys.has(profileKey)) {
       continue;
     }
 
     profileKeys.add(profileKey);
-    mergedProfiles.push(profile);
+    nextProfiles.push(profile);
   }
 
-  return mergedProfiles;
+  return nextProfiles.map((profile, index) =>
+    mapProfileToDatabaseRecord(workspaceUserId, profile, index),
+  );
 }
 
 export async function ensureDefaultMcpServersForUser(
@@ -198,90 +210,98 @@ export async function ensureDefaultMcpServersForUser(
 
 function buildDefaultMcpServerProfiles(
   workspaceUserId: number,
-): WorkspaceMcpServerProfileConfig[] {
+): WorkspaceMcpServerProfileResource[] {
   const defaultStdioWorkingDirectory =
     resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
-  return DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile) => {
-    if (defaultProfile.transport === "stdio") {
-      return new WorkspaceMcpServerProfile({
-        id: createRandomId(),
-        name: defaultProfile.name,
-        connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
-        transport: "stdio",
-        command: defaultProfile.command,
-        args: [...defaultProfile.args],
-        cwd:
-          defaultProfile.cwd === "default"
-            ? defaultStdioWorkingDirectory
-            : undefined,
-        env: { ...defaultProfile.env },
-      }).toSnapshot();
-    }
-
-    return new WorkspaceMcpServerProfile({
-      id: createRandomId(),
-      name: defaultProfile.name,
-      connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
-      transport: defaultProfile.transport,
-      url: defaultProfile.url,
-      headers: { ...defaultProfile.headers },
-      useAzureAuth: defaultProfile.useAzureAuth,
-      azureAuthScope: defaultProfile.azureAuthScope,
-      timeoutSeconds: defaultProfile.timeoutSeconds,
-    }).toSnapshot();
-  });
+  return DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile, index) =>
+    defaultProfile.transport === "stdio"
+      ? createWorkspaceMcpServerProfileResource({
+          id: createRandomId(),
+          userId: workspaceUserId,
+          profileOrder: index,
+          connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
+          name: defaultProfile.name,
+          transport: defaultProfile.transport,
+          command: defaultProfile.command,
+          args: [...defaultProfile.args],
+          cwd:
+            defaultProfile.cwd === "default"
+              ? defaultStdioWorkingDirectory
+              : undefined,
+          env: { ...defaultProfile.env },
+        })
+      : createWorkspaceMcpServerProfileResource({
+          id: createRandomId(),
+          userId: workspaceUserId,
+          profileOrder: index,
+          connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
+          name: defaultProfile.name,
+          transport: defaultProfile.transport,
+          url: defaultProfile.url,
+          headers: { ...defaultProfile.headers },
+          useAzureAuth: defaultProfile.useAzureAuth,
+          azureAuthScope: defaultProfile.azureAuthScope,
+          timeoutSeconds: defaultProfile.timeoutSeconds,
+        }),
+  );
 }
 
 function normalizeLegacyDefaultProfiles(
-  currentProfiles: WorkspaceMcpServerProfileConfig[],
+  currentProfiles: WorkspaceMcpServerProfileResource[],
   workspaceUserId: number,
-): WorkspaceMcpServerProfileConfig[] {
+): WorkspaceMcpServerProfileResource[] {
   const defaultWorkingDirectory =
     resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
   const legacyDefaultWorkingDirectory =
     resolveLegacyFilesystemWorkingDirectory();
-  const normalizedProfiles: WorkspaceMcpServerProfileConfig[] = [];
+  const normalizedProfiles: WorkspaceMcpServerProfileResource[] = [];
 
   for (const profile of currentProfiles) {
-    if (isLegacyUnavailableDefaultStdioProfile(profile)) {
+    const config = readMcpServerFromWorkspaceProfileResource(profile);
+    if (!config) {
+      continue;
+    }
+
+    if (isLegacyUnavailableDefaultStdioProfile(config)) {
       continue;
     }
 
     if (
-      !isLegacyDefaultMermaidProfile(profile, legacyDefaultWorkingDirectory) &&
-      !isLegacyDefaultFilesystemProfile(profile, legacyDefaultWorkingDirectory)
+      !isLegacyDefaultMermaidProfile(config, legacyDefaultWorkingDirectory) &&
+      !isLegacyDefaultFilesystemProfile(config, legacyDefaultWorkingDirectory)
     ) {
       normalizedProfiles.push(profile);
       continue;
     }
 
-    normalizedProfiles.push({
-      ...profile,
-      cwd: defaultWorkingDirectory,
-    });
+    normalizedProfiles.push(
+      config.transport === "stdio"
+        ? createWorkspaceMcpServerProfileResource({
+            ...config,
+            userId: profile.userId,
+            profileOrder: profile.profileOrder,
+            cwd: defaultWorkingDirectory,
+          })
+        : profile,
+    );
   }
 
   return normalizedProfiles;
 }
 
 function isLegacyDefaultMermaidProfile(
-  profile: WorkspaceMcpServerProfileConfig,
+  profile: McpServerConfig,
   legacyDefaultWorkingDirectory: string,
-): profile is Extract<WorkspaceMcpServerProfileConfig, { transport: "stdio" }> {
-  if (
-    profile.transport !== "stdio" ||
-    !defaultMermaidWorkspaceMcpServerProfile
-  ) {
+): profile is Extract<McpServerConfig, { transport: "stdio" }> {
+  if (profile.transport !== "stdio" || !defaultMermaidWorkspaceMcpServerProfile) {
     return false;
   }
 
   return (
     profile.command === defaultMermaidWorkspaceMcpServerProfile.command &&
-    profile.args.length ===
-      defaultMermaidWorkspaceMcpServerProfile.args.length &&
+    profile.args.length === defaultMermaidWorkspaceMcpServerProfile.args.length &&
     profile.args.every(
-      (arg, index) =>
-        arg === defaultMermaidWorkspaceMcpServerProfile.args[index],
+      (arg, index) => arg === defaultMermaidWorkspaceMcpServerProfile.args[index],
     ) &&
     Object.keys(profile.env).length === 0 &&
     isLegacyDefaultWorkingDirectory(profile.cwd, legacyDefaultWorkingDirectory)
@@ -289,9 +309,9 @@ function isLegacyDefaultMermaidProfile(
 }
 
 function isLegacyDefaultFilesystemProfile(
-  profile: WorkspaceMcpServerProfileConfig,
+  profile: McpServerConfig,
   legacyDefaultWorkingDirectory: string,
-): profile is Extract<WorkspaceMcpServerProfileConfig, { transport: "stdio" }> {
+): profile is Extract<McpServerConfig, { transport: "stdio" }> {
   if (
     profile.transport !== "stdio" ||
     !defaultFilesystemWorkspaceMcpServerProfile
@@ -301,20 +321,16 @@ function isLegacyDefaultFilesystemProfile(
 
   return (
     profile.command === defaultFilesystemWorkspaceMcpServerProfile.command &&
-    profile.args.length ===
-      defaultFilesystemWorkspaceMcpServerProfile.args.length &&
+    profile.args.length === defaultFilesystemWorkspaceMcpServerProfile.args.length &&
     profile.args.every(
-      (arg, index) =>
-        arg === defaultFilesystemWorkspaceMcpServerProfile.args[index],
+      (arg, index) => arg === defaultFilesystemWorkspaceMcpServerProfile.args[index],
     ) &&
     Object.keys(profile.env).length === 0 &&
     isLegacyDefaultWorkingDirectory(profile.cwd, legacyDefaultWorkingDirectory)
   );
 }
 
-function isLegacyUnavailableDefaultStdioProfile(
-  profile: WorkspaceMcpServerProfileConfig,
-): boolean {
+function isLegacyUnavailableDefaultStdioProfile(profile: McpServerConfig): boolean {
   if (profile.transport !== "stdio") {
     return false;
   }
@@ -329,9 +345,7 @@ function isLegacyUnavailableDefaultStdioProfile(
   );
 }
 
-function resolveDefaultFilesystemWorkingDirectory(
-  workspaceUserId: number,
-): string {
+function resolveDefaultFilesystemWorkingDirectory(workspaceUserId: number): string {
   return resolveWorkspaceUserDirectory({
     workspaceUserId,
   });
@@ -360,16 +374,27 @@ function normalizePathForComparison(value: string): string {
 }
 
 export function upsertWorkspaceMcpServerProfile(
-  currentProfiles: WorkspaceMcpServerProfileConfig[],
+  userId: number,
+  currentProfiles: WorkspaceMcpServerProfileResource[],
   incoming: IncomingMcpServerConfig,
 ): {
-  profile: WorkspaceMcpServerProfileConfig;
-  profiles: WorkspaceMcpServerProfileConfig[];
+  profile: WorkspaceMcpServerProfileResource;
+  profiles: WorkspaceMcpServerProfileResource[];
   warning: string | null;
 } {
   const incomingKey = buildIncomingProfileKey(incoming);
-  const keyIndex = currentProfiles.findIndex(
-    (profile) => buildProfileKey(profile) === incomingKey,
+  const currentConfigs = currentProfiles
+    .map((profile) => ({
+      profile,
+      config: readMcpServerFromWorkspaceProfileResource(profile),
+    }))
+    .filter(
+      (entry): entry is { profile: WorkspaceMcpServerProfileResource; config: McpServerConfig } =>
+        entry.config !== null,
+    );
+
+  const keyIndex = currentConfigs.findIndex(
+    ({ config }) => buildMcpServerKey(config) === incomingKey,
   );
 
   const idIndex =
@@ -382,8 +407,7 @@ export function upsertWorkspaceMcpServerProfile(
   const profileId =
     index >= 0
       ? currentProfiles[index].id
-      : incoming.id &&
-          !currentProfiles.some((profile) => profile.id === incoming.id)
+      : incoming.id && !currentProfiles.some((profile) => profile.id === incoming.id)
         ? incoming.id
         : createRandomId();
   const connectOnThreadCreate =
@@ -391,31 +415,34 @@ export function upsertWorkspaceMcpServerProfile(
     previousProfile?.connectOnThreadCreate ??
     false;
 
-  const profile: WorkspaceMcpServerProfileConfig =
-    new WorkspaceMcpServerProfile(
-      incoming.transport === "stdio"
-        ? {
-            id: profileId,
-            name: incoming.name,
-            connectOnThreadCreate,
-            transport: incoming.transport,
-            command: incoming.command,
-            args: incoming.args,
-            cwd: incoming.cwd,
-            env: incoming.env,
-          }
-        : {
-            id: profileId,
-            name: incoming.name,
-            connectOnThreadCreate,
-            transport: incoming.transport,
-            url: incoming.url,
-            headers: incoming.headers,
-            useAzureAuth: incoming.useAzureAuth,
-            azureAuthScope: incoming.azureAuthScope,
-            timeoutSeconds: incoming.timeoutSeconds,
-          },
-    ).toSnapshot();
+  const profile = createWorkspaceMcpServerProfileResource(
+    incoming.transport === "stdio"
+      ? {
+          id: profileId,
+          userId,
+          profileOrder: index >= 0 ? currentProfiles[index].profileOrder : currentProfiles.length,
+          name: incoming.name,
+          connectOnThreadCreate,
+          transport: incoming.transport,
+          command: incoming.command,
+          args: incoming.args,
+          cwd: incoming.cwd,
+          env: incoming.env,
+        }
+      : {
+          id: profileId,
+          userId,
+          profileOrder: index >= 0 ? currentProfiles[index].profileOrder : currentProfiles.length,
+          name: incoming.name,
+          connectOnThreadCreate,
+          transport: incoming.transport,
+          url: incoming.url,
+          headers: incoming.headers,
+          useAzureAuth: incoming.useAzureAuth,
+          azureAuthScope: incoming.azureAuthScope,
+          timeoutSeconds: incoming.timeoutSeconds,
+        },
+  );
 
   const profiles =
     index >= 0
@@ -432,13 +459,19 @@ export function upsertWorkspaceMcpServerProfile(
         : `An MCP server with the same configuration already exists. Renamed it from "${previousProfile.name}" to "${incoming.name}".`;
   }
 
-  return { profile, profiles, warning };
+  return {
+    profile,
+    profiles: profiles.map((entry, entryIndex) =>
+      mapProfileToDatabaseRecord(userId, entry, entryIndex),
+    ),
+    warning,
+  };
 }
 
 export function deleteWorkspaceMcpServerProfile(
-  currentProfiles: WorkspaceMcpServerProfileConfig[],
+  currentProfiles: WorkspaceMcpServerProfileResource[],
   id: string,
-): { profiles: WorkspaceMcpServerProfileConfig[]; deleted: boolean } {
+): { profiles: WorkspaceMcpServerProfileResource[]; deleted: boolean } {
   const nextProfiles = currentProfiles.filter((profile) => profile.id !== id);
   return {
     profiles: nextProfiles,
@@ -446,135 +479,46 @@ export function deleteWorkspaceMcpServerProfile(
   };
 }
 
-function normalizeStoredMcpServer(
-  entry: unknown,
-): WorkspaceMcpServerProfileConfig | null {
-  const parsed = parseIncomingMcpServer(entry);
-  if (!parsed.ok) {
-    return null;
+function mapProfileToDatabaseRecord(
+  userId: number,
+  profile: WorkspaceMcpServerProfileResource,
+  profileOrder: number,
+): WorkspaceMcpServerProfileResource {
+  const config = readMcpServerFromWorkspaceProfileResource(profile);
+  if (!config) {
+    return {
+      ...profile,
+      userId,
+      profileOrder,
+    };
   }
 
-  const id =
-    isRecord(entry) && typeof entry.id === "string" && entry.id.trim()
-      ? entry.id.trim()
-      : createRandomId();
-  const connectOnThreadCreate =
-    isRecord(entry) && typeof entry.connectOnThreadCreate === "boolean"
-      ? entry.connectOnThreadCreate
-      : parsed.value.connectOnThreadCreate === true;
-
-  return new WorkspaceMcpServerProfile(
-    parsed.value.transport === "stdio"
-      ? {
-          id,
-          name: parsed.value.name,
-          connectOnThreadCreate,
-          transport: parsed.value.transport,
-          command: parsed.value.command,
-          args: parsed.value.args,
-          cwd: parsed.value.cwd,
-          env: parsed.value.env,
-        }
-      : {
-          id,
-          name: parsed.value.name,
-          connectOnThreadCreate,
-          transport: parsed.value.transport,
-          url: parsed.value.url,
-          headers: parsed.value.headers,
-          useAzureAuth: parsed.value.useAzureAuth,
-          azureAuthScope: parsed.value.azureAuthScope,
-          timeoutSeconds: parsed.value.timeoutSeconds,
-        },
-  ).toSnapshot();
-}
-
-function normalizeStoredMcpServerRecord(entry: {
-  id: string;
-  name: string;
-  transport: string;
-  connectOnThreadCreate: boolean;
-  url: string | null;
-  headersJson: string | null;
-  useAzureAuth: boolean;
-  azureAuthScope: string | null;
-  timeoutSeconds: number | null;
-  command: string | null;
-  argsJson: string | null;
-  cwd: string | null;
-  envJson: string | null;
-}): WorkspaceMcpServerProfileConfig | null {
-  const transport = readTransport(entry.transport);
-  if (!transport) {
-    return null;
-  }
-
-  if (transport === "stdio") {
-    const args = parseStringArrayJson(entry.argsJson);
-    const env = parseStringMapJson(entry.envJson);
-    if (!args || !env || !entry.command) {
-      return null;
-    }
-
-    return normalizeStoredMcpServer({
-      id: entry.id,
-      name: entry.name,
-      connectOnThreadCreate: entry.connectOnThreadCreate === true,
-      transport: "stdio",
-      command: entry.command,
-      args,
-      cwd: entry.cwd ?? undefined,
-      env,
-    });
-  }
-
-  const headers = parseStringMapJson(entry.headersJson);
-  if (!headers || !entry.url) {
-    return null;
-  }
-
-  return normalizeStoredMcpServer({
-    id: entry.id,
-    name: entry.name,
-    connectOnThreadCreate: entry.connectOnThreadCreate === true,
-    transport,
-    url: entry.url,
-    headers,
-    useAzureAuth: entry.useAzureAuth,
-    azureAuthScope: entry.azureAuthScope ?? MCP_DEFAULT_AZURE_AUTH_SCOPE,
-    timeoutSeconds: entry.timeoutSeconds ?? MCP_DEFAULT_TIMEOUT_SECONDS,
+  return createWorkspaceMcpServerProfileResource({
+    ...config,
+    userId,
+    profileOrder,
   });
 }
 
-function mapProfileToDatabaseRecord(
-  userId: number,
-  profile: WorkspaceMcpServerProfileConfig,
-  profileOrder: number,
-): {
-  id: string;
-  userId: number;
-  profileOrder: number;
-  connectOnThreadCreate: boolean;
-  configKey: string;
-  name: string;
-  transport: string;
-  url: string | null;
-  headersJson: string | null;
-  useAzureAuth: boolean;
-  azureAuthScope: string | null;
-  timeoutSeconds: number | null;
-  command: string | null;
-  argsJson: string | null;
-  cwd: string | null;
-  envJson: string | null;
-} {
+function createWorkspaceMcpServerProfileResource(
+  profile:
+    | (Extract<McpServerConfig, { transport: "stdio" }> & {
+        userId: number;
+        profileOrder: number;
+      })
+    | (Extract<McpServerConfig, { transport: "streamable_http" | "sse" }> & {
+        userId: number;
+        profileOrder: number;
+      }),
+): WorkspaceMcpServerProfileResource {
+  const configKey = buildMcpServerKey(profile);
   if (profile.transport === "stdio") {
     return {
       id: profile.id,
-      userId,
-      profileOrder,
-      connectOnThreadCreate: profile.connectOnThreadCreate,
-      configKey: buildProfileKey(profile),
+      userId: profile.userId,
+      profileOrder: profile.profileOrder,
+      connectOnThreadCreate: profile.connectOnThreadCreate === true,
+      configKey,
       name: profile.name,
       transport: profile.transport,
       url: null,
@@ -591,10 +535,10 @@ function mapProfileToDatabaseRecord(
 
   return {
     id: profile.id,
-    userId,
-    profileOrder,
-    connectOnThreadCreate: profile.connectOnThreadCreate,
-    configKey: buildProfileKey(profile),
+    userId: profile.userId,
+    profileOrder: profile.profileOrder,
+    connectOnThreadCreate: profile.connectOnThreadCreate === true,
+    configKey,
     name: profile.name,
     transport: profile.transport,
     url: profile.url,
@@ -609,60 +553,31 @@ function mapProfileToDatabaseRecord(
   };
 }
 
-function parseStringArrayJson(value: string | null): string[] | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return null;
-  }
-
-  if (!Array.isArray(parsed)) {
-    return null;
-  }
-
-  if (parsed.some((entry) => typeof entry !== "string")) {
-    return null;
-  }
-
-  return [...parsed];
-}
-
-function parseStringMapJson(
-  value: string | null,
-): Record<string, string> | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return null;
-  }
-
-  if (!isRecord(parsed)) {
-    return null;
-  }
-
-  const normalized: Record<string, string> = {};
-  for (const [key, entryValue] of Object.entries(parsed)) {
-    if (typeof entryValue !== "string") {
-      return null;
-    }
-    normalized[key] = entryValue;
-  }
-
-  return normalized;
-}
-
 function buildIncomingProfileKey(profile: IncomingMcpServerConfig): string {
-  return buildMcpServerConfigKey(profile);
+  return buildMcpServerKey(
+    profile.transport === "stdio"
+      ? {
+          id: profile.id ?? "",
+          name: profile.name,
+          connectOnThreadCreate: profile.connectOnThreadCreate,
+          transport: profile.transport,
+          command: profile.command,
+          args: profile.args,
+          cwd: profile.cwd,
+          env: profile.env,
+        }
+      : {
+          id: profile.id ?? "",
+          name: profile.name,
+          connectOnThreadCreate: profile.connectOnThreadCreate,
+          transport: profile.transport,
+          url: profile.url,
+          headers: profile.headers,
+          useAzureAuth: profile.useAzureAuth,
+          azureAuthScope: profile.azureAuthScope,
+          timeoutSeconds: profile.timeoutSeconds,
+        },
+  );
 }
 
 export async function readAuthenticatedUser(): Promise<{ id: number } | null> {
@@ -676,14 +591,6 @@ export async function readAuthenticatedUser(): Promise<{ id: number } | null> {
     principalId: userContext.principalId,
   });
   return { id: user.id };
-}
-
-function buildProfileKey(profile: WorkspaceMcpServerProfileConfig): string {
-  return buildIncomingProfileKey(profile);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
 }
 
 export function readErrorMessage(error: unknown): string {

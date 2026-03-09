@@ -2,18 +2,18 @@
  * Test module verifying POST /api/threads behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
+import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
 
 const {
   readAzureArmUserContextMock,
   getOrCreateUserByIdentityMock,
-  readThreadSnapshotFromUnknownMock,
+  readThreadWritePayloadFromUnknownMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
   readAzureArmUserContextMock: vi.fn(),
   getOrCreateUserByIdentityMock: vi.fn(),
-  readThreadSnapshotFromUnknownMock: vi.fn(),
+  readThreadWritePayloadFromUnknownMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
@@ -27,7 +27,7 @@ vi.mock("~/lib/server/persistence/user", () => ({
 }));
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
-  readThreadSnapshotFromUnknown: readThreadSnapshotFromUnknownMock,
+  readThreadWritePayloadFromUnknown: readThreadWritePayloadFromUnknownMock,
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -36,18 +36,42 @@ vi.mock("~/lib/server/observability/runtime-event-log", () => ({
 }));
 
 import { action, threadCollectionActionHandlers } from "./api.threads";
-const createThreadSnapshotSpy = vi.spyOn(threadCollectionActionHandlers, "createThreadSnapshot");
+const createThreadSpy = vi.spyOn(threadCollectionActionHandlers, "createThread");
 
-describe("POST /api/threads", () => {
-  const thread: ThreadSnapshot = {
+function createThreadResource(): ThreadResource {
+  return {
     id: "thread-a",
+    userId: 10,
     name: "Thread A",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     deletedAt: null,
     reasoningEffort: "medium",
     webSearchEnabled: true,
-    agentInstruction: "",
+    threadEnvironmentJson: "{}",
+    instructionContextTogglesJson: "{\"system\":true}",
+    instruction: {
+      id: 1,
+      threadId: "thread-a",
+      content: "",
+    },
+    messages: [],
+    mcpServers: [],
+    mcpRpcLogs: [],
+    skillSelections: [],
+  };
+}
+
+describe("POST /api/threads", () => {
+  const thread: ThreadWritePayload = {
+    id: "thread-a",
+    name: "Thread A",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    reasoningEffort: "medium",
+    webSearchEnabled: true,
+    instruction: {
+      content: "",
+    },
     instructionContextToggles: {
       system: true,
     },
@@ -69,12 +93,12 @@ describe("POST /api/threads", () => {
       tenantId: "tenant-a",
       principalId: "principal-a",
     });
-    readThreadSnapshotFromUnknownMock.mockReturnValue(thread);
+    readThreadWritePayloadFromUnknownMock.mockReturnValue(thread);
     logServerRouteEventMock.mockResolvedValue(undefined);
-    createThreadSnapshotSpy.mockReset();
-    createThreadSnapshotSpy.mockResolvedValue({
+    createThreadSpy.mockReset();
+    createThreadSpy.mockResolvedValue({
       status: "created",
-      thread,
+      thread: createThreadResource(),
     });
   });
 
@@ -89,14 +113,14 @@ describe("POST /api/threads", () => {
       }),
     } as never);
 
-    const payload = (await response.json()) as { thread?: ThreadSnapshot };
+    const payload = (await response.json()) as { thread?: ThreadResource };
     expect(response.status).toBe(201);
     expect(response.headers.get("location")).toBe("/api/threads/thread-a");
     expect(payload.thread?.id).toBe("thread-a");
   });
 
   it("returns 409 when thread id already exists", async () => {
-    createThreadSnapshotSpy.mockResolvedValueOnce({
+    createThreadSpy.mockResolvedValueOnce({
       status: "conflict",
     });
 
@@ -116,7 +140,7 @@ describe("POST /api/threads", () => {
   });
 
   it("returns 422 when payload is invalid", async () => {
-    readThreadSnapshotFromUnknownMock.mockReturnValueOnce(null);
+    readThreadWritePayloadFromUnknownMock.mockReturnValueOnce(null);
 
     const response = await action({
       request: new Request("http://localhost/api/threads", {

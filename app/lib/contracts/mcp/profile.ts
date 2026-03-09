@@ -1,3 +1,4 @@
+import type { WorkspaceMcpServerProfile } from "@prisma/client";
 import {
   ENV_KEY_PATTERN,
   HTTP_HEADER_NAME_PATTERN,
@@ -9,6 +10,8 @@ import {
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
 import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
+
+export type WorkspaceMcpServerProfileResource = WorkspaceMcpServerProfile;
 
 export type McpHttpServerConfig = {
   id: string;
@@ -59,6 +62,50 @@ export function readMcpServerList(value: unknown): McpServerConfig[] {
   }
 
   return servers;
+}
+
+export function readWorkspaceMcpServerProfileResourceList(
+  value: unknown,
+): WorkspaceMcpServerProfileResource[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const profiles: WorkspaceMcpServerProfileResource[] = [];
+  const seenIds = new Set<string>();
+  for (const entry of value) {
+    const profile = readWorkspaceMcpServerProfileResourceFromUnknown(entry);
+    if (!profile || seenIds.has(profile.id)) {
+      continue;
+    }
+
+    seenIds.add(profile.id);
+    profiles.push(profile);
+  }
+
+  return profiles;
+}
+
+export function readWorkspaceMcpServerProfileResourceFromUnknown(
+  value: unknown,
+): WorkspaceMcpServerProfileResource | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value.id !== "string" ||
+    typeof value.userId !== "number" ||
+    typeof value.profileOrder !== "number" ||
+    typeof value.connectOnThreadCreate !== "boolean" ||
+    typeof value.configKey !== "string" ||
+    typeof value.name !== "string" ||
+    typeof value.transport !== "string"
+  ) {
+    return null;
+  }
+
+  return value as WorkspaceMcpServerProfileResource;
 }
 
 export function readMcpServerFromUnknown(value: unknown): McpServerConfig | null {
@@ -176,6 +223,35 @@ export function serializeMcpServerForSave(
   return includeId ? { ...payload, id: server.id } : payload;
 }
 
+export function readMcpServerFromWorkspaceProfileResource(
+  profile: WorkspaceMcpServerProfileResource,
+): McpServerConfig | null {
+  return readMcpServerFromUnknown(
+    profile.transport === "stdio"
+      ? {
+          id: profile.id,
+          name: profile.name,
+          connectOnThreadCreate: profile.connectOnThreadCreate,
+          transport: profile.transport,
+          command: profile.command ?? "",
+          args: readStringArrayJson(profile.argsJson),
+          cwd: profile.cwd ?? undefined,
+          env: readStringMapJson(profile.envJson),
+        }
+      : {
+          id: profile.id,
+          name: profile.name,
+          connectOnThreadCreate: profile.connectOnThreadCreate,
+          transport: profile.transport,
+          url: profile.url ?? "",
+          headers: readStringMapJson(profile.headersJson),
+          useAzureAuth: profile.useAzureAuth,
+          azureAuthScope: profile.azureAuthScope ?? MCP_DEFAULT_AZURE_AUTH_SCOPE,
+          timeoutSeconds: profile.timeoutSeconds ?? MCP_DEFAULT_TIMEOUT_SECONDS,
+        },
+  );
+}
+
 export function upsertMcpServer(
   current: McpServerConfig[],
   profile: McpServerConfig,
@@ -261,6 +337,42 @@ function readMcpTimeoutSecondsFromUnknown(value: unknown): number {
   }
 
   return value;
+}
+
+function readStringArrayJson(value: string | null): string[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((entry) => typeof entry === "string")
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function readStringMapJson(value: string | null): Record<string, string> {
+  if (typeof value !== "string") {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!isRecord(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

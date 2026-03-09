@@ -2,15 +2,15 @@
  * API route module for /api/threads.
  */
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
-import { readThreadSnapshotFromUnknown } from "~/lib/contracts/threads/parsers";
-import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
+import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
   readAuthenticatedUser,
   readErrorMessage,
   readJsonPayload,
   threadApplicationService,
   threadQueryService,
-  type CreateThreadSnapshotResult,
+  type CreateThreadResult,
 } from "~/lib/server/application/threads/thread-service";
 import {
   authRequiredResponse,
@@ -28,11 +28,11 @@ import type { Route } from "./+types/api.threads";
 const THREADS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
 
 export const threadCollectionActionHandlers = {
-  createThreadSnapshot: (
+  createThread: (
     userId: number,
-    snapshot: ThreadSnapshot,
-  ): Promise<CreateThreadSnapshotResult> =>
-    threadApplicationService.createThreadSnapshot(userId, snapshot),
+    payload: ThreadWritePayload,
+  ): Promise<CreateThreadResult> =>
+    threadApplicationService.createThread(userId, payload),
 };
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -112,7 +112,7 @@ export async function action({ request }: Route.ActionArgs) {
     return invalidJsonResponse();
   }
 
-  const thread = readThreadSnapshotFromUnknown(payload.value, {
+  const thread = readThreadWritePayloadFromUnknown(payload.value, {
     fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
   });
   if (!thread) {
@@ -131,7 +131,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    const created = await threadCollectionActionHandlers.createThreadSnapshot(user.id, thread);
+    const created = await threadCollectionActionHandlers.createThread(user.id, thread);
     if (created.status === "conflict") {
       await logServerRouteEvent({
         request,

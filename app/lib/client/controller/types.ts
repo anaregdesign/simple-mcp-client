@@ -1,6 +1,8 @@
 /**
  * Client controller runtime module.
  */
+import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
+import type { ThreadResource } from "~/lib/contracts/threads/types";
 import type { InstructionLanguage } from "~/lib/client/instruction/helpers";
 
 /**
@@ -51,8 +53,8 @@ export type AzureSelectionApiResponse = {
  * Response shape returned by `/api/mcp/servers` and `/api/mcp/servers/:serverId`.
  */
 export type McpServersApiResponse = {
-  profile?: unknown;
-  profiles?: unknown;
+  profile?: WorkspaceMcpServerProfileResource;
+  profiles?: WorkspaceMcpServerProfileResource[];
   warning?: string;
   authRequired?: boolean;
   error?: string;
@@ -62,8 +64,8 @@ export type McpServersApiResponse = {
  * Response shape returned by `/api/threads` and `/api/threads/:threadId`.
  */
 export type ThreadsApiResponse = {
-  threads?: unknown;
-  thread?: unknown;
+  threads?: ThreadResource[];
+  thread?: ThreadResource;
   authRequired?: boolean;
   error?: string;
 };

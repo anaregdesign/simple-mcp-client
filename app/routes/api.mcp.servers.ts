@@ -132,6 +132,7 @@ export async function action({ request }: Route.ActionArgs) {
     );
     const existingIds = new Set(profilesWithDefaults.map((profile) => profile.id));
     const { profile, profiles, warning } = mcpServerProfileService.upsertWorkspaceMcpServerProfile(
+      user.id,
       profilesWithDefaults,
       incomingResult.value,
     );

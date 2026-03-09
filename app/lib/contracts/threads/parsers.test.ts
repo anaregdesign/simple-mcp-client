@@ -1,24 +1,179 @@
 /**
- * Test module verifying parsers behavior.
+ * Test module verifying thread parser behavior.
  */
 import { describe, expect, it } from "vitest";
 import {
   buildThreadSummary,
-  readThreadSnapshotFromUnknown,
-  readThreadSnapshotList,
+  convertThreadResourceToState,
+  readThreadResourceFromUnknown,
+  readThreadResourceList,
+  readThreadWritePayloadFromUnknown,
 } from "~/lib/contracts/threads/parsers";
+import type { ThreadResource } from "~/lib/contracts/threads/types";
 
-describe("readThreadSnapshotFromUnknown", () => {
-  it("parses a valid thread payload", () => {
-    const parsed = readThreadSnapshotFromUnknown({
+function createThreadResource(): ThreadResource {
+  return {
+    id: "thread-1",
+    userId: 10,
+    name: "Thread 1",
+    createdAt: "2026-02-20T00:00:00.000Z",
+    updatedAt: "2026-02-20T00:00:00.000Z",
+    deletedAt: null,
+    reasoningEffort: "none",
+    webSearchEnabled: false,
+    threadEnvironmentJson: JSON.stringify({
+      VIRTUAL_ENV: "/tmp/thread-1/.venv",
+    }),
+    instructionContextTogglesJson: JSON.stringify({
+      system: true,
+    }),
+    instruction: {
+      id: 1,
+      threadId: "thread-1",
+      content: "You are concise.",
+    },
+    messages: [
+      {
+        id: "assistant-1",
+        threadId: "thread-1",
+        conversationOrder: 0,
+        role: "assistant",
+        content: "Hi",
+        createdAt: "2026-02-20T00:00:00.000Z",
+        turnId: "turn-1",
+        attachmentsJson: "[]",
+        skillActivations: [
+          {
+            id: "message-skill-1",
+            messageId: "assistant-1",
+            selectionOrder: 0,
+            skillProfileId: 101,
+            skillProfile: {
+              id: 101,
+              userId: 10,
+              registryProfileId: null,
+              name: "doc-retriever",
+              location: "/skills/doc-retriever/SKILL.md",
+              source: "codex_home",
+            },
+          },
+        ],
+      },
+    ],
+    mcpServers: [
+      {
+        id: "mcp-1",
+        threadId: "thread-1",
+        selectionOrder: 0,
+        name: "Local MCP",
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        headersJson: "{}",
+        useAzureAuth: false,
+        azureAuthScope: "https://cognitiveservices.azure.com/.default",
+        timeoutSeconds: 30,
+        command: null,
+        argsJson: null,
+        cwd: null,
+        envJson: null,
+      },
+    ],
+    mcpRpcLogs: [
+      {
+        rowId: "rpc-1",
+        sourceRpcId: "rpc-1",
+        threadId: "thread-1",
+        conversationOrder: 0,
+        sequence: 1,
+        operationType: "mcp",
+        serverName: "Local MCP",
+        method: "tools/list",
+        startedAt: "2026-02-20T00:00:01.000Z",
+        completedAt: "2026-02-20T00:00:02.000Z",
+        requestJson: "{\"jsonrpc\":\"2.0\"}",
+        responseJson: "{\"jsonrpc\":\"2.0\"}",
+        isError: false,
+        turnId: "turn-1",
+      },
+    ],
+    skillSelections: [
+      {
+        id: "thread-skill-1",
+        threadId: "thread-1",
+        selectionOrder: 0,
+        skillProfileId: 202,
+        skillProfile: {
+          id: 202,
+          userId: 10,
+          registryProfileId: null,
+          name: "local-playground-dev",
+          location: "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+          source: "codex_home",
+        },
+      },
+    ],
+  };
+}
+
+describe("readThreadResourceFromUnknown", () => {
+  it("parses a valid raw thread resource", () => {
+    const parsed = readThreadResourceFromUnknown(createThreadResource());
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.id).toBe("thread-1");
+    expect(parsed?.userId).toBe(10);
+    expect(parsed?.messages).toHaveLength(1);
+    expect(parsed?.mcpRpcLogs).toHaveLength(1);
+  });
+
+  it("returns null for invalid raw resources", () => {
+    expect(readThreadResourceFromUnknown({ id: "thread-1" })).toBeNull();
+    expect(readThreadResourceFromUnknown("invalid")).toBeNull();
+  });
+});
+
+describe("convertThreadResourceToState", () => {
+  it("converts a raw thread resource into client thread state", () => {
+    const state = convertThreadResourceToState(createThreadResource());
+
+    expect(state.id).toBe("thread-1");
+    expect(state.reasoningEffort).toBe("none");
+    expect(state.webSearchEnabled).toBe(false);
+    expect(state.agentInstruction).toBe("You are concise.");
+    expect(state.threadEnvironment).toEqual({
+      VIRTUAL_ENV: "/tmp/thread-1/.venv",
+    });
+    expect(state.messages[0]?.skillActivations).toEqual([
+      {
+        name: "doc-retriever",
+        location: "/skills/doc-retriever/SKILL.md",
+      },
+    ]);
+    expect(state.mcpServers[0]).toEqual({
+      id: "mcp-1",
+      name: "Local MCP",
+      connectOnThreadCreate: false,
+      transport: "streamable_http",
+      url: "https://example.com/mcp",
+      headers: {},
+      useAzureAuth: false,
+      azureAuthScope: "https://cognitiveservices.azure.com/.default",
+      timeoutSeconds: 30,
+    });
+  });
+});
+
+describe("readThreadWritePayloadFromUnknown", () => {
+  it("parses a valid thin thread write payload", () => {
+    const parsed = readThreadWritePayloadFromUnknown({
       id: "thread-1",
       name: "Thread 1",
       createdAt: "2026-02-20T00:00:00.000Z",
-      updatedAt: "2026-02-20T00:00:00.000Z",
-      deletedAt: null,
       reasoningEffort: "none",
       webSearchEnabled: false,
-      agentInstruction: "You are concise.",
+      instruction: {
+        content: "You are concise.",
+      },
       instructionContextToggles: {
         system: true,
       },
@@ -57,6 +212,7 @@ describe("readThreadSnapshotFromUnknown", () => {
         {
           id: "rpc-1",
           sequence: 1,
+          operationType: "mcp",
           serverName: "Local MCP",
           method: "tools/list",
           startedAt: "2026-02-20T00:00:01.000Z",
@@ -76,72 +232,39 @@ describe("readThreadSnapshotFromUnknown", () => {
     });
 
     expect(parsed).not.toBeNull();
-    expect(parsed?.id).toBe("thread-1");
-    expect(parsed?.reasoningEffort).toBe("none");
-    expect(parsed?.webSearchEnabled).toBe(false);
-    expect(parsed?.threadEnvironment).toEqual({
-      VIRTUAL_ENV: "/tmp/thread-1/.venv",
-    });
+    expect(parsed?.instruction.content).toBe("You are concise.");
     expect(parsed?.messages).toHaveLength(1);
-    expect(parsed?.messages[0]?.skillActivations).toEqual([
-      {
-        name: "doc-retriever",
-        location: "/skills/doc-retriever/SKILL.md",
-      },
-    ]);
     expect(parsed?.mcpServers).toHaveLength(1);
-    expect(parsed?.mcpRpcLogs).toHaveLength(1);
   });
 
-  it("returns null for invalid payload", () => {
-    expect(readThreadSnapshotFromUnknown({ id: "thread-1" })).toBeNull();
-    expect(readThreadSnapshotFromUnknown("invalid")).toBeNull();
+  it("rejects persistence-only fields in thin thread write payloads", () => {
     expect(
-      readThreadSnapshotFromUnknown({
+      readThreadWritePayloadFromUnknown({
         id: "thread-1",
         name: "Thread 1",
         createdAt: "2026-02-20T00:00:00.000Z",
-        updatedAt: "2026-02-20T00:00:00.000Z",
-        deletedAt: "",
         reasoningEffort: "none",
         webSearchEnabled: false,
+        instruction: {
+          content: "",
+        },
+        instructionContextToggles: {
+          system: true,
+        },
+        threadEnvironment: {},
+        userId: 10,
       }),
     ).toBeNull();
   });
 });
 
-describe("readThreadSnapshotList", () => {
+describe("readThreadResourceList", () => {
   it("filters invalid entries and deduplicates ids", () => {
-    const list = readThreadSnapshotList([
+    const list = readThreadResourceList([
+      createThreadResource(),
       {
-        id: "thread-1",
-        name: "Thread 1",
-        createdAt: "2026-02-20T00:00:00.000Z",
-        updatedAt: "2026-02-20T00:00:00.000Z",
-        deletedAt: null,
-        reasoningEffort: "none",
-        webSearchEnabled: false,
-        agentInstruction: "Instruction",
-        instructionContextToggles: {
-          system: true,
-        },
-        threadEnvironment: {},
-        skillSelections: [],
-      },
-      {
-        id: "thread-1",
+        ...createThreadResource(),
         name: "Duplicate",
-        createdAt: "2026-02-20T00:00:00.000Z",
-        updatedAt: "2026-02-20T00:00:00.000Z",
-        deletedAt: null,
-        reasoningEffort: "none",
-        webSearchEnabled: false,
-        agentInstruction: "Instruction",
-        instructionContextToggles: {
-          system: true,
-        },
-        threadEnvironment: {},
-        skillSelections: [],
       },
       {
         id: "",
@@ -161,13 +284,6 @@ describe("buildThreadSummary", () => {
       createdAt: "2026-02-20T00:00:00.000Z",
       updatedAt: "2026-02-20T00:00:00.000Z",
       deletedAt: null,
-      reasoningEffort: "none",
-      webSearchEnabled: false,
-      agentInstruction: "Instruction",
-      instructionContextToggles: {
-        system: true,
-      },
-      threadEnvironment: {},
       messages: [
         {
           id: "message-1",
@@ -189,8 +305,6 @@ describe("buildThreadSummary", () => {
           env: {},
         },
       ],
-      mcpRpcLogs: [],
-      skillSelections: [],
     });
 
     expect(summary).toEqual({

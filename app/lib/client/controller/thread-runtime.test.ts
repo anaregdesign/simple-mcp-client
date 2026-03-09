@@ -2,10 +2,10 @@
  * Tests for Client controller thread runtime helpers.
  */
 import { describe, expect, it } from "vitest";
-import type { ThreadSnapshot } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   buildThreadListOptions,
-  findThreadSnapshotById,
+  findThreadStateById,
   mergeSkillSelections,
 } from "~/lib/client/controller/thread-runtime";
 
@@ -103,8 +103,8 @@ describe("mergeSkillSelections", () => {
   });
 });
 
-describe("findThreadSnapshotById", () => {
-  const threads: ThreadSnapshot[] = [
+describe("findThreadStateById", () => {
+  const threads: ThreadState[] = [
     {
       id: "thread-1",
       name: "Thread 1",
@@ -126,14 +126,14 @@ describe("findThreadSnapshotById", () => {
   ];
 
   it("returns null for empty identifiers", () => {
-    expect(findThreadSnapshotById(threads, "   ")).toBeNull();
+    expect(findThreadStateById(threads, "   ")).toBeNull();
   });
 
   it("trims identifiers before matching", () => {
-    expect(findThreadSnapshotById(threads, " thread-1 ")).toEqual(threads[0]);
+    expect(findThreadStateById(threads, " thread-1 ")).toEqual(threads[0]);
   });
 
   it("returns null when no thread matches", () => {
-    expect(findThreadSnapshotById(threads, "thread-2")).toBeNull();
+    expect(findThreadStateById(threads, "thread-2")).toBeNull();
   });
 });

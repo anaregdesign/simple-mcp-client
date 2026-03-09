@@ -1,5 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
+import { buildMcpServerKey } from "~/lib/contracts/mcp/profile";
 import { McpServersApiClient } from "./mcp-servers-api-client";
+
+function createWorkspaceMcpServerProfileResource() {
+  return {
+    id: "srv-1",
+    userId: 10,
+    profileOrder: 0,
+    connectOnThreadCreate: false,
+    configKey: buildMcpServerKey({
+      id: "srv-1",
+      name: "filesystem",
+      transport: "stdio",
+      command: "npx",
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      env: {},
+    }),
+    name: "filesystem",
+    transport: "stdio",
+    url: null,
+    headersJson: null,
+    useAzureAuth: false,
+    azureAuthScope: null,
+    timeoutSeconds: null,
+    command: "npx",
+    argsJson: JSON.stringify(["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]),
+    cwd: null,
+    envJson: "{}",
+  };
+}
 
 describe("McpServersApiClient", () => {
   it("loads saved profiles with GET", async () => {
@@ -9,16 +38,7 @@ describe("McpServersApiClient", () => {
 
       return new Response(
         JSON.stringify({
-          profiles: [
-            {
-              id: "srv-1",
-              name: "filesystem",
-              transport: "stdio",
-              command: "npx",
-              args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-              env: {},
-            },
-          ],
+          profiles: [createWorkspaceMcpServerProfileResource()],
         }),
         { status: 200 },
       );
@@ -38,14 +58,7 @@ describe("McpServersApiClient", () => {
 
       return new Response(
         JSON.stringify({
-          profile: {
-            id: "srv-1",
-            name: "filesystem",
-            transport: "stdio",
-            command: "npx",
-            args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-            env: {},
-          },
+          profile: createWorkspaceMcpServerProfileResource(),
           profiles: [],
           warning: "Duplicate configuration reused.",
         }),

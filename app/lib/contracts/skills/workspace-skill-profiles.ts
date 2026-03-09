@@ -1,4 +1,8 @@
 import type {
+  WorkspaceSkillProfile as WorkspaceSkillProfileResource,
+  WorkspaceSkillRegistryProfile as WorkspaceSkillRegistryProfileResource,
+} from "@prisma/client";
+import type {
   ApiErrorResponseBody,
   ApiSuccessResponseBody,
 } from "~/lib/contracts/api/response";
@@ -8,8 +12,8 @@ export type ReconcileWorkspaceSkillProfilesCommand = {
 };
 
 export type WorkspaceSkillProfilesData = {
-  workspaceSkillProfiles: unknown;
-  workspaceSkillRegistryProfiles: unknown;
+  workspaceSkillProfiles: WorkspaceSkillProfileResource[];
+  workspaceSkillRegistryProfiles: WorkspaceSkillRegistryProfileResource[];
 };
 
 export type WorkspaceSkillProfilesResponseBody =
@@ -25,6 +29,8 @@ export type ReconcileWorkspaceSkillProfilesData = {
   warnings: string[];
   workspaceSkillProfileCount: number;
   workspaceSkillRegistryProfileCount: number;
+  workspaceSkillProfiles?: WorkspaceSkillProfileResource[];
+  workspaceSkillRegistryProfiles?: WorkspaceSkillRegistryProfileResource[];
 };
 
 export type ReconcileWorkspaceSkillProfilesResponseBody =

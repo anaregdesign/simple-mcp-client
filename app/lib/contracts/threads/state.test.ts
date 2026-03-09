@@ -1,16 +1,16 @@
 /**
- * Test module verifying snapshot-state behavior.
+ * Test module verifying thread state helper behavior.
  */
 import { describe, expect, it } from "vitest";
 import {
   hasThreadPersistableState,
   hasThreadInteraction,
   isThreadArchivedById,
-  isThreadSnapshotArchived,
+  isThreadArchived,
   readThreadRuntimeStateById,
-  readThreadSnapshotById,
-  updateThreadSnapshotCollectionById,
-} from "~/lib/contracts/threads/snapshot-state";
+  readThreadStateById,
+  updateThreadStateCollectionById,
+} from "~/lib/contracts/threads/state";
 
 describe("hasThreadInteraction", () => {
   it("returns false for threads without messages", () => {
@@ -114,18 +114,18 @@ describe("hasThreadPersistableState", () => {
   });
 });
 
-describe("isThreadSnapshotArchived", () => {
-  it("returns false when the snapshot is missing", () => {
-    expect(isThreadSnapshotArchived(null)).toBe(false);
-    expect(isThreadSnapshotArchived(undefined)).toBe(false);
+describe("isThreadArchived", () => {
+  it("returns false when the thread state is missing", () => {
+    expect(isThreadArchived(null)).toBe(false);
+    expect(isThreadArchived(undefined)).toBe(false);
   });
 
   it("returns false when deletedAt is null", () => {
-    expect(isThreadSnapshotArchived({ deletedAt: null })).toBe(false);
+    expect(isThreadArchived({ deletedAt: null })).toBe(false);
   });
 
   it("returns true when deletedAt is set", () => {
-    expect(isThreadSnapshotArchived({ deletedAt: "2026-02-20T00:00:00.000Z" })).toBe(true);
+    expect(isThreadArchived({ deletedAt: "2026-02-20T00:00:00.000Z" })).toBe(true);
   });
 });
 
@@ -149,7 +149,7 @@ describe("isThreadArchivedById", () => {
   });
 });
 
-describe("readThreadSnapshotById", () => {
+describe("readThreadStateById", () => {
   const snapshots = [
     {
       id: "thread-a",
@@ -170,11 +170,11 @@ describe("readThreadSnapshotById", () => {
   ];
 
   it("returns null for empty ids", () => {
-    expect(readThreadSnapshotById(snapshots, "")).toBeNull();
+    expect(readThreadStateById(snapshots, "")).toBeNull();
   });
 
-  it("returns the matching snapshot by id", () => {
-    expect(readThreadSnapshotById(snapshots, "thread-a")?.id).toBe("thread-a");
+  it("returns the matching thread state by id", () => {
+    expect(readThreadStateById(snapshots, "thread-a")?.id).toBe("thread-a");
   });
 });
 
@@ -210,7 +210,7 @@ describe("readThreadRuntimeStateById", () => {
 
   it("returns empty runtime state when active thread is missing", () => {
     expect(readThreadRuntimeStateById(snapshots, "missing")).toEqual({
-      activeThreadSnapshot: null,
+      activeThreadState: null,
       messages: [],
       mcpServers: [],
       mcpRpcLogs: [],
@@ -220,13 +220,13 @@ describe("readThreadRuntimeStateById", () => {
 
   it("returns cloned runtime state for matching thread", () => {
     const state = readThreadRuntimeStateById(snapshots, "thread-runtime");
-    expect(state.activeThreadSnapshot?.id).toBe("thread-runtime");
+    expect(state.activeThreadState?.id).toBe("thread-runtime");
     expect(state.messages).toHaveLength(1);
     expect(state.messages).not.toBe(snapshots[0]?.messages);
   });
 });
 
-describe("updateThreadSnapshotCollectionById", () => {
+describe("updateThreadStateCollectionById", () => {
   const baseSnapshots = [
     {
       id: "thread-1",
@@ -247,12 +247,12 @@ describe("updateThreadSnapshotCollectionById", () => {
   ];
 
   it("returns the original collection when thread id is missing", () => {
-    const next = updateThreadSnapshotCollectionById(baseSnapshots, "missing", (current) => current);
+    const next = updateThreadStateCollectionById(baseSnapshots, "missing", (current) => current);
     expect(next).toBe(baseSnapshots);
   });
 
-  it("updates the target snapshot and keeps array sorted by updatedAt", () => {
-    const next = updateThreadSnapshotCollectionById(baseSnapshots, "thread-1", (current) => ({
+  it("updates the target thread state and keeps array sorted by updatedAt", () => {
+    const next = updateThreadStateCollectionById(baseSnapshots, "thread-1", (current) => ({
       ...current,
       name: "After",
       updatedAt: "2026-03-08T00:00:01.000Z",

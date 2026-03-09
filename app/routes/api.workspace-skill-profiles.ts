@@ -2,7 +2,6 @@ import {
   structuredAuthRequiredResponse,
   structuredErrorResponse,
   methodNotAllowedResponse,
-  successResponse,
 } from "~/lib/server/http";
 import {
   readAuthenticatedUser,
@@ -32,7 +31,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const data = await workspaceSkillService.readWorkspaceSkillProfiles(user.id);
-    return successResponse(data);
+    return Response.json(data);
   } catch (error) {
     await logServerRouteEvent({
       request,
@@ -95,7 +94,8 @@ export async function action({ request }: Route.ActionArgs) {
       registries: discoveryResult.registries,
     });
 
-    return successResponse({
+    const data = await workspaceSkillService.readWorkspaceSkillProfiles(user.id);
+    return Response.json({
       message: "Workspace Skill profiles reconciled from installed Skills.",
       skills: discoveryResult.skills,
       skillRegistries: discoveryResult.registries,
@@ -104,6 +104,8 @@ export async function action({ request }: Route.ActionArgs) {
       warnings: discoveryResult.warnings,
       workspaceSkillProfileCount: syncResult.workspaceSkillProfileCount,
       workspaceSkillRegistryProfileCount: syncResult.workspaceSkillRegistryProfileCount,
+      workspaceSkillProfiles: data.workspaceSkillProfiles,
+      workspaceSkillRegistryProfiles: data.workspaceSkillRegistryProfiles,
     });
   } catch (error) {
     await logServerRouteEvent({

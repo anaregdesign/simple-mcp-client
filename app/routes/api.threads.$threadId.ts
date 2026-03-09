@@ -2,7 +2,7 @@
  * API route module for /api/threads/:threadId.
  */
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
-import { readThreadSnapshotFromUnknown } from "~/lib/contracts/threads/parsers";
+import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import {
   authRequiredResponse,
   errorResponse,
@@ -21,7 +21,7 @@ import {
   readAuthenticatedUser,
   readErrorMessage,
   readJsonPayload,
-  updateThreadSnapshot,
+  updateThread,
 } from "~/lib/server/application/threads/thread-service";
 import type { Route } from "./+types/api.threads.$threadId";
 
@@ -83,7 +83,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         return invalidJsonResponse();
       }
 
-      const thread = readThreadSnapshotFromUnknown(payload.value, {
+      const thread = readThreadWritePayloadFromUnknown(payload.value, {
         fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
       });
       if (!thread) {
@@ -123,7 +123,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         );
       }
 
-      const updatedThread = await updateThreadSnapshot(user.id, thread);
+      const updatedThread = await updateThread(user.id, thread);
       if (updatedThread.status === "not_found") {
         await logServerRouteEvent({
           request,
