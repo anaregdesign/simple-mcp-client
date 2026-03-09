@@ -11,7 +11,7 @@ export type AzureUtilitySelectionTargetPreference = AzureSelectionTargetPreferen
   reasoningEffort: ReasoningEffort;
 };
 
-export type AzureSelectionPreferenceSnapshot = {
+export type AzureSelectionPreferenceProps = {
   tenantId: string;
   principalId: string;
   theme: ThemeMode;
@@ -26,15 +26,11 @@ export type AzureSelectionPreferenceChanges = {
 };
 
 export class AzureSelectionPreference {
-  readonly tenantId: string;
-  readonly principalId: string;
-  readonly theme: ThemeMode;
-  readonly playground: AzureSelectionTargetPreference | null;
-  readonly utility: AzureUtilitySelectionTargetPreference | null;
+  private readonly props: AzureSelectionPreferenceProps;
 
-  constructor(snapshot: AzureSelectionPreferenceSnapshot) {
-    const tenantId = snapshot.tenantId.trim();
-    const principalId = snapshot.principalId.trim();
+  constructor(props: AzureSelectionPreferenceProps) {
+    const tenantId = props.tenantId.trim();
+    const principalId = props.principalId.trim();
     if (!tenantId) {
       throw new DomainError(
         "azure_selection_preference_tenant_id_required",
@@ -48,65 +44,37 @@ export class AzureSelectionPreference {
       );
     }
 
-    this.tenantId = tenantId;
-    this.principalId = principalId;
-    this.theme = snapshot.theme;
-    this.playground = snapshot.playground
-      ? {
-          projectId: snapshot.playground.projectId.trim(),
-          deploymentName: snapshot.playground.deploymentName.trim(),
-        }
-      : null;
-    this.utility = snapshot.utility
-      ? {
-          projectId: snapshot.utility.projectId.trim(),
-          deploymentName: snapshot.utility.deploymentName.trim(),
-          reasoningEffort: snapshot.utility.reasoningEffort,
-        }
-      : null;
-  }
-
-  static fromSnapshot(snapshot: AzureSelectionPreferenceSnapshot): AzureSelectionPreference {
-    return new AzureSelectionPreference(snapshot);
-  }
-
-  static createTargetPreference(
-    projectId: string,
-    deploymentName: string,
-  ): AzureSelectionTargetPreference | null {
-    const normalizedProjectId = projectId.trim();
-    const normalizedDeploymentName = deploymentName.trim();
-    if (!normalizedProjectId || !normalizedDeploymentName) {
-      return null;
-    }
-
-    return {
-      projectId: normalizedProjectId,
-      deploymentName: normalizedDeploymentName,
+    this.props = {
+      tenantId,
+      principalId,
+      theme: props.theme,
+      playground: normalizeAzureSelectionTargetPreference(props.playground),
+      utility: normalizeAzureUtilitySelectionTargetPreference(props.utility),
     };
   }
 
-  static createUtilityTargetPreference(
-    projectId: string,
-    deploymentName: string,
-    reasoningEffort: ReasoningEffort | null,
-  ): AzureUtilitySelectionTargetPreference | null {
-    const base = AzureSelectionPreference.createTargetPreference(
-      projectId,
-      deploymentName,
-    );
-    if (!base) {
-      return null;
-    }
+  get tenantId(): string {
+    return this.props.tenantId;
+  }
 
-    return {
-      ...base,
-      reasoningEffort: reasoningEffort ?? "high",
-    };
+  get principalId(): string {
+    return this.props.principalId;
+  }
+
+  get theme(): ThemeMode {
+    return this.props.theme;
+  }
+
+  get playground(): AzureSelectionTargetPreference | null {
+    return this.props.playground ? { ...this.props.playground } : null;
+  }
+
+  get utility(): AzureUtilitySelectionTargetPreference | null {
+    return this.props.utility ? { ...this.props.utility } : null;
   }
 
   hasSelection(): boolean {
-    return this.playground !== null || this.utility !== null;
+    return this.props.playground !== null || this.props.utility !== null;
   }
 
   withChanges(changes: AzureSelectionPreferenceChanges): AzureSelectionPreference {
@@ -119,18 +87,63 @@ export class AzureSelectionPreference {
       utility: changes.utility === undefined ? this.utility : changes.utility,
     });
   }
+}
 
-  toSnapshot(): AzureSelectionPreferenceSnapshot {
-    return {
-      tenantId: this.tenantId,
-      principalId: this.principalId,
-      theme: this.theme,
-      playground: this.playground ? { ...this.playground } : null,
-      utility: this.utility ? { ...this.utility } : null,
-    };
+export function createAzureSelectionTargetPreference(
+  projectId: string,
+  deploymentName: string,
+): AzureSelectionTargetPreference | null {
+  return normalizeAzureSelectionTargetPreference({
+    projectId,
+    deploymentName,
+  });
+}
+
+export function createAzureUtilitySelectionTargetPreference(
+  projectId: string,
+  deploymentName: string,
+  reasoningEffort: ReasoningEffort | null,
+): AzureUtilitySelectionTargetPreference | null {
+  return normalizeAzureUtilitySelectionTargetPreference({
+    projectId,
+    deploymentName,
+    reasoningEffort: reasoningEffort ?? "high",
+  });
+}
+
+function normalizeAzureSelectionTargetPreference(
+  value: AzureSelectionTargetPreference | null,
+): AzureSelectionTargetPreference | null {
+  if (!value) {
+    return null;
   }
 
-  toJSON(): AzureSelectionPreferenceSnapshot {
-    return this.toSnapshot();
+  const projectId = value.projectId.trim();
+  const deploymentName = value.deploymentName.trim();
+  if (!projectId || !deploymentName) {
+    return null;
   }
+
+  return {
+    projectId,
+    deploymentName,
+  };
+}
+
+function normalizeAzureUtilitySelectionTargetPreference(
+  value: AzureUtilitySelectionTargetPreference | null,
+): AzureUtilitySelectionTargetPreference | null {
+  if (!value) {
+    return null;
+  }
+
+  const base = normalizeAzureSelectionTargetPreference(value);
+  if (!base) {
+    return null;
+  }
+
+  return {
+    ...base,
+    reasoningEffort: value.reasoningEffort,
+  };
 }

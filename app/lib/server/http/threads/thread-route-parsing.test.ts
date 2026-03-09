@@ -47,9 +47,8 @@ describe("thread-route-parsing", () => {
       ok: true,
       value: {
         id: "thread-a",
-        instruction: {
-          content: expect.any(String),
-        },
+        instructionContent: expect.any(String),
+        operationLogs: [],
       },
     });
   });

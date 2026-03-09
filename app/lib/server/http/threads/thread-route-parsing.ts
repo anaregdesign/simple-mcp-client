@@ -1,6 +1,6 @@
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
-import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadSaveInput } from "~/lib/domain/repositories/thread-repository";
 
 export type ThreadRouteValidationIssue = {
   statusCode: 422;
@@ -54,14 +54,27 @@ export function readThreadIdParam(value: unknown): ThreadRouteParseResult<string
 
 export function readThreadWritePayload(
   value: unknown,
-): ThreadRouteParseResult<ThreadWritePayload> {
+): ThreadRouteParseResult<ThreadSaveInput> {
   const thread = readThreadWritePayloadFromUnknown(value, {
     fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
   });
   if (thread) {
     return {
       ok: true,
-      value: thread,
+      value: {
+        id: thread.id,
+        name: thread.name,
+        createdAt: thread.createdAt,
+        reasoningEffort: thread.reasoningEffort,
+        webSearchEnabled: thread.webSearchEnabled,
+        instructionContent: thread.instruction.content,
+        instructionContextToggles: thread.instructionContextToggles,
+        threadEnvironment: thread.threadEnvironment,
+        messages: thread.messages,
+        mcpServers: thread.mcpServers,
+        operationLogs: thread.mcpRpcLogs,
+        skillSelections: thread.skillSelections,
+      },
     };
   }
 

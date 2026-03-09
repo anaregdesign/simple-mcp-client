@@ -3,11 +3,11 @@ import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
 import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
 import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import {
-  ThreadRecord,
-  type ThreadRecordSnapshot,
-} from "~/lib/domain/entities/thread-record";
+  Thread,
+  type ThreadProps,
+} from "~/lib/domain/entities/thread";
 
-function createThreadRecordSnapshot(): ThreadRecordSnapshot {
+function createThreadProps(): ThreadProps {
   return {
     id: "thread-a",
     userId: 1,
@@ -38,41 +38,54 @@ function createThreadRecordSnapshot(): ThreadRecordSnapshot {
       },
     ],
     mcpServers: [],
-    mcpRpcLogs: [],
+    operationLogs: [],
     skillSelections: [],
   };
 }
 
-describe("ThreadRecord", () => {
+describe("Thread", () => {
   it("reports lifecycle rules from persisted state", () => {
-    const record = new ThreadRecord(createThreadRecordSnapshot());
+    const thread = new Thread(createThreadProps());
 
-    expect(record.isArchived()).toBe(false);
-    expect(record.canBeArchived()).toBe(true);
+    expect(thread.isArchived()).toBe(false);
+    expect(thread.canBeArchived()).toBe(true);
   });
 
-  it("returns defensive snapshot copies", () => {
-    const record = new ThreadRecord(createThreadRecordSnapshot());
-    const snapshot = record.toSnapshot();
+  it("returns defensive copies from getters", () => {
+    const thread = new Thread(createThreadProps());
+    const messages = thread.messages;
 
-    snapshot.messages[0]!.content = "mutated";
+    messages[0]!.content = "mutated";
 
-    expect(record.toSnapshot().messages[0]!.content).toBe("hello");
+    expect(thread.messages[0]!.content).toBe("hello");
   });
 
-  it("treats archived records as archived", () => {
-    const record = ThreadRecord.fromSnapshot({
-      ...createThreadRecordSnapshot(),
+  it("archives and restores threads through lifecycle behavior", () => {
+    const archived = new Thread({
+      ...createThreadProps(),
       deletedAt: "2026-01-03T00:00:00.000Z",
+    }).restore();
+
+    expect(archived.isArchived()).toBe(false);
+    expect(
+      new Thread(createThreadProps()).archive("2026-01-03T00:00:00.000Z").deletedAt,
+    ).toBe("2026-01-03T00:00:00.000Z");
+  });
+
+  it("rejects archive when the thread has no activity", () => {
+    const thread = new Thread({
+      ...createThreadProps(),
       messages: [],
+      skillSelections: [],
     });
 
-    expect(record.isArchived()).toBe(true);
-    expect(record.canBeArchived()).toBe(false);
+    expect(() => thread.archive("2026-01-03T00:00:00.000Z")).toThrow(
+      "Threads without messages or selected skills cannot be archived.",
+    );
   });
 });
 
-describe("thread-record helpers", () => {
+describe("thread helpers", () => {
   it("clones thread environment defensively", () => {
     const environment = {
       PATH: "/tmp/bin",

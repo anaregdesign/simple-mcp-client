@@ -1,14 +1,14 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
-import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
+import type { Thread } from "~/lib/domain/entities/thread";
 
 export function presentThreadResources(
-  threads: ThreadRecord[],
+  threads: Thread[],
 ): ThreadResource[] {
   return threads.map((thread) => presentThreadResource(thread));
 }
 
 export function presentThreadResource(
-  thread: ThreadRecord,
+  thread: Thread,
 ): ThreadResource {
   return {
     id: thread.id,
@@ -73,7 +73,7 @@ export function presentThreadResource(
             envJson: null,
           },
     ),
-    mcpRpcLogs: thread.mcpRpcLogs.map((entry) => ({
+    mcpRpcLogs: thread.operationLogs.map((entry) => ({
       rowId: entry.rowId,
       sourceRpcId: entry.sourceRpcId,
       threadId: entry.threadId,

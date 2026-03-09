@@ -3,6 +3,8 @@
  */
 import {
   AzureSelectionPreference,
+  createAzureSelectionTargetPreference,
+  createAzureUtilitySelectionTargetPreference,
 } from "~/lib/domain/entities/azure-selection-preference";
 import type {
   AzureSelectionIdentity,
@@ -80,14 +82,14 @@ function buildAzureSelectionPreference(
     theme: preference.theme ?? existing?.theme ?? DEFAULT_THEME_MODE,
     playground:
       preference.target === "playground"
-        ? AzureSelectionPreference.createTargetPreference(
+        ? createAzureSelectionTargetPreference(
             preference.projectId,
             preference.deploymentName,
           )
         : undefined,
     utility:
       preference.target === "utility"
-        ? AzureSelectionPreference.createUtilityTargetPreference(
+        ? createAzureUtilitySelectionTargetPreference(
             preference.projectId,
             preference.deploymentName,
             preference.reasoningEffort,

@@ -1,5 +1,5 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
-import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
+import type { Thread } from "~/lib/domain/entities/thread";
 import { presentThreadResource } from "~/lib/server/http/threads/thread-resource-presentation";
 import type {
   CreateThreadResult,
@@ -44,7 +44,7 @@ export type ThreadUnexpectedFailureOperation =
   | "restore_thread";
 
 export function buildThreadCollectionMetricsContext(
-  threads: ThreadRecord[],
+  threads: Thread[],
 ): Record<string, number> {
   return {
     threadCount: threads.length,
@@ -53,12 +53,12 @@ export function buildThreadCollectionMetricsContext(
 }
 
 export function buildThreadMutationMetricsContext(
-  thread: ThreadRecord,
+  thread: Thread,
 ): Record<string, number> {
   return {
     messageCount: thread.messages.length,
     mcpServerCount: thread.mcpServers.length,
-    operationLogCount: thread.mcpRpcLogs.length,
+    operationLogCount: thread.operationLogs.length,
     skillSelectionCount: thread.skillSelections.length,
   };
 }

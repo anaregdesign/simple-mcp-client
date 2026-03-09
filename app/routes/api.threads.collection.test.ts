@@ -4,9 +4,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
-  ThreadRecord,
-  type ThreadRecordSnapshot,
-} from "~/lib/domain/entities/thread-record";
+  Thread,
+  type ThreadProps,
+} from "~/lib/domain/entities/thread";
 import type { CreateThreadResult } from "~/lib/server/usecase/threads/thread-service";
 
 const {
@@ -66,7 +66,7 @@ vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
 
 import { action } from "./api.threads";
 
-function createThreadRecordSnapshot(): ThreadRecordSnapshot {
+function createThreadProps(): ThreadProps {
   return {
     id: "thread-a",
     userId: 10,
@@ -85,13 +85,13 @@ function createThreadRecordSnapshot(): ThreadRecordSnapshot {
     },
     messages: [],
     mcpServers: [],
-    mcpRpcLogs: [],
+    operationLogs: [],
     skillSelections: [],
   };
 }
 
-function createThreadResource(): ThreadRecord {
-  return new ThreadRecord(createThreadRecordSnapshot());
+function createThread(): Thread {
+  return new Thread(createThreadProps());
 }
 
 describe("POST /api/threads", () => {
@@ -122,7 +122,7 @@ describe("POST /api/threads", () => {
     createThreadMock.mockReset();
     createThreadMock.mockResolvedValue({
       status: "created",
-      thread: createThreadResource(),
+      thread: createThread(),
     } satisfies CreateThreadResult);
   });
 

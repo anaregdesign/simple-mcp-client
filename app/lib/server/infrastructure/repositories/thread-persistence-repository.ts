@@ -1,18 +1,25 @@
 import type { Prisma } from "@prisma/client";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
-import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
-import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
-import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
+import {
+  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+  hasNonDefaultThreadInstructionContextToggles,
+} from "~/lib/contracts/threads/instruction-context";
+import {
+  DEFAULT_REASONING_EFFORT,
+  DEFAULT_WEB_SEARCH_ENABLED,
+  THREAD_DEFAULT_NAME,
+} from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/domain/value-objects/skill-registry";
 import {
-  ThreadRecord,
-  type ThreadRecordSnapshot,
-} from "~/lib/domain/entities/thread-record";
+  Thread,
+  type ThreadSkillReference,
+  type ThreadProps,
+} from "~/lib/domain/entities/thread";
 import { reasoningEffortValues, type ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
-  ThreadRecordHead,
+  ThreadLifecycleState,
   ThreadRepository,
+  ThreadSaveInput,
 } from "~/lib/domain/repositories/thread-repository";
 import {
   ensurePersistenceDatabaseReady,
@@ -25,7 +32,7 @@ import {
   buildThreadSkillActivationRowId,
 } from "~/lib/server/infrastructure/repositories/thread-row-ids";
 
-const threadResourceInclude = {
+const threadRowInclude = {
   instruction: true,
   messages: {
     orderBy: {
@@ -62,12 +69,12 @@ const threadResourceInclude = {
   },
 } as const;
 
-type PersistedThreadRecord = Prisma.ThreadGetPayload<{
-  include: typeof threadResourceInclude;
+type PersistedThreadRow = Prisma.ThreadGetPayload<{
+  include: typeof threadRowInclude;
 }>;
 
 export class ThreadPersistenceRepository implements ThreadRepository {
-  async listByUserId(userId: number): Promise<ThreadRecord[]> {
+  async listByUserId(userId: number): Promise<Thread[]> {
     await ensurePersistenceDatabaseReady();
 
     const threads = await prisma.thread.findMany({
@@ -82,16 +89,16 @@ export class ThreadPersistenceRepository implements ThreadRepository {
           createdAt: "desc",
         },
       ],
-      include: threadResourceInclude,
+      include: threadRowInclude,
     });
 
-    return threads.map(mapThreadRecord);
+    return threads.map(mapThreadRowToEntity);
   }
 
   async findByIdForUser(
     userId: number,
     threadId: string,
-  ): Promise<ThreadRecord | null> {
+  ): Promise<Thread | null> {
     await ensurePersistenceDatabaseReady();
 
     const thread = await prisma.thread.findFirst({
@@ -99,16 +106,16 @@ export class ThreadPersistenceRepository implements ThreadRepository {
         id: threadId,
         userId,
       },
-      include: threadResourceInclude,
+      include: threadRowInclude,
     });
 
-    return thread ? mapThreadRecord(thread) : null;
+    return thread ? mapThreadRowToEntity(thread) : null;
   }
 
-  async readHead(
+  async readLifecycleState(
     userId: number,
     threadId: string,
-  ): Promise<ThreadRecordHead | null> {
+  ): Promise<ThreadLifecycleState | null> {
     await ensurePersistenceDatabaseReady();
 
     return prisma.thread.findFirst({
@@ -122,10 +129,10 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     });
   }
 
-  async savePayload(
+  async save(
     userId: number,
-    payload: ThreadWritePayload,
-  ): Promise<{ thread: ThreadRecord; created: boolean } | null> {
+    payload: ThreadSaveInput,
+  ): Promise<{ thread: Thread; created: boolean } | null> {
     await ensurePersistenceDatabaseReady();
     let created = false;
 
@@ -142,7 +149,7 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     });
 
     if (!existing) {
-      if (!hasThreadPersistableState(payload)) {
+      if (!hasPersistableThreadState(payload)) {
         return null;
       }
       created = true;
@@ -172,7 +179,7 @@ export class ThreadPersistenceRepository implements ThreadRepository {
         await transaction.threadInstruction.create({
           data: {
             threadId: payload.id,
-            content: payload.instruction.content,
+            content: payload.instructionContent,
           },
         });
       });
@@ -214,10 +221,10 @@ export class ThreadPersistenceRepository implements ThreadRepository {
         },
         create: {
           threadId: existing.id,
-          content: payload.instruction.content,
+          content: payload.instructionContent,
         },
         update: {
-          content: payload.instruction.content,
+          content: payload.instructionContent,
         },
       });
 
@@ -294,9 +301,9 @@ export class ThreadPersistenceRepository implements ThreadRepository {
         },
       });
 
-      if (payload.mcpRpcLogs.length > 0) {
+      if (payload.operationLogs.length > 0) {
         await transaction.threadOperationLog.createMany({
-          data: payload.mcpRpcLogs.map((entry, index) => ({
+          data: payload.operationLogs.map((entry, index) => ({
             rowId: buildThreadOperationLogRowId(existing!.id, entry.id, index),
             sourceRpcId: entry.id,
             threadId: existing!.id,
@@ -398,7 +405,7 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     userId: number,
     threadId: string,
     deletedAt: string | null,
-  ): Promise<ThreadRecord | null> {
+  ): Promise<Thread | null> {
     await ensurePersistenceDatabaseReady();
 
     const existing = await this.findByIdForUser(userId, threadId);
@@ -425,13 +432,13 @@ export function createThreadPersistenceRepository(): ThreadRepository {
   return new ThreadPersistenceRepository();
 }
 
-function mapThreadRecord(record: PersistedThreadRecord): ThreadRecord {
-  return ThreadRecord.fromSnapshot(mapThreadRecordSnapshot(record));
+function mapThreadRowToEntity(record: PersistedThreadRow): Thread {
+  return new Thread(mapThreadRowToProps(record));
 }
 
-function mapThreadRecordSnapshot(
-  record: PersistedThreadRecord,
-): ThreadRecordSnapshot {
+function mapThreadRowToProps(
+  record: PersistedThreadRow,
+): ThreadProps {
   return {
     id: record.id,
     userId: record.userId,
@@ -496,7 +503,7 @@ function mapThreadRecordSnapshot(
             timeoutSeconds: server.timeoutSeconds,
           },
     ),
-    mcpRpcLogs: record.mcpRpcLogs.map((entry) => ({
+    operationLogs: record.mcpRpcLogs.map((entry) => ({
       rowId: entry.rowId,
       sourceRpcId: entry.sourceRpcId,
       threadId: entry.threadId,
@@ -528,7 +535,7 @@ async function upsertThreadSkillProfiles(options: {
     "workspaceSkillRegistryProfile" | "workspaceSkillProfile"
   >;
   userId: number;
-  skillSelections: ThreadWritePayload["skillSelections"];
+  skillSelections: ThreadSkillReference[];
 }): Promise<Map<string, number>> {
   const uniqueSelections = new Map<
     string,
@@ -699,6 +706,21 @@ function isPositiveIntegerString(value: string): boolean {
 
 function normalizeThreadName(value: string): string {
   return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
+}
+
+function hasPersistableThreadState(payload: ThreadSaveInput): boolean {
+  if (payload.messages.length > 0 || payload.skillSelections.length > 0) {
+    return true;
+  }
+
+  return (
+    payload.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
+    payload.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
+    hasNonDefaultThreadInstructionContextToggles(
+      payload.instructionContextToggles,
+    ) ||
+    Object.keys(payload.threadEnvironment).length > 0
+  );
 }
 
 function readJsonValue<T>(value: string | null, fallback: T): T {

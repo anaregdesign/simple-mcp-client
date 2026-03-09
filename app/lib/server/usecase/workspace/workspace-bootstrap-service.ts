@@ -5,7 +5,7 @@ import {
 } from "~/lib/domain/repositories/azure-arm-access-gateway";
 import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from "~/lib/contracts/mcp/profile";
 import type { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
-import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
+import type { Thread } from "~/lib/domain/entities/thread";
 import {
   type AzureProjectQueryService,
   type AzureDeployment,
@@ -42,7 +42,7 @@ type WorkspaceBootstrapData = {
   azureTenants: AzureTenant[];
   azureSelection: AzureSelectionPreference | null;
   azureDeploymentsByProjectId: Record<string, AzureDeployment[]>;
-  threads: ThreadRecord[];
+  threads: Thread[];
   workspaceMcpServerProfiles: WorkspaceMcpServerProfile[];
   skills: SkillDiscoveryResult["skills"];
   skillRegistries: SkillDiscoveryResult["registries"];

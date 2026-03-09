@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
+import {
+  AzureSelectionPreference,
+  createAzureSelectionTargetPreference,
+  createAzureUtilitySelectionTargetPreference,
+} from "~/lib/domain/entities/azure-selection-preference";
 
 describe("AzureSelectionPreference", () => {
   it("keeps playground and utility selections in one model", () => {
@@ -19,11 +23,9 @@ describe("AzureSelectionPreference", () => {
     });
 
     expect(preference.hasSelection()).toBe(true);
-    expect(preference.toSnapshot()).toMatchObject({
-      tenantId: "tenant-1",
-      utility: {
-        projectId: "project-b",
-      },
+    expect(preference.tenantId).toBe("tenant-1");
+    expect(preference.utility).toMatchObject({
+      projectId: "project-b",
     });
   });
 
@@ -42,14 +44,14 @@ describe("AzureSelectionPreference", () => {
 
   it("normalizes target preferences and fills default reasoning effort", () => {
     expect(
-      AzureSelectionPreference.createTargetPreference(" project-a ", " deploy-a "),
+      createAzureSelectionTargetPreference(" project-a ", " deploy-a "),
     ).toEqual({
       projectId: "project-a",
       deploymentName: "deploy-a",
     });
 
     expect(
-      AzureSelectionPreference.createUtilityTargetPreference(
+      createAzureUtilitySelectionTargetPreference(
         " project-b ",
         " deploy-b ",
         null,
@@ -74,7 +76,7 @@ describe("AzureSelectionPreference", () => {
     });
 
     const updated = preference.withChanges({
-      utility: AzureSelectionPreference.createUtilityTargetPreference(
+      utility: createAzureUtilitySelectionTargetPreference(
         "project-b",
         "deploy-b",
         "medium",
@@ -90,6 +92,31 @@ describe("AzureSelectionPreference", () => {
       projectId: "project-b",
       deploymentName: "deploy-b",
       reasoningEffort: "medium",
+    });
+  });
+
+  it("returns defensive copies for nested selections", () => {
+    const preference = new AzureSelectionPreference({
+      tenantId: "tenant-1",
+      principalId: "principal-1",
+      theme: "light",
+      playground: {
+        projectId: "project-a",
+        deploymentName: "deploy-a",
+      },
+      utility: null,
+    });
+
+    const playground = preference.playground;
+    if (!playground) {
+      throw new Error("Expected playground selection.");
+    }
+
+    playground.projectId = "mutated";
+
+    expect(preference.playground).toEqual({
+      projectId: "project-a",
+      deploymentName: "deploy-a",
     });
   });
 });

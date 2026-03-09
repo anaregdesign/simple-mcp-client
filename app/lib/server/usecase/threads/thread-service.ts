@@ -1,14 +1,16 @@
 /**
  * Thread application service module.
  */
-import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
-import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
-import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
+import type { Thread } from "~/lib/domain/entities/thread";
+import type {
+  ThreadRepository,
+  ThreadSaveInput,
+} from "~/lib/domain/repositories/thread-repository";
 
 export class ThreadQueryService {
   constructor(private readonly repository: ThreadRepository) {}
 
-  async readUserThreads(userId: number): Promise<ThreadRecord[]> {
+  async readUserThreads(userId: number): Promise<Thread[]> {
     return await this.repository.listByUserId(userId);
   }
 }
@@ -18,14 +20,14 @@ export class ThreadApplicationService {
 
   async createThread(
     userId: number,
-    payload: ThreadWritePayload,
+    payload: ThreadSaveInput,
   ): Promise<CreateThreadResult> {
     return createThread(this.repository, userId, payload);
   }
 
   async updateThread(
     userId: number,
-    payload: ThreadWritePayload,
+    payload: ThreadSaveInput,
   ): Promise<UpdateThreadResult> {
     return updateThread(this.repository, userId, payload);
   }
@@ -60,7 +62,7 @@ export function createThreadApplicationService(
 export type CreateThreadResult =
   | {
       status: "created";
-      thread: ThreadRecord;
+      thread: Thread;
     }
   | {
       status: "conflict";
@@ -72,9 +74,9 @@ export type CreateThreadResult =
 async function createThread(
   repository: ThreadRepository,
   userId: number,
-  payload: ThreadWritePayload,
+  payload: ThreadSaveInput,
 ): Promise<CreateThreadResult> {
-  const existing = await repository.readHead(userId, payload.id);
+  const existing = await repository.readLifecycleState(userId, payload.id);
   if (existing) {
     return {
       status: "conflict",
@@ -82,7 +84,7 @@ async function createThread(
   }
 
   try {
-    const saved = await saveThreadRecord(repository, userId, payload);
+    const saved = await saveThread(repository, userId, payload);
     if (!saved || !saved.created) {
       return {
         status: "invalid",
@@ -106,7 +108,7 @@ async function createThread(
 export type UpdateThreadResult =
   | {
       status: "ok";
-      thread: ThreadRecord;
+      thread: Thread;
     }
   | {
       status: "not_found";
@@ -118,9 +120,9 @@ export type UpdateThreadResult =
 async function updateThread(
   repository: ThreadRepository,
   userId: number,
-  payload: ThreadWritePayload,
+  payload: ThreadSaveInput,
 ): Promise<UpdateThreadResult> {
-  const existing = await repository.readHead(userId, payload.id);
+  const existing = await repository.readLifecycleState(userId, payload.id);
   if (!existing) {
     return { status: "not_found" };
   }
@@ -128,7 +130,7 @@ async function updateThread(
     return { status: "archived" };
   }
 
-  const saved = await saveThreadRecord(repository, userId, payload);
+  const saved = await saveThread(repository, userId, payload);
   if (!saved || saved.created) {
     return { status: "not_found" };
   }
@@ -139,12 +141,12 @@ async function updateThread(
   };
 }
 
-async function saveThreadRecord(
+async function saveThread(
   repository: ThreadRepository,
   userId: number,
-  payload: ThreadWritePayload,
-): Promise<{ thread: ThreadRecord; created: boolean } | null> {
-  return repository.savePayload(userId, payload);
+  payload: ThreadSaveInput,
+): Promise<{ thread: Thread; created: boolean } | null> {
+  return repository.save(userId, payload);
 }
 
 export type LogicalDeleteThreadResult =
@@ -156,7 +158,7 @@ export type LogicalDeleteThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadRecord;
+      thread: Thread;
     };
 
 async function logicalDeleteThread(
@@ -178,11 +180,7 @@ async function logicalDeleteThread(
     };
   }
 
-  const deleted = await repository.setDeletedAt(
-    userId,
-    threadId,
-    new Date().toISOString(),
-  );
+  const deleted = await repository.setDeletedAt(userId, threadId, existing.archive(new Date().toISOString()).deletedAt);
   if (!deleted) {
     return { status: "not_found" };
   }
@@ -199,7 +197,7 @@ export type LogicalRestoreThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadRecord;
+      thread: Thread;
     };
 
 async function logicalRestoreThread(
@@ -218,7 +216,11 @@ async function logicalRestoreThread(
     };
   }
 
-  const restored = await repository.setDeletedAt(userId, threadId, null);
+  const restored = await repository.setDeletedAt(
+    userId,
+    threadId,
+    existing.restore().deletedAt,
+  );
   if (!restored) {
     return { status: "not_found" };
   }
@@ -256,8 +258,4 @@ function isThreadIdConflictError(error: unknown): boolean {
 
 export function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
 }

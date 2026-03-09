@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  ThreadRecord,
-  type ThreadRecordSnapshot,
-} from "~/lib/domain/entities/thread-record";
+  Thread,
+  type ThreadProps,
+} from "~/lib/domain/entities/thread";
 import {
   presentThreadResource,
   presentThreadResources,
 } from "~/lib/server/http/threads/thread-resource-presentation";
 
-function createThreadSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
+function createThreadProps(threadId = "thread-a"): ThreadProps {
   return {
     id: threadId,
     userId: 1,
@@ -78,7 +78,7 @@ function createThreadSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
         timeoutSeconds: 30,
       },
     ],
-    mcpRpcLogs: [
+    operationLogs: [
       {
         rowId: "row-a",
         sourceRpcId: "rpc-a",
@@ -107,7 +107,7 @@ function createThreadSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
 describe("thread-resource-presentation", () => {
   it("serializes a thread snapshot into a transport resource", () => {
     expect(
-      presentThreadResource(new ThreadRecord(createThreadSnapshot())),
+      presentThreadResource(new Thread(createThreadProps())),
     ).toMatchObject({
       id: "thread-a",
       reasoningEffort: "medium",
@@ -142,8 +142,8 @@ describe("thread-resource-presentation", () => {
   it("serializes lists of thread snapshots", () => {
     expect(
       presentThreadResources([
-        new ThreadRecord(createThreadSnapshot("thread-a")),
-        new ThreadRecord(createThreadSnapshot("thread-b")),
+        new Thread(createThreadProps("thread-a")),
+        new Thread(createThreadProps("thread-b")),
       ]).map((thread) => thread.id),
     ).toEqual(["thread-a", "thread-b"]);
   });

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  ThreadRecord,
-  type ThreadRecordSnapshot,
-} from "~/lib/domain/entities/thread-record";
+  Thread,
+  type ThreadProps,
+} from "~/lib/domain/entities/thread";
 import {
   buildThreadCollectionMetricsContext,
   buildThreadMutationMetricsContext,
@@ -13,7 +13,7 @@ import {
   presentUpdateThreadResult,
 } from "~/lib/server/http/threads/thread-route-presentation";
 
-function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
+function createThreadProps(threadId = "thread-a"): ThreadProps {
   return {
     id: threadId,
     userId: 1,
@@ -56,7 +56,7 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
         env: {},
       },
     ],
-    mcpRpcLogs: [
+    operationLogs: [
       {
         rowId: "row-a",
         sourceRpcId: "rpc-a",
@@ -93,15 +93,15 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
   };
 }
 
-function createThreadRecord(threadId = "thread-a"): ThreadRecord {
-  return new ThreadRecord(createThreadResource(threadId));
+function createThread(threadId = "thread-a"): Thread {
+  return new Thread(createThreadProps(threadId));
 }
 
 describe("thread-route-presentation", () => {
   it("builds collection metrics from thread snapshots", () => {
-    const activeThread = createThreadRecord("thread-a");
-    const archivedThread = new ThreadRecord({
-      ...createThreadResource("thread-b"),
+    const activeThread = createThread("thread-a");
+    const archivedThread = new Thread({
+      ...createThreadProps("thread-b"),
       deletedAt: "2026-01-03T00:00:00.000Z",
     });
 
@@ -114,7 +114,7 @@ describe("thread-route-presentation", () => {
   });
 
   it("builds mutation metrics from a single thread", () => {
-    expect(buildThreadMutationMetricsContext(createThreadRecord())).toEqual({
+    expect(buildThreadMutationMetricsContext(createThread())).toEqual({
       messageCount: 1,
       mcpServerCount: 1,
       operationLogCount: 1,
@@ -125,7 +125,7 @@ describe("thread-route-presentation", () => {
   it("presents create thread outcomes", () => {
     const created = presentCreateThreadResult({
       status: "created",
-      thread: createThreadRecord(),
+      thread: createThread(),
     });
     const conflict = presentCreateThreadResult({ status: "conflict" });
     const invalid = presentCreateThreadResult({ status: "invalid" });
@@ -154,7 +154,7 @@ describe("thread-route-presentation", () => {
     expect(
       presentUpdateThreadResult({
         status: "ok",
-        thread: createThreadRecord(),
+        thread: createThread(),
       }),
     ).toMatchObject({
       kind: "success",
@@ -177,7 +177,7 @@ describe("thread-route-presentation", () => {
     expect(
       presentDeleteThreadResult({
         status: "ok",
-        thread: createThreadRecord(),
+        thread: createThread(),
       }),
     ).toMatchObject({
       kind: "success",

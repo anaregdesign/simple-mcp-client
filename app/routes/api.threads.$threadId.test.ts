@@ -3,9 +3,9 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  ThreadRecord,
-  type ThreadRecordSnapshot,
-} from "~/lib/domain/entities/thread-record";
+  Thread,
+  type ThreadProps,
+} from "~/lib/domain/entities/thread";
 
 const {
   readAuthenticatedUser,
@@ -59,7 +59,7 @@ vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-ga
 
 import { action, loader } from "./api.threads.$threadId";
 
-function createThreadRecordSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
+function createThreadProps(threadId = "thread-a"): ThreadProps {
   return {
     id: threadId,
     userId: 1,
@@ -78,13 +78,13 @@ function createThreadRecordSnapshot(threadId = "thread-a"): ThreadRecordSnapshot
     },
     messages: [],
     mcpServers: [],
-    mcpRpcLogs: [],
+    operationLogs: [],
     skillSelections: [],
   };
 }
 
-function createThreadResource(threadId = "thread-a"): ThreadRecord {
-  return new ThreadRecord(createThreadRecordSnapshot(threadId));
+function createThread(threadId = "thread-a"): Thread {
+  return new Thread(createThreadProps(threadId));
 }
 
 describe("/api/threads/:threadId", () => {
@@ -216,7 +216,7 @@ describe("/api/threads/:threadId", () => {
     });
     updateThread.mockResolvedValueOnce({
       status: "ok",
-      thread: createThreadResource("thread-a"),
+      thread: createThread("thread-a"),
     });
 
     const response = await action({

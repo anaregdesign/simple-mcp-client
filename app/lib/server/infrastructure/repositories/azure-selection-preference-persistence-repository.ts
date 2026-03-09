@@ -1,6 +1,8 @@
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import {
   AzureSelectionPreference,
+  createAzureSelectionTargetPreference,
+  createAzureUtilitySelectionTargetPreference,
 } from "~/lib/domain/entities/azure-selection-preference";
 import type {
   AzureSelectionIdentity,
@@ -43,17 +45,16 @@ export class AzureSelectionPreferencePersistenceRepository
     preference: AzureSelectionPreference,
   ): Promise<AzureSelectionPreference> {
     await ensurePersistenceDatabaseReady();
-    const snapshot = preference.toSnapshot();
     const user = await prisma.workspaceUser.upsert({
       where: {
         tenantId_principalId: {
-          tenantId: snapshot.tenantId,
-          principalId: snapshot.principalId,
+          tenantId: preference.tenantId,
+          principalId: preference.principalId,
         },
       },
       create: {
-        tenantId: snapshot.tenantId,
-        principalId: snapshot.principalId,
+        tenantId: preference.tenantId,
+        principalId: preference.principalId,
       },
       update: {},
     });
@@ -62,27 +63,27 @@ export class AzureSelectionPreferencePersistenceRepository
       where: { userId: user.id },
       create: {
         userId: user.id,
-        projectId: snapshot.playground?.projectId ?? "",
-        deploymentName: snapshot.playground?.deploymentName ?? "",
-        theme: snapshot.theme,
-        utilityProjectId: snapshot.utility?.projectId ?? "",
-        utilityDeploymentName: snapshot.utility?.deploymentName ?? "",
-        utilityReasoningEffort: snapshot.utility?.reasoningEffort ?? "high",
+        projectId: preference.playground?.projectId ?? "",
+        deploymentName: preference.playground?.deploymentName ?? "",
+        theme: preference.theme,
+        utilityProjectId: preference.utility?.projectId ?? "",
+        utilityDeploymentName: preference.utility?.deploymentName ?? "",
+        utilityReasoningEffort: preference.utility?.reasoningEffort ?? "high",
       },
       update: {
-        projectId: snapshot.playground?.projectId ?? "",
-        deploymentName: snapshot.playground?.deploymentName ?? "",
-        theme: snapshot.theme,
-        utilityProjectId: snapshot.utility?.projectId ?? "",
-        utilityDeploymentName: snapshot.utility?.deploymentName ?? "",
-        utilityReasoningEffort: snapshot.utility?.reasoningEffort ?? "high",
+        projectId: preference.playground?.projectId ?? "",
+        deploymentName: preference.playground?.deploymentName ?? "",
+        theme: preference.theme,
+        utilityProjectId: preference.utility?.projectId ?? "",
+        utilityDeploymentName: preference.utility?.deploymentName ?? "",
+        utilityReasoningEffort: preference.utility?.reasoningEffort ?? "high",
       },
     });
 
     return mapSelectionRecord(
       {
-        tenantId: snapshot.tenantId,
-        principalId: snapshot.principalId,
+        tenantId: preference.tenantId,
+        principalId: preference.principalId,
       },
       saved,
     );
@@ -133,11 +134,11 @@ function mapSelectionRecord(
     tenantId: user.tenantId,
     principalId: user.principalId,
     theme: readThemeModeFromUnknown(selection.theme) ?? DEFAULT_THEME_MODE,
-    playground: AzureSelectionPreference.createTargetPreference(
+    playground: createAzureSelectionTargetPreference(
       selection.projectId,
       selection.deploymentName,
     ),
-    utility: AzureSelectionPreference.createUtilityTargetPreference(
+    utility: createAzureUtilitySelectionTargetPreference(
       selection.utilityProjectId,
       selection.utilityDeploymentName,
       readReasoningEffortFromUnknown(selection.utilityReasoningEffort),
