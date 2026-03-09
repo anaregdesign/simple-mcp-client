@@ -12,7 +12,7 @@ import {
   normalizeRuntimeEventLogLevel,
   normalizeRuntimeEventLogSource,
   serializeRuntimeEventContext,
-} from "~/lib/contracts/shared/runtime-event-log";
+} from "~/lib/domain/entities/runtime-event-log";
 import type {
   RuntimeEventLogInput,
   RuntimeEventLogReadRecord,

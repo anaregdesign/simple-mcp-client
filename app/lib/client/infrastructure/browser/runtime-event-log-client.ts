@@ -4,6 +4,8 @@
 import { CLIENT_EVENT_LOG_DEDUPE_WINDOW_MS } from "~/lib/constants/client";
 import {
   readErrorDetails,
+} from "~/lib/domain/entities/runtime-event-log";
+import {
   type ClientRuntimeEventLogPayload,
 } from "~/lib/contracts/shared/runtime-event-log";
 
