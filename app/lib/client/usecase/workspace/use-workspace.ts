@@ -233,9 +233,15 @@ import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
 import {
+  buildMcpServersTabProps,
+  buildPlaygroundPanelProps,
+  buildSettingsTabProps,
   buildMessageSkillActivationOptions,
   buildSkillRegistryGroups,
+  buildSkillsTabProps,
   buildThreadSkillOptions,
+  buildThreadsTabProps,
+  buildUnauthenticatedPanelProps,
   readSkillCommandSuggestions,
   type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
@@ -6476,57 +6482,48 @@ export function useWorkspace() {
   };
 
   // Panel prop composition for Client route rendering.
-  const settingsTabProps = {
-    appearanceSectionProps: {
-      theme,
-      onThemeChange: (nextTheme: ThemeMode) => {
-        setTheme(nextTheme);
-        void saveThemePreference(nextTheme);
-      },
+  const settingsTabProps = buildSettingsTabProps({
+    theme,
+    onThemeChange: (nextTheme: ThemeMode) => {
+      setTheme(nextTheme);
+      void saveThemePreference(nextTheme);
     },
-    azureConnectionSectionProps: {
-      isAzureAuthRequired,
-      isSending,
-      isStartingAzureLogin,
-      onAzureLogin: handleAzureLogin,
-      azureTenants,
-      activeAzureTenantId: activeAzurePrincipal?.tenantId ?? "",
-      isSwitchingAzureTenant,
-      onAzureTenantChange: handleAzureTenantChange,
-      isLoadingAzureConnections,
-      isLoadingAzureDeployments:
-        isLoadingPlaygroundAzureDeployments || isLoadingUtilityAzureDeployments,
-      isReloadingAzureCatalog,
-      onAzureCatalogReload: handleReloadAzureCatalog,
-      activeAzureConnection: activePlaygroundAzureConnection,
-      activeAzurePrincipal,
-      selectedPlaygroundAzureDeploymentName,
-      isStartingAzureLogout,
-      onAzureLogout: handleAzureLogout,
-      azureTenantSwitchError,
-      azureLogoutError,
-      azureConnectionError,
-    },
-    utilityModelSectionProps: {
-      isAzureAuthRequired,
-      isSending,
-      isLoadingAzureConnections,
-      isLoadingUtilityAzureDeployments,
-      azureConnections,
-      selectedUtilityAzureConnectionId,
-      selectedUtilityAzureDeploymentName,
-      utilityAzureDeployments: utilityAzureDeploymentNames,
-      utilityReasoningEffort: effectiveUtilityReasoningEffort,
-      utilityReasoningEffortOptions: effectiveUtilityReasoningEffortOptions,
-      isUtilityReasoningEffortSupported,
-      utilityAzureDeploymentError,
-      onUtilityProjectChange: handleUtilityProjectChange,
-      onUtilityDeploymentChange: handleUtilityDeploymentChange,
-      onUtilityReasoningEffortChange: handleUtilityReasoningEffortChange,
-    },
-  };
+    isAzureAuthRequired,
+    isSending,
+    isStartingAzureLogin,
+    onAzureLogin: handleAzureLogin,
+    azureTenants,
+    activeAzureTenantId: activeAzurePrincipal?.tenantId ?? "",
+    isSwitchingAzureTenant,
+    onAzureTenantChange: handleAzureTenantChange,
+    isLoadingAzureConnections,
+    isLoadingAzureDeployments:
+      isLoadingPlaygroundAzureDeployments || isLoadingUtilityAzureDeployments,
+    isReloadingAzureCatalog,
+    onAzureCatalogReload: handleReloadAzureCatalog,
+    activeAzureConnection: activePlaygroundAzureConnection,
+    activeAzurePrincipal,
+    selectedPlaygroundAzureDeploymentName,
+    isStartingAzureLogout,
+    onAzureLogout: handleAzureLogout,
+    azureTenantSwitchError,
+    azureLogoutError,
+    azureConnectionError,
+    azureConnections,
+    selectedUtilityAzureConnectionId,
+    selectedUtilityAzureDeploymentName,
+    utilityAzureDeployments: utilityAzureDeploymentNames,
+    utilityReasoningEffort: effectiveUtilityReasoningEffort,
+    utilityReasoningEffortOptions: effectiveUtilityReasoningEffortOptions,
+    isUtilityReasoningEffortSupported,
+    utilityAzureDeploymentError,
+    onUtilityProjectChange: handleUtilityProjectChange,
+    onUtilityDeploymentChange: handleUtilityDeploymentChange,
+    onUtilityReasoningEffortChange: handleUtilityReasoningEffortChange,
+    isLoadingUtilityAzureDeployments,
+  });
 
-  const mcpServersTabProps = {
+  const mcpServersTabProps = buildMcpServersTabProps({
     workspaceMcpServerProfileOptions,
     selectedWorkspaceMcpServerProfileCount,
     isSending,
@@ -6584,52 +6581,42 @@ export function useWorkspace() {
     onClearMcpFormWarning: () => {
       setMcpFormWarning(null);
     },
-  };
+  });
 
-  const threadsTabProps = {
-    instructionSectionProps: {
-      agentInstruction,
-      instructionContextToggleOptions: THREAD_INSTRUCTION_CONTEXT_OPTIONS.map(
-        (option) => ({
-          key: option.key,
-          label: option.label,
-          infoTitle: option.infoTitle,
-          infoLines: Array.from(option.infoLines),
-          enabled: instructionContextToggles[option.key],
-        }),
-      ),
-      instructionEnhanceComparison,
-      describeInstructionLanguage,
-      isSending,
-      isThreadReadOnly: isActiveThreadArchived,
-      isEnhancingInstruction,
-      showEnhancingInstructionSpinner: isEnhancingInstructionForActiveThread,
-      isSavingInstructionPrompt,
-      canSaveAgentInstructionPrompt,
-      canEnhanceAgentInstruction,
-      canClearAgentInstruction,
-      loadedInstructionFileName,
-      instructionFileInputRef,
-      instructionFileError,
-      instructionSaveError,
-      instructionSaveSuccess,
-      instructionEnhanceError,
-      instructionEnhanceSuccess,
-      onClearInstructionSaveSuccess: () => {
-        setInstructionSaveSuccess(null);
-      },
-      onClearInstructionEnhanceSuccess: () => {
-        setInstructionEnhanceSuccess(null);
-      },
-      onInstructionContextToggleChange: handleInstructionContextToggleChange,
-      onAgentInstructionChange: handleAgentInstructionChange,
-      onInstructionFileChange: handleInstructionFileChange,
-      onSaveInstructionPrompt: handleSaveInstructionPrompt,
-      onEnhanceInstruction: handleEnhanceInstruction,
-      onClearInstruction: handleClearInstruction,
-      onAdoptEnhancedInstruction: handleAdoptEnhancedInstruction,
-      onAdoptOriginalInstruction: handleAdoptOriginalInstruction,
+  const threadsTabProps = buildThreadsTabProps({
+    agentInstruction,
+    instructionContextToggles,
+    instructionEnhanceComparison,
+    describeInstructionLanguage,
+    isSending,
+    isThreadReadOnly: isActiveThreadArchived,
+    isEnhancingInstruction,
+    showEnhancingInstructionSpinner: isEnhancingInstructionForActiveThread,
+    isSavingInstructionPrompt,
+    canSaveAgentInstructionPrompt,
+    canEnhanceAgentInstruction,
+    canClearAgentInstruction,
+    loadedInstructionFileName,
+    instructionFileInputRef,
+    instructionFileError,
+    instructionSaveError,
+    instructionSaveSuccess,
+    instructionEnhanceError,
+    instructionEnhanceSuccess,
+    onClearInstructionSaveSuccess: () => {
+      setInstructionSaveSuccess(null);
     },
+    onClearInstructionEnhanceSuccess: () => {
+      setInstructionEnhanceSuccess(null);
+    },
+    onInstructionContextToggleChange: handleInstructionContextToggleChange,
+    onAgentInstructionChange: handleAgentInstructionChange,
+    onInstructionFileChange: handleInstructionFileChange,
+    onSaveInstructionPrompt: handleSaveInstructionPrompt,
+    onEnhanceInstruction: handleEnhanceInstruction,
+    onClearInstruction: handleClearInstruction,
+    onAdoptEnhancedInstruction: handleAdoptEnhancedInstruction,
+    onAdoptOriginalInstruction: handleAdoptOriginalInstruction,
     activeThreadOptions,
     archivedThreadOptions,
     activeThreadId,
@@ -6661,41 +6648,35 @@ export function useWorkspace() {
     onThreadRestore: (threadId: string) => {
       void handleThreadRestore(threadId);
     },
-  };
+  });
 
-  const skillsTabProps = {
-    skillsSectionProps: {
-      skillOptions: threadSkillOptions,
-      isLoadingSkills,
-      isSending,
-      isThreadReadOnly: isActiveThreadArchived,
-      skillsError,
-      skillsWarning,
-      onReloadSkills: handleReloadSkills,
-      onToggleSkill: handleToggleThreadSkill,
-      onClearSkillsWarning: () => {
-        setSkillsWarning(null);
-      },
+  const skillsTabProps = buildSkillsTabProps({
+    threadSkillOptions,
+    isLoadingSkills,
+    isSending,
+    isThreadReadOnly: isActiveThreadArchived,
+    skillsError,
+    skillsWarning,
+    onReloadSkills: handleReloadSkills,
+    onToggleThreadSkill: handleToggleThreadSkill,
+    onClearSkillsWarning: () => {
+      setSkillsWarning(null);
     },
-    skillRegistrySectionProps: {
-      skillRegistryGroups,
-      isLoadingSkillRegistries: isLoadingSkills,
-      isMutatingSkillRegistries,
-      skillRegistryError,
-      skillRegistryWarning,
-      skillRegistrySuccess,
-      onReloadSkillRegistries: handleReloadSkills,
-      onToggleRegistrySkill: handleToggleRegistrySkill,
-      onClearSkillRegistryWarning: () => {
-        setSkillRegistryWarning(null);
-      },
-      onClearSkillRegistrySuccess: () => {
-        setSkillRegistrySuccess(null);
-      },
+    skillRegistryGroups,
+    isMutatingSkillRegistries,
+    skillRegistryError,
+    skillRegistryWarning,
+    skillRegistrySuccess,
+    onToggleRegistrySkill: handleToggleRegistrySkill,
+    onClearSkillRegistryWarning: () => {
+      setSkillRegistryWarning(null);
     },
-  };
+    onClearSkillRegistrySuccess: () => {
+      setSkillRegistrySuccess(null);
+    },
+  });
 
-  const playgroundPanelProps = {
+  const playgroundPanelProps = buildPlaygroundPanelProps({
     messages,
     threadOperationLogsByTurnId,
     isSending,
@@ -6777,12 +6758,12 @@ export function useWorkspace() {
     onRemoveMessageSkillActivation: handleRemoveMessageSkillActivation,
     mcpServers,
     onRemoveMcpServer: handleRemoveMcpServer,
-  };
+  });
 
-  const unauthenticatedPanelProps = {
+  const unauthenticatedPanelProps = buildUnauthenticatedPanelProps({
     isStartingAzureLogin,
     onAzureLogin: handleAzureLogin,
-  };
+  });
 
   return {
     layoutRef,
