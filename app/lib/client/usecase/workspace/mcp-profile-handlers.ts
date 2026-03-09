@@ -1,20 +1,17 @@
-import type { McpTransport } from "~/lib/client/usecase/workspace/view-types";
 import {
-  buildMcpServerKey,
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
 import {
-  connectMcpServerToThread,
-  reconcileSavedThreadMcpServer,
-  removeThreadMcpServerByConfig,
   removeThreadMcpServerById,
   toggleThreadMcpServer,
 } from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
+import type { McpProfileFormState } from "~/lib/client/usecase/workspace/mcp-profile-form";
 import {
-  buildMcpServerFromProfileForm,
-  type McpProfileFormState,
-} from "~/lib/client/usecase/workspace/mcp-profile-form";
-import { createId } from "~/lib/client/usecase/workspace/ids";
+  deleteWorkspaceMcpServerProfile,
+  MCP_PROFILE_ARCHIVED_THREAD_ERROR,
+  MCP_PROFILE_NOT_AVAILABLE_ERROR,
+  saveWorkspaceMcpServerProfile,
+} from "~/lib/client/usecase/workspace/mcp-profile-mutation-operations";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 type McpProfileLogOptions = {
@@ -102,7 +99,7 @@ export function createMcpProfileHandlers(
     handleEditWorkspaceMcpServerProfile(serverIdRaw: string) {
       if (deps.isArchivedThread(deps.readActiveThreadId())) {
         deps.setWorkspaceMcpServerProfileError(
-          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
+          MCP_PROFILE_ARCHIVED_THREAD_ERROR,
         );
         return;
       }
@@ -116,9 +113,7 @@ export function createMcpProfileHandlers(
         .readWorkspaceMcpServerProfiles()
         .find((server) => server.id === serverId);
       if (!selected) {
-        deps.setWorkspaceMcpServerProfileError(
-          "Selected MCP server is not available.",
-        );
+        deps.setWorkspaceMcpServerProfileError(MCP_PROFILE_NOT_AVAILABLE_ERROR);
         return;
       }
 
@@ -130,73 +125,12 @@ export function createMcpProfileHandlers(
     },
 
     async handleDeleteWorkspaceMcpServerProfile(serverIdRaw: string) {
-      if (deps.isArchivedThread(deps.readActiveThreadId())) {
-        deps.setWorkspaceMcpServerProfileError(
-          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-        );
-        return;
-      }
-
-      if (deps.isDeletingWorkspaceMcpServerProfile) {
-        return;
-      }
-
-      const serverId = serverIdRaw.trim();
-      if (!serverId) {
-        return;
-      }
-
-      const selected = deps
-        .readWorkspaceMcpServerProfiles()
-        .find((server) => server.id === serverId);
-      if (!selected) {
-        deps.setWorkspaceMcpServerProfileError(
-          "Selected MCP server is not available.",
-        );
-        return;
-      }
-
-      deps.setIsDeletingWorkspaceMcpServerProfile(true);
-      deps.setWorkspaceMcpServerProfileError(null);
-
-      try {
-        const nextWorkspaceMcpServerProfiles =
-          await deps.deleteWorkspaceMcpServerProfileFromConfig(serverId);
-        deps.applyWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
-
-        const activeId = deps.readActiveThreadId().trim();
-        if (activeId) {
-          deps.updateThreadStateById(activeId, (thread) =>
-            removeThreadMcpServerByConfig(thread, selected),
-          );
-        }
-
-        if (deps.readEditingMcpServerId().trim() === serverId) {
-          deps.clearMcpServerEditState();
-        }
-      } catch (deleteError) {
-        deps.logClientError("delete_mcp_server_failed", deleteError, {
-          action: "delete_saved_mcp_server",
-          context: {
-            serverId,
-            serverName: selected.name,
-          },
-        });
-        deps.setWorkspaceMcpServerProfileError(
-          deleteError instanceof Error
-            ? deleteError.message
-            : "Failed to delete MCP server.",
-        );
-      } finally {
-        deps.setIsDeletingWorkspaceMcpServerProfile(false);
-      }
+      await deleteWorkspaceMcpServerProfile(deps, serverIdRaw);
     },
 
     handleToggleWorkspaceMcpServerProfile(serverIdRaw: string) {
       if (deps.isArchivedThread(deps.readActiveThreadId())) {
-        deps.setWorkspaceMcpServerProfileError(
-          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-        );
+        deps.setWorkspaceMcpServerProfileError(MCP_PROFILE_ARCHIVED_THREAD_ERROR);
         return;
       }
 
@@ -209,9 +143,7 @@ export function createMcpProfileHandlers(
         .readWorkspaceMcpServerProfiles()
         .find((server) => server.id === serverId);
       if (!selected) {
-        deps.setWorkspaceMcpServerProfileError(
-          "Selected MCP server is not available.",
-        );
+        deps.setWorkspaceMcpServerProfileError(MCP_PROFILE_NOT_AVAILABLE_ERROR);
         return;
       }
 
@@ -242,132 +174,7 @@ export function createMcpProfileHandlers(
     },
 
     async handleAddMcpServer() {
-      if (deps.isArchivedThread(deps.readActiveThreadId())) {
-        deps.setMcpFormError(
-          "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-        );
-        return;
-      }
-
-      const editingServerId = deps.mcpFormState.editingMcpServerId.trim();
-      const isEditing = editingServerId.length > 0;
-      const editingServer = isEditing
-        ? (deps
-            .readWorkspaceMcpServerProfiles()
-            .find((server) => server.id === editingServerId) ?? null)
-        : null;
-      if (isEditing && !editingServer) {
-        deps.setEditingMcpServerId("");
-        deps.setMcpFormError("Selected MCP server is not available.");
-        return;
-      }
-
-      deps.setMcpFormError(null);
-      deps.setMcpFormWarning(null);
-
-      const serverId = isEditing ? editingServerId : createId("mcp");
-      const buildResult = buildMcpServerFromProfileForm({
-        serverId,
-        formState: deps.mcpFormState,
-      });
-      if (!buildResult.ok) {
-        deps.setMcpFormError(buildResult.error);
-        return;
-      }
-      const serverToSave = buildResult.server;
-
-      const activeThreadMcpServers = deps.readActiveThreadMcpServers();
-      const existingServerIndex = isEditing
-        ? -1
-        : activeThreadMcpServers.findIndex(
-            (server) =>
-              buildMcpServerKey(server) === buildMcpServerKey(serverToSave),
-          );
-      const existingServerName =
-        existingServerIndex >= 0
-          ? (activeThreadMcpServers[existingServerIndex]?.name ?? "")
-          : "";
-
-      deps.setIsSavingMcpServer(true);
-      let saveWarning: string | null = null;
-      let savedProfile = serverToSave;
-      try {
-        const saveResult = await deps.saveMcpServerToConfig(serverToSave, {
-          isUpdate: isEditing,
-        });
-        saveWarning = saveResult.warning;
-        savedProfile = saveResult.profile;
-
-        if (isEditing && editingServer) {
-          const activeId = deps.readActiveThreadId().trim();
-          if (activeId) {
-            deps.updateThreadStateById(activeId, (thread) =>
-              reconcileSavedThreadMcpServer(thread, {
-                previousServer: editingServer,
-                savedProfile,
-              }),
-            );
-          }
-        } else {
-          deps.connectMcpServerToActiveThread(savedProfile);
-        }
-
-        deps.setWorkspaceMcpServerProfileError(null);
-      } catch (saveError) {
-        deps.logClientError("save_mcp_server_failed", saveError, {
-          action: "save_mcp_server",
-        });
-        deps.setMcpFormError(
-          saveError instanceof Error
-            ? saveError.message
-            : "Failed to save MCP server.",
-        );
-        return;
-      } finally {
-        deps.setIsSavingMcpServer(false);
-      }
-
-      deps.setMcpFormError(null);
-      if (isEditing) {
-        deps.setMcpFormWarning(saveWarning);
-        if (saveWarning) {
-          deps.logClientWarning("mcp_server_edit_warning", saveWarning, {
-            action: "save_mcp_server",
-            context: {
-              savedProfileName: savedProfile.name,
-              transport: savedProfile.transport,
-            },
-          });
-        }
-      } else if (existingServerIndex >= 0) {
-        const fallbackLocalWarning =
-          existingServerName && existingServerName !== savedProfile.name
-            ? `An MCP server with the same configuration already exists. Renamed it from "${existingServerName}" to "${savedProfile.name}".`
-            : "An MCP server with the same configuration already exists. Reused the existing entry.";
-        const warningToShow = saveWarning ?? fallbackLocalWarning;
-        deps.setMcpFormWarning(warningToShow);
-        deps.logClientWarning("mcp_server_duplicate_warning", warningToShow, {
-          action: "save_mcp_server",
-          context: {
-            existingServerName,
-            savedProfileName: savedProfile.name,
-            transport: serverToSave.transport,
-          },
-        });
-      } else {
-        deps.setMcpFormWarning(saveWarning);
-        if (saveWarning) {
-          deps.logClientWarning("mcp_server_save_warning", saveWarning, {
-            action: "save_mcp_server",
-            context: {
-              savedProfileName: savedProfile.name,
-              transport: serverToSave.transport,
-            },
-          });
-        }
-      }
-      deps.setEditingMcpServerId("");
-      deps.resetMcpServerFormInputs();
+      await saveWorkspaceMcpServerProfile(deps);
     },
   };
 }
