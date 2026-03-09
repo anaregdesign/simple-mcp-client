@@ -139,7 +139,10 @@ import {
   getAzureBearerTokenForScope,
 } from "~/lib/server/usecase/azure/azure-openai-service";
 import {
+  type ChatExecutionOptions,
+  type InstructionSystemContextPayload,
   RequestCanceledError as ChatExecutionRequestCanceledError,
+  type UpstreamErrorPayload,
   buildUpstreamErrorMessage as buildUpstreamErrorMessageUsecase,
   buildUpstreamErrorPayload as buildUpstreamErrorPayloadUsecase,
   createInitialChatMcpRuntimeMetrics as createInitialChatMcpRuntimeMetricsUsecase,
@@ -159,32 +162,6 @@ type ClientMcpHttpServerConfig = Extract<
   ClientMcpServerConfig,
   { transport: "streamable_http" | "sse" }
 >;
-type UpstreamErrorPayload = {
-  code: string;
-  error: string;
-  errorCode?: "azure_login_required";
-};
-type ChatExecutionOptions = {
-  threadId: string | null;
-  turnId: string | null;
-  userId: number | null;
-  clientUserAgent: string | null;
-  clientPlatform: string | null;
-  message: string;
-  attachments: ClientAttachment[];
-  history: ClientMessage[];
-  reasoningEffort: ReasoningEffort | null;
-  webSearchEnabled: boolean;
-  webSearchUserLocation: WebSearchPreviewUserLocation | null;
-  temperature: number | null;
-  agentInstruction: string;
-  instructionContextToggles: ThreadInstructionContextToggles;
-  threadEnvironment: ThreadEnvironment;
-  skills: ClientSkillSelection[];
-  explicitSkillLocations: string[];
-  azureConfig: ResolvedAzureConfig;
-  mcpServers: ClientMcpServerConfig[];
-};
 type InstructionClientOperatingSystemContext = {
   name: string;
   version: string | null;
@@ -195,37 +172,6 @@ type InstructionServerOperatingSystemContext = {
   platform: NodeJS.Platform;
   release: string;
   architecture: string;
-};
-type SystemInstructionContextPayload = {
-  userContext: {
-    userId: number | null;
-    workspaceDirectoryPath: string | null;
-  };
-  threadContext: {
-    threadId: string | null;
-    turnId: string | null;
-  };
-  systemContext: {
-    clientOperatingSystem: InstructionClientOperatingSystemContext;
-    serverOperatingSystem: InstructionServerOperatingSystemContext;
-  };
-  latestThreadName: string | null;
-  azureContext: {
-    principalDisplayName: string | null;
-    principalName: string | null;
-    principalType:
-      | "User"
-      | "Service Principal"
-      | "Managed Identity"
-      | "Unknown";
-    tenantId: string | null;
-    principalId: string | null;
-    playgroundProject: string | null;
-    playgroundProjectId: string | null;
-    playgroundDeployment: string | null;
-    endpoint: string | null;
-    apiVersion: string | null;
-  };
 };
 type McpRequestContext = {
   threadId: string | null;
@@ -2900,7 +2846,7 @@ function buildAgentInstructionWithSkills(
   runtime: SkillRuntimeContext,
   options: {
     instructionContextToggles: ThreadInstructionContextToggles;
-    systemInstructionContext: SystemInstructionContextPayload | null;
+    systemInstructionContext: InstructionSystemContextPayload | null;
   },
 ): string {
   const normalizedBaseInstruction =
@@ -3001,13 +2947,13 @@ function buildAgentInstructionWithSkills(
 
 async function buildSystemInstructionContextPayload(
   options: ChatExecutionOptions,
-): Promise<SystemInstructionContextPayload> {
+): Promise<InstructionSystemContextPayload> {
   const clientOperatingSystem = buildInstructionClientOperatingSystemContext(
     options.clientPlatform,
     options.clientUserAgent,
   );
   const serverOperatingSystem = buildInstructionServerOperatingSystemContext();
-  const basePayload: SystemInstructionContextPayload = {
+  const basePayload: InstructionSystemContextPayload = {
     userContext: {
       userId: null,
       workspaceDirectoryPath: null,
@@ -3049,7 +2995,7 @@ async function buildSystemInstructionContextPayload(
     return basePayload;
   }
 
-  const payload: SystemInstructionContextPayload = {
+  const payload: InstructionSystemContextPayload = {
     ...basePayload,
     azureContext: {
       ...basePayload.azureContext,
