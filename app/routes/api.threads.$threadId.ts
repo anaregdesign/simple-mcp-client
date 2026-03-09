@@ -18,11 +18,10 @@ import {
   isThreadRestorePayload,
   logicalDeleteThread,
   logicalRestoreThread,
-  readAuthenticatedUser,
-  readErrorMessage,
-  readJsonPayload,
   updateThread,
 } from "~/lib/server/usecase/threads/thread-service";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import { readErrorMessage, readJsonPayload } from "~/lib/server/http";
 import type { Route } from "./+types/api.threads.$threadId";
 
 const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;

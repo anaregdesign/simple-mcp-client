@@ -6,7 +6,6 @@ const {
   discoverWorkspaceSkillsMock,
   syncWorkspaceSkillMastersMock,
   readWorkspaceSkillProfileReconcilePayloadMock,
-  readErrorMessageMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
@@ -15,15 +14,16 @@ const {
   discoverWorkspaceSkillsMock: vi.fn(),
   syncWorkspaceSkillMastersMock: vi.fn(),
   readWorkspaceSkillProfileReconcilePayloadMock: vi.fn(),
-  readErrorMessageMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser: readAuthenticatedUserMock,
+}));
+
+vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
   readWorkspaceSkillProfileReconcilePayload: readWorkspaceSkillProfileReconcilePayloadMock,
-  readErrorMessage: readErrorMessageMock,
   workspaceSkillService: {
     readWorkspaceSkillProfiles: readWorkspaceSkillProfilesMock,
     discoverWorkspaceSkills: discoverWorkspaceSkillsMock,
@@ -63,7 +63,6 @@ describe("/api/workspace-skill-profiles", () => {
         forceRefresh: false,
       },
     });
-    readErrorMessageMock.mockReturnValue("Unknown error.");
     logServerRouteEventMock.mockResolvedValue(undefined);
   });
 

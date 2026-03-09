@@ -5,9 +5,6 @@ import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
-  readAuthenticatedUser,
-  readErrorMessage,
-  readJsonPayload,
   threadApplicationService,
   threadQueryService,
   type CreateThreadResult,
@@ -17,8 +14,11 @@ import {
   errorResponse,
   invalidJsonResponse,
   methodNotAllowedResponse,
+  readJsonPayload,
+  readErrorMessage,
   validationErrorResponse,
 } from "~/lib/server/http";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

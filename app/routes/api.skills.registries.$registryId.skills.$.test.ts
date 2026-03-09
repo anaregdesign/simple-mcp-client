@@ -7,7 +7,6 @@ const {
   parseSkillRegistryMutationPath,
   readAuthenticatedUser,
   syncWorkspaceSkillMasters,
-  readErrorMessage,
   installSkillFromRegistry,
   deleteInstalledSkillFromRegistry,
   discoverSkillCatalog,
@@ -23,7 +22,6 @@ const {
   })),
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
   syncWorkspaceSkillMasters: vi.fn(async () => undefined),
-  readErrorMessage: vi.fn(() => "Unknown error."),
   installSkillFromRegistry: vi.fn(async () => ({
     skillName: "gh-fix-ci",
     installLocation: "/tmp/gh-fix-ci/SKILL.md",
@@ -39,11 +37,13 @@ const {
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
+  readAuthenticatedUser,
+}));
+
 vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
   parseSkillRegistryMutationPath,
-  readAuthenticatedUser,
   syncWorkspaceSkillMasters,
-  readErrorMessage,
 }));
 
 vi.mock("~/lib/server/skills/registry", () => ({
@@ -77,8 +77,6 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
     syncWorkspaceSkillMasters.mockReset();
     syncWorkspaceSkillMasters.mockResolvedValue(undefined);
-    readErrorMessage.mockReset();
-    readErrorMessage.mockReturnValue("Unknown error.");
     installSkillFromRegistry.mockReset();
     installSkillFromRegistry.mockResolvedValue({
       skillName: "gh-fix-ci",

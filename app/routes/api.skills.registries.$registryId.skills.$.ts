@@ -5,6 +5,7 @@ import {
   authRequiredResponse,
   errorResponse,
   methodNotAllowedResponse,
+  readErrorMessage,
   validationErrorResponse,
 } from "~/lib/server/http";
 import {
@@ -19,10 +20,9 @@ import {
 } from "~/lib/server/skills/registry";
 import {
   parseSkillRegistryMutationPath,
-  readAuthenticatedUser,
-  readErrorMessage,
   syncWorkspaceSkillMasters,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import type { Route } from "./+types/api.skills.registries.$registryId.skills.$";
 
 const SKILL_REGISTRY_SKILL_ALLOWED_METHODS = ["PUT", "DELETE"] as const;

@@ -127,3 +127,18 @@ export function methodNotAllowedResponse(allowedMethods: readonly string[]): Res
     },
   });
 }
+
+export async function readJsonPayload(
+  request: Request,
+): Promise<{ ok: true; value: unknown } | { ok: false }> {
+  try {
+    const value = await request.json();
+    return { ok: true, value };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error.";
+}

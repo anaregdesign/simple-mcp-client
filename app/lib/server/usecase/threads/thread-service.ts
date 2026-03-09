@@ -6,12 +6,10 @@ import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
 import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
 } from "~/lib/server/infrastructure/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 import {
   buildThreadMessageSkillActivationRowId,
   buildThreadMcpServerRowId,
@@ -796,39 +794,12 @@ function isPositiveIntegerString(value: string): boolean {
   return /^[1-9]\d*$/.test(value.trim());
 }
 
-export async function readJsonPayload(
-  request: Request,
-): Promise<{ ok: true; value: unknown } | { ok: false }> {
-  try {
-    const value = await request.json();
-    return { ok: true, value };
-  } catch {
-    return { ok: false };
-  }
-}
-
 export function isThreadRestorePayload(value: unknown): boolean {
   return isRecord(value) && value.archived === false;
 }
 
 function normalizeThreadName(value: string): string {
   return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
-}
-
-export async function readAuthenticatedUser(): Promise<{ id: number } | null> {
-  const userContext = await readAzureArmUserContext();
-  if (!userContext) {
-    return null;
-  }
-
-  const user = await getOrCreateUserByIdentity({
-    tenantId: userContext.tenantId,
-    principalId: userContext.principalId,
-  });
-
-  return {
-    id: user.id,
-  };
 }
 
 export function readErrorMessage(error: unknown): string {

@@ -17,12 +17,10 @@ import type {
   WorkspaceSkillProfileResource,
   WorkspaceSkillRegistryProfileResource,
 } from "~/lib/contracts/skills/workspace-skill-profiles";
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
 } from "~/lib/server/infrastructure/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 import { discoverSkillCatalog } from "~/lib/server/skills/catalog";
 import { discoverSkillRegistries } from "~/lib/server/skills/registry";
 
@@ -187,22 +185,6 @@ export function parseSkillRegistryMutationPath(
       registryId,
       skillName: parsedSkillName.normalizedSkillName,
     },
-  };
-}
-
-export async function readAuthenticatedUser(): Promise<{ id: number } | null> {
-  const userContext = await readAzureArmUserContext();
-  if (!userContext) {
-    return null;
-  }
-
-  const user = await getOrCreateUserByIdentity({
-    tenantId: userContext.tenantId,
-    principalId: userContext.principalId,
-  });
-
-  return {
-    id: user.id,
   };
 }
 

@@ -2,8 +2,6 @@
  * API route module for /api/skills.
  */
 import {
-  readAuthenticatedUser,
-  readErrorMessage,
   readSkillRegistryRefreshQueryFlag,
   skillsRouteTestUtils,
   workspaceSkillService,
@@ -12,8 +10,9 @@ import {
   authRequiredResponse,
   errorResponse,
   methodNotAllowedResponse,
-  validationErrorResponse,
+  readErrorMessage,
 } from "~/lib/server/http";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

@@ -5,34 +5,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   readAuthenticatedUser,
-  readJsonPayload,
   updateThread,
   logicalDeleteThread,
   logicalRestoreThread,
   isThreadRestorePayload,
-  readErrorMessage,
   readThreadWritePayloadFromUnknown,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
-  readJsonPayload: vi.fn(async () => ({ ok: true as const, value: {} })),
   updateThread: vi.fn<any>(async () => ({ status: "not_found" })),
   logicalDeleteThread: vi.fn<any>(async () => ({ status: "not_found" as const })),
   logicalRestoreThread: vi.fn(async () => ({ status: "not_found" as const })),
   isThreadRestorePayload: vi.fn(() => false),
-  readErrorMessage: vi.fn(() => "Unknown error."),
   readThreadWritePayloadFromUnknown: vi.fn<any>(() => null),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/usecase/threads/thread-service", () => ({
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser,
-  readJsonPayload,
+}));
+
+vi.mock("~/lib/server/usecase/threads/thread-service", () => ({
   updateThread,
   logicalDeleteThread,
   logicalRestoreThread,
   isThreadRestorePayload,
-  readErrorMessage,
 }));
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
@@ -74,8 +71,6 @@ describe("/api/threads/:threadId", () => {
   beforeEach(() => {
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
-    readJsonPayload.mockReset();
-    readJsonPayload.mockResolvedValue({ ok: true, value: {} });
     updateThread.mockReset();
     updateThread.mockResolvedValue({ status: "not_found" });
     logicalDeleteThread.mockReset();
@@ -84,8 +79,6 @@ describe("/api/threads/:threadId", () => {
     logicalRestoreThread.mockResolvedValue({ status: "not_found" });
     isThreadRestorePayload.mockReset();
     isThreadRestorePayload.mockReturnValue(false);
-    readErrorMessage.mockReset();
-    readErrorMessage.mockReturnValue("Unknown error.");
     readThreadWritePayloadFromUnknown.mockReset();
     readThreadWritePayloadFromUnknown.mockReturnValue(null);
     logServerRouteEvent.mockReset();
@@ -129,7 +122,13 @@ describe("/api/threads/:threadId", () => {
     });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
     const payload = (await response.json()) as { error?: string };
@@ -160,7 +159,13 @@ describe("/api/threads/:threadId", () => {
     updateThread.mockResolvedValueOnce({ status: "not_found" });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
     const payload = (await response.json()) as { error?: string };
@@ -194,7 +199,13 @@ describe("/api/threads/:threadId", () => {
     });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
 
@@ -224,7 +235,13 @@ describe("/api/threads/:threadId", () => {
     updateThread.mockResolvedValueOnce({ status: "archived" });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
     const payload = (await response.json()) as { error?: string };

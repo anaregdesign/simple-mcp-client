@@ -2,19 +2,20 @@
  * API route module for /api/mcp/servers.
  */
 import {
-  mcpServerProfileService,
-  mcpServersRouteTestUtils,
-  parseIncomingMcpServer,
-  readAuthenticatedUser,
-  readErrorMessage,
-} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
-import {
   authRequiredResponse,
   errorResponse,
   invalidJsonResponse,
   methodNotAllowedResponse,
+  readErrorMessage,
+  readJsonPayload,
   validationErrorResponse,
 } from "~/lib/server/http";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import {
+  mcpServerProfileService,
+  mcpServersRouteTestUtils,
+  parseIncomingMcpServer,
+} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -72,10 +73,8 @@ export async function action({ request }: Route.ActionArgs) {
     return authRequiredResponse();
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
+  const payload = await readJsonPayload(request);
+  if (!payload.ok) {
     await logServerRouteEvent({
       request,
       route: "/api/mcp/servers",
@@ -90,7 +89,12 @@ export async function action({ request }: Route.ActionArgs) {
     return invalidJsonResponse();
   }
 
-  if (payload && typeof payload === "object" && "id" in payload && payload.id !== undefined) {
+  if (
+    payload.value &&
+    typeof payload.value === "object" &&
+    "id" in payload.value &&
+    payload.value.id !== undefined
+  ) {
     await logServerRouteEvent({
       request,
       route: "/api/mcp/servers",
@@ -108,7 +112,7 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
-  const incomingResult = parseIncomingMcpServer(payload);
+  const incomingResult = parseIncomingMcpServer(payload.value);
   if (!incomingResult.ok) {
     await logServerRouteEvent({
       request,

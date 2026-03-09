@@ -5,25 +5,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
 
 const {
-  readAzureArmUserContextMock,
-  getOrCreateUserByIdentityMock,
+  readAuthenticatedUserMock,
   readThreadWritePayloadFromUnknownMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
-  readAzureArmUserContextMock: vi.fn(),
-  getOrCreateUserByIdentityMock: vi.fn(),
+  readAuthenticatedUserMock: vi.fn(),
   readThreadWritePayloadFromUnknownMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
-  readAzureArmUserContext: readAzureArmUserContextMock,
-}));
-
-vi.mock("~/lib/server/infrastructure/persistence/user", () => ({
-  getOrCreateUserByIdentity: getOrCreateUserByIdentityMock,
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
+  readAuthenticatedUser: readAuthenticatedUserMock,
 }));
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
@@ -84,15 +78,7 @@ describe("POST /api/threads", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    readAzureArmUserContextMock.mockResolvedValue({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
-    getOrCreateUserByIdentityMock.mockResolvedValue({
-      id: 10,
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
+    readAuthenticatedUserMock.mockResolvedValue({ id: 10 });
     readThreadWritePayloadFromUnknownMock.mockReturnValue(thread);
     logServerRouteEventMock.mockResolvedValue(undefined);
     createThreadSpy.mockReset();
@@ -158,7 +144,7 @@ describe("POST /api/threads", () => {
   });
 
   it("returns 401 when user is not authenticated", async () => {
-    readAzureArmUserContextMock.mockResolvedValueOnce(null);
+    readAuthenticatedUserMock.mockResolvedValueOnce(null);
 
     const response = await action({
       request: new Request("http://localhost/api/threads", {

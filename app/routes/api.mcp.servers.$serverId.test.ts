@@ -11,7 +11,6 @@ const {
   parseIncomingMcpServer,
   mergeDefaultWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
-  readErrorMessage,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
@@ -34,19 +33,20 @@ const {
     profiles: [],
     warning: null,
   })),
-  readErrorMessage: vi.fn(() => "Unknown error."),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser,
+}));
+
+vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
   readWorkspaceMcpServerProfiles,
   deleteWorkspaceMcpServerProfile,
   writeWorkspaceMcpServerProfiles,
   parseIncomingMcpServer,
   mergeDefaultWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
-  readErrorMessage,
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -92,8 +92,6 @@ describe("/api/mcp/servers/:serverId", () => {
       profiles: [],
       warning: null,
     });
-    readErrorMessage.mockReset();
-    readErrorMessage.mockReturnValue("Unknown error.");
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
   });

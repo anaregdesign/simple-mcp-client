@@ -2,13 +2,13 @@ import {
   structuredAuthRequiredResponse,
   structuredErrorResponse,
   methodNotAllowedResponse,
+  readErrorMessage,
 } from "~/lib/server/http";
 import {
-  readAuthenticatedUser,
-  readErrorMessage,
   readWorkspaceSkillProfileReconcilePayload,
   workspaceSkillService,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

@@ -6,6 +6,8 @@ import {
   errorResponse,
   invalidJsonResponse,
   methodNotAllowedResponse,
+  readErrorMessage,
+  readJsonPayload,
   validationErrorResponse,
 } from "~/lib/server/http";
 import {
@@ -16,12 +18,11 @@ import {
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,
   parseIncomingMcpServer,
-  readAuthenticatedUser,
-  readErrorMessage,
   readWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
   writeWorkspaceMcpServerProfiles,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
+import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import type { Route } from "./+types/api.mcp.servers.$serverId";
 
 const MCP_SERVER_ITEM_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
@@ -84,14 +85,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
+  const payload = await readJsonPayload(request);
+  if (!payload.ok) {
     return invalidJsonResponse();
   }
 
-  const parsed = parseIncomingMcpServer(payload);
+  const parsed = parseIncomingMcpServer(payload.value);
   if (!parsed.ok) {
     return validationErrorResponse("invalid_mcp_server_payload", parsed.error);
   }
