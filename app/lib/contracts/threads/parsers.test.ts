@@ -106,8 +106,8 @@ function createThreadResource(): ThreadResource {
           id: 202,
           userId: 10,
           registryProfileId: null,
-          name: "local-playground-dev",
-          location: "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+          name: "workspace-skill",
+          location: "/Users/hiroki/.codex/skills/workspace-skill/SKILL.md",
           source: "codex_home",
         },
       },
@@ -225,8 +225,8 @@ describe("readThreadWritePayloadFromUnknown", () => {
       ],
       skillSelections: [
         {
-          name: "local-playground-dev",
-          location: "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+          name: "workspace-skill",
+          location: "/Users/hiroki/.codex/skills/workspace-skill/SKILL.md",
         },
       ],
     });

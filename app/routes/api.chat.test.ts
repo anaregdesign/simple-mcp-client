@@ -1165,12 +1165,12 @@ describe("readSkills", () => {
     const result = readSkills({
       skills: [
         {
-          name: "local-playground-dev",
-          location: "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+          name: "workspace-skill",
+          location: "/Users/hiroki/.codex/skills/workspace-skill/SKILL.md",
         },
         {
-          name: "local-playground-dev",
-          location: "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+          name: "workspace-skill",
+          location: "/Users/hiroki/.codex/skills/workspace-skill/SKILL.md",
         },
       ],
     });
@@ -1179,8 +1179,8 @@ describe("readSkills", () => {
       ok: true,
       value: [
         {
-          name: "local-playground-dev",
-          location: "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+          name: "workspace-skill",
+          location: "/Users/hiroki/.codex/skills/workspace-skill/SKILL.md",
         },
       ],
     });
@@ -1203,14 +1203,14 @@ describe("readExplicitSkillLocations", () => {
   it("parses and de-duplicates explicit skill locations", () => {
     const result = readExplicitSkillLocations({
       explicitSkillLocations: [
-        " /Users/hiroki/.codex/skills/local-playground-dev/SKILL.md ",
-        "/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md",
+        " /Users/hiroki/.codex/skills/workspace-skill/SKILL.md ",
+        "/Users/hiroki/.codex/skills/workspace-skill/SKILL.md",
       ],
     });
 
     expect(result).toEqual({
       ok: true,
-      value: ["/Users/hiroki/.codex/skills/local-playground-dev/SKILL.md"],
+      value: ["/Users/hiroki/.codex/skills/workspace-skill/SKILL.md"],
     });
   });
 

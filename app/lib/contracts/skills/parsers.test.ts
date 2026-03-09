@@ -12,9 +12,9 @@ describe("readSkillCatalogList", () => {
   it("parses valid entries and de-duplicates by location", () => {
     const result = readSkillCatalogList([
       {
-        name: "local-playground-dev",
-        description: "Local Playground workflow",
-        location: "/repo/skills/local-playground-dev/SKILL.md",
+        name: "workspace-skill",
+        description: "Workspace workflow",
+        location: "/repo/skills/workspace-skill/SKILL.md",
         source: "workspace",
       },
       {
@@ -36,9 +36,9 @@ describe("readSkillCatalogList", () => {
 
     expect(result).toEqual([
       {
-        name: "local-playground-dev",
-        description: "Local Playground workflow",
-        location: "/repo/skills/local-playground-dev/SKILL.md",
+        name: "workspace-skill",
+        description: "Workspace workflow",
+        location: "/repo/skills/workspace-skill/SKILL.md",
         source: "workspace",
       },
       {
@@ -61,12 +61,12 @@ describe("readThreadSkillActivationList", () => {
   it("parses valid selections and removes duplicates", () => {
     const result = readThreadSkillActivationList([
       {
-        name: "local-playground-dev",
-        location: "/repo/skills/local-playground-dev/SKILL.md",
+        name: "workspace-skill",
+        location: "/repo/skills/workspace-skill/SKILL.md",
       },
       {
         name: "duplicate",
-        location: "/repo/skills/local-playground-dev/SKILL.md",
+        location: "/repo/skills/workspace-skill/SKILL.md",
       },
       {
         name: "",
@@ -76,8 +76,8 @@ describe("readThreadSkillActivationList", () => {
 
     expect(result).toEqual([
       {
-        name: "local-playground-dev",
-        location: "/repo/skills/local-playground-dev/SKILL.md",
+        name: "workspace-skill",
+        location: "/repo/skills/workspace-skill/SKILL.md",
       },
     ]);
   });

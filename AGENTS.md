@@ -3,12 +3,6 @@
 - Write commit messages with Conventional Commits: `<type>[optional scope]: <description>`.
 - Common `type`: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
-# Skill Prerequisite
-
-- Before development, enable the repository skill:
-  - `export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" && npm run skill:enable`
-- Restart Codex after installing or updating the skill.
-
 # Development Mode
 
 - This repository is in active development.
@@ -107,6 +101,6 @@
 
 # Documentation
 
-- Keep `README.md`, architecture docs, and the repository skill aligned with implemented architecture.
+- Keep `README.md` and architecture docs aligned with implemented architecture.
 - Prefer stable rules and durable concepts over exhaustive implementation inventories.
 - Remove or simplify documentation sections that are likely to become stale quickly.

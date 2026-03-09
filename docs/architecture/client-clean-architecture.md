@@ -5,8 +5,6 @@ This document is the contributor architecture baseline for Local Playground.
 Use it together with:
 
 - `AGENTS.md`
-- `skills/.dev/local-playground-dev/SKILL.md`
-- `skills/.dev/local-playground-dev/references/review-checklist.md`
 
 ## Goals
 

@@ -18,15 +18,15 @@ describe("readChatCommandMatchAtCursor", () => {
   it("returns a match for a token that starts with a trigger keyword", () => {
     expect(
       readChatCommandMatchAtCursor({
-        value: "$local-playground-dev",
-        cursorIndex: 20,
+        value: "$workspace-skill",
+        cursorIndex: 15,
         keywords: ["$", "/"],
       }),
     ).toEqual({
       keyword: "$",
-      query: "local-playground-dev",
+      query: "workspace-skill",
       rangeStart: 0,
-      rangeEnd: 21,
+      rangeEnd: 16,
     });
   });
 

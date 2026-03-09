@@ -98,15 +98,15 @@ describe("discoverSkillCatalog", () => {
     const skillDirectory = path.join(
       codexHome,
       "skills",
-      "local-playground-dev",
+      "workspace-skill",
     );
     await mkdir(skillDirectory, { recursive: true });
     await writeFile(
       path.join(skillDirectory, "SKILL.md"),
       [
         "---",
-        "name: local-playground-dev",
-        "description: Local Playground compliance workflow",
+        "name: workspace-skill",
+        "description: Workspace workflow",
         "---",
         "# Skill",
       ].join("\n"),
@@ -121,8 +121,8 @@ describe("discoverSkillCatalog", () => {
 
     expect(result.skills).toHaveLength(1);
     expect(result.skills[0]).toMatchObject({
-      name: "local-playground-dev",
-      description: "Local Playground compliance workflow",
+      name: "workspace-skill",
+      description: "Workspace workflow",
       source: "codex_home",
     });
     expect(result.warnings).toEqual([]);
@@ -237,15 +237,15 @@ describe("discoverSkillCatalog", () => {
       const readableSkillDirectory = path.join(
         codexHome,
         "skills",
-        "local-playground-dev",
+        "workspace-skill",
       );
       await mkdir(readableSkillDirectory, { recursive: true });
       await writeFile(
         path.join(readableSkillDirectory, "SKILL.md"),
         [
           "---",
-          "name: local-playground-dev",
-          "description: Local Playground compliance workflow",
+          "name: workspace-skill",
+          "description: Workspace workflow",
           "---",
           "# Skill",
         ].join("\n"),
@@ -267,7 +267,7 @@ describe("discoverSkillCatalog", () => {
 
         expect(result.skills).toHaveLength(1);
         expect(result.skills[0]).toMatchObject({
-          name: "local-playground-dev",
+          name: "workspace-skill",
           source: "codex_home",
         });
       } finally {

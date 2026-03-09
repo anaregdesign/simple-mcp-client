@@ -29,7 +29,6 @@ The contributor architecture source of truth is:
 
 - [`AGENTS.md`](AGENTS.md)
 - [`client-clean-architecture.md`](docs/architecture/client-clean-architecture.md)
-- [`local-playground-dev skill`](skills/.dev/local-playground-dev/SKILL.md)
 
 Stable contributor rules:
 
@@ -65,17 +64,6 @@ npm run desktop:dev
 npm run desktop:start
 npm run desktop:package
 ```
-
-## Repository Skill
-
-For Codex-based development in this repository:
-
-```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-npm run skill:enable
-```
-
-After updating the skill link, restart Codex.
 
 ## Screenshots
 

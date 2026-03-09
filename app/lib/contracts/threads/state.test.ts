@@ -23,8 +23,8 @@ describe("hasThreadInteraction", () => {
         messages: [],
         skillSelections: [
           {
-            name: "local-playground-dev",
-            location: "/repo/skills/local-playground-dev/SKILL.md",
+            name: "workspace-skill",
+            location: "/repo/skills/workspace-skill/SKILL.md",
           },
         ],
       }),
