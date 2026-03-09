@@ -7,7 +7,7 @@ import {
   readRegionCodeFromLanguageTag,
   readWebSearchUserLocationFromRequest,
   wantsEventStream,
-} from "~/lib/server/chat/request-metadata";
+} from "~/lib/server/infrastructure/gateways/chat/request-metadata";
 
 describe("wantsEventStream", () => {
   it("returns true when accept header includes text/event-stream", () => {

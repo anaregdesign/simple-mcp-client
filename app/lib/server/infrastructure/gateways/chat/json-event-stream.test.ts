@@ -2,7 +2,7 @@
  * Test module verifying JSON event stream helper.
  */
 import { describe, expect, it } from "vitest";
-import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stream";
+import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
 
 describe("createJsonEventStreamResponse", () => {
   it("returns SSE headers and streamed JSON payload blocks", async () => {

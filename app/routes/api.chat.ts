@@ -85,7 +85,7 @@ import {
   readWebSearchEnabled,
   type ClientMcpServerConfig,
 } from "~/lib/server/chat/request-parser";
-import { logChatRequestValidationError } from "~/lib/server/chat/request-validation-log";
+import { logChatRequestValidationError } from "~/lib/server/infrastructure/gateways/chat/request-validation-log";
 import { readSkillMarkdown } from "~/lib/server/skills/catalog";
 import {
   readSkillResourceBuffer,
@@ -93,14 +93,14 @@ import {
   runSkillScript,
   type SkillResourceKind,
 } from "~/lib/server/skills/runtime";
-import { createJsonEventStreamResponse } from "~/lib/server/chat/json-event-stream";
+import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
 import { cleanupChatRuntime } from "~/lib/server/infrastructure/gateways/chat/chat-runtime-cleanup";
 import { prepareMcpRuntime } from "~/lib/server/infrastructure/gateways/mcp/chat-mcp-runtime";
 import {
   readOptionalRequestHeaderValue,
   readWebSearchUserLocationFromRequest,
   wantsEventStream,
-} from "~/lib/server/chat/request-metadata";
+} from "~/lib/server/infrastructure/gateways/chat/request-metadata";
 import {
   resolveThreadDirectoryContext,
   resolveThreadDirectoryPath,
