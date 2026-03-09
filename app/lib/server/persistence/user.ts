@@ -42,24 +42,3 @@ export async function getOrCreateUserByIdentity(
     },
   });
 }
-
-export async function readMostRecentWorkspaceUserTenantId(): Promise<string> {
-  await ensurePersistenceDatabaseReady();
-
-  const mostRecentUser = await prisma.workspaceUser.findFirst({
-    where: {
-      lastUsedAt: {
-        not: "",
-      },
-    },
-    orderBy: [
-      { lastUsedAt: "desc" },
-      { id: "desc" },
-    ],
-    select: {
-      tenantId: true,
-    },
-  });
-
-  return mostRecentUser?.tenantId.trim() ?? "";
-}

@@ -55,8 +55,8 @@ export async function action({ request }: Route.ActionArgs) {
         error,
         context: {
           scope: AZURE_ARM_SCOPE,
-          tenantId: tenantId || null,
-          persistedTenantId: tenantId ? null : resolvedTenantId || null,
+          requestedTenantId: tenantId || null,
+          resolvedTenantId: resolvedTenantId || null,
         },
       });
 

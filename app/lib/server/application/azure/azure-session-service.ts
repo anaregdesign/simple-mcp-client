@@ -9,17 +9,13 @@ import {
   getAzureDependencies,
   resetAzureDependencies,
 } from "~/lib/server/infrastructure/azure/dependencies";
-import {
-  getOrCreateUserByIdentity,
-  readMostRecentWorkspaceUserTenantId,
-} from "~/lib/server/persistence/user";
+import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 
 export class AzureSessionService {
   async startSession(
     requestedTenantId: string,
   ): Promise<{ tenantId: string; principalId: string; userId: number }> {
-    const preferredTenantId =
-      requestedTenantId.trim() || (await readMostRecentWorkspaceUserTenantId()).trim();
+    const preferredTenantId = requestedTenantId.trim();
 
     resetAzureDependencies();
     const dependencies = getAzureDependencies();
