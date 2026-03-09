@@ -92,15 +92,7 @@ import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
   type ThreadInstructionContextToggleKey,
 } from "~/lib/contracts/threads/instruction-context";
-import {
-  buildThreadAutoTitlePlaygroundContent,
-  normalizeThreadAutoTitle,
-} from "~/lib/contracts/threads/title";
-import type {
-  ThreadState,
-  ThreadSummary,
-  ThreadWritePayload,
-} from "~/lib/contracts/threads/types";
+import type { ThreadState, ThreadSummary, ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
@@ -223,6 +215,9 @@ import {
   saveThreadStateSilentlyIfNeeded as saveThreadStateSilentlyIfNeededOperation,
   saveThreadStateToDatabase as saveThreadStateToDatabaseOperation,
 } from "~/lib/client/usecase/workspace/thread-persistence-operations";
+import {
+  refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
+} from "~/lib/client/usecase/workspace/thread-title-operations";
 import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
@@ -1820,6 +1815,47 @@ export function useWorkspace() {
     };
   }
 
+  function buildThreadTitleOperationDeps() {
+    return {
+      isArchivedThread,
+      isChatLocked,
+      isLoadingUtilityAzureDeployments,
+      readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
+      readSelectedUtilityAzureDeploymentName: () =>
+        selectedUtilityAzureDeploymentName,
+      isSelectedUtilityDeploymentAvailable: (deploymentName: string) =>
+        includesAzureDeploymentName(utilityAzureDeployments, deploymentName),
+      readThreadById: (threadId: string) =>
+        findThreadStateById(threadsRef.current, threadId) ?? undefined,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      readActiveThreadNameInput: () => activeThreadNameInputRef.current,
+      readAgentInstruction: () => agentInstruction,
+      readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+      isUtilityReasoningEffortSupported,
+      readEffectiveUtilityReasoningEffort: () =>
+        effectiveUtilityReasoningEffort,
+      generateTitle: (request: {
+        playgroundContent: string;
+        instruction: string;
+        azureConfig: {
+          tenantId: string;
+          projectName: string;
+          baseUrl: string;
+          apiVersion: string;
+          deploymentName: string;
+        };
+        supportsReasoningEffort: boolean;
+        reasoningEffort?: ThreadState["reasoningEffort"];
+      }) => threadTitleApiClient.generateTitle(request),
+      updateThreadStateById,
+      setActiveThreadNameInput,
+      saveActiveThreadNameInBackground,
+      isSwitchingAzureTenant,
+      reportAzureTenantSwitchPending,
+      logClientError,
+    };
+  }
+
   function updateThreadStateById(
     threadId: string,
     updater: (current: ThreadState) => ThreadState,
@@ -1976,126 +2012,10 @@ export function useWorkspace() {
       | "utility_deployment_update";
     instructionOverride?: string;
   }): Promise<void> {
-    const normalizedThreadId = options.threadId.trim();
-    if (!normalizedThreadId) {
-      return;
-    }
-    if (
-      isArchivedThread(normalizedThreadId) ||
-      isChatLocked ||
-      isLoadingUtilityAzureDeployments
-    ) {
-      return;
-    }
-
-    const utilityConnection = activeUtilityAzureConnection;
-    const deploymentName = selectedUtilityAzureDeploymentName.trim();
-    if (
-      !utilityConnection ||
-      !deploymentName ||
-      !includesAzureDeploymentName(utilityAzureDeployments, deploymentName)
-    ) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      normalizedThreadId,
+    await refreshThreadTitleInBackgroundOperation(
+      buildThreadTitleOperationDeps(),
+      options,
     );
-    if (!baseThread || !hasThreadInteraction(baseThread)) {
-      return;
-    }
-
-    const playgroundContent = buildThreadAutoTitlePlaygroundContent(
-      baseThread.messages,
-    );
-    if (!playgroundContent) {
-      return;
-    }
-
-    const instruction =
-      typeof options.instructionOverride === "string"
-        ? options.instructionOverride
-        : normalizedThreadId === activeThreadIdRef.current.trim()
-          ? agentInstruction
-          : baseThread.agentInstruction;
-
-    try {
-      const payload = await threadTitleApiClient.generateTitle({
-        playgroundContent,
-        instruction,
-        azureConfig: {
-          tenantId: activeAzureTenantIdRef.current,
-          projectName: utilityConnection.projectName,
-          baseUrl: utilityConnection.baseUrl,
-          apiVersion: utilityConnection.apiVersion,
-          deploymentName,
-        },
-        supportsReasoningEffort: isUtilityReasoningEffortSupported,
-        ...(isUtilityReasoningEffortSupported
-          ? { reasoningEffort: effectiveUtilityReasoningEffort }
-          : {}),
-      });
-
-      const nextTitle = normalizeThreadAutoTitle(
-        typeof payload.title === "string" ? payload.title : "",
-      );
-      if (!nextTitle) {
-        return;
-      }
-
-      const latestThread = findThreadStateById(
-        threadsRef.current,
-        normalizedThreadId,
-      );
-      if (!latestThread || latestThread.deletedAt !== null) {
-        return;
-      }
-
-      const activeThreadId = activeThreadIdRef.current.trim();
-      const currentInputName =
-        normalizedThreadId === activeThreadId
-          ? activeThreadNameInputRef.current.trim()
-          : latestThread.name.trim();
-      if (
-        nextTitle === latestThread.name &&
-        (!currentInputName || currentInputName === nextTitle)
-      ) {
-        return;
-      }
-
-      updateThreadStateById(normalizedThreadId, (thread) => ({
-        ...thread,
-        updatedAt: new Date().toISOString(),
-        name: nextTitle,
-      }));
-
-      if (normalizedThreadId === activeThreadId) {
-        setActiveThreadNameInput(nextTitle);
-      }
-
-      await saveActiveThreadNameInBackground(normalizedThreadId, nextTitle);
-    } catch (threadTitleError) {
-      if (
-        threadTitleError instanceof ClientApiError &&
-        threadTitleError.kind === "auth_required"
-      ) {
-        if (
-          options.reason === "utility_deployment_update" &&
-          isSwitchingAzureTenant
-        ) {
-          reportAzureTenantSwitchPending();
-        }
-        return;
-      }
-      logClientError("generate_thread_title_failed", threadTitleError, {
-        action: "generate_thread_title",
-        context: {
-          threadId: normalizedThreadId,
-          reason: options.reason,
-        },
-      });
-    }
   }
 
   // Thread lifecycle actions (load/create/rename/archive/switch).
