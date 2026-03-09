@@ -7,7 +7,7 @@ import {
   parseIncomingMcpServer,
   readAuthenticatedUser,
   readErrorMessage,
-} from "~/lib/server/application/mcp/mcp-server-profile-service";
+} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 import {
   authRequiredResponse,
   errorResponse,

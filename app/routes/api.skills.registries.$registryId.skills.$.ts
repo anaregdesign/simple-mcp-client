@@ -22,7 +22,7 @@ import {
   readAuthenticatedUser,
   readErrorMessage,
   syncWorkspaceSkillMasters,
-} from "~/lib/server/application/skills/workspace-skill-service";
+} from "~/lib/server/usecase/skills/workspace-skill-service";
 import type { Route } from "./+types/api.skills.registries.$registryId.skills.$";
 
 const SKILL_REGISTRY_SKILL_ALLOWED_METHODS = ["PUT", "DELETE"] as const;

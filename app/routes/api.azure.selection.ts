@@ -6,7 +6,7 @@ import {
   parseAzureSelectionPreference,
   readAuthenticatedIdentity,
   readErrorMessage,
-} from "~/lib/server/application/azure/azure-selection-service";
+} from "~/lib/server/usecase/azure/azure-selection-service";
 import {
   authRequiredResponse,
   errorResponse,

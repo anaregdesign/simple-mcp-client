@@ -9,7 +9,7 @@ import {
   readErrorMessage,
   resolveAzurePrincipalProfile,
   resolveReasoningEffortOptionsByModelName,
-} from "~/lib/server/application/azure/azure-project-service";
+} from "~/lib/server/usecase/azure/azure-project-service";
 import {
   authRequiredResponse,
   errorResponse,

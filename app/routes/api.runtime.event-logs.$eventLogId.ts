@@ -1,7 +1,7 @@
 /**
  * API route module for /api/runtime/event-logs/:eventLogId.
  */
-import { runtimeEventLogService } from "~/lib/server/application/runtime-event-logs/runtime-event-log-service";
+import { runtimeEventLogService } from "~/lib/server/usecase/runtime-event-logs/runtime-event-log-service";
 import {
   authRequiredResponse,
   errorResponse,

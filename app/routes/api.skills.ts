@@ -7,7 +7,7 @@ import {
   readSkillRegistryRefreshQueryFlag,
   skillsRouteTestUtils,
   workspaceSkillService,
-} from "~/lib/server/application/skills/workspace-skill-service";
+} from "~/lib/server/usecase/skills/workspace-skill-service";
 import {
   authRequiredResponse,
   errorResponse,

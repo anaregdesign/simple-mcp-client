@@ -2,7 +2,7 @@
  * API route module for /api/azure/session.
  */
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
-import { azureSessionService } from "~/lib/server/application/azure/azure-session-service";
+import { azureSessionService } from "~/lib/server/usecase/azure/azure-session-service";
 import { errorResponse, methodNotAllowedResponse } from "~/lib/server/http";
 import {
   installGlobalServerErrorLogging,

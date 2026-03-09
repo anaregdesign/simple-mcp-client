@@ -25,7 +25,7 @@ const {
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/application/threads/thread-service", () => ({
+vi.mock("~/lib/server/usecase/threads/thread-service", () => ({
   readAuthenticatedUser,
   readJsonPayload,
   updateThread,

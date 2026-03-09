@@ -6,7 +6,7 @@ import { Agent, run, user } from "@openai/agents";
 import {
   createAzureResponsesModel,
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/server/application/azure/azure-openai-service";
+} from "~/lib/server/usecase/azure/azure-openai-service";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

@@ -155,7 +155,7 @@ import {
   createAzureOpenAIClient,
   getAzureBearerTokenForScope,
   type AzureOpenAIClient,
-} from "~/lib/server/application/azure/azure-openai-service";
+} from "~/lib/server/usecase/azure/azure-openai-service";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 const chatTransientTerminationRetryMaxAttempts = 2;

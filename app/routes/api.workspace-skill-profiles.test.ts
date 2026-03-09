@@ -20,7 +20,7 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/application/skills/workspace-skill-service", () => ({
+vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
   readAuthenticatedUser: readAuthenticatedUserMock,
   readWorkspaceSkillProfileReconcilePayload: readWorkspaceSkillProfileReconcilePayloadMock,
   readErrorMessage: readErrorMessageMock,

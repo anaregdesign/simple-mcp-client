@@ -26,10 +26,10 @@ vi.mock("~/lib/server/observability/runtime-event-log", () => ({
   logServerRouteEvent: logServerRouteEventMock,
 }));
 
-vi.mock("~/lib/server/application/azure/azure-selection-service", async () => {
+vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
   const actual = await vi.importActual<
-    typeof import("~/lib/server/application/azure/azure-selection-service")
-  >("~/lib/server/application/azure/azure-selection-service");
+    typeof import("~/lib/server/usecase/azure/azure-selection-service")
+  >("~/lib/server/usecase/azure/azure-selection-service");
 
   return {
     ...actual,

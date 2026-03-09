@@ -10,7 +10,7 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/application/workspace/workspace-bootstrap-service", () => ({
+vi.mock("~/lib/server/usecase/workspace/workspace-bootstrap-service", () => ({
   workspaceBootstrapService: {
     loadWorkspaceBootstrap: loadWorkspaceBootstrapMock,
   },

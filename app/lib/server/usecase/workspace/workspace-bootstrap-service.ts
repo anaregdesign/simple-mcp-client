@@ -6,19 +6,19 @@ import {
   type AzureDeployment,
   type AzureProject,
   type AzureTenant,
-} from "~/lib/server/application/azure/azure-project-service";
+} from "~/lib/server/usecase/azure/azure-project-service";
 import {
   azureSelectionService,
   type AzureSelectionPreference,
-} from "~/lib/server/application/azure/azure-selection-service";
+} from "~/lib/server/usecase/azure/azure-selection-service";
 import {
   mcpServerProfileService,
-} from "~/lib/server/application/mcp/mcp-server-profile-service";
+} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 import {
   workspaceSkillService,
   type SkillDiscoveryResult,
-} from "~/lib/server/application/skills/workspace-skill-service";
-import { threadQueryService } from "~/lib/server/application/threads/thread-service";
+} from "~/lib/server/usecase/skills/workspace-skill-service";
+import { threadQueryService } from "~/lib/server/usecase/threads/thread-service";
 import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
 import type { ThreadResource } from "~/lib/contracts/threads/types";

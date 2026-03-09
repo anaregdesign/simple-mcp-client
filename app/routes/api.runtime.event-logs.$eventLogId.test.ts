@@ -13,7 +13,7 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/application/runtime-event-logs/runtime-event-log-service", () => ({
+vi.mock("~/lib/server/usecase/runtime-event-logs/runtime-event-log-service", () => ({
   runtimeEventLogService: {
     readRuntimeEventLogForCurrentUser: readRuntimeEventLogForCurrentUserMock,
   },

@@ -38,7 +38,7 @@ const {
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/application/mcp/mcp-server-profile-service", () => ({
+vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
   readAuthenticatedUser,
   readWorkspaceMcpServerProfiles,
   deleteWorkspaceMcpServerProfile,

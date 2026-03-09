@@ -1,5 +1,5 @@
 import { structuredAuthRequiredResponse, structuredErrorResponse, methodNotAllowedResponse, successResponse } from "~/lib/server/http";
-import { workspaceBootstrapService } from "~/lib/server/application/workspace/workspace-bootstrap-service";
+import { workspaceBootstrapService } from "~/lib/server/usecase/workspace/workspace-bootstrap-service";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

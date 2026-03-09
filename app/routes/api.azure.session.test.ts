@@ -13,7 +13,7 @@ const {
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/application/azure/azure-session-service", () => ({
+vi.mock("~/lib/server/usecase/azure/azure-session-service", () => ({
   azureSessionService: {
     startSession,
     endSession,

@@ -11,7 +11,7 @@ import {
   threadApplicationService,
   threadQueryService,
   type CreateThreadResult,
-} from "~/lib/server/application/threads/thread-service";
+} from "~/lib/server/usecase/threads/thread-service";
 import {
   authRequiredResponse,
   errorResponse,

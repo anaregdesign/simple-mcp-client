@@ -18,7 +18,7 @@ import {
   parseProjectId,
   readErrorMessage,
   resolveAzurePrincipalProfile,
-} from "~/lib/server/application/azure/azure-project-service";
+} from "~/lib/server/usecase/azure/azure-project-service";
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
