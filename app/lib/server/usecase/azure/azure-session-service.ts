@@ -2,24 +2,31 @@
  * Azure session application service module.
  */
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
-import { getAzureDependencies, resetAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
+import type { AzureSessionGateway } from "~/lib/domain/repositories/azure-session-gateway";
 
 export class AzureSessionService {
+  constructor(
+    private readonly gateway: AzureSessionGateway,
+  ) {}
+
   async startSession(requestedTenantId: string): Promise<void> {
     const preferredTenantId = requestedTenantId.trim();
 
-    resetAzureDependencies();
-    const dependencies = getAzureDependencies();
+    this.gateway.reset();
     if (preferredTenantId) {
-      await dependencies.authenticateAzure(AZURE_ARM_SCOPE, preferredTenantId);
+      await this.gateway.authenticate(AZURE_ARM_SCOPE, preferredTenantId);
     } else {
-      await dependencies.authenticateAzure(AZURE_ARM_SCOPE);
+      await this.gateway.authenticate(AZURE_ARM_SCOPE);
     }
   }
 
   endSession(): void {
-    resetAzureDependencies();
+    this.gateway.reset();
   }
 }
 
-export const azureSessionService = new AzureSessionService();
+export function createAzureSessionService(
+  gateway: AzureSessionGateway,
+): AzureSessionService {
+  return new AzureSessionService(gateway);
+}

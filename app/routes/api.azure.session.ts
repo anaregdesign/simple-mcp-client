@@ -2,16 +2,25 @@
  * API route module for /api/azure/session.
  */
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
-import { azureSessionService } from "~/lib/server/usecase/azure/azure-session-service";
+import {
+  createAzureSessionService,
+} from "~/lib/server/usecase/azure/azure-session-service";
 import { errorResponse, methodNotAllowedResponse } from "~/lib/server/http";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  createAzureSessionGateway,
+} from "~/lib/server/infrastructure/gateways/azure/azure-session-gateway";
 import type { Route } from "./+types/api.azure.session";
 
 const AZURE_SESSION_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
 const AZURE_SESSION_INVALID_BODY_ERROR = "Invalid request body.";
+
+function getAzureSessionService() {
+  return createAzureSessionService(createAzureSessionGateway());
+}
 
 export function loader() {
   installGlobalServerErrorLogging();
@@ -38,7 +47,7 @@ export async function action({ request }: Route.ActionArgs) {
     const tenantId = tenantIdResult.tenantId;
 
     try {
-      await azureSessionService.startSession(tenantId);
+      await getAzureSessionService().startSession(tenantId);
 
       return Response.json({
         message: "Azure login completed. Azure projects were refreshed.",
@@ -66,7 +75,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    azureSessionService.endSession();
+    getAzureSessionService().endSession();
 
     return Response.json({
       message: "Azure logout completed. Sign in again when needed.",

@@ -6,18 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   startSession,
   endSession,
+  createAzureSessionService,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   startSession: vi.fn(async () => undefined),
   endSession: vi.fn(),
+  createAzureSessionService: vi.fn(),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
 vi.mock("~/lib/server/usecase/azure/azure-session-service", () => ({
-  azureSessionService: {
+  createAzureSessionService: createAzureSessionService.mockReturnValue({
     startSession,
     endSession,
-  },
+  }),
 }));
 
 vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
@@ -29,6 +31,7 @@ import { action, loader } from "./api.azure.session";
 
 describe("/api/azure/session", () => {
   beforeEach(() => {
+    createAzureSessionService.mockClear();
     startSession.mockReset();
     startSession.mockResolvedValue(undefined);
     endSession.mockReset();

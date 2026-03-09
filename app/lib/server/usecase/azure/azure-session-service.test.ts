@@ -1,57 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
-const {
-  authenticateAzure,
-  getAzureDependencies,
-  resetAzureDependencies,
-} = vi.hoisted(() => {
-  const authenticateAzure = vi.fn(async () => undefined);
-  const getAzureDependencies = vi.fn(() => ({
-    getCredential: vi.fn(),
-    authenticateAzure,
-    getAzureBearerToken: vi.fn(),
-    getAzureOpenAIClient: vi.fn(),
-  }));
-
-  return {
-    authenticateAzure,
-    getAzureDependencies,
-    resetAzureDependencies: vi.fn(),
-  };
-});
-
-vi.mock("~/lib/server/infrastructure/azure/dependencies", () => ({
-  getAzureDependencies,
-  resetAzureDependencies,
-}));
-
+import type { AzureSessionGateway } from "~/lib/domain/repositories/azure-session-gateway";
 import { AzureSessionService } from "./azure-session-service";
+
+function createGatewayMock(): AzureSessionGateway {
+  return {
+    authenticate: vi.fn(async () => undefined),
+    reset: vi.fn(),
+  };
+}
 
 describe("azure-session-service", () => {
   beforeEach(() => {
-    authenticateAzure.mockReset();
-    authenticateAzure.mockResolvedValue(undefined);
-    getAzureDependencies.mockClear();
-    resetAzureDependencies.mockReset();
+    vi.clearAllMocks();
   });
 
   it("starts a generic login flow when no tenant was requested", async () => {
-    const service = new AzureSessionService();
+    const gateway = createGatewayMock();
+    const service = new AzureSessionService(gateway);
 
     await service.startSession("");
 
-    expect(resetAzureDependencies).toHaveBeenCalledTimes(1);
-    expect(getAzureDependencies).toHaveBeenCalledTimes(1);
-    expect(authenticateAzure).toHaveBeenCalledTimes(1);
-    expect(authenticateAzure).toHaveBeenCalledWith(AZURE_ARM_SCOPE);
+    expect(gateway.reset).toHaveBeenCalledTimes(1);
+    expect(gateway.authenticate).toHaveBeenCalledTimes(1);
+    expect(gateway.authenticate).toHaveBeenCalledWith(AZURE_ARM_SCOPE);
   });
 
   it("pins login to the requested tenant when a tenant was provided", async () => {
-    const service = new AzureSessionService();
+    const gateway = createGatewayMock();
+    const service = new AzureSessionService(gateway);
 
     await service.startSession(" tenant-a ");
 
-    expect(authenticateAzure).toHaveBeenCalledWith(
+    expect(gateway.authenticate).toHaveBeenCalledWith(
       AZURE_ARM_SCOPE,
       "tenant-a",
     );
