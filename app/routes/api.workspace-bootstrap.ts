@@ -16,8 +16,14 @@ import {
   createWorkspaceSkillService,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import {
+  createAzureArmAccessGateway,
+} from "~/lib/server/infrastructure/azure/arm-access-context";
+import {
   createAzureSelectionPreferencePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/azure-selection-preference-persistence-repository";
+import {
+  azureProjectQueryService,
+} from "~/lib/server/usecase/azure/azure-project-service";
 import {
   createWorkspaceMcpServerProfilePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/workspace-mcp-server-profile-persistence-repository";
@@ -40,6 +46,8 @@ const WORKSPACE_BOOTSTRAP_ALLOWED_METHODS = ["GET"] as const;
 
 function getWorkspaceBootstrapService() {
   return createWorkspaceBootstrapService({
+    azureArmAccessGateway: createAzureArmAccessGateway(),
+    azureProjectQueryService,
     azureSelectionService: createAzureSelectionService(
       createAzureSelectionPreferencePersistenceRepository(),
     ),

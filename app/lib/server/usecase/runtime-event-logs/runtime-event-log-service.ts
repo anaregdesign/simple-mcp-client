@@ -1,26 +1,33 @@
 /**
  * Runtime event log application service module.
  */
-import { readRuntimeEventLogByIdForUser } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
-import type { AuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import type {
+  RuntimeEventLogOwner,
+  RuntimeEventLogReadRecord,
+  RuntimeEventLogRepository,
+} from "~/lib/domain/repositories/runtime-event-log-repository";
 
 export type RuntimeEventLogReadResult =
   | { status: "not_found" }
   | {
       status: "ok";
-      eventLog: Awaited<ReturnType<typeof readRuntimeEventLogByIdForUser>>;
+      eventLog: RuntimeEventLogReadRecord;
     };
 
 export class RuntimeEventLogService {
+  constructor(
+    private readonly repository: RuntimeEventLogRepository,
+  ) {}
+
   async readRuntimeEventLogForUser(
     eventLogId: string,
-    user: AuthenticatedWorkspaceUser,
+    owner: RuntimeEventLogOwner,
   ): Promise<RuntimeEventLogReadResult> {
-    const eventLog = await readRuntimeEventLogByIdForUser({
+    const eventLog = await this.repository.findByIdForOwner({
       eventLogId,
-      tenantId: user.tenantId,
-      principalId: user.principalId,
-      userId: user.id,
+      tenantId: owner.tenantId,
+      principalId: owner.principalId,
+      userId: owner.userId,
     });
     if (!eventLog) {
       return { status: "not_found" };
@@ -33,4 +40,8 @@ export class RuntimeEventLogService {
   }
 }
 
-export const runtimeEventLogService = new RuntimeEventLogService();
+export function createRuntimeEventLogService(
+  repository: RuntimeEventLogRepository,
+): RuntimeEventLogService {
+  return new RuntimeEventLogService(repository);
+}

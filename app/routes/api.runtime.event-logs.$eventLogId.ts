@@ -2,7 +2,9 @@
  * API route module for /api/runtime/event-logs/:eventLogId.
  */
 import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
-import { runtimeEventLogService } from "~/lib/server/usecase/runtime-event-logs/runtime-event-log-service";
+import {
+  createRuntimeEventLogService,
+} from "~/lib/server/usecase/runtime-event-logs/runtime-event-log-service";
 import {
   authRequiredResponse,
   errorResponse,
@@ -13,9 +15,16 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  runtimeEventLogPersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/runtime-event-log-persistence-repository";
 import type { Route } from "./+types/api.runtime.event-logs.$eventLogId";
 
 const RUNTIME_EVENT_LOG_ITEM_ALLOWED_METHODS = ["GET"] as const;
+
+function getRuntimeEventLogService() {
+  return createRuntimeEventLogService(runtimeEventLogPersistenceRepository);
+}
 
 export function action() {
   installGlobalServerErrorLogging();
@@ -50,7 +59,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   }
 
   try {
-    const result = await runtimeEventLogService.readRuntimeEventLogForUser(eventLogId, user);
+    const result = await getRuntimeEventLogService().readRuntimeEventLogForUser(eventLogId, {
+      tenantId: user.tenantId,
+      principalId: user.principalId,
+      userId: user.id,
+    });
     if (result.status === "not_found") {
       return errorResponse({
         status: 404,

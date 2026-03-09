@@ -6,11 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   readAuthenticatedWorkspaceUserMock,
   readRuntimeEventLogForUserMock,
+  createRuntimeEventLogServiceMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
   readAuthenticatedWorkspaceUserMock: vi.fn(),
   readRuntimeEventLogForUserMock: vi.fn(),
+  createRuntimeEventLogServiceMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
@@ -20,9 +22,9 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 }));
 
 vi.mock("~/lib/server/usecase/runtime-event-logs/runtime-event-log-service", () => ({
-  runtimeEventLogService: {
+  createRuntimeEventLogService: createRuntimeEventLogServiceMock.mockReturnValue({
     readRuntimeEventLogForUser: readRuntimeEventLogForUserMock,
-  },
+  }),
 }));
 
 vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
@@ -35,6 +37,7 @@ import { action, loader } from "./api.runtime.event-logs.$eventLogId";
 describe("/api/runtime/event-logs/:eventLogId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createRuntimeEventLogServiceMock.mockClear();
     readAuthenticatedWorkspaceUserMock.mockResolvedValue({
       id: 10,
       tenantId: "tenant-a",

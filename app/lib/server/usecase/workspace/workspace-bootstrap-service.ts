@@ -1,12 +1,10 @@
-import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import {
-  getArmAccessToken,
-  resolveAzurePrincipalProfile,
+  type AzureArmAccessGateway,
   type AzurePrincipalProfile,
-} from "~/lib/server/infrastructure/azure/arm-access-context";
+} from "~/lib/domain/repositories/azure-arm-access-gateway";
 import {
-  azureProjectQueryService,
   parseProjectId,
+  type AzureProjectQueryService,
   type AzureDeployment,
   type AzureProject,
   type AzureTenant,
@@ -23,13 +21,18 @@ import {
   type SkillDiscoveryResult,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import { type ThreadQueryService } from "~/lib/server/usecase/threads/thread-service";
-import type { AuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 
+type WorkspaceBootstrapUser = {
+  id: number;
+  tenantId: string;
+  principalId: string;
+};
+
 type WorkspaceBootstrapOptions = {
   request: Request;
-  user: AuthenticatedWorkspaceUser;
+  user: WorkspaceBootstrapUser;
 };
 
 type WorkspaceBootstrapData = {
@@ -51,6 +54,11 @@ type WorkspaceBootstrapData = {
 };
 
 type WorkspaceBootstrapDependencies = {
+  azureArmAccessGateway: AzureArmAccessGateway;
+  azureProjectQueryService: Pick<
+    AzureProjectQueryService,
+    "loadAzureProjectsWithFallback" | "loadAzureTenantsWithFallback" | "listProjectDeployments"
+  >;
   azureSelectionService: AzureSelectionService;
   mcpServerProfileService: McpServerProfileService;
   threadQueryService: ThreadQueryService;
@@ -65,8 +73,7 @@ export class WorkspaceBootstrapService {
   async loadWorkspaceBootstrap(
     options: WorkspaceBootstrapOptions,
   ): Promise<WorkspaceBootstrapData | null> {
-    const azureDependencies = getAzureDependencies();
-    const tokenResult = await getArmAccessToken(azureDependencies);
+    const tokenResult = await this.dependencies.azureArmAccessGateway.getArmAccessToken();
     if (!tokenResult.ok) {
       return null;
     }
@@ -84,12 +91,12 @@ export class WorkspaceBootstrapService {
       workspaceMcpServerProfiles,
       skillDiscovery,
     ] = await Promise.all([
-      resolveAzurePrincipalProfile(tokenResult, azureDependencies),
-      azureProjectQueryService.loadAzureProjectsWithFallback(
+      this.dependencies.azureArmAccessGateway.resolveAzurePrincipalProfile(tokenResult),
+      this.dependencies.azureProjectQueryService.loadAzureProjectsWithFallback(
         options.request,
         tokenResult.token,
       ),
-      azureProjectQueryService.loadAzureTenantsWithFallback(
+      this.dependencies.azureProjectQueryService.loadAzureTenantsWithFallback(
         options.request,
         tokenResult.token,
         tokenResult.tenantId,
@@ -109,6 +116,7 @@ export class WorkspaceBootstrapService {
     ]);
 
     const azureDeploymentsByProjectId = await loadAzureDeploymentsByProjectId(
+      this.dependencies.azureProjectQueryService,
       tokenResult.token,
       azureSelection,
     );
@@ -140,6 +148,10 @@ export function createWorkspaceBootstrapService(
 }
 
 async function loadAzureDeploymentsByProjectId(
+  azureProjectQueryServiceDependency: Pick<
+    AzureProjectQueryService,
+    "listProjectDeployments"
+  >,
   accessToken: string,
   selection: AzureSelectionPreference | null,
 ): Promise<Record<string, AzureDeployment[]>> {
@@ -161,7 +173,7 @@ async function loadAzureDeploymentsByProjectId(
       }
 
       try {
-        const items = await azureProjectQueryService.listProjectDeployments(
+        const items = await azureProjectQueryServiceDependency.listProjectDeployments(
           accessToken,
           projectRef,
         );
