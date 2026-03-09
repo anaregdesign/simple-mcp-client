@@ -84,11 +84,11 @@ describe("InstructionPatchesApiClient", () => {
         },
         { fetchImpl, onAuthRequired },
       ),
-    ).rejects.toMatchObject<ClientApiError>({
+    ).rejects.toMatchObject({
       kind: "auth_required",
       message:
         "Azure login is required. Open Settings and sign in to enhance instructions.",
-    });
+    } satisfies Partial<ClientApiError>);
 
     expect(onAuthRequired).toHaveBeenCalledTimes(1);
   });
