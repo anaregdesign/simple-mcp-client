@@ -6,7 +6,7 @@ import nodeOs from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants/mcp";
-import { resolveWorkingDirectory } from "~/lib/server/usecase/mcp/mcp-cmd-working-directory";
+import { resolveWorkingDirectory } from "~/lib/server/infrastructure/gateways/mcp/mcp-cmd-working-directory";
 
 const {
   readAzureArmUserContextMock,

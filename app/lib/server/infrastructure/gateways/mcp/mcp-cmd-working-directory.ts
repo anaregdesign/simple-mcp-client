@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveThreadFilesystemWorkingDirectory } from "./workspace-mcp-server-default-paths";
+import { resolveThreadFilesystemWorkingDirectory } from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 

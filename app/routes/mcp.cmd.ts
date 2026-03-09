@@ -18,7 +18,7 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
-import { resolveWorkingDirectory } from "~/lib/server/usecase/mcp/mcp-cmd-working-directory";
+import { resolveWorkingDirectory } from "~/lib/server/infrastructure/gateways/mcp/mcp-cmd-working-directory";
 
 const MCP_CMD_ROUTE_PATH = "/mcp/cmd";
 const MCP_CMD_AUTH_REQUIRED_MESSAGE =

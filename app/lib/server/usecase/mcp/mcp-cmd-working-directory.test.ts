@@ -2,8 +2,8 @@ import fs from "node:fs";
 import nodeOs from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveThreadFilesystemWorkingDirectory } from "./workspace-mcp-server-default-paths";
-import { resolveWorkingDirectory } from "./mcp-cmd-working-directory";
+import { resolveThreadFilesystemWorkingDirectory } from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
+import { resolveWorkingDirectory } from "~/lib/server/infrastructure/gateways/mcp/mcp-cmd-working-directory";
 
 const createdPaths = new Set<string>();
 

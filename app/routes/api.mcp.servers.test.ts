@@ -21,7 +21,7 @@ import {
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
-import { resolveDefaultFilesystemWorkingDirectory } from "~/lib/server/usecase/mcp/workspace-mcp-server-default-paths";
+import { resolveDefaultFilesystemWorkingDirectory } from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
 type DefaultWorkspaceMcpServerProfileRow =
   (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<

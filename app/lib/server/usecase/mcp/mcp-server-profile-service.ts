@@ -21,7 +21,7 @@ import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositor
 import {
   resolveDefaultFilesystemWorkingDirectory,
   resolveLegacyFilesystemWorkingDirectory,
-} from "~/lib/server/usecase/mcp/workspace-mcp-server-default-paths";
+} from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
 
 export { parseIncomingMcpServer };
 
