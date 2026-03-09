@@ -30,12 +30,6 @@ import {
   THREAD_NAME_MAX_LENGTH,
 } from "~/lib/constants/client";
 import {
-  INSTRUCTION_ALLOWED_EXTENSIONS,
-  INSTRUCTION_ENHANCE_SYSTEM_PROMPT,
-  INSTRUCTION_MAX_FILE_SIZE_BYTES,
-  INSTRUCTION_MAX_FILE_SIZE_LABEL,
-} from "~/lib/constants/instruction";
-import {
   DEFAULT_MCP_TRANSPORT,
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_TIMEOUT_SECONDS,
@@ -60,17 +54,7 @@ import {
   upsertThreadOperationLogEntry,
 } from "~/lib/client/chat/stream";
 import {
-  applyInstructionUnifiedDiffPatch,
-  buildInstructionEnhanceMessage,
-  buildInstructionSuggestedFileName,
   describeInstructionLanguage,
-  detectInstructionLanguage,
-  isInstructionSaveCanceled,
-  normalizeInstructionDiffPatchResponse,
-  resolveInstructionFormatExtension,
-  resolveInstructionSourceFileName,
-  saveInstructionToClientFile,
-  validateEnhancedInstructionFormat,
 } from "~/lib/client/usecase/workspace/instruction-document";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/main-splitter";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
@@ -183,6 +167,7 @@ import {
   requestClientApi,
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
+import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
@@ -218,6 +203,9 @@ import {
 import {
   createInstructionEditingHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editing-handlers";
+import {
+  createInstructionPromptHandlers,
+} from "~/lib/client/usecase/workspace/instruction-prompt-handlers";
 import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profile-handlers";
@@ -3012,28 +3000,6 @@ export function useWorkspace() {
     setUiError(null);
   }
 
-  function handleUtilityProjectChange(projectId: string) {
-    handleSelectUtilityProject(projectId);
-    setInstructionEnhanceError(null);
-  }
-
-  function handleUtilityDeploymentChange(nextDeploymentNameRaw: string) {
-    const nextDeploymentName = nextDeploymentNameRaw.trim();
-    handleSelectUtilityDeployment(nextDeploymentName);
-    setInstructionEnhanceError(null);
-  }
-
-  function handleUtilityReasoningEffortChange(nextValue: ReasoningEffort) {
-    if (!isUtilityReasoningEffortSupported) {
-      return;
-    }
-    if (!effectiveUtilityReasoningEffortOptions.includes(nextValue)) {
-      return;
-    }
-    handleAzureUtilityReasoningEffortChange(nextValue);
-    setInstructionEnhanceError(null);
-  }
-
   function handleReasoningEffortChange(nextValue: ReasoningEffort) {
     if (!isPlaygroundReasoningEffortSupported) {
       return;
@@ -3093,270 +3059,58 @@ export function useWorkspace() {
     logClientError,
   });
 
-  async function handleSaveInstructionPrompt() {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    if (isSavingInstructionPrompt) {
-      return;
-    }
-
-    setInstructionSaveError(null);
-    setInstructionSaveSuccess(null);
-
-    if (!agentInstruction.trim()) {
-      setInstructionSaveError("Instruction is empty.");
-      return;
-    }
-
-    setIsSavingInstructionPrompt(true);
-
-    try {
-      const sourceFileName = resolveInstructionSourceFileName(
-        loadedInstructionFileName,
-      );
-      const suggestedFileName = buildInstructionSuggestedFileName(
-        sourceFileName,
-        agentInstruction,
-      );
-      const saveResult = await saveInstructionToClientFile(
-        agentInstruction,
-        suggestedFileName,
-      );
-      setLoadedInstructionFileName(saveResult.fileName);
-      setInstructionSaveSuccess(
-        saveResult.mode === "picker"
-          ? `Saved as ${saveResult.fileName}`
-          : `Download started: ${saveResult.fileName}`,
-      );
-    } catch (saveError) {
-      if (isInstructionSaveCanceled(saveError)) {
-        return;
-      }
-      logClientError("save_instruction_file_failed", saveError, {
-        action: "save_instruction_file",
-      });
-      setInstructionSaveError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Failed to save instruction prompt.",
-      );
-    } finally {
-      setIsSavingInstructionPrompt(false);
-    }
-  }
-
-  async function handleEnhanceInstruction() {
-    const enhanceThreadId = activeThreadIdRef.current.trim();
-    if (!enhanceThreadId || isArchivedThread(enhanceThreadId)) {
-      return;
-    }
-
-    if (isEnhancingInstruction) {
-      return;
-    }
-
-    setInstructionEnhanceError(null);
-    setInstructionEnhanceSuccess(null);
-    setInstructionEnhanceComparison(null);
-
-    const currentInstruction = agentInstruction.trim();
-    if (!currentInstruction) {
-      setInstructionEnhanceError("Instruction is empty.");
-      return;
-    }
-
-    if (isChatLocked) {
-      setActiveMainTab("settings");
-      setInstructionEnhanceError(
-        "Playground is unavailable while logged out. Open Azure Connection and sign in first.",
-      );
-      return;
-    }
-
-    if (!activeUtilityAzureConnection) {
-      setInstructionEnhanceError("No Utility project is selected.");
-      return;
-    }
-
-    const deploymentName = selectedUtilityAzureDeploymentName.trim();
-    if (isLoadingUtilityAzureDeployments) {
-      setInstructionEnhanceError(
-        "Utility deployment list is loading. Please wait.",
-      );
-      return;
-    }
-
-    if (
-      !deploymentName ||
-      !includesAzureDeploymentName(utilityAzureDeployments, deploymentName)
-    ) {
-      setInstructionEnhanceError(
-        "Select a Utility deployment before enhancing.",
-      );
-      return;
-    }
-
-    const sourceFileName = resolveInstructionSourceFileName(
-      loadedInstructionFileName,
-    );
-    const instructionExtension = resolveInstructionFormatExtension(
-      sourceFileName,
-      currentInstruction,
-    );
-    const instructionLanguage = detectInstructionLanguage(currentInstruction);
-    const enhanceRequestMessage = buildInstructionEnhanceMessage({
-      instruction: currentInstruction,
-      extension: instructionExtension,
-      language: instructionLanguage,
-    });
-
-    setInstructionEnhancingThreadId(enhanceThreadId);
-    setIsEnhancingInstruction(true);
-
-    try {
-      const response = await fetch("/api/instruction-patches", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          message: enhanceRequestMessage,
-          azureConfig: {
-            tenantId: activeAzureTenantIdRef.current,
-            projectName: activeUtilityAzureConnection.projectName,
-            baseUrl: activeUtilityAzureConnection.baseUrl,
-            apiVersion: activeUtilityAzureConnection.apiVersion,
-            deploymentName,
-          },
-          supportsReasoningEffort: isUtilityReasoningEffortSupported,
-          ...(isUtilityReasoningEffortSupported
-            ? { reasoningEffort: effectiveUtilityReasoningEffort }
-            : {}),
-          enhanceAgentInstruction: INSTRUCTION_ENHANCE_SYSTEM_PROMPT,
-        }),
-      });
-
-      const payload = (await response.json()) as ChatApiResponse;
-      if (!response.ok || payload.error) {
-        if (payload.errorCode === "azure_login_required") {
+  const {
+    handleUtilityProjectChange,
+    handleUtilityDeploymentChange,
+    handleUtilityReasoningEffortChange,
+    handleSaveInstructionPrompt,
+    handleEnhanceInstruction,
+    handleAdoptEnhancedInstruction,
+    handleAdoptOriginalInstruction,
+  } = createInstructionPromptHandlers({
+    isArchivedThread,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    readAgentInstruction: () => agentInstruction,
+    readLoadedInstructionFileName: () => loadedInstructionFileName,
+    readInstructionEnhanceComparison: () => instructionEnhanceComparison,
+    isSavingInstructionPrompt,
+    setIsSavingInstructionPrompt,
+    isEnhancingInstruction,
+    setIsEnhancingInstruction,
+    setInstructionEnhancingThreadId,
+    setLoadedInstructionFileName,
+    setInstructionFileError,
+    setInstructionSaveError,
+    setInstructionSaveSuccess,
+    setInstructionEnhanceError,
+    setInstructionEnhanceSuccess,
+    setInstructionEnhanceComparison,
+    setAgentInstruction,
+    setActiveMainTab,
+    isChatLocked,
+    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+    readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
+    readSelectedUtilityAzureDeploymentName: () =>
+      selectedUtilityAzureDeploymentName,
+    readUtilityAzureDeployments: () => utilityAzureDeployments,
+    isLoadingUtilityAzureDeployments,
+    isUtilityReasoningEffortSupported,
+    readEffectiveUtilityReasoningEffort: () =>
+      effectiveUtilityReasoningEffort,
+    readEffectiveUtilityReasoningEffortOptions: () =>
+      effectiveUtilityReasoningEffortOptions,
+    handleSelectUtilityProject,
+    handleSelectUtilityDeployment,
+    handleAzureUtilityReasoningEffortChange,
+    requestInstructionEnhancement: (request) =>
+      instructionPatchesApiClient.enhanceInstruction(request, {
+        onAuthRequired: () => {
           markAzureAuthRequired();
-        }
-
-        throw new Error(payload.error || "Failed to enhance instruction.");
-      }
-
-      const rawInstructionPatch =
-        typeof payload.message === "string" ? payload.message : "";
-      const normalizedInstructionPatch =
-        normalizeInstructionDiffPatchResponse(rawInstructionPatch);
-      if (!normalizedInstructionPatch) {
-        setInstructionEnhanceSuccess("No changes were suggested.");
-        return;
-      }
-
-      const patchApplyResult = applyInstructionUnifiedDiffPatch(
-        currentInstruction,
-        normalizedInstructionPatch,
-      );
-      if (!patchApplyResult.ok) {
-        throw new Error(patchApplyResult.error);
-      }
-      const normalizedEnhancedInstruction = patchApplyResult.value;
-      const formatValidation = validateEnhancedInstructionFormat(
-        normalizedEnhancedInstruction,
-        instructionExtension,
-      );
-      if (!formatValidation.ok) {
-        throw new Error(formatValidation.error);
-      }
-
-      if (normalizedEnhancedInstruction === currentInstruction) {
-        setInstructionEnhanceSuccess("No changes were suggested.");
-        return;
-      }
-
-      setInstructionEnhanceComparison({
-        original: currentInstruction,
-        enhanced: normalizedEnhancedInstruction,
-        extension: instructionExtension,
-        language: instructionLanguage,
-        diffPatch: normalizedInstructionPatch,
-      });
-      setInstructionFileError(null);
-      setInstructionSaveError(null);
-      setInstructionSaveSuccess(null);
-      setInstructionEnhanceSuccess(
-        "Review the diff and choose which version to adopt.",
-      );
-    } catch (enhanceError) {
-      logClientError("enhance_instruction_failed", enhanceError, {
-        action: "enhance_instruction",
-      });
-      setInstructionEnhanceError(
-        enhanceError instanceof Error
-          ? enhanceError.message
-          : "Failed to enhance instruction.",
-      );
-    } finally {
-      setIsEnhancingInstruction(false);
-      setInstructionEnhancingThreadId("");
-    }
-  }
-
-  function handleAdoptEnhancedInstruction() {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    if (!instructionEnhanceComparison) {
-      return;
-    }
-
-    const enhancedInstruction = instructionEnhanceComparison.enhanced;
-    const currentThreadId = activeThreadIdRef.current.trim();
-    setAgentInstruction(enhancedInstruction);
-    setInstructionEnhanceComparison(null);
-    setInstructionEnhanceError(null);
-    setInstructionSaveError(null);
-    setInstructionSaveSuccess(null);
-    setInstructionEnhanceSuccess("Enhanced instruction applied.");
-    if (currentThreadId) {
-      void refreshThreadTitleInBackground({
-        threadId: currentThreadId,
-        reason: "instruction_update",
-        instructionOverride: enhancedInstruction,
-      });
-    }
-  }
-
-  function handleAdoptOriginalInstruction() {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    if (!instructionEnhanceComparison) {
-      return;
-    }
-
-    const originalInstruction = instructionEnhanceComparison.original;
-    const currentThreadId = activeThreadIdRef.current.trim();
-    setAgentInstruction(originalInstruction);
-    setInstructionEnhanceComparison(null);
-    setInstructionEnhanceError(null);
-    setInstructionSaveError(null);
-    setInstructionSaveSuccess(null);
-    setInstructionEnhanceSuccess("Kept original instruction.");
-    if (currentThreadId) {
-      void refreshThreadTitleInBackground({
-        threadId: currentThreadId,
-        reason: "instruction_update",
-        instructionOverride: originalInstruction,
-      });
-    }
-  }
+        },
+      }),
+    refreshThreadTitleInBackground,
+    logClientError,
+  });
 
   async function handleApplyDesktopUpdate() {
     const desktopApi = readDesktopApi();
