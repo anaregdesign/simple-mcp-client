@@ -3,8 +3,8 @@
  */
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { resolveWorkspaceThreadDirectory, resolveWorkspaceUserDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { ensurePersistenceDatabaseReady, prisma } from "~/lib/server/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+import { ensurePersistenceDatabaseReady, prisma } from "~/lib/server/infrastructure/persistence/prisma";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 
 export type ThreadDirectoryContext = {
   userId: number;

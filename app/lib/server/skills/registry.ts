@@ -32,7 +32,7 @@ import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
-} from "~/lib/server/persistence/prisma";
+} from "~/lib/server/infrastructure/persistence/prisma";
 
 type ResolveSkillRegistryOptions = {
   workspaceUserId: number;
