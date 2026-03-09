@@ -47,7 +47,8 @@ vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
   };
 });
 
-import { action, loader, parseAzureSelectionPreference } from "./api.azure.selection";
+import { parseAzureSelectionPreference } from "~/lib/server/usecase/azure/azure-selection-service";
+import { action, loader } from "./api.azure.selection";
 
 describe("parseAzureSelectionPreference", () => {
   it("parses and trims a valid selection payload", () => {

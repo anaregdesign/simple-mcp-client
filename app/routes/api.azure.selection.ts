@@ -24,8 +24,6 @@ import {
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { Route } from "./+types/api.azure.selection";
 
-export { parseAzureSelectionPreference };
-
 const AZURE_SELECTION_ALLOWED_METHODS = ["GET", "PATCH", "DELETE"] as const;
 
 function getAzureSelectionService() {
