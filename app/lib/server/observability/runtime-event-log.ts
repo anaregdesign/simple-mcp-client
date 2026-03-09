@@ -2,27 +2,14 @@
  * Server runtime module.
  */
 import {
-  createRuntimeEventLogId,
-  normalizeRuntimeEventLogLevel,
-  normalizeRuntimeEventLogSource,
-  normalizeCategory,
-  normalizeCreatedAt,
-  normalizeEventName,
-  normalizeMessage,
-  normalizeOptionalLabel,
-  normalizeOptionalPath,
-  normalizeOptionalStatusCode,
-  normalizeOptionalTextValue,
-  normalizeOptionalUserId,
   readErrorDetails,
-  serializeRuntimeEventContext,
   type RuntimeEventLogInput,
   type RuntimeEventLogLevel,
 } from "~/lib/contracts/shared/runtime-event-log";
 import {
-  ensurePersistenceDatabaseReady,
-  prisma,
-} from "~/lib/server/infrastructure/persistence/prisma";
+  type RuntimeEventLogReadRecord,
+} from "~/lib/domain/repositories/runtime-event-log-repository";
+import { runtimeEventLogPersistenceRepository } from "~/lib/server/infrastructure/repositories/runtime-event-log-persistence-repository";
 
 type ProcessWithUncaughtMonitor = NodeJS.Process & {
   on(event: "uncaughtExceptionMonitor", listener: (error: Error, origin: string) => void): NodeJS.Process;
@@ -153,28 +140,6 @@ export async function logRuntimeEventWithId(input: RuntimeEventLogInput): Promis
   return await createRuntimeEventLog(input);
 }
 
-export type RuntimeEventLogReadRecord = {
-  id: string;
-  createdAt: string;
-  source: string;
-  level: string;
-  category: string;
-  eventName: string;
-  message: string;
-  errorName: string | null;
-  location: string | null;
-  action: string | null;
-  statusCode: number | null;
-  httpMethod: string | null;
-  httpPath: string | null;
-  threadId: string | null;
-  tenantId: string | null;
-  principalId: string | null;
-  userId: number | null;
-  stack: string | null;
-  context: Record<string, unknown>;
-};
-
 export async function readRuntimeEventLogByIdForUser(options: {
   eventLogId: string;
   tenantId: string;
@@ -186,111 +151,18 @@ export async function readRuntimeEventLogByIdForUser(options: {
     return null;
   }
 
-  const ownerFilters: Array<
-    | {
-        tenantId: string;
-        principalId: string;
-      }
-    | {
-        userId: number;
-      }
-  > = [];
-  const tenantId = options.tenantId.trim();
-  const principalId = options.principalId.trim();
-  if (tenantId && principalId) {
-    ownerFilters.push({
-      tenantId,
-      principalId,
-    });
-  }
-
-  if (typeof options.userId === "number" && Number.isInteger(options.userId) && options.userId > 0) {
-    ownerFilters.push({
-      userId: options.userId,
-    });
-  }
-  if (ownerFilters.length === 0) {
-    return null;
-  }
-
-  await ensurePersistenceDatabaseReady();
-  const record = await prisma.runtimeEventLog.findFirst({
-    where: {
-      id: eventLogId,
-      OR: ownerFilters,
-    },
+  return runtimeEventLogPersistenceRepository.findByIdForOwner({
+    eventLogId,
+    tenantId: options.tenantId,
+    principalId: options.principalId,
+    userId: options.userId,
   });
-  if (!record) {
-    return null;
-  }
-
-  return {
-    id: record.id,
-    createdAt: record.createdAt,
-    source: record.source,
-    level: record.level,
-    category: record.category,
-    eventName: record.eventName,
-    message: record.message,
-    errorName: record.errorName,
-    location: record.location,
-    action: record.action,
-    statusCode: record.statusCode,
-    httpMethod: record.httpMethod,
-    httpPath: record.httpPath,
-    threadId: record.threadId,
-    tenantId: record.tenantId,
-    principalId: record.principalId,
-    userId: record.userId,
-    stack: record.stack,
-    context: readRuntimeEventContext(record.contextJson),
-  };
 }
 
 async function createRuntimeEventLog(input: RuntimeEventLogInput): Promise<string | null> {
-  const runtimeEventLogId =
-    typeof input.id === "string" && input.id.trim() ? input.id.trim() : createRuntimeEventLogId();
-
   try {
-    await ensurePersistenceDatabaseReady();
-    await prisma.runtimeEventLog.create({
-      data: {
-        id: runtimeEventLogId,
-        createdAt: normalizeCreatedAt(input.createdAt),
-        source: normalizeRuntimeEventLogSource(input.source),
-        level: normalizeRuntimeEventLogLevel(input.level),
-        category: normalizeCategory(input.category),
-        eventName: normalizeEventName(input.eventName),
-        message: normalizeMessage(input.message),
-        errorName: normalizeOptionalLabel(input.errorName),
-        location: normalizeOptionalPath(input.location),
-        action: normalizeOptionalLabel(input.action),
-        statusCode: normalizeOptionalStatusCode(input.statusCode),
-        httpMethod: normalizeOptionalLabel(input.httpMethod),
-        httpPath: normalizeOptionalPath(input.httpPath),
-        threadId: normalizeOptionalLabel(input.threadId),
-        tenantId: normalizeOptionalLabel(input.tenantId),
-        principalId: normalizeOptionalLabel(input.principalId),
-        userId: normalizeOptionalUserId(input.userId),
-        stack: normalizeOptionalTextValue(input.stack),
-        contextJson: serializeRuntimeEventContext(input.context),
-      },
-    });
-    return runtimeEventLogId;
+    return await runtimeEventLogPersistenceRepository.create(input);
   } catch {
-    // Logging must not throw into business logic.
     return null;
-  }
-}
-
-function readRuntimeEventContext(value: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    return {};
-  } catch {
-    return {};
   }
 }

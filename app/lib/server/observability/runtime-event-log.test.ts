@@ -3,21 +3,20 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { ensurePersistenceDatabaseReadyMock, runtimeEventLogCreateMock, runtimeEventLogFindFirstMock } = vi.hoisted(() => ({
-  ensurePersistenceDatabaseReadyMock: vi.fn(),
-  runtimeEventLogCreateMock: vi.fn(),
-  runtimeEventLogFindFirstMock: vi.fn(),
+const { createMock, findByIdForOwnerMock } = vi.hoisted(() => ({
+  createMock: vi.fn(),
+  findByIdForOwnerMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/infrastructure/persistence/prisma", () => ({
-  ensurePersistenceDatabaseReady: ensurePersistenceDatabaseReadyMock,
-  prisma: {
-    runtimeEventLog: {
-      create: runtimeEventLogCreateMock,
-      findFirst: runtimeEventLogFindFirstMock,
+vi.mock(
+  "~/lib/server/infrastructure/repositories/runtime-event-log-persistence-repository",
+  () => ({
+    runtimeEventLogPersistenceRepository: {
+      create: createMock,
+      findByIdForOwner: findByIdForOwnerMock,
     },
-  },
-}));
+  }),
+);
 
 import {
   logRuntimeEvent,
@@ -28,12 +27,11 @@ import {
 describe("logRuntimeEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    ensurePersistenceDatabaseReadyMock.mockResolvedValue(undefined);
-    runtimeEventLogCreateMock.mockResolvedValue(undefined);
-    runtimeEventLogFindFirstMock.mockResolvedValue(null);
+    createMock.mockResolvedValue("runtime-event-log-1");
+    findByIdForOwnerMock.mockResolvedValue(null);
   });
 
-  it("writes normalized app event logs to prisma", async () => {
+  it("forwards app event logs to the repository", async () => {
     await logRuntimeEvent({
       source: "server",
       level: "error",
@@ -48,22 +46,24 @@ describe("logRuntimeEvent", () => {
       },
     });
 
-    expect(ensurePersistenceDatabaseReadyMock).toHaveBeenCalledTimes(1);
-    expect(runtimeEventLogCreateMock).toHaveBeenCalledTimes(1);
-    const call = runtimeEventLogCreateMock.mock.calls[0]?.[0] as {
-      data: { contextJson: string; source: string; level: string; category: string; eventName: string };
-    };
-    expect(call.data.source).toBe("server");
-    expect(call.data.level).toBe("error");
-    expect(call.data.category).toBe("api");
-    expect(call.data.eventName).toBe("chat_execution_failed");
-    expect(JSON.parse(call.data.contextJson)).toEqual({
-      attempt: 1,
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(createMock).toHaveBeenCalledWith({
+      source: "server",
+      level: "error",
+      category: "api",
+      eventName: "chat_execution_failed",
+      message: "upstream timeout",
+      statusCode: 502,
+      httpMethod: "POST",
+      httpPath: "/api/chat",
+      context: {
+        attempt: 1,
+      },
     });
   });
 
-  it("never throws when database write fails", async () => {
-    runtimeEventLogCreateMock.mockRejectedValueOnce(new Error("db failed"));
+  it("never throws when repository write fails", async () => {
+    createMock.mockRejectedValueOnce(new Error("db failed"));
 
     await expect(
       logRuntimeEvent({
@@ -80,9 +80,8 @@ describe("logRuntimeEvent", () => {
 describe("logRuntimeEventWithId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    ensurePersistenceDatabaseReadyMock.mockResolvedValue(undefined);
-    runtimeEventLogCreateMock.mockResolvedValue(undefined);
-    runtimeEventLogFindFirstMock.mockResolvedValue(null);
+    createMock.mockResolvedValue("runtime-event-log-1");
+    findByIdForOwnerMock.mockResolvedValue(null);
   });
 
   it("returns created event log id on success", async () => {
@@ -94,13 +93,12 @@ describe("logRuntimeEventWithId", () => {
       message: "created",
     });
 
-    expect(typeof eventLogId).toBe("string");
-    expect(eventLogId && eventLogId.length > 0).toBe(true);
-    expect(runtimeEventLogCreateMock).toHaveBeenCalledTimes(1);
+    expect(eventLogId).toBe("runtime-event-log-1");
+    expect(createMock).toHaveBeenCalledTimes(1);
   });
 
-  it("returns null when database write fails", async () => {
-    runtimeEventLogCreateMock.mockRejectedValueOnce(new Error("db failed"));
+  it("returns null when repository write fails", async () => {
+    createMock.mockRejectedValueOnce(new Error("db failed"));
 
     await expect(
       logRuntimeEventWithId({
@@ -117,9 +115,8 @@ describe("logRuntimeEventWithId", () => {
 describe("logServerRouteEvent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    ensurePersistenceDatabaseReadyMock.mockResolvedValue(undefined);
-    runtimeEventLogCreateMock.mockResolvedValue(undefined);
-    runtimeEventLogFindFirstMock.mockResolvedValue(null);
+    createMock.mockResolvedValue("runtime-event-log-1");
+    findByIdForOwnerMock.mockResolvedValue(null);
   });
 
   it("captures route request metadata and error details", async () => {
@@ -139,24 +136,26 @@ describe("logServerRouteEvent", () => {
       },
     });
 
-    const call = runtimeEventLogCreateMock.mock.calls[0]?.[0] as {
-      data: {
-        httpMethod: string;
-        httpPath: string;
-        location: string;
-        errorName: string | null;
-        message: string;
-        contextJson: string;
-      };
-    };
-
-    expect(call.data.httpMethod).toBe("POST");
-    expect(call.data.httpPath).toBe("/api/chat");
-    expect(call.data.location).toBe("/api/chat");
-    expect(call.data.errorName).toBe("Error");
-    expect(call.data.message).toBe("Bad gateway");
-    expect(JSON.parse(call.data.contextJson)).toEqual({
-      turnId: "turn-1",
+    expect(createMock).toHaveBeenCalledWith({
+      source: "server",
+      level: "error",
+      category: "api",
+      eventName: "chat_execution_failed",
+      message: "Bad gateway",
+      errorName: "Error",
+      stack: expect.any(String),
+      location: "/api/chat",
+      action: "execute_chat",
+      statusCode: 502,
+      httpMethod: "POST",
+      httpPath: "/api/chat",
+      threadId: null,
+      tenantId: null,
+      principalId: null,
+      userId: null,
+      context: {
+        turnId: "turn-1",
+      },
     });
   });
 });
@@ -164,13 +163,12 @@ describe("logServerRouteEvent", () => {
 describe("readRuntimeEventLogByIdForUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    ensurePersistenceDatabaseReadyMock.mockResolvedValue(undefined);
-    runtimeEventLogCreateMock.mockResolvedValue(undefined);
-    runtimeEventLogFindFirstMock.mockResolvedValue(null);
+    createMock.mockResolvedValue("runtime-event-log-1");
+    findByIdForOwnerMock.mockResolvedValue(null);
   });
 
   it("returns normalized event log when owner matches", async () => {
-    runtimeEventLogFindFirstMock.mockResolvedValueOnce({
+    findByIdForOwnerMock.mockResolvedValueOnce({
       id: "event-1",
       createdAt: "2026-03-01T00:00:00.000Z",
       source: "client",
@@ -189,7 +187,9 @@ describe("readRuntimeEventLogByIdForUser", () => {
       principalId: "principal-a",
       userId: 10,
       stack: null,
-      contextJson: "{\"source\":\"ui\"}",
+      context: {
+        source: "ui",
+      },
     });
 
     const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log");
@@ -200,9 +200,28 @@ describe("readRuntimeEventLogByIdForUser", () => {
       userId: 10,
     });
 
+    expect(findByIdForOwnerMock).toHaveBeenCalledWith({
+      eventLogId: "event-1",
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+      userId: 10,
+    });
     expect(eventLog).not.toBeNull();
     expect(eventLog?.id).toBe("event-1");
     expect(eventLog?.context).toEqual({ source: "ui" });
+  });
+
+  it("returns null when event log id is blank", async () => {
+    const { readRuntimeEventLogByIdForUser } = await import("./runtime-event-log");
+    const eventLog = await readRuntimeEventLogByIdForUser({
+      eventLogId: "   ",
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+      userId: 10,
+    });
+
+    expect(findByIdForOwnerMock).not.toHaveBeenCalled();
+    expect(eventLog).toBeNull();
   });
 
   it("returns null when event log is not found", async () => {
