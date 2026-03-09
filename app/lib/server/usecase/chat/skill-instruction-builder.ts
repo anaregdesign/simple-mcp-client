@@ -2,7 +2,7 @@ import {
   DEFAULT_AGENT_INSTRUCTION,
 } from "~/lib/constants/chat";
 import { AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES } from "~/lib/constants/skills";
-import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import type { ThreadInstructionContextToggles } from "~/lib/domain/entities/thread-record";
 import type {
   ActiveSkillRuntimeEntry,
 } from "~/lib/server/usecase/chat/skill-runtime-types";

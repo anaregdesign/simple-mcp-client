@@ -1,4 +1,4 @@
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
 import type {
   ChatExecutionOptions,
   ChatMcpRuntimeMetrics,

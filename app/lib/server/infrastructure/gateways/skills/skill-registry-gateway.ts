@@ -28,7 +28,7 @@ import {
   type SkillRegistryId,
   type SkillRegistryOption,
 } from "~/lib/domain/value-objects/skill-registry";
-import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
+import type { SkillRegistryCatalog } from "~/lib/domain/entities/skill-catalog";
 import type {
   WorkspaceSkillRegistryMutationGateway,
 } from "~/lib/domain/repositories/workspace-skill-registry-mutation-gateway";

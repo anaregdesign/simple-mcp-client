@@ -54,12 +54,14 @@ import {
   AGENT_SKILL_SCRIPT_TIMEOUT_MAX_MS,
   AGENT_SKILL_TOOL_RESOURCE_PREVIEW_MAX_FILES,
 } from "~/lib/constants/skills";
+import type {
+  ThreadEnvironment,
+  ThreadInstructionContextToggles,
+} from "~/lib/domain/entities/thread-record";
 import {
   cloneThreadEnvironment,
   parseThreadEnvironmentFromUnknown,
-  type ThreadEnvironment,
 } from "~/lib/contracts/threads/environment";
-import { type ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import {
   isDeploymentReasoningEffortCompatible,
   isWebSearchCompatibleReasoningEffort,

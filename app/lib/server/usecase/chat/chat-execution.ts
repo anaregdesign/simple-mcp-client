@@ -22,13 +22,13 @@ import {
   CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS,
 } from "~/lib/constants/chat";
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
+import type {
+  ThreadEnvironment,
+  ThreadInstructionContextToggles,
+  ThreadSkillActivation,
+} from "~/lib/domain/entities/thread-record";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import {
-  cloneThreadEnvironment,
-  type ThreadEnvironment,
-} from "~/lib/contracts/threads/environment";
-import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
 import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
 import type {

@@ -20,7 +20,7 @@ import {
 import type {
   SkillCatalogEntry,
   SkillCatalogSource,
-} from "~/lib/contracts/skills/types";
+} from "~/lib/domain/entities/skill-catalog";
 
 type SkillCatalogRoot = {
   path: string;

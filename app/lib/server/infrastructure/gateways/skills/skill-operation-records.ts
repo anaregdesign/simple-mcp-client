@@ -1,10 +1,8 @@
 import {
   AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
 } from "~/lib/constants/skills";
-import {
-  cloneThreadEnvironment,
-  type ThreadEnvironment,
-} from "~/lib/contracts/threads/environment";
+import type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
+import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
 import {
   buildThreadOperationLogRequestId,
   type JsonRpcRequestPayload,

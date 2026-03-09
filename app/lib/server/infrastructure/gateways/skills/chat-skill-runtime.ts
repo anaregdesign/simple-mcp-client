@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import type { ThreadSkillActivation } from "~/lib/domain/entities/thread-record";
 import {
   readSkillFrontmatter,
   readSkillMarkdown,

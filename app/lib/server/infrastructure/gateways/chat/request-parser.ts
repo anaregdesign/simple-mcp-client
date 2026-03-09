@@ -21,15 +21,17 @@ import {
   AGENT_SKILL_NAME_MAX_LENGTH,
   CHAT_MAX_ACTIVE_SKILLS,
 } from "~/lib/constants/skills";
+import type {
+  ThreadEnvironment,
+  ThreadInstructionContextToggles,
+  ThreadSkillActivation,
+} from "~/lib/domain/entities/thread-record";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   parseThreadEnvironmentFromUnknown,
-  type ThreadEnvironment,
 } from "~/lib/contracts/threads/environment";
 import {
   readThreadInstructionContextTogglesFromUnknown,
-  type ThreadInstructionContextToggles,
 } from "~/lib/contracts/threads/instruction-context";
 import { parseChatMcpServerEntry } from "~/lib/contracts/mcp/server-config-parser";
 import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
