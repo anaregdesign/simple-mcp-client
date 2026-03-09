@@ -68,9 +68,6 @@ import {
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
   buildThreadSummary,
-  convertThreadResourceToState,
-  convertThreadStateToWritePayload,
-  readThreadResourceFromUnknown,
   readThreadStateListFromResources,
 } from "~/lib/contracts/threads/parsers";
 import {
@@ -102,6 +99,7 @@ import {
 import type {
   ThreadState,
   ThreadSummary,
+  ThreadWritePayload,
 } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
@@ -219,6 +217,12 @@ import {
   loadWorkspaceMcpServerProfiles as loadWorkspaceMcpServerProfilesOperation,
   saveMcpServerToConfig as saveMcpServerToConfigOperation,
 } from "~/lib/client/usecase/workspace/workspace-mcp-server-profile-operations";
+import {
+  flushActiveThreadState as flushActiveThreadStateOperation,
+  saveActiveThreadNameInBackground as saveActiveThreadNameInBackgroundOperation,
+  saveThreadStateSilentlyIfNeeded as saveThreadStateSilentlyIfNeededOperation,
+  saveThreadStateToDatabase as saveThreadStateToDatabaseOperation,
+} from "~/lib/client/usecase/workspace/thread-persistence-operations";
 import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
@@ -1781,6 +1785,41 @@ export function useWorkspace() {
     }
   }
 
+  function buildThreadPersistenceOperationDeps() {
+    return {
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      readThreads: () => threadsRef.current,
+      hasSavedThreadSignature: (threadId: string) =>
+        threadSaveSignatureByIdRef.current.has(threadId),
+      readSavedThreadSignature: (threadId: string) =>
+        threadSaveSignatureByIdRef.current.get(threadId),
+      writeThreadSaveSignature: (threadId: string, signature: string) => {
+        threadSaveSignatureByIdRef.current.set(threadId, signature);
+      },
+      nextThreadSaveRequestSeq: () => {
+        threadSaveRequestSeqRef.current += 1;
+        return threadSaveRequestSeqRef.current;
+      },
+      readThreadSaveRequestSeq: () => threadSaveRequestSeqRef.current,
+      setIsSavingThread,
+      markAzureAuthRequired,
+      setThreadError,
+      updateThreadsState,
+      setActiveThreadNameInput,
+      shouldPersistThreadState,
+      buildThreadStateFromCurrentState,
+      clearThreadNameSaveTimeout,
+      clearThreadSaveTimeout,
+      saveThread: (payload: ThreadWritePayload, options: {
+        isUpdate?: boolean;
+        onAuthRequired?: () => void;
+      }) => threadsApiClient.saveThread(payload, options),
+      logClientInfo,
+      logClientError,
+    };
+  }
+
   function updateThreadStateById(
     threadId: string,
     updater: (current: ThreadState) => ThreadState,
@@ -1895,207 +1934,38 @@ export function useWorkspace() {
       reportError?: boolean;
     } = {},
   ): Promise<boolean> {
-    const showBusy = options.showBusy !== false;
-    const reportError = options.reportError !== false;
-    if (!shouldPersistThreadState(thread)) {
-      return true;
-    }
-    const expectedUserKey = activeWorkspaceUserKeyRef.current.trim();
-    if (!expectedUserKey) {
-      return false;
-    }
-
-    const expectedThreadId = thread.id;
-    const hasPersistedSignature =
-      threadSaveSignatureByIdRef.current.has(expectedThreadId);
-    const method = hasPersistedSignature ? "PUT" : "POST";
-    const requestSeq = threadSaveRequestSeqRef.current + 1;
-    threadSaveRequestSeqRef.current = requestSeq;
-    if (showBusy) {
-      setIsSavingThread(true);
-    }
-
-    try {
-      const payload = await threadsApiClient.saveThread(
-        convertThreadStateToWritePayload(thread),
-        {
-          isUpdate: hasPersistedSignature,
-          onAuthRequired: () => {
-            markAzureAuthRequired();
-            if (reportError) {
-              setThreadError(
-                "Azure login is required. Open Settings and sign in to continue.",
-              );
-            }
-          },
-        },
-      );
-
-      const savedThreadResource = readThreadResourceFromUnknown(payload.thread);
-      if (!savedThreadResource) {
-        throw new Error("Saved thread payload is invalid.");
-      }
-      const savedThread = convertThreadResourceToState(savedThreadResource, {
-        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-      });
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return false;
-      }
-
-      if (expectedThreadId !== savedThread.id) {
-        return false;
-      }
-
-      updateThreadsState((current) =>
-        upsertThreadState(current, savedThread),
-      );
-      threadSaveSignatureByIdRef.current.set(savedThread.id, signature);
-      if (savedThread.id === activeThreadIdRef.current) {
-        setActiveThreadNameInput(savedThread.name);
-      }
-      logClientInfo(
-        "save_thread_snapshot_succeeded",
-        "Thread snapshot saved.",
-        {
-          action: "save_thread_snapshot",
-          context: {
-            method,
-            threadId: savedThread.id,
-            messageCount: savedThread.messages.length,
-            mcpServerCount: savedThread.mcpServers.length,
-            operationLogCount: savedThread.mcpRpcLogs.length,
-            skillSelectionCount: savedThread.skillSelections.length,
-          },
-        },
-      );
-      return true;
-    } catch (saveError) {
-      if (
-        saveError instanceof ClientApiError &&
-        saveError.kind === "auth_required"
-      ) {
-        return false;
-      }
-      logClientError("save_thread_snapshot_failed", saveError, {
-        action: "save_thread_snapshot",
-        statusCode: 500,
-        context: {
-          threadId: expectedThreadId,
-        },
-      });
-      if (reportError) {
-        setThreadError(mapApiError(saveError, "Failed to save thread."));
-      }
-      return false;
-    } finally {
-      if (showBusy && requestSeq === threadSaveRequestSeqRef.current) {
-        setIsSavingThread(false);
-      }
-    }
+    return await saveThreadStateToDatabaseOperation(
+      buildThreadPersistenceOperationDeps(),
+      thread,
+      signature,
+      options,
+    );
   }
 
   async function saveThreadStateSilentlyIfNeeded(
     threadId: string,
   ): Promise<void> {
-    const normalizedThreadId = threadId.trim();
-    if (!normalizedThreadId) {
-      return;
-    }
-
-    const snapshot = findThreadStateById(
-      threadsRef.current,
-      normalizedThreadId,
+    await saveThreadStateSilentlyIfNeededOperation(
+      buildThreadPersistenceOperationDeps(),
+      threadId,
     );
-    if (!snapshot) {
-      return;
-    }
-    if (!shouldPersistThreadState(snapshot)) {
-      return;
-    }
-
-    const signature = buildThreadSaveSignature(snapshot);
-    const savedSignature =
-      threadSaveSignatureByIdRef.current.get(normalizedThreadId);
-    if (savedSignature === signature) {
-      return;
-    }
-
-    await saveThreadStateToDatabase(snapshot, signature, {
-      showBusy: false,
-      reportError: false,
-    });
   }
 
   async function flushActiveThreadState(): Promise<boolean> {
-    const currentThreadId = activeThreadIdRef.current.trim();
-    if (!currentThreadId) {
-      return true;
-    }
-
-    clearThreadNameSaveTimeout();
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      currentThreadId,
+    return await flushActiveThreadStateOperation(
+      buildThreadPersistenceOperationDeps(),
     );
-    if (!baseThread) {
-      return true;
-    }
-
-    const snapshot = buildThreadStateFromCurrentState(baseThread, {
-      includeDraftName: true,
-    });
-    if (!shouldPersistThreadState(snapshot)) {
-      return true;
-    }
-    const signature = buildThreadSaveSignature(snapshot);
-    const savedSignature =
-      threadSaveSignatureByIdRef.current.get(currentThreadId);
-    if (savedSignature === signature) {
-      return true;
-    }
-
-    clearThreadSaveTimeout();
-    return await saveThreadStateToDatabase(snapshot, signature);
   }
 
   async function saveActiveThreadNameInBackground(
     threadId: string,
     name: string,
   ): Promise<void> {
-    const normalizedThreadId = threadId.trim();
-    const normalizedName = name.trim().slice(0, THREAD_NAME_MAX_LENGTH);
-    if (!normalizedThreadId || !normalizedName) {
-      return;
-    }
-    if (normalizedThreadId !== activeThreadIdRef.current.trim()) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      normalizedThreadId,
+    await saveActiveThreadNameInBackgroundOperation(
+      buildThreadPersistenceOperationDeps(),
+      threadId,
+      name,
     );
-    if (!baseThread || baseThread.name === normalizedName) {
-      return;
-    }
-    if (!shouldPersistThreadState(baseThread)) {
-      return;
-    }
-
-    const snapshot = buildThreadStateFromCurrentState(baseThread, {
-      includeDraftName: true,
-    });
-    snapshot.name = normalizedName;
-
-    const signature = buildThreadSaveSignature(snapshot);
-    const savedSignature =
-      threadSaveSignatureByIdRef.current.get(normalizedThreadId);
-    if (savedSignature === signature) {
-      return;
-    }
-
-    await saveThreadStateToDatabase(snapshot, signature);
   }
 
   async function refreshThreadTitleInBackground(options: {
