@@ -1,12 +1,15 @@
+import type { Prisma } from "@prisma/client";
 import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
+import { SKILL_REGISTRY_OPTIONS } from "~/lib/domain/value-objects/skill-registry";
 import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import {
   ThreadRecord,
   type ThreadRecordSnapshot,
-  type ThreadWritePayload,
+  type ThreadRecordInput,
 } from "~/lib/domain/entities/thread-record";
+import { reasoningEffortValues, type ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   ThreadRecordHead,
   ThreadRepository,
@@ -58,6 +61,10 @@ const threadResourceInclude = {
     },
   },
 } as const;
+
+type PersistedThreadRecord = Prisma.ThreadGetPayload<{
+  include: typeof threadResourceInclude;
+}>;
 
 export class ThreadPersistenceRepository implements ThreadRepository {
   async listByUserId(userId: number): Promise<ThreadRecord[]> {
@@ -115,9 +122,9 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     });
   }
 
-  async savePayload(
+  async saveRecord(
     userId: number,
-    payload: ThreadWritePayload,
+    payload: ThreadRecordInput,
   ): Promise<{ thread: ThreadRecord; created: boolean } | null> {
     await ensurePersistenceDatabaseReady();
     let created = false;
@@ -418,8 +425,101 @@ export function createThreadPersistenceRepository(): ThreadRepository {
   return new ThreadPersistenceRepository();
 }
 
-function mapThreadRecord(snapshot: ThreadRecordSnapshot): ThreadRecord {
-  return ThreadRecord.fromSnapshot(snapshot);
+function mapThreadRecord(record: PersistedThreadRecord): ThreadRecord {
+  return ThreadRecord.fromSnapshot(mapThreadRecordSnapshot(record));
+}
+
+function mapThreadRecordSnapshot(
+  record: PersistedThreadRecord,
+): ThreadRecordSnapshot {
+  return {
+    id: record.id,
+    userId: record.userId,
+    name: record.name,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    deletedAt: record.deletedAt,
+    reasoningEffort: readReasoningEffort(record.reasoningEffort),
+    webSearchEnabled: record.webSearchEnabled,
+    threadEnvironment: readJsonValue(record.threadEnvironmentJson, {}),
+    instructionContextToggles: readJsonValue(
+      record.instructionContextTogglesJson,
+      DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+    ),
+    instruction: record.instruction
+      ? {
+          id: record.instruction.id,
+          threadId: record.instruction.threadId,
+          content: record.instruction.content,
+        }
+      : null,
+    messages: record.messages.map((message) => ({
+      id: message.id,
+      threadId: message.threadId,
+      conversationOrder: message.conversationOrder,
+      role: message.role === "assistant" ? "assistant" : "user",
+      content: message.content,
+      createdAt: message.createdAt,
+      turnId: message.turnId,
+      attachments: readJsonValue(message.attachmentsJson, []),
+      skillActivations: message.skillActivations.map((activation) => ({
+        id: activation.id,
+        messageId: activation.messageId,
+        selectionOrder: activation.selectionOrder,
+        skillProfileId: activation.skillProfileId,
+        skillProfile: { ...activation.skillProfile },
+      })),
+    })),
+    mcpServers: record.mcpServers.map((server) =>
+      server.transport === "stdio"
+        ? {
+            id: server.id,
+            threadId: server.threadId,
+            selectionOrder: server.selectionOrder,
+            name: server.name,
+            transport: "stdio",
+            command: server.command ?? "",
+            args: readJsonValue(server.argsJson, []),
+            cwd: server.cwd,
+            env: readJsonValue(server.envJson, {}),
+          }
+        : {
+            id: server.id,
+            threadId: server.threadId,
+            selectionOrder: server.selectionOrder,
+            name: server.name,
+            transport: server.transport === "sse" ? "sse" : "streamable_http",
+            url: server.url ?? "",
+            headers: readJsonValue(server.headersJson, {}),
+            useAzureAuth: server.useAzureAuth,
+            azureAuthScope: server.azureAuthScope,
+            timeoutSeconds: server.timeoutSeconds,
+          },
+    ),
+    mcpRpcLogs: record.mcpRpcLogs.map((entry) => ({
+      rowId: entry.rowId,
+      sourceRpcId: entry.sourceRpcId,
+      threadId: entry.threadId,
+      conversationOrder: entry.conversationOrder,
+      sequence: entry.sequence,
+      operationType: entry.operationType === "skill" ? "skill" : "mcp",
+      serverName: entry.serverName,
+      method: entry.method,
+      startedAt: entry.startedAt,
+      completedAt: entry.completedAt,
+      request: readJsonValue(entry.requestJson, null),
+      response: readJsonValue(entry.responseJson, null),
+      isError: entry.isError,
+      turnId: entry.turnId,
+    })),
+    skillSelections: record.skillSelections.map((selection) => ({
+      id: selection.id,
+      threadId: selection.threadId,
+      selectionOrder: selection.selectionOrder,
+      skillProfileId: selection.skillProfileId,
+      skillProfile: { ...selection.skillProfile },
+    })),
+  };
 }
 
 async function upsertThreadSkillProfiles(options: {
@@ -428,7 +528,7 @@ async function upsertThreadSkillProfiles(options: {
     "workspaceSkillRegistryProfile" | "workspaceSkillProfile"
   >;
   userId: number;
-  skillSelections: ThreadWritePayload["skillSelections"];
+  skillSelections: ThreadRecordInput["skillSelections"];
 }): Promise<Map<string, number>> {
   const uniqueSelections = new Map<
     string,
@@ -599,4 +699,22 @@ function isPositiveIntegerString(value: string): boolean {
 
 function normalizeThreadName(value: string): string {
   return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
+}
+
+function readJsonValue<T>(value: string | null, fallback: T): T {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function readReasoningEffort(value: string): ReasoningEffort {
+  return reasoningEffortValues.includes(value as ReasoningEffort)
+    ? (value as ReasoningEffort)
+    : "medium";
 }

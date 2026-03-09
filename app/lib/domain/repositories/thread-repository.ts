@@ -1,6 +1,6 @@
 import type {
   ThreadRecord,
-  ThreadWritePayload,
+  ThreadRecordInput,
 } from "~/lib/domain/entities/thread-record";
 
 export type ThreadRecordHead = {
@@ -11,9 +11,9 @@ export interface ThreadRepository {
   listByUserId(userId: number): Promise<ThreadRecord[]>;
   findByIdForUser(userId: number, threadId: string): Promise<ThreadRecord | null>;
   readHead(userId: number, threadId: string): Promise<ThreadRecordHead | null>;
-  savePayload(
+  saveRecord(
     userId: number,
-    payload: ThreadWritePayload,
+    record: ThreadRecordInput,
   ): Promise<{ thread: ThreadRecord; created: boolean } | null>;
   setDeletedAt(
     userId: number,

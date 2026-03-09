@@ -2,10 +2,8 @@
  * Test module verifying POST /api/threads behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  ThreadRecordSnapshot,
-  ThreadWritePayload,
-} from "~/lib/domain/entities/thread-record";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
 import type { CreateThreadResult } from "~/lib/server/usecase/threads/thread-service";
 
 const {
@@ -75,8 +73,8 @@ function createThreadResource(): ThreadRecordSnapshot {
     deletedAt: null,
     reasoningEffort: "medium",
     webSearchEnabled: true,
-    threadEnvironmentJson: "{}",
-    instructionContextTogglesJson: "{\"system\":true}",
+    threadEnvironment: {},
+    instructionContextToggles: { system: true },
     instruction: {
       id: 1,
       threadId: "thread-a",
@@ -132,7 +130,7 @@ describe("POST /api/threads", () => {
       }),
     } as never);
 
-    const payload = (await response.json()) as { thread?: ThreadRecordSnapshot };
+    const payload = (await response.json()) as { thread?: { id?: string } };
     expect(response.status).toBe(201);
     expect(response.headers.get("location")).toBe("/api/threads/thread-a");
     expect(payload.thread?.id).toBe("thread-a");

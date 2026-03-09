@@ -1,10 +1,10 @@
 /**
  * Thread application service module.
  */
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import type {
   ThreadRecord,
   ThreadRecordSnapshot,
-  ThreadWritePayload,
 } from "~/lib/domain/entities/thread-record";
 import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
 
@@ -87,7 +87,7 @@ async function createThread(
   }
 
   try {
-    const saved = await saveThreadPayload(repository, userId, payload);
+    const saved = await saveThreadRecord(repository, userId, payload);
     if (!saved || !saved.created) {
       return {
         status: "invalid",
@@ -133,7 +133,7 @@ async function updateThread(
     return { status: "archived" };
   }
 
-  const saved = await saveThreadPayload(repository, userId, payload);
+  const saved = await saveThreadRecord(repository, userId, payload);
   if (!saved || saved.created) {
     return { status: "not_found" };
   }
@@ -144,12 +144,12 @@ async function updateThread(
   };
 }
 
-async function saveThreadPayload(
+async function saveThreadRecord(
   repository: ThreadRepository,
   userId: number,
   payload: ThreadWritePayload,
 ): Promise<{ thread: ThreadRecord; created: boolean } | null> {
-  return repository.savePayload(userId, payload);
+  return repository.saveRecord(userId, payload);
 }
 
 export type LogicalDeleteThreadResult =

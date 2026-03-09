@@ -66,8 +66,8 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
     deletedAt: null,
     reasoningEffort: "medium",
     webSearchEnabled: false,
-    threadEnvironmentJson: "{}",
-    instructionContextTogglesJson: "{\"system\":true}",
+    threadEnvironment: {},
+    instructionContextToggles: { system: true },
     instruction: {
       id: 1,
       threadId,

@@ -20,8 +20,8 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
     deletedAt: null,
     reasoningEffort: "medium",
     webSearchEnabled: false,
-    threadEnvironmentJson: "{}",
-    instructionContextTogglesJson: "{\"system\":true}",
+    threadEnvironment: {},
+    instructionContextToggles: { system: true },
     instruction: {
       id: 1,
       threadId,
@@ -36,7 +36,7 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
         content: "hello",
         createdAt: "2026-01-01T00:00:00.000Z",
         turnId: "turn-a",
-        attachmentsJson: "[]",
+        attachments: [],
         skillActivations: [],
       },
     ],
@@ -47,15 +47,10 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
         selectionOrder: 0,
         name: "Server A",
         transport: "stdio",
-        url: null,
-        headersJson: null,
-        useAzureAuth: false,
-        azureAuthScope: null,
-        timeoutSeconds: null,
         command: "node",
-        argsJson: "[]",
+        args: [],
         cwd: null,
-        envJson: "{}",
+        env: {},
       },
     ],
     mcpRpcLogs: [
@@ -65,13 +60,13 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
         threadId,
         conversationOrder: 0,
         sequence: 0,
-        operationType: "request",
+        operationType: "mcp",
         serverName: "server-a",
         method: "tools/list",
         startedAt: "2026-01-01T00:00:00.000Z",
         completedAt: "2026-01-01T00:00:01.000Z",
-        requestJson: "{}",
-        responseJson: "{}",
+        request: {},
+        response: {},
         isError: false,
         turnId: "turn-a",
       },
@@ -96,7 +91,7 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
 }
 
 describe("thread-route-presentation", () => {
-  it("builds collection metrics from thread resources", () => {
+  it("builds collection metrics from thread snapshots", () => {
     const activeThread = createThreadResource("thread-a");
     const archivedThread = {
       ...createThreadResource("thread-b"),

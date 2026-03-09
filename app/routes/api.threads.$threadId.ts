@@ -1,7 +1,6 @@
 /**
  * API route module for /api/threads/:threadId.
  */
-import type { ThreadWritePayload } from "~/lib/domain/entities/thread-record";
 import {
   authRequiredResponse,
   errorResponse,
@@ -40,15 +39,6 @@ const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;
 function getThreadApplicationService() {
   return createThreadApplicationService(createThreadPersistenceRepository());
 }
-
-export const threadItemActionHandlers = {
-  updateThread: (userId: number, thread: ThreadWritePayload) =>
-    getThreadApplicationService().updateThread(userId, thread),
-  logicalDeleteThread: (userId: number, threadId: string) =>
-    getThreadApplicationService().logicalDeleteThread(userId, threadId),
-  logicalRestoreThread: (userId: number, threadId: string) =>
-    getThreadApplicationService().logicalRestoreThread(userId, threadId),
-};
 
 export function loader() {
   installGlobalServerErrorLogging();
@@ -144,7 +134,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         return validationErrorResponse(mismatchIssue.code, mismatchIssue.error);
       }
 
-      const updatedThread = await threadItemActionHandlers.updateThread(
+      const updatedThread = await getThreadApplicationService().updateThread(
         user.id,
         thread.value,
       );
@@ -188,7 +178,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     if (request.method === "DELETE") {
-      const deleted = await threadItemActionHandlers.logicalDeleteThread(
+      const deleted = await getThreadApplicationService().logicalDeleteThread(
         user.id,
         threadId.value,
       );
@@ -264,7 +254,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
 
-    const restored = await threadItemActionHandlers.logicalRestoreThread(
+    const restored = await getThreadApplicationService().logicalRestoreThread(
       user.id,
       threadId.value,
     );

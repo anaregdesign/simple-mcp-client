@@ -27,6 +27,7 @@ import {
   buildThreadCollectionMetricsContext,
   presentCreateThreadResult,
 } from "~/lib/server/usecase/threads/thread-route-presentation";
+import { presentThreadResources } from "~/lib/server/usecase/threads/thread-resource-presentation";
 import { readThreadWritePayload } from "~/lib/server/usecase/threads/thread-route-parsing";
 import type { Route } from "./+types/api.threads";
 
@@ -68,7 +69,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       context: buildThreadCollectionMetricsContext(threads),
     });
 
-    return Response.json({ threads });
+    return Response.json({ threads: presentThreadResources(threads) });
   } catch (error) {
     const failure = describeUnexpectedThreadFailure("load_threads");
     await logServerRouteEvent({

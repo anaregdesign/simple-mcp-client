@@ -1,6 +1,6 @@
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
-import type { ThreadWritePayload } from "~/lib/domain/entities/thread-record";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import { isThreadRestorePayload } from "./thread-service";
 
 export type ThreadRouteValidationIssue = {

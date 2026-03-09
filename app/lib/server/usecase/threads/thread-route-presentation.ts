@@ -1,3 +1,4 @@
+import type { ThreadResource } from "~/lib/contracts/threads/types";
 import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
 import type {
   CreateThreadResult,
@@ -5,6 +6,7 @@ import type {
   LogicalRestoreThreadResult,
   UpdateThreadResult,
 } from "./thread-service";
+import { presentThreadResource } from "./thread-resource-presentation";
 
 type ThreadRouteLogLevel = "info" | "warning";
 
@@ -25,7 +27,7 @@ export type ThreadRouteErrorPresentation = ThreadRoutePresentationBase & {
 export type ThreadRouteSuccessPresentation = ThreadRoutePresentationBase & {
   kind: "success";
   level: ThreadRouteLogLevel;
-  thread: ThreadRecordSnapshot;
+  thread: ThreadResource;
   headers?: HeadersInit;
   context?: Record<string, number>;
 };
@@ -72,7 +74,7 @@ export function presentCreateThreadResult(
       level: "info",
       statusCode: 201,
       message: "Thread created.",
-      thread: result.thread,
+      thread: presentThreadResource(result.thread),
       headers: {
         Location: `/api/threads/${encodeURIComponent(result.thread.id)}`,
       },
@@ -116,7 +118,7 @@ export function presentUpdateThreadResult(
       level: "info",
       statusCode: 200,
       message: "Thread updated.",
-      thread: result.thread,
+      thread: presentThreadResource(result.thread),
       context: buildThreadMutationMetricsContext(result.thread),
     };
   }
@@ -150,7 +152,7 @@ export function presentDeleteThreadResult(
       level: "info",
       statusCode: 200,
       message: "Thread archived.",
-      thread: result.thread,
+      thread: presentThreadResource(result.thread),
     };
   }
 
@@ -181,7 +183,7 @@ export function presentRestoreThreadResult(
       level: "info",
       statusCode: 200,
       message: "Thread restored.",
-      thread: result.thread,
+      thread: presentThreadResource(result.thread),
     };
   }
 
