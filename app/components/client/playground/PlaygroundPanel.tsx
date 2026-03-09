@@ -208,6 +208,7 @@ export function PlaygroundPanel<
       : undefined;
   const desktopUpdaterActionState =
     resolveDesktopUpdaterActionState(desktopUpdaterStatus);
+  const isComposerReadOnly = isSending || isChatLocked || isThreadReadOnly;
 
   function renderLabeledTooltip(
     title: string,
@@ -788,7 +789,8 @@ export function PlaygroundPanel<
               onKeyDown={onInputKeyDown}
               onCompositionStart={onCompositionStart}
               onCompositionEnd={onCompositionEnd}
-              disabled={isSending || isChatLocked || isThreadReadOnly}
+              readOnly={isComposerReadOnly}
+              aria-disabled={isComposerReadOnly}
             />
             {renderChatCommandMenu()}
             <div className="chat-composer-actions">
