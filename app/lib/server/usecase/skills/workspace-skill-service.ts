@@ -208,9 +208,3 @@ export function parseSkillRegistryMutationPath(
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
 }
-
-export const skillsRouteTestUtils = {
-  parseSkillRegistryMutationPath,
-  readSkillRegistryRefreshQueryFlag,
-  readWorkspaceSkillProfileReconcilePayloadFromUnknown,
-};

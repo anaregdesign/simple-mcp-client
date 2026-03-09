@@ -4,7 +4,6 @@
 import {
   createWorkspaceSkillService,
   readSkillRegistryRefreshQueryFlag,
-  skillsRouteTestUtils,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import {
   createWorkspaceSkillProfilePersistenceRepository,
@@ -24,9 +23,6 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { Route } from "./+types/api.skills";
-
-export { skillsRouteTestUtils };
-
 const SKILLS_COLLECTION_ALLOWED_METHODS = ["GET"] as const;
 
 function getWorkspaceSkillService() {

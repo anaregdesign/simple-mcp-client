@@ -2,11 +2,11 @@
  * Test module verifying api.skills behavior.
  */
 import { describe, expect, it } from "vitest";
-import { skillsRouteTestUtils } from "./api.skills";
-
-const { parseSkillRegistryMutationPath } = skillsRouteTestUtils;
-const { readSkillRegistryRefreshQueryFlag } = skillsRouteTestUtils;
-const { readWorkspaceSkillProfileReconcilePayloadFromUnknown } = skillsRouteTestUtils;
+import {
+  parseSkillRegistryMutationPath,
+  readSkillRegistryRefreshQueryFlag,
+  readWorkspaceSkillProfileReconcilePayloadFromUnknown,
+} from "~/lib/server/usecase/skills/workspace-skill-service";
 
 describe("parseSkillRegistryMutationPath", () => {
   it("parses a valid skill mutation request", () => {
