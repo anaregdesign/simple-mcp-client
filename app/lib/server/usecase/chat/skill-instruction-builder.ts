@@ -5,7 +5,7 @@ import { AGENT_SKILL_PROMPT_RESOURCE_PREVIEW_MAX_FILES } from "~/lib/constants/s
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type {
   ActiveSkillRuntimeEntry,
-} from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime";
+} from "~/lib/server/usecase/chat/skill-runtime-types";
 import type { InstructionSystemContextPayload } from "~/lib/server/usecase/chat/chat-execution";
 
 export function buildAgentInstructionWithSkills(

@@ -6,29 +6,16 @@ import {
 } from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 import {
   inspectSkillResourceManifest,
-  type SkillResourceFileEntry,
 } from "~/lib/server/infrastructure/gateways/skills/skill-runtime";
+import type {
+  ActiveSkillRuntimeEntry,
+  SkillRuntimeContext,
+} from "~/lib/server/usecase/chat/skill-runtime-types";
 
-export type ActiveSkillRuntimeEntry = {
-  name: string;
-  description: string;
-  location: string;
-  guidePreloadRequested: boolean;
-  preloadedGuideErrorMessage: string | null;
-  preloadedGuideMarkdown: string | null;
-  skillRoot: string;
-  scripts: SkillResourceFileEntry[];
-  references: SkillResourceFileEntry[];
-  assets: SkillResourceFileEntry[];
-  scriptsTruncated: boolean;
-  referencesTruncated: boolean;
-  assetsTruncated: boolean;
-};
-
-export type SkillRuntimeContext = {
-  activeSkills: ActiveSkillRuntimeEntry[];
-  warnings: string[];
-};
+export type {
+  ActiveSkillRuntimeEntry,
+  SkillRuntimeContext,
+} from "~/lib/server/usecase/chat/skill-runtime-types";
 
 export async function buildSkillRuntimeContext(
   selectedSkills: ThreadSkillActivation[],

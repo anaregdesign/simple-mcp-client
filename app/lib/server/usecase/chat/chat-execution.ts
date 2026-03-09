@@ -30,6 +30,11 @@ import {
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
+import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
+import type {
+  ActiveSkillRuntimeEntry,
+  SkillRuntimeContext,
+} from "~/lib/server/usecase/chat/skill-runtime-types";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -58,29 +63,6 @@ export type ClientMessage = {
   content: string;
   attachments: ClientAttachment[];
 };
-
-type ClientMcpHttpServerConfig = {
-  name: string;
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string;
-  timeoutSeconds: number;
-};
-
-type ClientMcpStdioServerConfig = {
-  name: string;
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-};
-
-export type ClientMcpServerConfig =
-  | ClientMcpHttpServerConfig
-  | ClientMcpStdioServerConfig;
 
 export type ClientSkillSelection = ThreadSkillActivation;
 
@@ -256,27 +238,6 @@ export type InstructionSystemContextPayload = {
     endpoint: string | null;
     apiVersion: string | null;
   };
-};
-
-export type ActiveSkillRuntimeEntry = {
-  name: string;
-  description: string;
-  location: string;
-  guidePreloadRequested: boolean;
-  preloadedGuideErrorMessage: string | null;
-  preloadedGuideMarkdown: string | null;
-  skillRoot: string;
-  scripts: SkillResourceFileEntry[];
-  references: SkillResourceFileEntry[];
-  assets: SkillResourceFileEntry[];
-  scriptsTruncated: boolean;
-  referencesTruncated: boolean;
-  assetsTruncated: boolean;
-};
-
-export type SkillRuntimeContext = {
-  activeSkills: ActiveSkillRuntimeEntry[];
-  warnings: string[];
 };
 
 export type SkillToolExecutionContext = {

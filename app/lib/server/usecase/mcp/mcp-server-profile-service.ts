@@ -17,11 +17,11 @@ import {
   parseIncomingMcpServer,
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
-import {
-  resolveWorkspaceStorageDirectory,
-  resolveWorkspaceUserDirectory,
-} from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
+import {
+  resolveDefaultFilesystemWorkingDirectory,
+  resolveLegacyFilesystemWorkingDirectory,
+} from "~/lib/server/usecase/mcp/workspace-mcp-server-default-paths";
 
 export { parseIncomingMcpServer };
 
@@ -335,16 +335,6 @@ function isLegacyUnavailableDefaultStdioProfile(profile: McpServerConfig): boole
     !profile.cwd &&
     Object.keys(profile.env).length === 0
   );
-}
-
-function resolveDefaultFilesystemWorkingDirectory(workspaceUserId: number): string {
-  return resolveWorkspaceUserDirectory({
-    workspaceUserId,
-  });
-}
-
-function resolveLegacyFilesystemWorkingDirectory(): string {
-  return resolveWorkspaceStorageDirectory();
 }
 
 function isLegacyDefaultWorkingDirectory(

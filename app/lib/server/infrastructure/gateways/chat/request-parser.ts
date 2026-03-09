@@ -33,6 +33,11 @@ import {
 } from "~/lib/contracts/threads/instruction-context";
 import { parseChatMcpServerEntry } from "~/lib/contracts/mcp/server-config-parser";
 import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
+import type {
+  ClientMcpServerConfig,
+} from "~/lib/server/usecase/chat/mcp-server-config-types";
+
+export type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
 
 export type ThreadMessageRole = "user" | "assistant";
 
@@ -49,28 +54,6 @@ export type ClientMessage = {
   attachments: ClientAttachment[];
 };
 
-type ClientMcpHttpServerConfig = {
-  name: string;
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string;
-  timeoutSeconds: number;
-};
-
-type ClientMcpStdioServerConfig = {
-  name: string;
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-};
-
-export type ClientMcpServerConfig =
-  | ClientMcpHttpServerConfig
-  | ClientMcpStdioServerConfig;
 export type ClientSkillSelection = ThreadSkillActivation;
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };

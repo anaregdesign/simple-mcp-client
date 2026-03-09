@@ -1,7 +1,7 @@
 import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
 import type {
   ClientMcpServerConfig,
-} from "~/lib/server/infrastructure/gateways/chat/request-parser";
+} from "~/lib/server/usecase/chat/mcp-server-config-types";
 
 export function applyDefaultThreadDirectoryToStdioServers(
   mcpServers: ClientMcpServerConfig[],
