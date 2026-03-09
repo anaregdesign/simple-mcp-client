@@ -21,8 +21,10 @@ import {
   ensurePersistenceDatabaseReady,
   prisma,
 } from "~/lib/server/infrastructure/persistence/prisma";
-import { discoverSkillCatalog } from "~/lib/server/skills/catalog";
-import { discoverSkillRegistries } from "~/lib/server/skills/registry";
+import {
+  discoverWorkspaceSkillCatalog,
+  discoverWorkspaceSkillRegistries,
+} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 
 export type SkillDiscoveryResult = {
   skills: SkillCatalogEntry[];
@@ -353,8 +355,8 @@ async function discoverWorkspaceSkills(options: {
   forceRefresh: boolean;
 }): Promise<SkillDiscoveryResult> {
   const [catalogDiscovery, registryDiscovery] = await Promise.all([
-    discoverSkillCatalog({ workspaceUserId: options.userId }),
-    discoverSkillRegistries({
+    discoverWorkspaceSkillCatalog({ workspaceUserId: options.userId }),
+    discoverWorkspaceSkillRegistries({
       workspaceUserId: options.userId,
       forceRefresh: options.forceRefresh,
     }),
