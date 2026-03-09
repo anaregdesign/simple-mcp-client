@@ -1,9 +1,9 @@
-/**
- * Test module verifying api.azure.projects behavior.
- */
 import { describe, expect, it } from "vitest";
-import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
+import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
+import {
+  getArmAccessToken,
+} from "~/lib/server/infrastructure/azure/arm-access-context";
 import {
   readPrincipalDisplayNameFromAccessToken,
   readPrincipalIdFromAccessToken,
@@ -11,12 +11,6 @@ import {
   readPrincipalTypeFromAccessToken,
   readTenantIdFromAccessToken,
 } from "~/lib/server/infrastructure/auth/azure-arm-user-context";
-import {
-  getArmAccessToken,
-  isLikelyAzureAuthError,
-  parseReasoningEffortOptionsFromString,
-  resolveReasoningEffortOptionsByModelName,
-} from "./api.azure.projects";
 
 function createAccessToken(payload: unknown): string {
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -84,13 +78,20 @@ describe("readPrincipalNameFromAccessToken", () => {
 
 describe("readPrincipalDisplayNameFromAccessToken", () => {
   it("prefers name claim", () => {
-    const token = createAccessToken({ name: " Azure User ", preferred_username: "user@contoso.com" });
+    const token = createAccessToken({
+      name: " Azure User ",
+      preferred_username: "user@contoso.com",
+    });
     expect(readPrincipalDisplayNameFromAccessToken(token)).toBe("Azure User");
   });
 
   it("falls back to principal name and appid", () => {
-    const withPrincipalName = createAccessToken({ preferred_username: "user@contoso.com" });
-    expect(readPrincipalDisplayNameFromAccessToken(withPrincipalName)).toBe("user@contoso.com");
+    const withPrincipalName = createAccessToken({
+      preferred_username: "user@contoso.com",
+    });
+    expect(readPrincipalDisplayNameFromAccessToken(withPrincipalName)).toBe(
+      "user@contoso.com",
+    );
 
     const withAppId = createAccessToken({ appid: " app-id " });
     expect(readPrincipalDisplayNameFromAccessToken(withAppId)).toBe("app-id");
@@ -107,32 +108,15 @@ describe("readPrincipalTypeFromAccessToken", () => {
   });
 
   it("detects managed identity and unknown types", () => {
-    const managedIdentityToken = createAccessToken({ xms_mirid: "/subscriptions/s/resourceGroups/rg" });
-    expect(readPrincipalTypeFromAccessToken(managedIdentityToken)).toBe("managedIdentity");
+    const managedIdentityToken = createAccessToken({
+      xms_mirid: "/subscriptions/s/resourceGroups/rg",
+    });
+    expect(readPrincipalTypeFromAccessToken(managedIdentityToken)).toBe(
+      "managedIdentity",
+    );
 
     const unknownToken = createAccessToken({});
     expect(readPrincipalTypeFromAccessToken(unknownToken)).toBe("unknown");
-  });
-});
-
-describe("isLikelyAzureAuthError", () => {
-  it("returns true for Azure login/authentication failures", () => {
-    expect(
-      isLikelyAzureAuthError(
-        new Error("AuthenticationRequiredError: Automatic authentication has been disabled."),
-      ),
-    ).toBe(true);
-    expect(
-      isLikelyAzureAuthError(new Error("Request failed with status code 401 Unauthorized.")),
-    ).toBe(true);
-  });
-
-  it("returns false for non-auth errors", () => {
-    expect(
-      isLikelyAzureAuthError(new Error("Failed to load Azure project data: Bad gateway.")),
-    ).toBe(false);
-    expect(isLikelyAzureAuthError(new Error("Network timeout"))).toBe(false);
-    expect(isLikelyAzureAuthError("invalid")).toBe(false);
   });
 });
 
@@ -173,7 +157,9 @@ describe("getArmAccessToken", () => {
       tenantId: "tenant-b",
       principalId: "principal-a",
     });
-    expect(authenticateCalls).toEqual([{ scope: AZURE_ARM_SCOPE, tenantId: "tenant-b" }]);
+    expect(authenticateCalls).toEqual([
+      { scope: AZURE_ARM_SCOPE, tenantId: "tenant-b" },
+    ]);
     expect(tokenCallCount).toBe(2);
   });
 
@@ -202,62 +188,5 @@ describe("getArmAccessToken", () => {
 
     expect(result).toEqual({ ok: false });
     expect(tokenCallCount).toBe(2);
-  });
-});
-
-describe("parseReasoningEffortOptionsFromString", () => {
-  it("extracts canonical reasoning effort values from delimited strings", () => {
-    expect(parseReasoningEffortOptionsFromString("none, low, medium, high, xhigh")).toEqual([
-      "none",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
-  });
-
-  it("extracts reasoning effort values from JSON arrays", () => {
-    expect(parseReasoningEffortOptionsFromString("[\"xhigh\", \"low\", \"minimal\"]")).toEqual([
-      "minimal",
-      "low",
-      "xhigh",
-    ]);
-  });
-});
-
-describe("resolveReasoningEffortOptionsByModelName", () => {
-  it("returns model-specific options for GPT-5.4 family", () => {
-    expect(resolveReasoningEffortOptionsByModelName("gpt-5.4")).toEqual([
-      "none",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
-    expect(resolveReasoningEffortOptionsByModelName("gpt-5.4-pro-2026-03-05")).toEqual([
-      "none",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
-  });
-
-  it("returns model-specific options for GPT-5.2 family", () => {
-    expect(resolveReasoningEffortOptionsByModelName("gpt-5.2")).toEqual([
-      "none",
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-    ]);
-  });
-
-  it("returns model-specific options for o3-pro", () => {
-    expect(resolveReasoningEffortOptionsByModelName("o3-pro")).toEqual(["high"]);
-  });
-
-  it("does not infer options for unknown models", () => {
-    expect(resolveReasoningEffortOptionsByModelName("o9-experimental")).toEqual([]);
   });
 });
