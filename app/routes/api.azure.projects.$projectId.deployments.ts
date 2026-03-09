@@ -1,34 +1,18 @@
 /**
  * API route module for /api/azure/projects/:projectId/deployments.
  */
-import { parseProjectId } from "~/lib/contracts/api/azure-project-id";
 import { createAzureArmPagedFetchGateway } from "~/lib/server/infrastructure/gateways/azure/arm-paged-fetch-gateway";
 import {
-  authRequiredResponse,
-  errorResponse,
-  methodNotAllowedResponse,
-  validationErrorResponse,
-} from "~/lib/server/http";
+  handleAzureProjectDeploymentLoader,
+} from "~/lib/server/http/azure/azure-project-deployment-loader";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   createAzureProjectQueryService,
-  isLikelyAzureAuthError,
-  readErrorMessage,
 } from "~/lib/server/usecase/azure/azure-project-service";
-import {
-  getArmAccessToken,
-  resolveAzurePrincipalProfile,
-} from "~/lib/server/infrastructure/azure/arm-access-context";
-import {
-  presentAzureDeploymentResources,
-  presentAzurePrincipalProfileResource,
-} from "~/lib/server/http/azure/azure-presentation";
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
-
-const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
 
 function getAzureProjectQueryService() {
   return createAzureProjectQueryService({
@@ -39,83 +23,9 @@ function getAzureProjectQueryService() {
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
-
-  if (request.method !== "GET") {
-    return methodNotAllowedResponse(AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS);
-  }
-
-  const tokenResult = await getArmAccessToken();
-  if (!tokenResult.ok) {
-    return authRequiredResponse();
-  }
-
-  const projectId = typeof params.projectId === "string" ? params.projectId.trim() : "";
-  const projectRef = parseProjectId(projectId);
-  if (!projectRef) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/azure/projects/:projectId/deployments",
-      eventName: "invalid_project_id",
-      action: "parse_project_id",
-      level: "warning",
-      statusCode: 422,
-      message: "Invalid projectId.",
-      context: {
-        projectId,
-      },
-    });
-
-    return validationErrorResponse("invalid_project_id", "Invalid projectId.");
-  }
-
-  const principal = await resolveAzurePrincipalProfile(tokenResult);
-
-  try {
-    const deployments = await getAzureProjectQueryService().listProjectDeployments(
-      tokenResult.token,
-      projectRef,
-    );
-    return Response.json({
-      deployments: presentAzureDeploymentResources(deployments),
-      principal: presentAzurePrincipalProfileResource(principal),
-      tenantId: tokenResult.tenantId,
-      principalId: tokenResult.principalId,
-      authRequired: false,
-    });
-  } catch (error) {
-    if (isLikelyAzureAuthError(error)) {
-      await logServerRouteEvent({
-        request,
-        route: "/api/azure/projects/:projectId/deployments",
-        eventName: "azure_auth_required",
-        action: "list_deployments",
-        level: "warning",
-        statusCode: 401,
-        error,
-        context: {
-          projectId,
-        },
-      });
-
-      return authRequiredResponse();
-    }
-
-    await logServerRouteEvent({
-      request,
-      route: "/api/azure/projects/:projectId/deployments",
-      eventName: "load_azure_deployments_failed",
-      action: "list_deployments",
-      statusCode: 502,
-      error,
-      context: {
-        projectId,
-      },
-    });
-
-    return errorResponse({
-      status: 502,
-      code: "load_azure_deployments_failed",
-      error: `Failed to load Azure deployment data: ${readErrorMessage(error)}`,
-    });
-  }
+  return handleAzureProjectDeploymentLoader({
+    request,
+    projectId: params.projectId,
+    azureProjectQueryService: getAzureProjectQueryService(),
+  });
 }
