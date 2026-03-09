@@ -1,3 +1,4 @@
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type {
   ChatExecutionOptions,
   ChatMcpRuntimeMetrics,
@@ -5,6 +6,7 @@ import type {
 
 export type ChatExecutionSuccessLogResult = {
   message: string;
+  threadEnvironment: ThreadEnvironment;
   operationLogCount: number;
   mcpRuntimeMetrics: ChatMcpRuntimeMetrics;
 };
