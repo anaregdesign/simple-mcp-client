@@ -11,7 +11,7 @@ import {
   type McpServerConfig,
   type WorkspaceMcpServerProfileResource,
 } from "~/lib/contracts/mcp/profile";
-import { isMcpServersAuthRequired } from "~/lib/client/mcp/workspace-mcp-server-profiles";
+import { isMcpServersAuthRequired } from "~/lib/client/infrastructure/api/mcp-servers-auth-state";
 
 export type McpServersSnapshot = {
   profileResource: WorkspaceMcpServerProfileResource | null;

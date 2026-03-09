@@ -6,7 +6,7 @@ import {
   parseAzureAuthScopeInput,
   parseHttpHeadersInput,
   parseMcpTimeoutSecondsInput,
-} from "./http-inputs";
+} from "./mcp-http-inputs";
 
 describe("parseHttpHeadersInput", () => {
   it("parses valid KEY=value lines", () => {

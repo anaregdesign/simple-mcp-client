@@ -133,7 +133,3 @@ export type AzureTenantView = {
   displayName: string;
   defaultDomain: string;
 };
-
-export type McpServersAuthState = {
-  authRequired?: boolean;
-};

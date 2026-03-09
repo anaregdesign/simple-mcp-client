@@ -22,11 +22,11 @@ import {
   parseAzureAuthScopeInput,
   parseHttpHeadersInput,
   parseMcpTimeoutSecondsInput,
-} from "~/lib/client/mcp/http-inputs";
+} from "~/lib/client/usecase/workspace/mcp-http-inputs";
 import {
   parseStdioArgsInput,
   parseStdioEnvInput,
-} from "~/lib/client/mcp/stdio-inputs";
+} from "~/lib/client/usecase/workspace/mcp-stdio-inputs";
 import { createId } from "~/lib/client/shared/ids";
 import type {
   ThreadInstructionContextToggles,

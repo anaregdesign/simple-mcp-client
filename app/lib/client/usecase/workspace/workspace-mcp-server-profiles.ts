@@ -2,7 +2,6 @@
  * Client runtime support module.
  */
 import { buildMcpServerKey, type McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { McpServersAuthState } from "~/lib/client/shared/view-types";
 
 /**
  * View model used by `SelectableCardList` in the MCP saved profile section.
@@ -16,16 +15,6 @@ export type WorkspaceMcpServerProfileOption = {
   isSelected: boolean;
   isAvailable: boolean;
 };
-
-/**
- * Treats either explicit HTTP 401 or server payload `authRequired` as an auth-required state.
- */
-export function isMcpServersAuthRequired(
-  status: number,
-  payload: McpServersAuthState | null | undefined,
-): boolean {
-  return status === 401 || payload?.authRequired === true;
-}
 
 /**
  * Schedules a retry only when auth was previously required and the workspace identity is known.

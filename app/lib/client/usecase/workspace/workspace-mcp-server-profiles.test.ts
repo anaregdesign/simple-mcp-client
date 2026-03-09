@@ -7,25 +7,9 @@ import {
   countSelectedWorkspaceMcpServerProfileOptions,
   describeWorkspaceMcpServerProfile,
   describeWorkspaceMcpServerProfileDetail,
-  isMcpServersAuthRequired,
   resolveMcpTransportBadge,
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
-} from "~/lib/client/mcp/workspace-mcp-server-profiles";
-
-describe("isMcpServersAuthRequired", () => {
-  it("returns true for HTTP 401 even without payload", () => {
-    expect(isMcpServersAuthRequired(401, null)).toBe(true);
-  });
-
-  it("returns true when payload explicitly requires auth", () => {
-    expect(isMcpServersAuthRequired(500, { authRequired: true })).toBe(true);
-  });
-
-  it("returns false for non-auth failures", () => {
-    expect(isMcpServersAuthRequired(500, { authRequired: false })).toBe(false);
-    expect(isMcpServersAuthRequired(400, undefined)).toBe(false);
-  });
-});
+} from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
 
 describe("shouldScheduleWorkspaceMcpServerProfileLoginRetry", () => {
   it("returns true only when auth has just recovered and key exists", () => {

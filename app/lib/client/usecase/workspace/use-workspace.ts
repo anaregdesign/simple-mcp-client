@@ -110,7 +110,7 @@ import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
-} from "~/lib/client/mcp/workspace-mcp-server-profiles";
+} from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
 import {
   installGlobalClientErrorLogging,
   reportClientEvent,

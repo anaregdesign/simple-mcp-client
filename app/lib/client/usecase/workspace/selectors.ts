@@ -8,7 +8,7 @@ import type { ThreadMessage } from "~/lib/client/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
 import {
   type WorkspaceMcpServerProfileOption,
-} from "~/lib/client/mcp/workspace-mcp-server-profiles";
+} from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
 import type {
   ChatCommandMenuView,
   InstructionLanguage,
