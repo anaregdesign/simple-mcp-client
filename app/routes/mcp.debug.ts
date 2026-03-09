@@ -2,8 +2,12 @@
  * MCP route module for /mcp/debug database debug server.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import * as z from "zod/v4";
+import {
+  buildMcpToolResponse,
+  createMcpJsonTransport,
+  jsonRpcErrorResponse,
+} from "~/lib/server/http/mcp/mcp-transport";
 import {
   buildDatabaseDebugLatestThreadToolDescription,
   buildDatabaseDebugTableToolDescription,
@@ -169,38 +173,19 @@ export async function action({ request }: { request: Request }) {
 
 async function handleMcpRequest(request: Request): Promise<Response> {
   if (!isDevelopmentMcpDebugRequest()) {
-    return Response.json(
-      {
-        jsonrpc: "2.0",
-        error: {
-          code: -32004,
-          message: "Not found.",
-        },
-        id: null,
-      },
-      { status: 404 },
-    );
+    return jsonRpcErrorResponse(404, -32004, "Not found.");
   }
 
   if (request.method !== "POST") {
-    return Response.json(
-      {
-        jsonrpc: "2.0",
-        error: {
-          code: -32000,
-          message: `Method not allowed. Use POST ${MCP_DEBUG_ROUTE_PATH}.`,
-        },
-        id: null,
-      },
-      { status: 405 },
+    return jsonRpcErrorResponse(
+      405,
+      -32000,
+      `Method not allowed. Use POST ${MCP_DEBUG_ROUTE_PATH}.`,
     );
   }
 
   const server = createDatabaseDebugMcpServer();
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  });
+  const transport = createMcpJsonTransport();
 
   try {
     await ensureDatabaseDebugReady();
@@ -216,17 +201,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
       error,
     });
 
-    return Response.json(
-      {
-        jsonrpc: "2.0",
-        error: {
-          code: -32603,
-          message: "Internal server error.",
-        },
-        id: null,
-      },
-      { status: 500 },
-    );
+    return jsonRpcErrorResponse(500, -32603, "Internal server error.");
   } finally {
     await Promise.allSettled([
       transport.close(),
@@ -269,7 +244,7 @@ function createDatabaseDebugMcpServer(): McpServer {
         errorAccumulationTables,
       };
 
-      return buildToolResponse(payload);
+      return buildMcpToolResponse(payload);
     },
   );
 
@@ -282,7 +257,7 @@ function createDatabaseDebugMcpServer(): McpServer {
     async (args) => {
       const options = normalizeDatabaseDebugLatestThreadReadOptions(args);
       const result = await readDatabaseDebugLatestThreadSnapshot(options);
-      return buildToolResponse(result);
+      return buildMcpToolResponse(result);
     },
   );
 
@@ -296,23 +271,10 @@ function createDatabaseDebugMcpServer(): McpServer {
       async (args) => {
         const options = normalizeDatabaseDebugReadOptions(args, table);
         const result = await readDatabaseDebugTableRows(table, options);
-        return buildToolResponse(result);
+        return buildMcpToolResponse(result);
       },
     );
   }
 
   return server;
-}
-
-function buildToolResponse(payload: Record<string, unknown>) {
-  const text = JSON.stringify(payload, null, 2);
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text,
-      },
-    ],
-    structuredContent: payload,
-  };
 }

@@ -2,12 +2,16 @@
  * MCP route module for /mcp/cmd shell command server.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import * as z from "zod/v4";
 import {
   MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER,
   MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER,
 } from "~/lib/constants/mcp";
+import {
+  buildMcpToolResponse,
+  createMcpJsonTransport,
+  jsonRpcErrorResponse,
+} from "~/lib/server/http/mcp/mcp-transport";
 import { readAzureArmUserContext } from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import { NodeMcpCmdShellGateway } from "~/lib/server/infrastructure/gateways/mcp/mcp-cmd-shell-gateway";
 import {
@@ -22,7 +26,6 @@ import {
   MCP_CMD_MAX_TIMEOUT_SECONDS,
   McpCmdService,
   type McpCmdToolContext,
-  type McpCmdToolPayload,
 } from "~/lib/server/usecase/mcp/mcp-cmd-service";
 
 const MCP_CMD_ROUTE_PATH = "/mcp/cmd";
@@ -112,10 +115,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
     authenticatedContext,
   );
   const server = createCmdMcpServer(requestContext);
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  });
+  const transport = createMcpJsonTransport();
 
   try {
     await server.connect(transport);
@@ -161,7 +161,7 @@ function createCmdMcpServer(requestContext: McpCmdRequestContext): McpServer {
         readToolContext(requestContext),
         args,
       );
-      return buildToolResponse(result.payload, { isError: result.isError });
+      return buildMcpToolResponse(result.payload, { isError: result.isError });
     },
   );
 
@@ -231,45 +231,4 @@ function readOptionalHeaderValue(
 
   const normalized = raw.trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function jsonRpcErrorResponse(
-  status: number,
-  code: number,
-  message: string,
-): Response {
-  return Response.json(
-    {
-      jsonrpc: "2.0",
-      error: {
-        code,
-        message,
-      },
-      id: null,
-    },
-    { status },
-  );
-}
-
-function buildToolResponse(
-  payload: McpCmdToolPayload,
-  options: {
-    isError?: boolean;
-    text?: string;
-  } = {},
-) {
-  const text =
-    typeof options.text === "string"
-      ? options.text
-      : JSON.stringify(payload, null, 2);
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text,
-      },
-    ],
-    structuredContent: payload,
-    ...(options.isError ? { isError: true } : {}),
-  };
 }
