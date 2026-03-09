@@ -47,12 +47,12 @@ vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
   };
 });
 
-import { parseAzureSelectionPreference } from "~/lib/server/usecase/azure/azure-selection-service";
+import { parseAzureSelectionPreferenceRequest } from "~/lib/server/http/azure/azure-selection-request";
 import { action, loader } from "./api.azure.selection";
 
-describe("parseAzureSelectionPreference", () => {
+describe("parseAzureSelectionPreferenceRequest", () => {
   it("parses and trims a valid selection payload", () => {
-    const result = parseAzureSelectionPreference({
+    const result = parseAzureSelectionPreferenceRequest({
       target: "playground",
       projectId: " project-a ",
       deploymentName: " deploy-a ",
@@ -67,7 +67,7 @@ describe("parseAzureSelectionPreference", () => {
   });
 
   it("accepts utility target", () => {
-    const result = parseAzureSelectionPreference({
+    const result = parseAzureSelectionPreferenceRequest({
       target: "utility",
       projectId: "project-b",
       deploymentName: "deploy-b",
@@ -84,7 +84,7 @@ describe("parseAzureSelectionPreference", () => {
   });
 
   it("accepts theme-only payload", () => {
-    const result = parseAzureSelectionPreference({
+    const result = parseAzureSelectionPreferenceRequest({
       theme: "dark",
     });
 
@@ -99,38 +99,38 @@ describe("parseAzureSelectionPreference", () => {
 
   it("returns null when required fields are missing", () => {
     expect(
-      parseAzureSelectionPreference({
+      parseAzureSelectionPreferenceRequest({
         target: "playground",
         projectId: "project-a",
       }),
     ).toBeNull();
     expect(
-      parseAzureSelectionPreference({
+      parseAzureSelectionPreferenceRequest({
         target: "playground",
         projectId: "",
         deploymentName: "deploy-a",
       }),
     ).toBeNull();
     expect(
-      parseAzureSelectionPreference({
+      parseAzureSelectionPreferenceRequest({
         target: "invalid",
         projectId: "project-a",
         deploymentName: "deploy-a",
       }),
     ).toBeNull();
     expect(
-      parseAzureSelectionPreference({
+      parseAzureSelectionPreferenceRequest({
         target: "utility",
         projectId: "project-b",
         deploymentName: "deploy-b",
       }),
     ).toBeNull();
     expect(
-      parseAzureSelectionPreference({
+      parseAzureSelectionPreferenceRequest({
         projectId: "project-a",
       }),
     ).toBeNull();
-    expect(parseAzureSelectionPreference("invalid")).toBeNull();
+    expect(parseAzureSelectionPreferenceRequest("invalid")).toBeNull();
   });
 });
 

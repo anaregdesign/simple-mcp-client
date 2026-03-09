@@ -3,16 +3,23 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import type {
+  AzureDeploymentResource,
+  AzurePrincipalProfileResource,
+  AzureProjectResource,
+  AzureTenantResource,
+} from "~/lib/contracts/api/azure";
 
 export type AzureProjectsApiResponse = {
-  projects?: unknown;
-  deployments?: unknown;
-  tenants?: unknown;
-  principal?: unknown;
-  tenantId?: unknown;
-  principalId?: unknown;
+  projects?: AzureProjectResource[];
+  deployments?: AzureDeploymentResource[];
+  tenants?: AzureTenantResource[];
+  principal?: AzurePrincipalProfileResource | null;
+  tenantId?: string;
+  principalId?: string;
   authRequired?: boolean;
   error?: string;
+  code?: string;
 };
 
 type AzureProjectsApiClientOptions = {

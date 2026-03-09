@@ -1,4 +1,5 @@
 import { structuredAuthRequiredResponse, structuredErrorResponse, methodNotAllowedResponse, successResponse } from "~/lib/server/http";
+import type { WorkspaceBootstrapData } from "~/lib/contracts/api/workspace-bootstrap";
 import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   createWorkspaceBootstrapService,
@@ -40,6 +41,13 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  presentAzureDeploymentsByProjectIdResource,
+  presentAzurePrincipalProfileResource,
+  presentAzureProjectResources,
+  presentAzureSelectionPreferenceResource,
+  presentAzureTenantResources,
+} from "~/lib/server/http/azure/azure-presentation";
 import { presentThreadResources } from "~/lib/server/usecase/threads/thread-resource-presentation";
 import type { Route } from "./+types/api.workspace-bootstrap";
 
@@ -86,10 +94,21 @@ export async function loader({ request }: Route.LoaderArgs) {
       return structuredAuthRequiredResponse();
     }
 
-    return successResponse({
+    const responseData: WorkspaceBootstrapData = {
       ...data,
+      principal: presentAzurePrincipalProfileResource(data.principal),
+      azureProjects: presentAzureProjectResources(data.azureProjects),
+      azureTenants: presentAzureTenantResources(data.azureTenants),
+      azureSelection: presentAzureSelectionPreferenceResource(
+        data.azureSelection,
+      ),
+      azureDeploymentsByProjectId: presentAzureDeploymentsByProjectIdResource(
+        data.azureDeploymentsByProjectId,
+      ),
       threads: presentThreadResources(data.threads),
-    });
+    };
+
+    return successResponse(responseData);
   } catch (error) {
     await logServerRouteEvent({
       request,

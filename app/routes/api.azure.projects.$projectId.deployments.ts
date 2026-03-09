@@ -21,6 +21,10 @@ import {
   getArmAccessToken,
   resolveAzurePrincipalProfile,
 } from "~/lib/server/infrastructure/azure/arm-access-context";
+import {
+  presentAzureDeploymentResources,
+  presentAzurePrincipalProfileResource,
+} from "~/lib/server/http/azure/azure-presentation";
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
@@ -68,8 +72,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       projectRef,
     );
     return Response.json({
-      deployments,
-      principal,
+      deployments: presentAzureDeploymentResources(deployments),
+      principal: presentAzurePrincipalProfileResource(principal),
       tenantId: tokenResult.tenantId,
       principalId: tokenResult.principalId,
       authRequired: false,

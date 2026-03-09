@@ -3,7 +3,6 @@
  */
 import {
   createAzureSelectionService,
-  parseAzureSelectionPreference,
 } from "~/lib/server/usecase/azure/azure-selection-service";
 import {
   authRequiredResponse,
@@ -14,6 +13,12 @@ import {
   readJsonPayload,
   validationErrorResponse,
 } from "~/lib/server/http";
+import {
+  presentAzureSelectionPreferenceResource,
+} from "~/lib/server/http/azure/azure-presentation";
+import {
+  parseAzureSelectionPreferenceRequest,
+} from "~/lib/server/http/azure/azure-selection-request";
 import { readAuthenticatedIdentity } from "~/lib/server/infrastructure/auth/read-authenticated-identity";
 import {
   createAzureSelectionPreferencePersistenceRepository,
@@ -48,7 +53,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     const selection = await getAzureSelectionService().readStoredSelection(
       identity,
     );
-    return Response.json({ selection });
+    return Response.json({
+      selection: presentAzureSelectionPreferenceResource(selection),
+    });
   } catch (error) {
     await logServerRouteEvent({
       request,
@@ -134,7 +141,7 @@ export async function action({ request }: Route.ActionArgs) {
     return invalidJsonResponse();
   }
 
-  const preference = parseAzureSelectionPreference(payload.value);
+  const preference = parseAzureSelectionPreferenceRequest(payload.value);
   if (!preference) {
     await logServerRouteEvent({
       request,
@@ -159,7 +166,9 @@ export async function action({ request }: Route.ActionArgs) {
       preference,
     );
     return Response.json(
-      { selection: saved.selection },
+      {
+        selection: presentAzureSelectionPreferenceResource(saved.selection),
+      },
       {
         status: saved.created ? 201 : 200,
         headers: saved.created

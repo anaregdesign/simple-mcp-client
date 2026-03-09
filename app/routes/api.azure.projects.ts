@@ -18,6 +18,11 @@ import {
   methodNotAllowedResponse,
 } from "~/lib/server/http";
 import {
+  presentAzurePrincipalProfileResource,
+  presentAzureProjectResources,
+  presentAzureTenantResources,
+} from "~/lib/server/http/azure/azure-presentation";
+import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
@@ -63,9 +68,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     ]);
 
     return Response.json({
-      projects,
-      tenants,
-      principal,
+      projects: presentAzureProjectResources(projects),
+      tenants: presentAzureTenantResources(tenants),
+      principal: presentAzurePrincipalProfileResource(principal),
       tenantId: tokenResult.tenantId,
       principalId: tokenResult.principalId,
       authRequired: false,

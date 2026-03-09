@@ -4,40 +4,26 @@
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
-import { readThemeModeFromUnknown } from "~/lib/domain/value-objects/theme-mode";
 import type {
-  AzureSelectionPreferenceSnapshot,
-  AzureSelectionTargetPreference,
-  AzureUtilitySelectionTargetPreference,
-} from "~/lib/domain/entities/azure-selection-preference";
+  AzureDeploymentResource,
+  AzurePrincipalProfileResource,
+  AzureProjectResource,
+  AzureSelectionPreferenceResource,
+  AzureSelectionTargetPreferenceResource,
+  AzureTenantResource,
+  AzureUtilitySelectionTargetPreferenceResource,
+} from "~/lib/contracts/api/azure";
+import { readThemeModeFromUnknown } from "~/lib/domain/value-objects/theme-mode";
 
-export type AzureSelectionPreference = AzureSelectionPreferenceSnapshot;
+export type AzureSelectionPreference = AzureSelectionPreferenceResource;
 
-export type AzureProjectOption = {
-  id: string;
-  projectName: string;
-  baseUrl: string;
-  apiVersion: string;
-};
+export type AzureProjectOption = AzureProjectResource;
 
-export type AzureTenantOption = {
-  tenantId: string;
-  displayName: string;
-  defaultDomain: string;
-};
+export type AzureTenantOption = AzureTenantResource;
 
-export type AzureDeploymentOption = {
-  name: string;
-  reasoningEffortOptions: ReasoningEffort[];
-};
+export type AzureDeploymentOption = AzureDeploymentResource;
 
-export type AzurePrincipalProfile = {
-  tenantId: string;
-  principalId: string;
-  displayName: string;
-  principalName: string;
-  principalType: "user" | "servicePrincipal" | "managedIdentity" | "unknown";
-};
+export type AzurePrincipalProfile = AzurePrincipalProfileResource;
 
 export function readTenantIdFromUnknown(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -269,7 +255,7 @@ function readAzureDeploymentFromUnknown(
 
 function readAzureSelectionTargetFromUnknown(
   value: unknown,
-): AzureSelectionTargetPreference | null {
+): AzureSelectionTargetPreferenceResource | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -290,7 +276,7 @@ function readAzureSelectionTargetFromUnknown(
 
 function readAzureUtilitySelectionTargetFromUnknown(
   value: unknown,
-): AzureUtilitySelectionTargetPreference | null {
+): AzureUtilitySelectionTargetPreferenceResource | null {
   if (!isRecord(value)) {
     return null;
   }

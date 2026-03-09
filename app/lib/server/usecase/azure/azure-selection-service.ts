@@ -8,13 +8,11 @@ import type {
   AzureSelectionIdentity,
   AzureSelectionPreferenceRepository,
 } from "~/lib/domain/repositories/azure-selection-preference-repository";
-import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
-import { readThemeModeFromUnknown } from "~/lib/domain/value-objects/theme-mode";
 
-type AzureSelectionPreferencePayload = {
+export type AzureSelectionPreferenceWriteInput = {
   target: AzureSelectionTarget | null;
   projectId: string;
   deploymentName: string;
@@ -37,7 +35,7 @@ export class AzureSelectionService {
 
   async saveStoredSelection(
     identity: AzureSelectionIdentity,
-    preference: AzureSelectionPreferencePayload,
+    preference: AzureSelectionPreferenceWriteInput,
   ): Promise<{ selection: AzureSelectionPreference; created: boolean }> {
     const existing = await this.repository.findByIdentity(identity);
     const selection = buildAzureSelectionPreference(
@@ -63,63 +61,9 @@ export function createAzureSelectionService(
   return new AzureSelectionService(repository);
 }
 
-export function parseAzureSelectionPreference(
-  value: unknown,
-): AzureSelectionPreferencePayload | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const target = value.target;
-  const projectId =
-    typeof value.projectId === "string" ? value.projectId.trim() : "";
-  const deploymentName =
-    typeof value.deploymentName === "string" ? value.deploymentName.trim() : "";
-  const reasoningEffort =
-    typeof value.reasoningEffort === "string"
-      ? readReasoningEffortFromUnknown(value.reasoningEffort)
-      : null;
-  const theme = readThemeModeFromUnknown(value.theme);
-  const hasSelectionInput =
-    value.target !== undefined ||
-    value.projectId !== undefined ||
-    value.deploymentName !== undefined ||
-    value.reasoningEffort !== undefined;
-
-  if (!hasSelectionInput) {
-    if (!theme) {
-      return null;
-    }
-    return {
-      target: null,
-      projectId: "",
-      deploymentName: "",
-      reasoningEffort: null,
-      theme,
-    };
-  }
-
-  if (
-    (target !== "playground" && target !== "utility") ||
-    !projectId ||
-    !deploymentName ||
-    (target === "utility" && !reasoningEffort)
-  ) {
-    return null;
-  }
-
-  return {
-    target,
-    projectId,
-    deploymentName,
-    reasoningEffort,
-    theme,
-  };
-}
-
 function buildAzureSelectionPreference(
   identity: AzureSelectionIdentity,
-  preference: AzureSelectionPreferencePayload,
+  preference: AzureSelectionPreferenceWriteInput,
   existing: AzureSelectionPreference | null,
 ): AzureSelectionPreference {
   const base =
@@ -150,21 +94,4 @@ function buildAzureSelectionPreference(
           )
         : undefined,
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
-}
-
-function readReasoningEffortFromUnknown(
-  value: unknown,
-): ReasoningEffort | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  if (REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)) {
-    return value as ReasoningEffort;
-  }
-
-  return null;
 }

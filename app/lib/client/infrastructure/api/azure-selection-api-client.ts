@@ -3,29 +3,17 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import type {
+  AzureSelectionPreferenceResource,
+  AzureSelectionUpdatePayload,
+} from "~/lib/contracts/api/azure";
 
 export type AzureSelectionApiResponse = {
-  selection?: unknown;
+  selection?: AzureSelectionPreferenceResource | null;
   error?: string;
+  code?: string;
+  authRequired?: boolean;
 };
-
-export type AzureSelectionUpdatePayload =
-  | {
-      target: "playground";
-      projectId: string;
-      deploymentName: string;
-      theme?: string | null;
-    }
-  | {
-      target: "utility";
-      projectId: string;
-      deploymentName: string;
-      reasoningEffort: string;
-      theme?: string | null;
-    }
-  | {
-      theme: string;
-    };
 
 type AzureSelectionApiClientOptions = {
   onAuthRequired?: () => void;
