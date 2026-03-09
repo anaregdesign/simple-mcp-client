@@ -9,7 +9,7 @@ import {
   buildThreadSkillActivationRowId,
   normalizeThreadOperationLogSourceRpcId,
   normalizeThreadMcpServerSourceId,
-} from "~/lib/server/shared/thread-row-ids";
+} from "~/lib/server/infrastructure/repositories/thread-row-ids";
 
 describe("normalizeThreadMcpServerSourceId", () => {
   it("keeps plain source ids unchanged", () => {

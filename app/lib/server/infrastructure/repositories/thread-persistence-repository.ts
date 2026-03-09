@@ -16,7 +16,7 @@ import {
   buildThreadMcpServerRowId,
   buildThreadOperationLogRowId,
   buildThreadSkillActivationRowId,
-} from "~/lib/server/shared/thread-row-ids";
+} from "~/lib/server/infrastructure/repositories/thread-row-ids";
 
 const threadResourceInclude = {
   instruction: true,
