@@ -51,7 +51,7 @@ import {
   presentAzureSelectionPreferenceResource,
   presentAzureTenantResources,
 } from "~/lib/server/http/azure/azure-presentation";
-import { presentThreadResources } from "~/lib/server/usecase/threads/thread-resource-presentation";
+import { presentThreadResources } from "~/lib/server/http/threads/thread-resource-presentation";
 import type { Route } from "./+types/api.workspace-bootstrap";
 
 const WORKSPACE_BOOTSTRAP_ALLOWED_METHODS = ["GET"] as const;

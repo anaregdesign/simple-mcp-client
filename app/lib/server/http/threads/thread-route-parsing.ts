@@ -1,7 +1,6 @@
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
-import { isThreadRestorePayload } from "~/lib/server/usecase/threads/thread-service";
 
 export type ThreadRouteValidationIssue = {
   statusCode: 422;
@@ -121,4 +120,12 @@ export function readThreadRestoreRequest(
       message: "`archived` must be false.",
     },
   };
+}
+
+function isThreadRestorePayload(value: unknown): boolean {
+  return isRecord(value) && value.archived === false;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
 }

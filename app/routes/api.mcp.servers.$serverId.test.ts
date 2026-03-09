@@ -48,9 +48,12 @@ vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
     writeWorkspaceMcpServerProfiles,
   }),
   deleteWorkspaceMcpServerProfile,
-  parseIncomingMcpServer,
   mergeDefaultWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
+}));
+
+vi.mock("~/lib/contracts/mcp/server-config-parser", () => ({
+  parseIncomingMcpServer,
 }));
 
 vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({

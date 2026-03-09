@@ -254,10 +254,6 @@ function isThreadIdConflictError(error: unknown): boolean {
   return false;
 }
 
-export function isThreadRestorePayload(value: unknown): boolean {
-  return isRecord(value) && value.archived === false;
-}
-
 export function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
 }

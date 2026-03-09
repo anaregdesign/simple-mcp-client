@@ -27,7 +27,7 @@ import {
   buildThreadCollectionMetricsContext,
   presentCreateThreadResult,
 } from "~/lib/server/http/threads/thread-route-presentation";
-import { presentThreadResources } from "~/lib/server/usecase/threads/thread-resource-presentation";
+import { presentThreadResources } from "~/lib/server/http/threads/thread-resource-presentation";
 import { readThreadWritePayload } from "~/lib/server/http/threads/thread-route-parsing";
 import type { Route } from "./+types/api.threads";
 

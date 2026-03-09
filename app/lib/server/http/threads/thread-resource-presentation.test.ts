@@ -6,7 +6,7 @@ import {
 import {
   presentThreadResource,
   presentThreadResources,
-} from "./thread-resource-presentation";
+} from "~/lib/server/http/threads/thread-resource-presentation";
 
 function createThreadSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
   return {

@@ -14,9 +14,9 @@ import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-aut
 import {
   createMcpServerProfileService,
   mergeDefaultWorkspaceMcpServerProfiles,
-  parseIncomingMcpServer,
   upsertWorkspaceMcpServerProfile,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
+import { parseIncomingMcpServer } from "~/lib/contracts/mcp/server-config-parser";
 import {
   createWorkspaceMcpServerProfilePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/workspace-mcp-server-profile-persistence-repository";

@@ -14,9 +14,9 @@ import {
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_TIMEOUT_SECONDS,
 } from "~/lib/constants/mcp";
+import { parseIncomingMcpServer } from "~/lib/contracts/mcp/server-config-parser";
 import { resolveWorkspaceStorageDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import {
-  parseIncomingMcpServer,
   upsertWorkspaceMcpServerProfile,
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,

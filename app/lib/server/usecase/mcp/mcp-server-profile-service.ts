@@ -13,7 +13,6 @@ import {
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
 import {
-  parseIncomingMcpServer,
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
 import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from "~/lib/contracts/mcp/profile";
@@ -22,8 +21,6 @@ import {
   resolveDefaultFilesystemWorkingDirectory,
   resolveLegacyFilesystemWorkingDirectory,
 } from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
-
-export { parseIncomingMcpServer };
 
 export type IncomingMcpServerConfig = ParsedIncomingMcpServerConfig;
 
