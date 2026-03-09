@@ -5,14 +5,19 @@ import type { ComponentProps } from "react";
 import { InstructionSection } from "~/components/config/threads/InstructionSection";
 import {
   ThreadsManageSection,
-  type ThreadsManageSectionProps,
 } from "~/components/config/threads/ThreadsManageSection";
 import type { MainViewTab } from "~/lib/client/shared/view-types";
+import {
+  useThreadManagement,
+} from "~/lib/client/usecase/workspace/thread-management/use-thread-management";
+import type {
+  ThreadManagementProps,
+} from "~/lib/client/usecase/workspace/thread-management/types";
 
 type ThreadsTabProps = {
   activeMainTab: MainViewTab;
   instructionSectionProps: ComponentProps<typeof InstructionSection>;
-} & ThreadsManageSectionProps;
+} & ThreadManagementProps;
 
 export function ThreadsTab(props: ThreadsTabProps) {
   const {
@@ -36,6 +41,16 @@ export function ThreadsTab(props: ThreadsTabProps) {
     onThreadRestore,
     instructionSectionProps,
   } = props;
+  const threadManagement = useThreadManagement({
+    activeThreadOptions,
+    isLoadingThreads,
+    isSwitchingThread,
+    isCreatingThread,
+    isDeletingThread,
+    isClearingThread,
+    isRestoringThread,
+    onThreadRename,
+  });
 
   return (
     <section
@@ -66,6 +81,14 @@ export function ThreadsTab(props: ThreadsTabProps) {
           onThreadDelete={onThreadDelete}
           onThreadClear={onThreadClear}
           onThreadRestore={onThreadRestore}
+          renameInputRef={threadManagement.renameInputRef}
+          renamingThreadId={threadManagement.renamingThreadId}
+          renamingThreadName={threadManagement.renamingThreadName}
+          isThreadOperationBusy={threadManagement.isThreadOperationBusy}
+          handleBeginThreadRename={threadManagement.handleBeginThreadRename}
+          handleRenameInputChange={threadManagement.handleRenameInputChange}
+          handleRenameInputBlur={threadManagement.handleRenameInputBlur}
+          handleRenameInputKeyDown={threadManagement.handleRenameInputKeyDown}
         />
       </div>
     </section>

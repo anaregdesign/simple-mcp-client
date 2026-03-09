@@ -1,7 +1,6 @@
 /**
  * Client UI component module.
  */
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
@@ -10,41 +9,14 @@ import {
   type ContextActionMenuItem,
 } from "~/components/shared/ContextActionMenu";
 import { StatusMessageList } from "~/components/shared/StatusMessageList";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import {
+  type ThreadManagementSectionProps,
+} from "~/lib/client/usecase/workspace/thread-management/types";
+import { isRenamingThread } from "~/lib/client/usecase/workspace/thread-management/selectors";
 
 const { Button, Input, Spinner } = FluentUI;
 
-export type ThreadOption = {
-  id: string;
-  name: string;
-  updatedAt: string;
-  deletedAt: string | null;
-  messageCount: number;
-  mcpServerCount: number;
-  isAwaitingResponse: boolean;
-};
-
-export type ThreadsManageSectionProps = {
-  activeThreadOptions: ThreadOption[];
-  archivedThreadOptions: ThreadOption[];
-  activeThreadId: string;
-  isLoadingThreads: boolean;
-  isSwitchingThread: boolean;
-  isCreatingThread: boolean;
-  isDeletingThread: boolean;
-  isClearingThread: boolean;
-  isRestoringThread: boolean;
-  threadError: string | null;
-  onActiveThreadChange: (threadId: string) => void;
-  onCreateThread: () => void;
-  onThreadRename: (threadId: string, nextName: string) => void;
-  onThreadCancel: (threadId: string) => void;
-  onThreadDelete: (threadId: string) => void;
-  onThreadClear: (threadId: string) => void;
-  onThreadRestore: (threadId: string) => void;
-};
-
-export function ThreadsManageSection(props: ThreadsManageSectionProps) {
+export function ThreadsManageSection(props: ThreadManagementSectionProps) {
   const {
     activeThreadOptions,
     archivedThreadOptions,
@@ -58,94 +30,19 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
     threadError,
     onActiveThreadChange,
     onCreateThread,
-    onThreadRename,
     onThreadCancel,
     onThreadDelete,
     onThreadClear,
     onThreadRestore,
+    renameInputRef,
+    renamingThreadId,
+    renamingThreadName,
+    isThreadOperationBusy,
+    handleBeginThreadRename,
+    handleRenameInputChange,
+    handleRenameInputBlur,
+    handleRenameInputKeyDown,
   } = props;
-
-  const isThreadOperationBusy =
-    isLoadingThreads ||
-    isSwitchingThread ||
-    isCreatingThread ||
-    isDeletingThread ||
-    isClearingThread ||
-    isRestoringThread;
-
-  const renameInputRef = useRef<HTMLInputElement | null>(null);
-  const [renamingThreadId, setRenamingThreadId] = useState("");
-  const [renamingThreadName, setRenamingThreadName] = useState("");
-
-  function clearThreadRenameState() {
-    setRenamingThreadId("");
-    setRenamingThreadName("");
-  }
-
-  function beginThreadRename(thread: ThreadOption) {
-    setRenamingThreadId(thread.id);
-    setRenamingThreadName(thread.name);
-  }
-
-  function submitThreadRename(thread: ThreadOption) {
-    if (thread.id !== renamingThreadId) {
-      return;
-    }
-
-    const nextName = renamingThreadName;
-    clearThreadRenameState();
-    onThreadRename(thread.id, nextName);
-  }
-
-  function handleRenameInputKeyDown(
-    event: KeyboardEvent<HTMLInputElement>,
-    thread: ThreadOption,
-  ) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      submitThreadRename(thread);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      clearThreadRenameState();
-    }
-  }
-
-  useEffect(() => {
-    if (!renamingThreadId) {
-      return;
-    }
-
-    renameInputRef.current?.focus();
-    renameInputRef.current?.select();
-  }, [renamingThreadId]);
-
-  useEffect(() => {
-    if (!renamingThreadId) {
-      return;
-    }
-
-    const targetExists = activeThreadOptions.some(
-      (thread) => thread.id === renamingThreadId,
-    );
-    if (!targetExists) {
-      clearThreadRenameState();
-    }
-  }, [activeThreadOptions, renamingThreadId]);
-
-  useEffect(() => {
-    if (!isThreadOperationBusy) {
-      return;
-    }
-
-    clearThreadRenameState();
-  }, [isThreadOperationBusy]);
-
-  function handleRenameInputChange(value: string) {
-    setRenamingThreadName(value.slice(0, THREAD_NAME_MAX_LENGTH));
-  }
 
   return (
     <ConfigSection
@@ -182,7 +79,13 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
         >
           {activeThreadOptions.map((thread) => {
             const isActive = thread.id === activeThreadId;
-            const isRenamingThread = renamingThreadId === thread.id;
+            const isActiveRename = isRenamingThread(
+              {
+                renamingThreadId,
+                renamingThreadName,
+              },
+              thread.id,
+            );
             const isDeleteDisabled =
               isThreadOperationBusy ||
               thread.isAwaitingResponse ||
@@ -213,7 +116,7 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
                 disabled: isRenameDisabled,
                 title: `Rename thread ${thread.name}`,
                 onSelect: () => {
-                  beginThreadRename(thread);
+                  handleBeginThreadRename(thread);
                 },
               },
               {
@@ -251,7 +154,7 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
                 className="threads-active-item-row"
                 role="listitem"
               >
-                {isRenamingThread ? (
+                {isActiveRename ? (
                   <Input
                     ref={renameInputRef}
                     value={renamingThreadName}
@@ -263,7 +166,7 @@ export function ThreadsManageSection(props: ThreadsManageSectionProps) {
                       handleRenameInputChange(data.value);
                     }}
                     onBlur={() => {
-                      submitThreadRename(thread);
+                      handleRenameInputBlur(thread);
                     }}
                     onKeyDown={(event) => {
                       handleRenameInputKeyDown(event, thread);
@@ -395,7 +298,9 @@ function formatUpdatedAt(value: string): string {
   return parsed.toLocaleString();
 }
 
-function buildThreadTooltipLines(thread: ThreadOption): string[] {
+function buildThreadTooltipLines(
+  thread: ThreadManagementSectionProps["activeThreadOptions"][number],
+): string[] {
   return [
     `Updated: ${formatUpdatedAt(thread.updatedAt)}`,
     `Messages: ${thread.messageCount}`,
@@ -403,7 +308,9 @@ function buildThreadTooltipLines(thread: ThreadOption): string[] {
   ];
 }
 
-function buildArchivedThreadTooltipLines(thread: ThreadOption): string[] {
+function buildArchivedThreadTooltipLines(
+  thread: ThreadManagementSectionProps["archivedThreadOptions"][number],
+): string[] {
   return [
     `Archived: ${formatUpdatedAt(thread.deletedAt ?? thread.updatedAt)}`,
     `Updated: ${formatUpdatedAt(thread.updatedAt)}`,
