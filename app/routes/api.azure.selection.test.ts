@@ -8,6 +8,7 @@ const {
   readStoredSelectionMock,
   saveStoredSelectionMock,
   deleteStoredSelectionMock,
+  createAzureSelectionServiceMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const {
   readStoredSelectionMock: vi.fn(),
   saveStoredSelectionMock: vi.fn(),
   deleteStoredSelectionMock: vi.fn(),
+  createAzureSelectionServiceMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
@@ -35,11 +37,13 @@ vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
 
   return {
     ...actual,
-    azureSelectionService: {
-      readStoredSelection: readStoredSelectionMock,
-      saveStoredSelection: saveStoredSelectionMock,
-      deleteStoredSelection: deleteStoredSelectionMock,
-    },
+    createAzureSelectionService: createAzureSelectionServiceMock.mockReturnValue(
+      {
+        readStoredSelection: readStoredSelectionMock,
+        saveStoredSelection: saveStoredSelectionMock,
+        deleteStoredSelection: deleteStoredSelectionMock,
+      },
+    ),
   };
 });
 

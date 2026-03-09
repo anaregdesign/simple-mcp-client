@@ -2,7 +2,7 @@
  * API route module for /api/azure/selection.
  */
 import {
-  azureSelectionService,
+  createAzureSelectionService,
   parseAzureSelectionPreference,
 } from "~/lib/server/usecase/azure/azure-selection-service";
 import {
@@ -16,6 +16,9 @@ import {
 } from "~/lib/server/http";
 import { readAuthenticatedIdentity } from "~/lib/server/infrastructure/auth/read-authenticated-identity";
 import {
+  createAzureSelectionPreferencePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/azure-selection-preference-persistence-repository";
+import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
@@ -24,6 +27,12 @@ import type { Route } from "./+types/api.azure.selection";
 export { parseAzureSelectionPreference };
 
 const AZURE_SELECTION_ALLOWED_METHODS = ["GET", "PATCH", "DELETE"] as const;
+
+function getAzureSelectionService() {
+  return createAzureSelectionService(
+    createAzureSelectionPreferencePersistenceRepository(),
+  );
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -38,7 +47,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    const selection = await azureSelectionService.readStoredSelection(identity);
+    const selection = await getAzureSelectionService().readStoredSelection(
+      identity,
+    );
     return Response.json({ selection });
   } catch (error) {
     await logServerRouteEvent({
@@ -76,7 +87,9 @@ export async function action({ request }: Route.ActionArgs) {
 
   if (request.method === "DELETE") {
     try {
-      const deleted = await azureSelectionService.deleteStoredSelection(identity);
+      const deleted = await getAzureSelectionService().deleteStoredSelection(
+        identity,
+      );
       if (!deleted) {
         return errorResponse({
           status: 404,
@@ -143,7 +156,10 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    const saved = await azureSelectionService.saveStoredSelection(identity, preference);
+    const saved = await getAzureSelectionService().saveStoredSelection(
+      identity,
+      preference,
+    );
     return Response.json(
       { selection: saved.selection },
       {

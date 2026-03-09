@@ -12,9 +12,12 @@ import {
   type AzureTenant,
 } from "~/lib/server/usecase/azure/azure-project-service";
 import {
-  azureSelectionService,
+  createAzureSelectionService,
   type AzureSelectionPreference,
 } from "~/lib/server/usecase/azure/azure-selection-service";
+import {
+  createAzureSelectionPreferencePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/azure-selection-preference-persistence-repository";
 import {
   mcpServerProfileService,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
@@ -59,6 +62,10 @@ export class WorkspaceBootstrapService {
     if (!tokenResult.ok) {
       return null;
     }
+
+    const azureSelectionService = createAzureSelectionService(
+      createAzureSelectionPreferencePersistenceRepository(),
+    );
 
     await mcpServerProfileService.ensureDefaultMcpServersForUser(options.user.id);
 
