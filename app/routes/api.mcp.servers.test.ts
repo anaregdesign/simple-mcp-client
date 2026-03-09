@@ -15,15 +15,13 @@ import {
   MCP_DEFAULT_TIMEOUT_SECONDS,
 } from "~/lib/constants/mcp";
 import { resolveWorkspaceStorageDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { mcpServersRouteTestUtils } from "./api.mcp.servers";
-
-const {
+import {
   parseIncomingMcpServer,
   upsertWorkspaceMcpServerProfile,
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,
-  resolveDefaultFilesystemWorkingDirectory,
-} = mcpServersRouteTestUtils;
+} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
+import { resolveDefaultFilesystemWorkingDirectory } from "~/lib/server/usecase/mcp/workspace-mcp-server-default-paths";
 type DefaultWorkspaceMcpServerProfileRow =
   (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<

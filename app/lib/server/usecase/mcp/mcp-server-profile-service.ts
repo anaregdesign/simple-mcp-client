@@ -574,12 +574,3 @@ function createRandomId(): string {
 
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
-
-export const mcpServersRouteTestUtils = {
-  parseIncomingMcpServer,
-  upsertWorkspaceMcpServerProfile,
-  deleteWorkspaceMcpServerProfile,
-  buildIncomingProfileKey,
-  mergeDefaultWorkspaceMcpServerProfiles,
-  resolveDefaultFilesystemWorkingDirectory,
-};

@@ -14,7 +14,6 @@ import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-aut
 import {
   createMcpServerProfileService,
   mergeDefaultWorkspaceMcpServerProfiles,
-  mcpServersRouteTestUtils,
   parseIncomingMcpServer,
   upsertWorkspaceMcpServerProfile,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
@@ -26,9 +25,6 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { Route } from "./+types/api.mcp.servers";
-
-export { mcpServersRouteTestUtils, parseIncomingMcpServer };
-
 const MCP_SERVERS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
 
 function getMcpServerProfileService() {
