@@ -252,7 +252,10 @@ import {
   readSkillCommandSuggestions,
   type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
-import { createThreadLifecycleHandlers } from "~/lib/client/usecase/workspace/handlers";
+import {
+  createSkillSelectionHandlers,
+  createThreadLifecycleHandlers,
+} from "~/lib/client/usecase/workspace/handlers";
 import {
   type AzureActionApiResponse,
   type AzureProjectsApiResponse,
@@ -4576,172 +4579,22 @@ export function useWorkspace() {
     });
   }
 
-  function handleToggleRegistrySkill(
-    registryId: SkillRegistryId,
-    skillIdRaw: string,
-  ) {
-    const skillId = skillIdRaw.trim();
-    if (!skillId) {
-      return;
-    }
-
-    const registryCatalog = skillRegistryCatalogs.find(
-      (registry) => registry.registryId === registryId,
-    );
-    if (!registryCatalog) {
-      return;
-    }
-
-    const selectedSkill = registryCatalog.skills.find(
-      (skill) => skill.id === skillId,
-    );
-    if (!selectedSkill) {
-      return;
-    }
-
-    void updateSkillRegistrySkill({
-      action:
-        selectedSkill.isInstalled && !selectedSkill.isUpdateAvailable
-          ? "delete_registry_skill"
-          : "install_registry_skill",
-      registryId: registryCatalog.registryId,
-      skillName: selectedSkill.id,
-    });
-  }
-
-  function handleAddMessageSkillActivation(locationRaw: string) {
-    const location = locationRaw.trim();
-    if (!location) {
-      return;
-    }
-
-    setSelectedMessageSkillActivations((current) => {
-      if (current.some((selection) => selection.location === location)) {
-        return current;
-      }
-
-      const skill = availableSkillByLocation.get(location);
-      if (!skill) {
-        return current;
-      }
-
-      return [
-        ...current,
-        {
-          name: skill.name,
-          location: skill.location,
-        },
-      ];
-    });
-  }
-
-  function handleRemoveMessageSkillActivation(locationRaw: string) {
-    const location = locationRaw.trim();
-    if (!location) {
-      return;
-    }
-
-    setSelectedMessageSkillActivations((current) =>
-      current.filter((selection) => selection.location !== location),
-    );
-  }
-
-  function handleAddThreadSkill(locationRaw: string) {
-    const location = locationRaw.trim();
-    if (!location) {
-      return;
-    }
-
-    const skill = availableSkillByLocation.get(location);
-    if (!skill) {
-      return;
-    }
-
-    const activeId = activeThreadIdRef.current.trim();
-    if (!activeId) {
-      return;
-    }
-    updateThreadStateById(activeId, (thread) => {
-      if (
-        thread.skillSelections.some(
-          (selection) => selection.location === location,
-        )
-      ) {
-        return thread;
-      }
-
-      return {
-        ...thread,
-        skillSelections: [
-          ...thread.skillSelections,
-          {
-            name: skill.name,
-            location: skill.location,
-          },
-        ],
-      };
-    });
-    setSkillsError(null);
-  }
-
-  function handleRemoveThreadSkill(locationRaw: string) {
-    const location = locationRaw.trim();
-    if (!location) {
-      return;
-    }
-    const activeId = activeThreadIdRef.current.trim();
-    if (!activeId) {
-      return;
-    }
-    updateThreadStateById(activeId, (thread) => ({
-      ...thread,
-      skillSelections: thread.skillSelections.filter(
-        (selection) => selection.location !== location,
-      ),
-    }));
-    setSkillsError(null);
-  }
-
-  function handleToggleThreadSkill(locationRaw: string) {
-    const location = locationRaw.trim();
-    if (!location) {
-      return;
-    }
-    const activeId = activeThreadIdRef.current.trim();
-    if (!activeId) {
-      return;
-    }
-    updateThreadStateById(activeId, (thread) => {
-      const existingIndex = thread.skillSelections.findIndex(
-        (selection) => selection.location === location,
-      );
-      if (existingIndex >= 0) {
-        return {
-          ...thread,
-          skillSelections: thread.skillSelections.filter(
-            (selection) => selection.location !== location,
-          ),
-        };
-      }
-
-      const skill = availableSkillByLocation.get(location);
-      if (!skill) {
-        return thread;
-      }
-
-      return {
-        ...thread,
-        skillSelections: [
-          ...thread.skillSelections,
-          {
-            name: skill.name,
-            location: skill.location,
-          },
-        ],
-      };
-    });
-    setSkillsError(null);
-  }
+  const {
+    handleToggleRegistrySkill,
+    handleAddMessageSkillActivation,
+    handleRemoveMessageSkillActivation,
+    handleAddThreadSkill,
+    handleRemoveThreadSkill,
+    handleToggleThreadSkill,
+  } = createSkillSelectionHandlers({
+    availableSkillByLocation,
+    skillRegistryCatalogs,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    updateThreadStateById,
+    setSelectedMessageSkillActivations,
+    setSkillsError,
+    updateSkillRegistrySkill,
+  });
 
   function handleSelectActiveChatCommandSuggestion(suggestionIdRaw: string) {
     const suggestionId = suggestionIdRaw.trim();
