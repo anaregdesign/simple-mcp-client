@@ -116,7 +116,7 @@ import { prepareSkillRuntime } from "~/lib/server/infrastructure/gateways/skills
 import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,
-} from "~/lib/server/chat/stdio-runtime-path";
+} from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
 import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-context";
 import {
   createAzureOpenAIClient,

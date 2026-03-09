@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,
-} from "~/lib/server/chat/stdio-runtime-path";
+} from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
 
 describe("buildStdioSpawnEnvironment", () => {
   it("keeps configured PATH entries and produces PATH output", () => {
