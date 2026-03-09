@@ -104,7 +104,7 @@ import {
 import {
   resolveThreadDirectoryContext,
   resolveThreadDirectoryPath,
-} from "~/lib/server/chat/instruction-context-enrichment";
+} from "~/lib/server/infrastructure/gateways/chat/thread-directory-context";
 import { buildSystemInstructionContextPayload } from "~/lib/server/infrastructure/gateways/chat/system-instruction-context";
 import {
   buildSkillRuntimeContext,

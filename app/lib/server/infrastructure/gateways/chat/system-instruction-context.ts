@@ -7,7 +7,7 @@ import {
   readLatestThreadNameForInstruction,
   readPlaygroundSelectionForInstruction,
   resolveThreadDirectoryPath,
-} from "~/lib/server/chat/instruction-context-enrichment";
+} from "~/lib/server/infrastructure/gateways/chat/thread-directory-context";
 import type {
   ChatExecutionOptions,
   InstructionSystemContextPayload,
