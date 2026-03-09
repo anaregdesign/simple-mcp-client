@@ -1,7 +1,11 @@
 import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import {
-  azureProjectQueryService,
   getArmAccessToken,
+  resolveAzurePrincipalProfile,
+  type AzurePrincipalProfile,
+} from "~/lib/server/infrastructure/azure/arm-access-context";
+import {
+  azureProjectQueryService,
   parseProjectId,
   type AzureDeployment,
   type AzureProject,
@@ -31,9 +35,7 @@ type WorkspaceBootstrapOptions = {
 type WorkspaceBootstrapData = {
   tenantId: string;
   principalId: string;
-  principal: Awaited<
-    ReturnType<typeof azureProjectQueryService.resolveAzurePrincipalProfile>
-  >;
+  principal: AzurePrincipalProfile | null;
   azureProjects: AzureProject[];
   azureTenants: AzureTenant[];
   azureSelection: AzureSelectionPreference | null;
@@ -69,7 +71,7 @@ export class WorkspaceBootstrapService {
       workspaceMcpServerProfiles,
       skillDiscovery,
     ] = await Promise.all([
-      azureProjectQueryService.resolveAzurePrincipalProfile(tokenResult, dependencies),
+      resolveAzurePrincipalProfile(tokenResult, dependencies),
       azureProjectQueryService.loadAzureProjectsWithFallback(options.request, tokenResult.token),
       azureProjectQueryService.loadAzureTenantsWithFallback(
         options.request,

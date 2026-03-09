@@ -3,13 +3,15 @@
  */
 import {
   azureProjectQueryService,
-  getArmAccessToken,
   isLikelyAzureAuthError,
   parseReasoningEffortOptionsFromString,
   readErrorMessage,
-  resolveAzurePrincipalProfile,
   resolveReasoningEffortOptionsByModelName,
 } from "~/lib/server/usecase/azure/azure-project-service";
+import {
+  getArmAccessToken,
+  resolveAzurePrincipalProfile,
+} from "~/lib/server/infrastructure/azure/arm-access-context";
 import {
   authRequiredResponse,
   errorResponse,

@@ -13,12 +13,14 @@ import {
 } from "~/lib/server/observability/runtime-event-log";
 import {
   azureProjectQueryService,
-  getArmAccessToken,
   isLikelyAzureAuthError,
   parseProjectId,
   readErrorMessage,
-  resolveAzurePrincipalProfile,
 } from "~/lib/server/usecase/azure/azure-project-service";
+import {
+  getArmAccessToken,
+  resolveAzurePrincipalProfile,
+} from "~/lib/server/infrastructure/azure/arm-access-context";
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
