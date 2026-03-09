@@ -35,15 +35,12 @@ import {
   createThreadPersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
 import {
-  createWorkspaceSkillProfilePersistenceRepository,
-} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
-import {
-  createWorkspaceSkillDiscoveryGateway,
-} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
-import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  createWorkspaceSkillServiceWithInfrastructure,
+} from "~/lib/server/infrastructure/skills/workspace-skill-service-factory";
 import type { Route } from "./+types/api.workspace-bootstrap";
 
 function getWorkspaceBootstrapService() {
@@ -62,10 +59,7 @@ function getWorkspaceBootstrapService() {
     threadQueryService: createThreadQueryService(
       createThreadPersistenceRepository(),
     ),
-    workspaceSkillService: createWorkspaceSkillService({
-      repository: createWorkspaceSkillProfilePersistenceRepository(),
-      discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
-    }),
+    workspaceSkillService: createWorkspaceSkillServiceWithInfrastructure(),
   });
 }
 

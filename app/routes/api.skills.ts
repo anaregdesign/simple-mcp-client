@@ -1,16 +1,7 @@
 /**
  * API route module for /api/skills.
  */
-import {
-  createWorkspaceSkillService,
-} from "~/lib/server/usecase/skills/workspace-skill-service";
 import { handleSkillsCollectionLoader } from "~/lib/server/http/skills/skill-discovery-loader";
-import {
-  createWorkspaceSkillProfilePersistenceRepository,
-} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
-import {
-  createWorkspaceSkillDiscoveryGateway,
-} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
@@ -19,15 +10,11 @@ import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-aut
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  createWorkspaceSkillServiceWithInfrastructure,
+} from "~/lib/server/infrastructure/skills/workspace-skill-service-factory";
 import type { Route } from "./+types/api.skills";
 const SKILLS_COLLECTION_ALLOWED_METHODS = ["GET"] as const;
-
-function getWorkspaceSkillService() {
-  return createWorkspaceSkillService({
-    repository: createWorkspaceSkillProfilePersistenceRepository(),
-    discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
-  });
-}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -44,6 +31,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   return handleSkillsCollectionLoader({
     request,
     userId: user.id,
-    workspaceSkillService: getWorkspaceSkillService(),
+    workspaceSkillService: createWorkspaceSkillServiceWithInfrastructure(),
   });
 }
