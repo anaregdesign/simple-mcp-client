@@ -1,100 +1,30 @@
 /**
  * API route module for /api/runtime/event-logs/:eventLogId.
  */
-import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   createRuntimeEventLogService,
 } from "~/lib/server/usecase/runtime-event-logs/runtime-event-log-service";
 import {
-  authRequiredResponse,
-  errorResponse,
-  methodNotAllowedResponse,
-  validationErrorResponse,
-} from "~/lib/server/http";
-import {
-  installGlobalServerErrorLogging,
-  logServerRouteEvent,
-} from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
-import {
   runtimeEventLogPersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/runtime-event-log-persistence-repository";
+import {
+  handleRuntimeEventLogItemAction,
+  handleRuntimeEventLogItemLoader,
+} from "~/lib/server/http/runtime-event-logs/runtime-event-log-item-action";
 import type { Route } from "./+types/api.runtime.event-logs.$eventLogId";
-
-const RUNTIME_EVENT_LOG_ITEM_ALLOWED_METHODS = ["GET"] as const;
 
 function getRuntimeEventLogService() {
   return createRuntimeEventLogService(runtimeEventLogPersistenceRepository);
 }
 
 export function action() {
-  installGlobalServerErrorLogging();
-  return methodNotAllowedResponse(RUNTIME_EVENT_LOG_ITEM_ALLOWED_METHODS);
+  return handleRuntimeEventLogItemAction();
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  installGlobalServerErrorLogging();
-
-  if (request.method !== "GET") {
-    return methodNotAllowedResponse(RUNTIME_EVENT_LOG_ITEM_ALLOWED_METHODS);
-  }
-
-  const eventLogId = typeof params.eventLogId === "string" ? params.eventLogId.trim() : "";
-  if (!eventLogId) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/runtime/event-logs/:eventLogId",
-      eventName: "invalid_event_log_id",
-      action: "read_event_log_id",
-      level: "warning",
-      statusCode: 422,
-      message: "Invalid event log id.",
-    });
-
-    return validationErrorResponse("invalid_event_log_id", "Invalid event log id.");
-  }
-
-  const user = await readAuthenticatedWorkspaceUser();
-  if (!user) {
-    return authRequiredResponse();
-  }
-
-  try {
-    const result = await getRuntimeEventLogService().readRuntimeEventLogForUser(eventLogId, {
-      tenantId: user.tenantId,
-      principalId: user.principalId,
-      userId: user.id,
-    });
-    if (result.status === "not_found") {
-      return errorResponse({
-        status: 404,
-        code: "runtime_event_log_not_found",
-        error: "Runtime event log is not available.",
-      });
-    }
-
-    return Response.json({ eventLog: result.eventLog });
-  } catch (error) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/runtime/event-logs/:eventLogId",
-      eventName: "read_runtime_event_log_failed",
-      action: "read_runtime_event_log",
-      statusCode: 500,
-      error,
-      context: {
-        eventLogId,
-        tenantId: user.tenantId,
-        principalId: user.principalId,
-      },
-    });
-
-    return errorResponse({
-      status: 500,
-      code: "read_runtime_event_log_failed",
-      error:
-        error instanceof Error
-          ? `Failed to read runtime event log: ${error.message}`
-          : "Failed to read runtime event log: Unknown error.",
-    });
-  }
+  return handleRuntimeEventLogItemLoader({
+    request,
+    eventLogIdParam: params.eventLogId,
+    runtimeEventLogService: getRuntimeEventLogService(),
+  });
 }
