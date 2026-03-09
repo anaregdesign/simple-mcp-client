@@ -6,8 +6,14 @@ import {
 
 describe("parseThreadTitleReasoningEffort", () => {
   it("defaults to high when omitted", () => {
-    expect(parseThreadTitleReasoningEffort({})).toEqual({ ok: true, value: "high" });
-    expect(parseThreadTitleReasoningEffort("invalid")).toEqual({ ok: true, value: "high" });
+    expect(parseThreadTitleReasoningEffort({})).toEqual({
+      ok: true,
+      value: "high",
+    });
+    expect(parseThreadTitleReasoningEffort("invalid")).toEqual({
+      ok: true,
+      value: "high",
+    });
   });
 
   it("accepts valid values", () => {
