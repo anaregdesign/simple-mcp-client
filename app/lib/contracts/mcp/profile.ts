@@ -8,7 +8,7 @@ import {
   MCP_TIMEOUT_SECONDS_MAX,
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
-import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
+import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
 
 export type WorkspaceMcpServerProfileResource = {
   id: string;

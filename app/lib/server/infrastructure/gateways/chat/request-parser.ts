@@ -32,7 +32,7 @@ import {
   type ThreadInstructionContextToggles,
 } from "~/lib/contracts/threads/instruction-context";
 import { parseChatMcpServerEntry } from "~/lib/contracts/mcp/server-config-parser";
-import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
+import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
 
 export type ThreadMessageRole = "user" | "assistant";
 
