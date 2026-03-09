@@ -21,10 +21,7 @@ import {
   resolveWorkspaceStorageDirectory,
   resolveWorkspaceUserDirectory,
 } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import {
-  ensurePersistenceDatabaseReady,
-  prisma,
-} from "~/lib/server/infrastructure/persistence/prisma";
+import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
 
 export { parseIncomingMcpServer };
 
@@ -54,21 +51,25 @@ const defaultFilesystemWorkspaceMcpServerProfile =
   ) ?? null;
 
 export class McpServerProfileService {
+  constructor(
+    private readonly repository: WorkspaceMcpServerProfileRepository,
+  ) {}
+
   async readWorkspaceMcpServerProfiles(
     userId: number,
   ): Promise<WorkspaceMcpServerProfileResource[]> {
-    return readWorkspaceMcpServerProfiles(userId);
+    return readWorkspaceMcpServerProfiles(this.repository, userId);
   }
 
   async writeWorkspaceMcpServerProfiles(
     userId: number,
     profiles: WorkspaceMcpServerProfileResource[],
   ): Promise<void> {
-    return writeWorkspaceMcpServerProfiles(userId, profiles);
+    return writeWorkspaceMcpServerProfiles(this.repository, userId, profiles);
   }
 
   async ensureDefaultMcpServersForUser(userId: number): Promise<void> {
-    return ensureDefaultMcpServersForUser(userId);
+    return ensureDefaultMcpServersForUser(this.repository, userId);
   }
 
   mergeDefaultWorkspaceMcpServerProfiles(
@@ -98,20 +99,17 @@ export class McpServerProfileService {
   }
 }
 
-export const mcpServerProfileService = new McpServerProfileService();
+export function createMcpServerProfileService(
+  repository: WorkspaceMcpServerProfileRepository,
+): McpServerProfileService {
+  return new McpServerProfileService(repository);
+}
 
 export async function readWorkspaceMcpServerProfiles(
+  repository: WorkspaceMcpServerProfileRepository,
   userId: number,
 ): Promise<WorkspaceMcpServerProfileResource[]> {
-  await ensurePersistenceDatabaseReady();
-  const records = await prisma.workspaceMcpServerProfile.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      profileOrder: "asc",
-    },
-  });
+  const records = await repository.listByUserId(userId);
 
   const profiles: WorkspaceMcpServerProfileResource[] = [];
   const keys = new Set<string>();
@@ -135,24 +133,16 @@ export async function readWorkspaceMcpServerProfiles(
 }
 
 export async function writeWorkspaceMcpServerProfiles(
+  repository: WorkspaceMcpServerProfileRepository,
   userId: number,
   profiles: WorkspaceMcpServerProfileResource[],
 ): Promise<void> {
-  await ensurePersistenceDatabaseReady();
-  await prisma.$transaction(async (transaction) => {
-    await transaction.workspaceMcpServerProfile.deleteMany({
-      where: { userId },
-    });
-    if (profiles.length === 0) {
-      return;
-    }
-
-    await transaction.workspaceMcpServerProfile.createMany({
-      data: profiles.map((profile, index) =>
-        mapProfileToDatabaseRecord(userId, profile, index),
-      ),
-    });
-  });
+  await repository.replaceByUserId(
+    userId,
+    profiles.map((profile, index) =>
+      mapProfileToDatabaseRecord(userId, profile, index),
+    ),
+  );
 }
 
 export function mergeDefaultWorkspaceMcpServerProfiles(
@@ -192,9 +182,13 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
 }
 
 export async function ensureDefaultMcpServersForUser(
+  repository: WorkspaceMcpServerProfileRepository,
   userId: number,
 ): Promise<void> {
-  const currentProfiles = await readWorkspaceMcpServerProfiles(userId);
+  const currentProfiles = await readWorkspaceMcpServerProfiles(
+    repository,
+    userId,
+  );
   const nextProfiles = mergeDefaultWorkspaceMcpServerProfiles(
     currentProfiles,
     userId,
@@ -203,7 +197,7 @@ export async function ensureDefaultMcpServersForUser(
     return;
   }
 
-  await writeWorkspaceMcpServerProfiles(userId, nextProfiles);
+  await writeWorkspaceMcpServerProfiles(repository, userId, nextProfiles);
 }
 
 function buildDefaultMcpServerProfiles(
