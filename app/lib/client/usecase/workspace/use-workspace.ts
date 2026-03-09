@@ -252,6 +252,7 @@ import {
   readSkillCommandSuggestions,
   type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
+import { createThreadLifecycleHandlers } from "~/lib/client/usecase/workspace/handlers";
 import {
   type AzureActionApiResponse,
   type AzureProjectsApiResponse,
@@ -2806,544 +2807,56 @@ export function useWorkspace() {
     }
   }
 
-  async function createThreadAndSwitch(
-    options: {
-      name?: string;
-    } = {},
-  ): Promise<boolean> {
-    if (!beginThreadOperation("creating")) {
-      return false;
-    }
-
-    setThreadError(null);
-
-    try {
-      const currentThreadId = activeThreadIdRef.current.trim();
-      const currentThread = findThreadStateById(
-        threadsRef.current,
-        currentThreadId,
-      );
-      const currentThreadState = currentThread
-        ? buildThreadStateFromCurrentState(currentThread)
-        : null;
-
-      if (
-        currentThread &&
-        currentThreadState &&
-        !hasThreadPersistableState(currentThreadState) &&
-        !threadSaveSignatureByIdRef.current.has(currentThread.id)
-      ) {
-        applyThreadState(currentThread);
-        return true;
-      }
-
-      if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadState();
-        if (!saved) {
-          return false;
-        }
-      }
-
-      const localThread = createLocalThreadState({
-        name: options.name,
-      });
-      updateThreadsState((current) =>
-        upsertThreadState(current, localThread),
-      );
+  const {
+    handleCreateThread,
+    handleThreadRename,
+    handleThreadCancel,
+    handleThreadClear,
+    handleThreadLogicalDelete,
+    handleThreadRestore,
+    handleThreadChange,
+  } = createThreadLifecycleHandlers({
+    isSending,
+    threadOperationPhase,
+    readThreads: () => threadsRef.current,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    beginThreadOperation,
+    endThreadOperation,
+    readThreadRequestState,
+    updateThreadStateById,
+    updateThreadsState,
+    hasSavedThreadSignature: (threadId) =>
+      threadSaveSignatureByIdRef.current.has(threadId),
+    setThreadsReady: () => {
       isThreadsReadyRef.current = true;
-      applyThreadState(localThread);
-      logClientInfo("create_thread_succeeded", "Thread created.", {
-        action: "create_thread",
-        context: {
-          threadId: localThread.id,
-          nameLength: localThread.name.length,
-        },
-      });
-      return true;
-    } catch (createError) {
-      logClientError("create_thread_failed", createError, {
-        action: "create_thread",
-        statusCode: 500,
-      });
-      setThreadError(
-        createError instanceof Error
-          ? createError.message
-          : "Failed to create thread.",
-      );
-      return false;
-    } finally {
-      endThreadOperation("creating");
-    }
-  }
-
-  async function handleCreateThread() {
-    const created = await createThreadAndSwitch({
-      name: "",
-    });
-    if (created) {
-      setActiveMainTab("threads");
-    }
-  }
-
-  async function handleThreadRename(
-    threadIdRaw: string,
-    nextNameRaw: string,
-  ): Promise<void> {
-    const threadId = threadIdRaw.trim();
-    if (!threadId) {
-      return;
-    }
-
-    const normalizedName = nextNameRaw.trim().slice(0, THREAD_NAME_MAX_LENGTH);
-    if (!normalizedName) {
-      setThreadError("Thread name cannot be empty.");
-      return;
-    }
-
-    if (isSending) {
-      setThreadError("Thread state is updating. Please wait.");
-      return;
-    }
-
-    if (!beginThreadOperation("clearing")) {
-      return;
-    }
-
-    const targetThread = findThreadStateById(threadsRef.current, threadId);
-    if (!targetThread || targetThread.deletedAt !== null) {
-      setThreadError("Selected thread is not available.");
-      return;
-    }
-
-    if (readThreadRequestState(threadId).isSending) {
-      setThreadError("Cannot rename a thread while a response is in progress.");
-      return;
-    }
-
-    if (targetThread.name === normalizedName) {
-      return;
-    }
-
-    setThreadError(null);
-    updateThreadStateById(threadId, (thread) => ({
-      ...thread,
-      updatedAt: new Date().toISOString(),
-      name: normalizedName,
-    }));
-
-    if (threadId === activeThreadIdRef.current.trim()) {
-      setActiveThreadNameInput(normalizedName);
-    }
-
-    const renamedThread = findThreadStateById(threadsRef.current, threadId);
-    if (!renamedThread) {
-      return;
-    }
-
-    const signature = buildThreadSaveSignature(renamedThread);
-    await saveThreadStateToDatabase(renamedThread, signature);
-  }
-
-  function handleThreadCancel(threadIdRaw: string): void {
-    const threadId = threadIdRaw.trim();
-    if (!threadId) {
-      return;
-    }
-
-    const targetThread = findThreadStateById(threadsRef.current, threadId);
-    if (!targetThread || targetThread.deletedAt !== null) {
-      setThreadError("Selected thread is not available.");
-      return;
-    }
-
-    const canceled = cancelThreadInProgressProcessing(threadId);
-    if (!canceled) {
-      return;
-    }
-
-    setThreadError(null);
-    setSystemNotice(
-      `Canceled in-progress processing for thread ${targetThread.name}.`,
-    );
-    logClientInfo(
-      "cancel_thread_processing_succeeded",
-      "Thread processing canceled.",
-      {
-        action: "cancel_thread_processing",
-        context: {
-          threadId,
-        },
-      },
-    );
-  }
-
-  async function handleThreadClear(threadIdRaw: string): Promise<void> {
-    const threadId = threadIdRaw.trim();
-    if (!threadId) {
-      return;
-    }
-
-    if (isSending) {
-      setThreadError("Thread state is updating. Please wait.");
-      return;
-    }
-
-    if (!canStartThreadOperation(threadOperationPhase)) {
-      return;
-    }
-
-    const targetThread = findThreadStateById(threadsRef.current, threadId);
-    if (!targetThread || targetThread.deletedAt !== null) {
-      setThreadError("Selected thread is not available.");
-      return;
-    }
-
-    if (readThreadRequestState(threadId).isSending) {
-      setThreadError("Cannot clear a thread while a response is in progress.");
-      return;
-    }
-
-    if (
-      targetThread.messages.length === 0 &&
-      targetThread.mcpRpcLogs.length === 0
-    ) {
-      return;
-    }
-
-    setThreadError(null);
-
-    try {
-      const targetThreadForSave =
-        threadId === activeThreadIdRef.current.trim()
-          ? (() => {
-              const activeThread = findThreadStateById(
-                threadsRef.current,
-                threadId,
-              );
-              if (!activeThread) {
-                return null;
-              }
-              const snapshot = buildThreadStateFromCurrentState(
-                activeThread,
-                {
-                  includeDraftName: true,
-                },
-              );
-              return {
-                ...snapshot,
-                messages: [],
-                mcpRpcLogs: [],
-              };
-            })()
-          : {
-              ...targetThread,
-              updatedAt: new Date().toISOString(),
-              messages: [],
-              mcpRpcLogs: [],
-            };
-
-      if (!targetThreadForSave) {
-        return;
-      }
-
-      updateThreadsState((current) =>
-        upsertThreadState(current, targetThreadForSave),
-      );
-
-      dispatchWorkspaceInteraction({
-        type: "thread_request_state/remove",
-        threadId,
-      });
-
-      if (threadId === activeThreadIdRef.current.trim()) {
-        applyThreadState(targetThreadForSave);
-      }
-
-      const signature = buildThreadSaveSignature(targetThreadForSave);
-      const saved = await saveThreadStateToDatabase(
-        targetThreadForSave,
-        signature,
-      );
-      if (!saved) {
-        return;
-      }
-
-      logClientInfo("clear_thread_succeeded", "Thread content cleared.", {
-        action: "clear_thread",
-        context: {
-          threadId,
-        },
-      });
-    } catch (clearError) {
-      logClientError("clear_thread_failed", clearError, {
-        action: "clear_thread",
-        statusCode: 500,
-        context: {
-          threadId,
-        },
-      });
-      setThreadError(
-        clearError instanceof Error
-          ? clearError.message
-          : "Failed to clear thread.",
-      );
-    } finally {
-      endThreadOperation("clearing");
-    }
-  }
-
-  async function handleThreadLogicalDelete(threadIdRaw: string): Promise<void> {
-    const threadId = threadIdRaw.trim();
-    if (!threadId) {
-      return;
-    }
-
-    if (isSending) {
-      setThreadError("Thread state is updating. Please wait.");
-      return;
-    }
-
-    if (!beginThreadOperation("deleting")) {
-      return;
-    }
-
-    const targetThread = findThreadStateById(threadsRef.current, threadId);
-    if (!targetThread || targetThread.deletedAt !== null) {
-      setThreadError("Selected thread is not available.");
-      return;
-    }
-    if (!hasThreadInteraction(targetThread)) {
-      setThreadError("Threads without messages cannot be deleted.");
-      return;
-    }
-
-    if (readThreadRequestState(threadId).isSending) {
-      setThreadError("Cannot delete a thread while a response is in progress.");
-      return;
-    }
-
-    setThreadError(null);
-
-    try {
-      const currentThreadId = activeThreadIdRef.current.trim();
-      if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadState();
-        if (!saved) {
-          return;
-        }
-      }
-
-      const { payload } = await requestClientApi<ThreadsApiResponse>({
-        url: `/api/threads/${encodeURIComponent(threadId)}`,
-        init: {
-          method: "DELETE",
-        },
-        readPayload: (response) =>
-          readJsonPayload<ThreadsApiResponse>(response, "Threads"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string"
-            ? responsePayload.error
-            : null,
-        fallbackErrorMessage: "Failed to delete thread.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to continue.",
-        onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
-        },
-      });
-
-      const deletedThreadResource = readThreadResourceFromUnknown(payload.thread);
-      const deletedThread = deletedThreadResource
-        ? convertThreadResourceToState(deletedThreadResource, {
-            fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-          })
-        : null;
-      if (
-        !deletedThread ||
-        deletedThread.id !== threadId ||
-        deletedThread.deletedAt === null
-      ) {
-        throw new Error("Deleted thread payload is invalid.");
-      }
-
-      dispatchWorkspaceInteraction({
-        type: "thread_request_state/remove",
-        threadId,
-      });
-      await loadThreads();
-      logClientInfo("delete_thread_succeeded", "Thread archived.", {
-        action: "delete_thread",
-        context: {
-          threadId,
-        },
-      });
-    } catch (deleteError) {
-      if (
-        deleteError instanceof ClientApiError &&
-        deleteError.kind === "auth_required"
-      ) {
-        setThreadError(deleteError.message);
-        return;
-      }
-      logClientError("delete_thread_failed", deleteError, {
-        action: "delete_thread",
-        statusCode: 500,
-        context: {
-          threadId,
-        },
-      });
-      setThreadError(mapApiError(deleteError, "Failed to delete thread."));
-    } finally {
-      endThreadOperation("deleting");
-    }
-  }
-
-  async function handleThreadRestore(threadIdRaw: string): Promise<void> {
-    const threadId = threadIdRaw.trim();
-    if (!threadId) {
-      return;
-    }
-
-    if (isSending) {
-      setThreadError("Thread state is updating. Please wait.");
-      return;
-    }
-
-    if (!beginThreadOperation("restoring")) {
-      return;
-    }
-
-    const targetThread = findThreadStateById(threadsRef.current, threadId);
-    if (!targetThread || targetThread.deletedAt === null) {
-      setThreadError("Selected archive is not available.");
-      return;
-    }
-
-    setThreadError(null);
-
-    try {
-      const currentThreadId = activeThreadIdRef.current.trim();
-      if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadState();
-        if (!saved) {
-          return;
-        }
-      }
-
-      const { payload } = await requestClientApi<ThreadsApiResponse>({
-        url: `/api/threads/${encodeURIComponent(threadId)}`,
-        init: {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            archived: false,
-          }),
-        },
-        readPayload: (response) =>
-          readJsonPayload<ThreadsApiResponse>(response, "Threads"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string"
-            ? responsePayload.error
-            : null,
-        fallbackErrorMessage: "Failed to restore thread.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to continue.",
-        onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
-        },
-      });
-
-      const restoredThreadResource = readThreadResourceFromUnknown(payload.thread);
-      const restoredThread = restoredThreadResource
-        ? convertThreadResourceToState(restoredThreadResource, {
-            fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-          })
-        : null;
-      if (
-        !restoredThread ||
-        restoredThread.id !== threadId ||
-        restoredThread.deletedAt !== null
-      ) {
-        throw new Error("Restored thread payload is invalid.");
-      }
-
-      updateThreadsState((current) =>
-        upsertThreadState(current, restoredThread),
-      );
+    },
+    rememberThreadSaveSignature: (thread) => {
       threadSaveSignatureByIdRef.current.set(
-        restoredThread.id,
-        buildThreadSaveSignature(restoredThread),
+        thread.id,
+        buildThreadSaveSignature(thread),
       );
-      applyThreadState(restoredThread);
-      logClientInfo("restore_thread_succeeded", "Thread restored.", {
-        action: "restore_thread",
-        context: {
-          threadId,
-        },
+    },
+    applyThreadState,
+    buildThreadStateFromCurrentState,
+    saveThreadStateToDatabase,
+    flushActiveThreadState,
+    cancelThreadInProgressProcessing,
+    createLocalThreadState,
+    loadThreads,
+    removeThreadRequestState: (threadId) => {
+      dispatchWorkspaceInteraction({
+        type: "thread_request_state/remove",
+        threadId,
       });
-    } catch (restoreError) {
-      if (
-        restoreError instanceof ClientApiError &&
-        restoreError.kind === "auth_required"
-      ) {
-        setThreadError(restoreError.message);
-        return;
-      }
-      logClientError("restore_thread_failed", restoreError, {
-        action: "restore_thread",
-        statusCode: 500,
-        context: {
-          threadId,
-        },
-      });
-      setThreadError(mapApiError(restoreError, "Failed to restore thread."));
-    } finally {
-      endThreadOperation("restoring");
-    }
-  }
-
-  async function handleThreadChange(nextThreadIdRaw: string) {
-    const nextThreadId = nextThreadIdRaw.trim();
-    setThreadError(null);
-    if (!nextThreadId || nextThreadId === activeThreadIdRef.current) {
-      return;
-    }
-
-    const nextThread = findThreadStateById(threadsRef.current, nextThreadId);
-    if (!nextThread) {
-      setThreadError("Selected thread is not available.");
-      return;
-    }
-    if (!beginThreadOperation("switching")) {
-      return;
-    }
-    try {
-      const currentThreadId = activeThreadIdRef.current.trim();
-      if (!readThreadRequestState(currentThreadId).isSending) {
-        const saved = await flushActiveThreadState();
-        if (!saved) {
-          return;
-        }
-      }
-
-      applyThreadState(nextThread);
-      logClientInfo("switch_thread_succeeded", "Thread switched.", {
-        action: "switch_thread",
-        context: {
-          fromThreadId: currentThreadId,
-          toThreadId: nextThread.id,
-        },
-      });
-    } finally {
-      endThreadOperation("switching");
-    }
-  }
+    },
+    setThreadError,
+    setSystemNotice,
+    setActiveMainTab,
+    setActiveThreadNameInput,
+    setIsAzureAuthRequired,
+    logClientInfo,
+    logClientError,
+  });
 
   // Azure identity, selection, and deployment discovery.
   async function loadAzureSelectionPreference(
