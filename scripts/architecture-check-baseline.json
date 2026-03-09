@@ -65,9 +65,9 @@
     "app/routes/api.workspace-bootstrap.ts:3:} from \"~/lib/server/http/workspace/workspace-bootstrap-loader\";",
     "app/routes/api.workspace-skill-profiles.ts:4:} from \"~/lib/server/http\";",
     "app/routes/api.workspace-skill-profiles.ts:8:} from \"~/lib/server/http/skills/workspace-skill-profile-action\";",
-    "app/routes/mcp.cmd.ts:14:} from \"~/lib/server/http/mcp/mcp-transport\";",
-    "app/routes/mcp.debug.ts:11:} from \"~/lib/server/http/mcp/mcp-debug-server\";",
-    "app/routes/mcp.debug.ts:7:} from \"~/lib/server/http/mcp/mcp-transport\";"
+    "app/routes/mcp.cmd.ts:15:} from \"~/lib/server/http/mcp/mcp-transport\";",
+    "app/routes/mcp.debug.ts:12:} from \"~/lib/server/http/mcp/mcp-debug-server\";",
+    "app/routes/mcp.debug.ts:8:} from \"~/lib/server/http/mcp/mcp-transport\";"
   ],
   "serverHttpFiles": [
     "app/lib/server/http/azure/azure-presentation.ts",
@@ -126,16 +126,7 @@
   "sharedComponentBoundaryViolations": [
     "app/components/shared/StatusMessageList.tsx:7:import { copyTextToClipboard } from \"~/lib/client/infrastructure/browser/clipboard\";"
   ],
-  "domainRepositoryContractImports": [
-    "app/lib/domain/repositories/runtime-event-log-repository.ts:4:} from \"~/lib/contracts/shared/runtime-event-log\";",
-    "app/lib/domain/repositories/workspace-mcp-server-profile-repository.ts:1:import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from \"~/lib/contracts/mcp/profile\";",
-    "app/lib/domain/repositories/workspace-skill-discovery-gateway.ts:4:} from \"~/lib/contracts/skills/types\";",
-    "app/lib/domain/repositories/workspace-skill-profile-repository.ts:4:} from \"~/lib/contracts/skills/types\";",
-    "app/lib/domain/repositories/workspace-skill-profile-repository.ts:7:} from \"~/lib/contracts/skills/workspace-skill-profiles\";"
-  ],
-  "raw405InRoutes": [
-    "app/routes/mcp.cmd.ts:102:      405,",
-    "app/routes/mcp.debug.ts:36:      405,"
-  ],
+  "domainRepositoryContractImports": [],
+  "raw405InRoutes": [],
   "historicalNaming": []
 }

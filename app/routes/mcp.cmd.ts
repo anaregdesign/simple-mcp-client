@@ -11,6 +11,7 @@ import {
   buildMcpToolResponse,
   createMcpJsonTransport,
   jsonRpcErrorResponse,
+  jsonRpcMethodNotAllowedResponse,
 } from "~/lib/server/http/mcp/mcp-transport";
 import { readAzureArmUserContext } from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import { NodeMcpCmdShellGateway } from "~/lib/server/infrastructure/gateways/mcp/mcp-cmd-shell-gateway";
@@ -98,11 +99,7 @@ export async function action({ request }: { request: Request }) {
 
 async function handleMcpRequest(request: Request): Promise<Response> {
   if (request.method !== "POST") {
-    return jsonRpcErrorResponse(
-      405,
-      -32000,
-      `Method not allowed. Use POST ${MCP_CMD_ROUTE_PATH}.`,
-    );
+    return jsonRpcMethodNotAllowedResponse(MCP_CMD_ROUTE_PATH);
   }
 
   const authenticatedContext = await readAuthenticatedMcpCmdContext();

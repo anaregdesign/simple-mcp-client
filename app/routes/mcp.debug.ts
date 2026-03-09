@@ -4,6 +4,7 @@
 import {
   createMcpJsonTransport,
   jsonRpcErrorResponse,
+  jsonRpcMethodNotAllowedResponse,
 } from "~/lib/server/http/mcp/mcp-transport";
 import {
   createDatabaseDebugMcpServer,
@@ -32,11 +33,7 @@ async function handleMcpRequest(request: Request): Promise<Response> {
   }
 
   if (request.method !== "POST") {
-    return jsonRpcErrorResponse(
-      405,
-      -32000,
-      `Method not allowed. Use POST ${MCP_DEBUG_ROUTE_PATH}.`,
-    );
+    return jsonRpcMethodNotAllowedResponse(MCP_DEBUG_ROUTE_PATH);
   }
 
   const server = createDatabaseDebugMcpServer();

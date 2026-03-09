@@ -25,6 +25,14 @@ export function jsonRpcErrorResponse(
   );
 }
 
+export function jsonRpcMethodNotAllowedResponse(routePath: string): Response {
+  return jsonRpcErrorResponse(
+    405,
+    -32000,
+    `Method not allowed. Use POST ${routePath}.`,
+  );
+}
+
 export function buildMcpToolResponse<TPayload extends Record<string, unknown>>(
   payload: TPayload,
   options: {

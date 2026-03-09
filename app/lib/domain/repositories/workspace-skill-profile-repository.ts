@@ -1,10 +1,33 @@
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/contracts/skills/types";
-import type {
-  WorkspaceSkillProfilesData,
-} from "~/lib/contracts/skills/workspace-skill-profiles";
+} from "~/lib/domain/repositories/workspace-skill-discovery-gateway";
+
+export type WorkspaceSkillRegistryProfile = {
+  id: number;
+  userId: number;
+  registryId: string;
+  registryLabel: string;
+  registryDescription: string;
+  repository: string;
+  repositoryUrl: string;
+  sourcePath: string;
+  installDirectoryName: string;
+};
+
+export type WorkspaceSkillProfile = {
+  id: number;
+  userId: number;
+  registryProfileId: number | null;
+  name: string;
+  location: string;
+  source: string;
+};
+
+export type WorkspaceSkillProfilesData = {
+  workspaceSkillProfiles: WorkspaceSkillProfile[];
+  workspaceSkillRegistryProfiles: WorkspaceSkillRegistryProfile[];
+};
 
 export type SyncWorkspaceSkillMastersResult = {
   workspaceSkillProfileCount: number;

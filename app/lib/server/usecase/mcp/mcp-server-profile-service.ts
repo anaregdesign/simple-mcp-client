@@ -15,8 +15,10 @@ import {
 import {
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
-import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from "~/lib/contracts/mcp/profile";
-import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
+import type {
+  WorkspaceMcpServerProfile,
+  WorkspaceMcpServerProfileRepository,
+} from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
 
 export type IncomingMcpServerConfig = ParsedIncomingMcpServerConfig;
 export type McpServerProfilePathResolver = {

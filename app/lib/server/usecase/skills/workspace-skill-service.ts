@@ -4,15 +4,11 @@
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/contracts/skills/types";
-import type {
-  WorkspaceSkillProfilesData,
-} from "~/lib/contracts/skills/workspace-skill-profiles";
-import type {
   WorkspaceSkillDiscoveryGateway,
 } from "~/lib/domain/repositories/workspace-skill-discovery-gateway";
 import type {
   SyncWorkspaceSkillMastersResult,
+  WorkspaceSkillProfilesData,
   WorkspaceSkillProfileRepository,
 } from "~/lib/domain/repositories/workspace-skill-profile-repository";
 

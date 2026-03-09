@@ -1,8 +1,8 @@
 /**
  * Runtime event log application service module.
  */
-import type { RuntimeEventLogReadRecord } from "~/lib/contracts/shared/runtime-event-log";
 import type {
+  RuntimeEventLogRecord,
   RuntimeEventLogOwner,
   RuntimeEventLogRepository,
 } from "~/lib/domain/repositories/runtime-event-log-repository";
@@ -11,7 +11,7 @@ export type RuntimeEventLogReadResult =
   | { status: "not_found" }
   | {
       status: "ok";
-      eventLog: RuntimeEventLogReadRecord;
+      eventLog: RuntimeEventLogRecord;
     };
 
 export class RuntimeEventLogService {
