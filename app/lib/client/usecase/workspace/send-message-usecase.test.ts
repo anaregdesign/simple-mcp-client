@@ -5,8 +5,32 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applySendResult,
   buildChatRequestPayload,
+  prepareSendMessageExecution,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
+import type { ThreadState } from "~/lib/contracts/threads/types";
+
+function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
+  return {
+    id: "thread-1",
+    name: "Thread 1",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    deletedAt: null,
+    reasoningEffort: "high",
+    webSearchEnabled: false,
+    agentInstruction: "Instruction",
+    instructionContextToggles: {
+      system: true,
+    },
+    threadEnvironment: {},
+    messages: [],
+    mcpServers: [],
+    mcpRpcLogs: [],
+    skillSelections: [],
+    ...overrides,
+  };
+}
 
 describe("validateSendPreconditions", () => {
   const baseInput = {
@@ -95,6 +119,145 @@ describe("buildChatRequestPayload", () => {
       reasoningEffort: "high",
     });
     expect(payload.reasoningEffort).toBe("high");
+  });
+});
+
+describe("prepareSendMessageExecution", () => {
+  it("builds request payload and optimistic user message from runtime state", () => {
+    const prepared = prepareSendMessageExecution({
+      threadId: "thread-1",
+      turnId: "turn-1",
+      content: "Explain the refactor plan.",
+      draftAttachments: [
+        {
+          id: "draft-1",
+          name: "notes.txt",
+          mimeType: "text/plain",
+          sizeBytes: 12,
+          dataUrl: "data:text/plain;base64,bm90ZXM=",
+        },
+      ],
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "Previous response",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          turnId: "turn-0",
+          attachments: [],
+          skillActivations: [],
+        },
+        {
+          id: "user-1",
+          role: "user",
+          content: "Existing attachment message",
+          createdAt: "2026-01-01T00:00:01.000Z",
+          turnId: "turn-0",
+          attachments: [
+            {
+              name: "history.txt",
+              mimeType: "text/plain",
+              sizeBytes: 5,
+              dataUrl: "data:text/plain;base64,aGlzdG9yeQ==",
+            },
+          ],
+          skillActivations: [],
+        },
+      ],
+      mcpServers: [
+        {
+          id: "mcp-1",
+          name: "Filesystem",
+          transport: "streamable_http",
+          url: "https://example.com/mcp",
+          headers: {},
+          useAzureAuth: false,
+          azureAuthScope: "https://cognitiveservices.azure.com/.default",
+          timeoutSeconds: 30,
+          connectOnThreadCreate: false,
+        },
+      ],
+      selectedMessageSkillActivations: [
+        {
+          name: "message-skill",
+          location: "/skills/message",
+        },
+      ],
+      selectedThreadSkills: [
+        {
+          name: "thread-skill",
+          location: "/skills/thread",
+        },
+      ],
+      baseThread: createThreadState(),
+      agentInstruction: "Use concise wording.",
+      instructionContextToggles: {
+        system: true,
+      },
+      activeAzureTenantId: "tenant-1",
+      activePlaygroundAzureConnection: {
+        projectName: "Playground Project",
+        baseUrl: "https://example.openai.azure.com",
+        apiVersion: "2026-01-01-preview",
+      },
+      deploymentName: "gpt-5",
+      isPlaygroundReasoningEffortSupported: true,
+      reasoningEffort: "high",
+      webSearchEnabled: false,
+    });
+
+    expect(prepared.requestPayload).toEqual(
+      expect.objectContaining({
+        threadId: "thread-1",
+        turnId: "turn-1",
+        message: "Explain the refactor plan.",
+        reasoningEffort: "high",
+        explicitSkillLocations: ["/skills/thread", "/skills/message"],
+      }),
+    );
+    expect(prepared.requestPayload.history).toEqual([
+      {
+        role: "assistant",
+        content: "Previous response",
+      },
+      {
+        role: "user",
+        content: "Existing attachment message",
+        attachments: [
+          {
+            name: "history.txt",
+            mimeType: "text/plain",
+            sizeBytes: 5,
+            dataUrl: "data:text/plain;base64,aGlzdG9yeQ==",
+          },
+        ],
+      },
+    ]);
+    expect(prepared.userMessage).toEqual(
+      expect.objectContaining({
+        role: "user",
+        content: "Explain the refactor plan.",
+        turnId: "turn-1",
+        attachments: [
+          {
+            name: "notes.txt",
+            mimeType: "text/plain",
+            sizeBytes: 12,
+            dataUrl: "data:text/plain;base64,bm90ZXM=",
+          },
+        ],
+      }),
+    );
+    expect(prepared.requestMcpServers).toEqual([
+      expect.objectContaining({
+        name: "Filesystem",
+      }),
+    ]);
+    expect(prepared.requestSkillSelections).toEqual([
+      { name: "thread-skill", location: "/skills/thread" },
+      { name: "message-skill", location: "/skills/message" },
+    ]);
+    expect(prepared.shouldRefreshThreadTitleOnFirstMessage).toBe(true);
   });
 });
 
