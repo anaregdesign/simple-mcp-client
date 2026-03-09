@@ -1,54 +1,33 @@
 /**
  * Runtime event log application service module.
  */
-import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { readRuntimeEventLogByIdForUser } from "~/lib/server/observability/runtime-event-log";
-import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
+import type { AuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 
 export type RuntimeEventLogReadResult =
-  | { status: "auth_required" }
-  | { status: "not_found"; tenantId: string; principalId: string; userId: number }
+  | { status: "not_found" }
   | {
       status: "ok";
-      tenantId: string;
-      principalId: string;
-      userId: number;
       eventLog: Awaited<ReturnType<typeof readRuntimeEventLogByIdForUser>>;
     };
 
 export class RuntimeEventLogService {
-  async readRuntimeEventLogForCurrentUser(
+  async readRuntimeEventLogForUser(
     eventLogId: string,
+    user: AuthenticatedWorkspaceUser,
   ): Promise<RuntimeEventLogReadResult> {
-    const identity = await readAzureArmUserContext();
-    if (!identity) {
-      return { status: "auth_required" };
-    }
-
-    const user = await getOrCreateUserByIdentity({
-      tenantId: identity.tenantId,
-      principalId: identity.principalId,
-    });
     const eventLog = await readRuntimeEventLogByIdForUser({
       eventLogId,
-      tenantId: identity.tenantId,
-      principalId: identity.principalId,
+      tenantId: user.tenantId,
+      principalId: user.principalId,
       userId: user.id,
     });
     if (!eventLog) {
-      return {
-        status: "not_found",
-        tenantId: identity.tenantId,
-        principalId: identity.principalId,
-        userId: user.id,
-      };
+      return { status: "not_found" };
     }
 
     return {
       status: "ok",
-      tenantId: identity.tenantId,
-      principalId: identity.principalId,
-      userId: user.id,
       eventLog,
     };
   }

@@ -1,6 +1,7 @@
 /**
  * API route module for /api/runtime/event-logs/:eventLogId.
  */
+import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import { runtimeEventLogService } from "~/lib/server/usecase/runtime-event-logs/runtime-event-log-service";
 import {
   authRequiredResponse,
@@ -43,21 +44,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     return validationErrorResponse("invalid_event_log_id", "Invalid event log id.");
   }
 
-  let accessContext:
-    | { tenantId: string; principalId: string }
-    | null = null;
-  try {
-    const result = await runtimeEventLogService.readRuntimeEventLogForCurrentUser(
-      eventLogId,
-    );
-    if (result.status === "auth_required") {
-      return authRequiredResponse();
-    }
-    accessContext = {
-      tenantId: result.tenantId,
-      principalId: result.principalId,
-    };
+  const user = await readAuthenticatedWorkspaceUser();
+  if (!user) {
+    return authRequiredResponse();
+  }
 
+  try {
+    const result = await runtimeEventLogService.readRuntimeEventLogForUser(eventLogId, user);
     if (result.status === "not_found") {
       return errorResponse({
         status: 404,
@@ -77,8 +70,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       error,
       context: {
         eventLogId,
-        tenantId: accessContext?.tenantId ?? null,
-        principalId: accessContext?.principalId ?? null,
+        tenantId: user.tenantId,
+        principalId: user.principalId,
       },
     });
 
