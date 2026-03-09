@@ -7,7 +7,7 @@ on:
     paths:
       - "site/**"
       - ".github/workflows/deploy-github-pages.yml"
-      - "public/foundry-symbol.svg"
+      - "public/local-playground-symbol.svg"
   workflow_run:
     workflows:
       - Release Desktop Installers
@@ -41,7 +41,7 @@ jobs:
           mkdir -p .pages-site/assets
 
           cp -R site/. .pages-site/
-          cp public/foundry-symbol.svg .pages-site/assets/foundry-symbol.svg
+          cp public/local-playground-symbol.svg .pages-site/assets/local-playground-symbol.svg
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
