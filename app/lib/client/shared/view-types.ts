@@ -59,6 +59,11 @@ export type DesktopUpdaterStatusView = {
   lastCheckedAt: string;
 };
 
+export type DesktopUpdaterActionStateView =
+  | "check"
+  | "downloading"
+  | "upgrade";
+
 export type AzureConnectionOptionView = {
   id: string;
   projectName: string;

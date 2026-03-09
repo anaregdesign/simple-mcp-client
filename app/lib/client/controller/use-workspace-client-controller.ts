@@ -190,6 +190,7 @@ import {
   getDefaultDesktopUpdaterStatus,
   readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
+  resolveDesktopUpdaterActionState,
 } from "~/lib/client/controller/desktop-updater";
 import {
   buildAzureProjectsLoadResult,
@@ -6817,6 +6818,8 @@ export function useWorkspaceClientController() {
     isSending,
     isThreadReadOnly: isActiveThreadArchived,
     desktopUpdaterStatus,
+    desktopUpdaterActionState:
+      resolveDesktopUpdaterActionState(desktopUpdaterStatus),
     isApplyingDesktopUpdate,
     onCheckDesktopUpdates: () => {
       void handleCheckDesktopUpdates();

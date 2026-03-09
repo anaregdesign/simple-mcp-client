@@ -2,14 +2,14 @@
  * Route composition module.
  */
 import type { CSSProperties } from "react";
-import { ConfigPanel } from "~/components/client/config/ConfigPanel";
-import { UnauthenticatedPanel } from "~/components/client/authorize/UnauthenticatedPanel";
-import { PlaygroundPanel } from "~/components/client/playground/PlaygroundPanel";
+import { ConfigPanel } from "~/components/config/ConfigPanel";
+import { UnauthenticatedPanel } from "~/components/authorize/UnauthenticatedPanel";
+import { PlaygroundPanel } from "~/components/playground/PlaygroundPanel";
 import {
   renderMessageContent,
   renderTurnOperationLog,
-} from "~/components/client/playground/PlaygroundRenderers";
-import { FluentUI } from "~/components/client/shared/fluent";
+} from "~/components/playground/PlaygroundRenderers";
+import { FluentUI } from "~/components/shared/fluent";
 import { useWorkspaceClientController } from "~/lib/client/controller/use-workspace-client-controller";
 import type { Route } from "./+types/_index";
 

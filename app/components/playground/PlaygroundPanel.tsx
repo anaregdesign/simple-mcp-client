@@ -1,0 +1,1047 @@
+/**
+ * Client UI component module.
+ */
+import {
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  type SyntheticEvent,
+} from "react";
+import { CopyIconButton } from "~/components/shared/CopyIconButton";
+import { FluentUI } from "~/components/shared/fluent";
+import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
+import { AutoDismissStatusMessageList } from "~/components/shared/AutoDismissStatusMessageList";
+import { StatusMessageList } from "~/components/shared/StatusMessageList";
+import { QuickControlFrame } from "~/components/shared/QuickControlFrame";
+import type {
+  AzureConnectionOptionView,
+  ChatCommandMenuView,
+  DesktopUpdaterActionStateView,
+  DesktopUpdaterStatusView,
+  ReasoningEffort,
+  ThreadMcpConnectionView,
+  ThreadMessageAttachmentView,
+  ThreadMessageView,
+  ThreadOperationLogEntryView,
+  ThreadSkillView,
+} from "~/lib/client/shared/view-types";
+import { formatChatAttachmentSize } from "~/lib/client/chat/attachments";
+import {
+  NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
+  NO_AVAILABLE_PROJECTS_OPTION_LABEL,
+} from "~/lib/constants/client";
+
+const { Button, Select, Spinner, Switch, Textarea } = FluentUI;
+
+type PlaygroundPanelProps<
+  TMessage extends ThreadMessageView,
+  TThreadOperationLogEntry extends ThreadOperationLogEntryView,
+  TMcpServer extends ThreadMcpConnectionView,
+> = {
+  messages: TMessage[];
+  threadOperationLogsByTurnId: Map<string, TThreadOperationLogEntry[]>;
+  isSending: boolean;
+  isThreadReadOnly: boolean;
+  desktopUpdaterStatus: DesktopUpdaterStatusView;
+  desktopUpdaterActionState: DesktopUpdaterActionStateView;
+  isApplyingDesktopUpdate: boolean;
+  onCheckDesktopUpdates: () => void;
+  onApplyDesktopUpdate: () => void;
+  activeThreadName: string;
+  isThreadOperationBusy: boolean;
+  isCreatingThread: boolean;
+  renderMessageContent: (
+    message: TMessage,
+    onCopyText: (content: string) => void,
+  ) => ReactNode;
+  renderTurnOperationLog: (
+    entries: TThreadOperationLogEntry[],
+    isLive: boolean,
+    onCopy: (text: string) => void,
+  ) => ReactNode;
+  onCreateThread: () => void;
+  onCancelThreadProcessing: () => void;
+  onCopyMessage: (content: string) => void;
+  onCopyOperationLog: (content: string) => void;
+  sendProgressMessages: string[];
+  activeTurnOperationLogs: TThreadOperationLogEntry[];
+  errorTurnOperationLogs: TThreadOperationLogEntry[];
+  endOfMessagesRef: RefObject<HTMLDivElement | null>;
+  systemNotice: string | null;
+  onClearSystemNotice: () => void;
+  error: string | null;
+  azureLoginError: string | null;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  chatInputRef: RefObject<HTMLTextAreaElement | null>;
+  messageAttachmentInputRef: RefObject<HTMLInputElement | null>;
+  messageAttachmentAccept: string;
+  messageAttachmentFormatHint: string;
+  draft: string;
+  messageAttachments: ThreadMessageAttachmentView[];
+  messageAttachmentError: string | null;
+  onDraftChange: (
+    event: ChangeEvent<HTMLTextAreaElement>,
+    value: string,
+  ) => void;
+  onInputSelect: (event: SyntheticEvent<HTMLTextAreaElement>) => void;
+  onOpenMessageAttachmentPicker: () => void;
+  onMessageAttachmentFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRemoveMessageAttachment: (id: string) => void;
+  onInputKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  chatCommandMenu: ChatCommandMenuView | null;
+  onSelectChatCommandSuggestion: (id: string) => void;
+  onHighlightChatCommandSuggestion: (index: number) => void;
+  onCompositionStart: () => void;
+  onCompositionEnd: () => void;
+  isChatLocked: boolean;
+  isLoadingAzureConnections: boolean;
+  isLoadingAzureDeployments: boolean;
+  isAzureAuthRequired: boolean;
+  isStartingAzureLogin: boolean;
+  isStartingAzureLogout: boolean;
+  onChatAzureSelectorAction: (target: "project" | "deployment") => void;
+  azureConnections: AzureConnectionOptionView[];
+  activeAzureConnectionId: string;
+  onProjectChange: (projectId: string) => void;
+  selectedAzureDeploymentName: string;
+  azureDeployments: string[];
+  onDeploymentChange: (deploymentName: string) => void;
+  reasoningEffort: ReasoningEffort;
+  reasoningEffortOptions: ReasoningEffort[];
+  isReasoningEffortSupported: boolean;
+  onReasoningEffortChange: (value: ReasoningEffort) => void;
+  webSearchEnabled: boolean;
+  onWebSearchEnabledChange: (value: boolean) => void;
+  maxMessageAttachmentFiles: number;
+  canSendMessage: boolean;
+  selectedThreadSkills: ThreadSkillView[];
+  selectedMessageSkillActivations: ThreadSkillView[];
+  onRemoveThreadSkill: (location: string) => void;
+  onRemoveMessageSkillActivation: (location: string) => void;
+  mcpServers: TMcpServer[];
+  onRemoveMcpServer: (id: string) => void;
+};
+
+export function PlaygroundPanel<
+  TMessage extends ThreadMessageView,
+  TThreadOperationLogEntry extends ThreadOperationLogEntryView,
+  TMcpServer extends ThreadMcpConnectionView,
+>(props: PlaygroundPanelProps<TMessage, TThreadOperationLogEntry, TMcpServer>) {
+  const {
+    messages,
+    threadOperationLogsByTurnId,
+    isSending,
+    isThreadReadOnly,
+    desktopUpdaterStatus,
+    desktopUpdaterActionState,
+    isApplyingDesktopUpdate,
+    onCheckDesktopUpdates,
+    onApplyDesktopUpdate,
+    activeThreadName,
+    isThreadOperationBusy,
+    isCreatingThread,
+    renderMessageContent,
+    renderTurnOperationLog,
+    onCreateThread,
+    onCancelThreadProcessing,
+    onCopyMessage,
+    onCopyOperationLog,
+    sendProgressMessages,
+    activeTurnOperationLogs,
+    errorTurnOperationLogs,
+    endOfMessagesRef,
+    systemNotice,
+    onClearSystemNotice,
+    error,
+    azureLoginError,
+    onSubmit,
+    chatInputRef,
+    messageAttachmentInputRef,
+    messageAttachmentAccept,
+    messageAttachmentFormatHint,
+    draft,
+    messageAttachments,
+    messageAttachmentError,
+    onDraftChange,
+    onInputSelect,
+    onOpenMessageAttachmentPicker,
+    onMessageAttachmentFileChange,
+    onRemoveMessageAttachment,
+    onInputKeyDown,
+    chatCommandMenu,
+    onSelectChatCommandSuggestion,
+    onHighlightChatCommandSuggestion,
+    onCompositionStart,
+    onCompositionEnd,
+    isChatLocked,
+    isLoadingAzureConnections,
+    isLoadingAzureDeployments,
+    isAzureAuthRequired,
+    isStartingAzureLogin,
+    isStartingAzureLogout,
+    onChatAzureSelectorAction,
+    azureConnections,
+    activeAzureConnectionId,
+    onProjectChange,
+    selectedAzureDeploymentName,
+    azureDeployments,
+    onDeploymentChange,
+    reasoningEffort,
+    reasoningEffortOptions,
+    isReasoningEffortSupported,
+    onReasoningEffortChange,
+    webSearchEnabled,
+    onWebSearchEnabledChange,
+    maxMessageAttachmentFiles,
+    canSendMessage,
+    selectedThreadSkills,
+    selectedMessageSkillActivations,
+    onRemoveThreadSkill,
+    onRemoveMessageSkillActivation,
+    mcpServers,
+    onRemoveMcpServer,
+  } = props;
+  const chatCommandListboxId = "chat-command-listbox";
+  const activeChatCommandOptionId =
+    chatCommandMenu && chatCommandMenu.suggestions.length > 0
+      ? `chat-command-option-${chatCommandMenu.highlightedIndex}`
+      : undefined;
+  const isComposerReadOnly = isSending || isChatLocked || isThreadReadOnly;
+
+  function renderLabeledTooltip(
+    title: string,
+    lines: ReactNode[],
+    child: ReactNode,
+    className = "chat-tooltip-target",
+  ) {
+    return (
+      <LabeledTooltip title={title} lines={lines} className={className}>
+        {child}
+      </LabeledTooltip>
+    );
+  }
+
+  function handleChatAzureSelectorActionKeyDown(
+    event: KeyboardEvent<HTMLSelectElement>,
+    target: "project" | "deployment",
+  ) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    onChatAzureSelectorAction(target);
+  }
+
+  function renderChatAzureActionSelect(
+    target: "project" | "deployment",
+    label: string,
+    text: string,
+    title: string,
+  ) {
+    const elementId =
+      target === "project"
+        ? "chat-azure-project-action"
+        : "chat-azure-deployment-action";
+
+    return (
+      <Select
+        id={elementId}
+        aria-label={label}
+        value=""
+        onMouseDown={(event) => {
+          event.preventDefault();
+          onChatAzureSelectorAction(target);
+        }}
+        onClick={(event) => {
+          event.preventDefault();
+          onChatAzureSelectorAction(target);
+        }}
+        onKeyDown={(event) => {
+          handleChatAzureSelectorActionKeyDown(event, target);
+        }}
+        disabled={isSending || isStartingAzureLogin || isStartingAzureLogout}
+        title={title}
+      >
+        <option value="">{text}</option>
+      </Select>
+    );
+  }
+
+  function renderAddedSkillAndMcpBubbles() {
+    if (
+      selectedThreadSkills.length === 0 &&
+      selectedMessageSkillActivations.length === 0 &&
+      mcpServers.length === 0
+    ) {
+      return null;
+    }
+
+    return (
+      <section
+        className="chat-skill-strip-compact"
+        aria-label="Added thread skill activations, message skill activations, and thread MCP connections"
+      >
+        <div className="chat-skill-bubbles chat-skill-bubbles-compact">
+          {selectedMessageSkillActivations.map((skill) => (
+            <div
+              key={`message_activation:${skill.location}`}
+              className="chat-skill-bubble-item"
+            >
+              <LabeledTooltip
+                title={skill.name}
+                lines={[`Source: ${skill.location}`]}
+              >
+                <span className="chat-skill-bubble chat-skill-bubble-message-activation">
+                  <span className="chat-skill-bubble-name">{skill.name}</span>
+                  <Button
+                    type="button"
+                    appearance="subtle"
+                    size="small"
+                    className="chat-skill-bubble-remove"
+                    onClick={() =>
+                      onRemoveMessageSkillActivation(skill.location)
+                    }
+                    disabled={isSending || isThreadReadOnly}
+                    aria-label={`Remove message skill activation ${skill.name}`}
+                    title={`Remove message skill activation ${skill.name}`}
+                  >
+                    ×
+                  </Button>
+                </span>
+              </LabeledTooltip>
+            </div>
+          ))}
+          {selectedThreadSkills.map((skill) => (
+            <div
+              key={`thread:${skill.location}`}
+              className="chat-skill-bubble-item"
+            >
+              <LabeledTooltip
+                title={skill.name}
+                lines={[`Source: ${skill.location}`]}
+              >
+                <span className="chat-skill-bubble chat-skill-bubble-thread">
+                  <span className="chat-skill-bubble-name">{skill.name}</span>
+                  <Button
+                    type="button"
+                    appearance="subtle"
+                    size="small"
+                    className="chat-skill-bubble-remove"
+                    onClick={() => onRemoveThreadSkill(skill.location)}
+                    disabled={isSending || isThreadReadOnly}
+                    aria-label={`Remove thread skill ${skill.name}`}
+                    title={`Remove thread skill ${skill.name}`}
+                  >
+                    ×
+                  </Button>
+                </span>
+              </LabeledTooltip>
+            </div>
+          ))}
+          {mcpServers.map((server) => (
+            <div key={`mcp:${server.id}`} className="chat-skill-bubble-item">
+              <LabeledTooltip
+                title={server.name}
+                lines={
+                  server.transport === "stdio"
+                    ? [
+                        "Transport: stdio",
+                        `Command: ${server.command}${server.args.length > 0 ? ` ${server.args.join(" ")}` : ""}`,
+                        ...(server.cwd
+                          ? [`Working directory: ${server.cwd}`]
+                          : []),
+                        `Environment variables: ${Object.keys(server.env).length}`,
+                      ]
+                    : [
+                        `Transport: ${server.transport}`,
+                        `URL: ${server.url}`,
+                        `Custom headers: ${Object.keys(server.headers).length}`,
+                        `Timeout: ${server.timeoutSeconds}s`,
+                        `Azure auth: ${server.useAzureAuth ? `enabled (${server.azureAuthScope})` : "disabled"}`,
+                      ]
+                }
+              >
+                <span className="chat-skill-bubble chat-skill-bubble-mcp">
+                  <span className="chat-skill-bubble-name">{server.name}</span>
+                  <Button
+                    type="button"
+                    appearance="subtle"
+                    size="small"
+                    className="chat-skill-bubble-remove"
+                    onClick={() => onRemoveMcpServer(server.id)}
+                    disabled={isSending || isThreadReadOnly}
+                    aria-label={`Remove MCP server ${server.name}`}
+                    title={`Remove ${server.name}`}
+                  >
+                    ×
+                  </Button>
+                </span>
+              </LabeledTooltip>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  function renderChatCommandMenu() {
+    if (!chatCommandMenu) {
+      return null;
+    }
+
+    if (chatCommandMenu.suggestions.length === 0) {
+      return (
+        <section
+          className="chat-command-menu"
+          aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
+        >
+          <p className="chat-command-empty" role="status">
+            {chatCommandMenu.emptyHint}
+          </p>
+        </section>
+      );
+    }
+
+    return (
+      <section
+        className="chat-command-menu"
+        aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
+      >
+        <ul
+          id={chatCommandListboxId}
+          className="chat-command-list"
+          role="listbox"
+          aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
+        >
+          {chatCommandMenu.suggestions.map((suggestion, index) => {
+            const isHighlighted = index === chatCommandMenu.highlightedIndex;
+            const isUnavailable = !suggestion.isAvailable;
+            return (
+              <li
+                key={`${chatCommandMenu.keyword}:${suggestion.id}`}
+                id={`chat-command-option-${index}`}
+                role="option"
+                aria-selected={isHighlighted}
+                className="chat-command-option"
+              >
+                <button
+                  type="button"
+                  className={`chat-command-item${isHighlighted ? " is-highlighted" : ""}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onMouseEnter={() => {
+                    onHighlightChatCommandSuggestion(index);
+                  }}
+                  onClick={() => {
+                    onSelectChatCommandSuggestion(suggestion.id);
+                  }}
+                  disabled={isUnavailable}
+                >
+                  <span className="chat-command-item-title-row">
+                    <span className="chat-command-item-label">
+                      {suggestion.label}
+                    </span>
+                    {suggestion.isSelected ? (
+                      <span className="chat-command-item-state">Added</span>
+                    ) : null}
+                    {isUnavailable ? (
+                      <span className="chat-command-item-state chat-command-item-state-unavailable">
+                        Unavailable
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="chat-command-item-description">
+                    {suggestion.description}
+                  </span>
+                  <span className="chat-command-item-detail">
+                    {suggestion.detail}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    );
+  }
+
+  function renderDraftAttachmentBubbles() {
+    if (messageAttachments.length === 0) {
+      return null;
+    }
+
+    return (
+      <section className="chat-attachment-strip" aria-label="Attached files">
+        <div className="chat-attachment-bubbles">
+          {messageAttachments.map((attachment) => (
+            <div key={attachment.id} className="chat-attachment-bubble-item">
+              <span className="chat-attachment-bubble">
+                <span className="chat-attachment-bubble-name">
+                  {attachment.name}
+                </span>
+                <span className="chat-attachment-bubble-size">
+                  {formatChatAttachmentSize(attachment.sizeBytes)}
+                </span>
+                <Button
+                  type="button"
+                  appearance="subtle"
+                  size="small"
+                  className="chat-attachment-bubble-remove"
+                  onClick={() => onRemoveMessageAttachment(attachment.id)}
+                  disabled={isSending || isThreadReadOnly}
+                  aria-label={`Remove attachment ${attachment.name}`}
+                  title={`Remove ${attachment.name}`}
+                >
+                  ×
+                </Button>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  function renderTurnMessageSkillActivationBubbles(message: TMessage) {
+    if (message.role !== "user") {
+      return null;
+    }
+
+    const skillActivations = message.skillActivations ?? [];
+    if (skillActivations.length === 0) {
+      return null;
+    }
+
+    return (
+      <div
+        className="message-skill-activation-row"
+        aria-label="Message Skill Activations used in this turn"
+      >
+        {skillActivations.map((skill) => (
+          <div
+            key={`${message.id}:message-skill-activation:${skill.location}`}
+            className="message-skill-activation-item"
+          >
+            <LabeledTooltip
+              title={skill.name}
+              lines={[`Source: ${skill.location}`]}
+            >
+              <span className="message-skill-activation-bubble">
+                {skill.name}
+              </span>
+            </LabeledTooltip>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <section className="chat-shell main-panel" aria-label="Playground">
+      <header className="chat-header">
+        <div className="chat-header-row">
+          <div className="chat-header-main">
+            <div className="chat-header-title-row">
+              <div className="chat-header-title">
+                <img
+                  className="chat-header-symbol"
+                  src="/local-playground-symbol.svg"
+                  alt=""
+                  aria-hidden="true"
+                />
+                <h1>Local Playground</h1>
+              </div>
+              {desktopUpdaterStatus.supported &&
+              desktopUpdaterActionState === "check" ? (
+                <Button
+                  type="button"
+                  appearance="subtle"
+                  size="small"
+                  className="chat-header-upgrade-btn"
+                  aria-label="Check for updates"
+                  title={
+                    desktopUpdaterStatus.lastCheckedAt
+                      ? `Check for updates. Last checked at ${desktopUpdaterStatus.lastCheckedAt}.`
+                      : "Check for updates."
+                  }
+                  onClick={onCheckDesktopUpdates}
+                  disabled={
+                    desktopUpdaterStatus.checking || isApplyingDesktopUpdate
+                  }
+                >
+                  {desktopUpdaterStatus.checking
+                    ? "Checking…"
+                    : "Check Updates"}
+                </Button>
+              ) : null}
+              {desktopUpdaterStatus.supported &&
+              desktopUpdaterActionState === "downloading" ? (
+                <Button
+                  type="button"
+                  appearance="subtle"
+                  size="small"
+                  className="chat-header-upgrade-btn"
+                  aria-label="Update download in progress"
+                  title={
+                    desktopUpdaterStatus.availableVersion
+                      ? `Version ${desktopUpdaterStatus.availableVersion} is downloading in the background.`
+                      : "An update is downloading in the background."
+                  }
+                  disabled
+                >
+                  Downloading…
+                </Button>
+              ) : null}
+              {desktopUpdaterStatus.supported &&
+              desktopUpdaterActionState === "upgrade" ? (
+                <Button
+                  type="button"
+                  appearance="subtle"
+                  size="small"
+                  className="chat-header-upgrade-btn"
+                  aria-label="Upgrade app"
+                  title={
+                    desktopUpdaterStatus.availableVersion
+                      ? `Restart and apply version ${desktopUpdaterStatus.availableVersion}.`
+                      : "Restart and apply the downloaded update."
+                  }
+                  onClick={onApplyDesktopUpdate}
+                  disabled={isApplyingDesktopUpdate}
+                >
+                  {isApplyingDesktopUpdate ? "Upgrading…" : "Upgrade"}
+                </Button>
+              ) : null}
+              <div className="chat-thread-header-controls">
+                <span
+                  className="chat-thread-name-label"
+                  title={activeThreadName}
+                >
+                  {activeThreadName}
+                </span>
+                <Button
+                  type="button"
+                  appearance="subtle"
+                  size="small"
+                  className="chat-thread-new-btn"
+                  aria-label="Create new thread"
+                  title="Create a new thread and switch to Threads."
+                  onClick={onCreateThread}
+                  disabled={isThreadOperationBusy}
+                >
+                  {isCreatingThread ? "…" : "+"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="chat-log" aria-live="polite">
+        {messages.map((message) => {
+          const turnOperationLogs =
+            threadOperationLogsByTurnId.get(message.turnId) ?? [];
+          const shouldRenderTurnOperationLog =
+            message.role === "assistant" && turnOperationLogs.length > 0;
+
+          return (
+            <div key={message.id} className={`turn-entry ${message.role}`}>
+              <article
+                className={`message-row ${message.role === "user" ? "user" : "assistant"}`}
+              >
+                <div className="message-content">
+                  {renderMessageContent(message, onCopyMessage)}
+                </div>
+                <CopyIconButton
+                  className="message-copy-btn"
+                  ariaLabel="Copy message"
+                  title="Copy this message."
+                  onClick={() => {
+                    onCopyMessage(message.content);
+                  }}
+                />
+              </article>
+              {renderTurnMessageSkillActivationBubbles(message)}
+              {shouldRenderTurnOperationLog ? (
+                <article className="mcp-turn-log-row">
+                  {renderTurnOperationLog(turnOperationLogs, false, (text) => {
+                    onCopyOperationLog(text);
+                  })}
+                </article>
+              ) : null}
+            </div>
+          );
+        })}
+
+        {isSending ? (
+          <article className="message-row assistant progress-row">
+            <div className="typing-progress" role="status" aria-live="polite">
+              {sendProgressMessages.length > 0 ? (
+                <ul className="typing-progress-list">
+                  {sendProgressMessages.map((status, index) => (
+                    <li
+                      key={`${index}-${status}`}
+                      className={
+                        index === sendProgressMessages.length - 1
+                          ? "active"
+                          : ""
+                      }
+                    >
+                      {status}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="typing">Thinking...</p>
+              )}
+            </div>
+          </article>
+        ) : null}
+        {isSending && activeTurnOperationLogs.length > 0 ? (
+          <article className="mcp-turn-log-row">
+            {renderTurnOperationLog(activeTurnOperationLogs, true, (text) => {
+              onCopyOperationLog(text);
+            })}
+          </article>
+        ) : null}
+        {!isSending && errorTurnOperationLogs.length > 0 ? (
+          <article className="mcp-turn-log-row">
+            {renderTurnOperationLog(errorTurnOperationLogs, false, (text) => {
+              onCopyOperationLog(text);
+            })}
+          </article>
+        ) : null}
+        <div ref={endOfMessagesRef} />
+      </div>
+
+      <footer className="chat-footer">
+        <AutoDismissStatusMessageList
+          className="chat-error-stack"
+          messages={[
+            {
+              intent: "success",
+              title: "System",
+              text: systemNotice,
+              onClear: onClearSystemNotice,
+            },
+          ]}
+        />
+        {error ||
+        azureLoginError ||
+        messageAttachmentError ||
+        isThreadReadOnly ? (
+          <StatusMessageList
+            className="chat-error-stack"
+            messages={[
+              {
+                intent: "warning",
+                title: "Archive",
+                text: isThreadReadOnly
+                  ? "This thread is archived and read-only. Restore it from Archives to edit or send messages."
+                  : null,
+              },
+              { intent: "error", title: "Request failed", text: error },
+              { intent: "error", text: azureLoginError },
+              {
+                intent: "error",
+                title: "Attachment",
+                text: messageAttachmentError,
+              },
+            ]}
+          />
+        ) : null}
+        <form className="chat-form" onSubmit={onSubmit}>
+          <label className="sr-only" htmlFor="chat-input">
+            Message
+          </label>
+          <input
+            ref={messageAttachmentInputRef}
+            id="chat-attachment-input"
+            className="file-input-hidden"
+            type="file"
+            accept={messageAttachmentAccept}
+            multiple
+            onChange={onMessageAttachmentFileChange}
+            disabled={isSending || isChatLocked || isThreadReadOnly}
+          />
+          <div className="chat-composer">
+            <Textarea
+              id="chat-input"
+              name="message"
+              rows={2}
+              resize="none"
+              ref={chatInputRef}
+              className="chat-composer-input"
+              placeholder="Type a message..."
+              title="Message input. Enter sends, Shift+Enter inserts a new line."
+              aria-haspopup={chatCommandMenu ? "listbox" : undefined}
+              aria-expanded={chatCommandMenu ? true : undefined}
+              aria-controls={chatCommandMenu ? chatCommandListboxId : undefined}
+              aria-activedescendant={activeChatCommandOptionId}
+              value={draft}
+              onChange={(event, data) => {
+                onDraftChange(event, data.value);
+              }}
+              onSelect={onInputSelect}
+              onKeyDown={onInputKeyDown}
+              onCompositionStart={onCompositionStart}
+              onCompositionEnd={onCompositionEnd}
+              readOnly={isComposerReadOnly}
+              aria-disabled={isComposerReadOnly}
+            />
+            {renderChatCommandMenu()}
+            <div className="chat-composer-actions">
+              <div className="chat-quick-controls">
+                {renderLabeledTooltip(
+                  "Attach Files",
+                  [
+                    `Attach local files for this turn (up to ${maxMessageAttachmentFiles}).`,
+                    `Supported format: ${messageAttachmentFormatHint}.`,
+                    "Attachments are sent together with the current message.",
+                  ],
+                  <div className="chat-quick-control">
+                    <Button
+                      type="button"
+                      appearance="subtle"
+                      className="chat-attach-btn"
+                      aria-label="Attach files"
+                      title="Attach files"
+                      onClick={onOpenMessageAttachmentPicker}
+                      disabled={isSending || isChatLocked || isThreadReadOnly}
+                    >
+                      📎
+                    </Button>
+                  </div>,
+                )}
+                {renderLabeledTooltip(
+                  "Project",
+                  [
+                    isLoadingAzureConnections
+                      ? "Loading project names from Azure..."
+                      : isAzureAuthRequired
+                        ? "Click the selector to start Azure login."
+                        : azureConnections.length === 0
+                          ? "Selected tenant has no available projects."
+                          : "Used for this chat request.",
+                  ],
+                  <div className="chat-quick-control">
+                    {isLoadingAzureConnections ? (
+                      <span
+                        className="chat-control-loader chat-control-loader-project"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <Spinner size="tiny" />
+                        Loading projects...
+                      </span>
+                    ) : isAzureAuthRequired ? (
+                      renderChatAzureActionSelect(
+                        "project",
+                        "Project",
+                        "Project",
+                        "Click to sign in with Azure and load projects.",
+                      )
+                    ) : azureConnections.length === 0 ? (
+                      renderChatAzureActionSelect(
+                        "project",
+                        "Project",
+                        NO_AVAILABLE_PROJECTS_OPTION_LABEL,
+                        "No available projects in the selected tenant. Click to reload Azure projects.",
+                      )
+                    ) : (
+                      <Select
+                        id="chat-azure-project"
+                        aria-label="Project"
+                        title="Azure project used for this chat."
+                        value={activeAzureConnectionId}
+                        onChange={(event) => {
+                          onProjectChange(event.target.value);
+                        }}
+                        disabled={isSending}
+                      >
+                        <optgroup label="Project name">
+                          {azureConnections.map((connection) => (
+                            <option key={connection.id} value={connection.id}>
+                              {connection.projectName}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </Select>
+                    )}
+                  </div>,
+                )}
+                {renderLabeledTooltip(
+                  "Deployment",
+                  [
+                    isLoadingAzureConnections || isLoadingAzureDeployments
+                      ? "Loading deployment names for the selected project..."
+                      : isAzureAuthRequired
+                        ? "Click the selector to start Azure login."
+                        : !activeAzureConnectionId
+                          ? azureConnections.length === 0
+                            ? "Selected tenant has no available deployments."
+                            : "Select a project first."
+                          : azureDeployments.length === 0
+                            ? "Selected tenant has no available deployments."
+                            : "Used to run the model.",
+                  ],
+                  <div className="chat-quick-control">
+                    {isLoadingAzureConnections || isLoadingAzureDeployments ? (
+                      <span
+                        className="chat-control-loader chat-control-loader-deployment"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <Spinner size="tiny" />
+                        Loading deployments...
+                      </span>
+                    ) : isAzureAuthRequired || !activeAzureConnectionId ? (
+                      renderChatAzureActionSelect(
+                        "deployment",
+                        "Deployment",
+                        isAzureAuthRequired
+                          ? "Deployment"
+                          : azureConnections.length === 0
+                            ? NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL
+                            : "Reload deployments",
+                        isAzureAuthRequired
+                          ? "Click to sign in with Azure and load deployments."
+                          : azureConnections.length === 0
+                            ? "No available deployments in the selected tenant. Click to reload Azure projects."
+                            : "Click to reload deployments for the selected project.",
+                      )
+                    ) : azureDeployments.length === 0 ? (
+                      renderChatAzureActionSelect(
+                        "deployment",
+                        "Deployment",
+                        NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
+                        "No available deployments in the selected tenant. Click to reload deployments for the selected project.",
+                      )
+                    ) : (
+                      <Select
+                        id="chat-azure-deployment"
+                        aria-label="Deployment"
+                        title="Azure deployment used to run the model."
+                        value={selectedAzureDeploymentName}
+                        onChange={(event) => {
+                          onDeploymentChange(event.target.value);
+                        }}
+                        disabled={isSending}
+                      >
+                        <optgroup label="Deployment name">
+                          {azureDeployments.map((deployment) => (
+                            <option key={deployment} value={deployment}>
+                              {deployment}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </Select>
+                    )}
+                  </div>,
+                )}
+                {renderLabeledTooltip(
+                  "Reasoning Effort",
+                  isReasoningEffortSupported
+                    ? [
+                        "Controls how much internal reasoning the model uses. Available values are loaded per deployment.",
+                      ]
+                    : [
+                        "This deployment does not support Reasoning Effort. Value is fixed to None and omitted from requests.",
+                      ],
+                  <div className="chat-quick-control">
+                    <QuickControlFrame className="chat-quick-control-frame">
+                      <Select
+                        id="chat-reasoning-effort"
+                        aria-label="Reasoning Effort"
+                        title={
+                          isReasoningEffortSupported
+                            ? "Reasoning effort level for the model."
+                            : "This deployment does not support Reasoning Effort."
+                        }
+                        value={reasoningEffort}
+                        onChange={(event) =>
+                          onReasoningEffortChange(
+                            event.target.value as ReasoningEffort,
+                          )
+                        }
+                        disabled={isSending || !isReasoningEffortSupported}
+                      >
+                        <optgroup label="Reasoning effort">
+                          {reasoningEffortOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </Select>
+                    </QuickControlFrame>
+                  </div>,
+                )}
+                {renderLabeledTooltip(
+                  "Web Search",
+                  ["Enable Azure web-search-preview tool for this thread."],
+                  <div className="chat-quick-control">
+                    <QuickControlFrame className="chat-quick-control-frame chat-quick-control-frame-switch">
+                      <Switch
+                        id="chat-web-search-preview"
+                        className="chat-web-search-toggle"
+                        aria-label="Web Search"
+                        label="Web Search"
+                        checked={webSearchEnabled}
+                        onChange={(_, data) => {
+                          onWebSearchEnabledChange(data.checked === true);
+                        }}
+                        disabled={isSending}
+                      />
+                    </QuickControlFrame>
+                  </div>,
+                )}
+              </div>
+              {renderLabeledTooltip(
+                isSending ? "Cancel" : "Send",
+                isSending
+                  ? ["Cancel all in-progress processing for this thread."]
+                  : isThreadReadOnly
+                    ? [
+                        "Archived thread is read-only. Restore it from Archives to send messages.",
+                      ]
+                    : ["Send current message."],
+                isSending ? (
+                  <Button
+                    type="button"
+                    appearance="subtle"
+                    className="chat-send-btn"
+                    aria-label="Cancel in-progress processing"
+                    title="Cancel in-progress processing."
+                    onClick={onCancelThreadProcessing}
+                  >
+                    ■
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    appearance="subtle"
+                    className="chat-send-btn"
+                    aria-label="Send message"
+                    title="Send current message."
+                    disabled={!canSendMessage}
+                  >
+                    ↑
+                  </Button>
+                ),
+                "chat-tooltip-target chat-send-tooltip-target",
+              )}
+            </div>
+          </div>
+        </form>
+        <div className="chat-footer-draft-meta">
+          {renderDraftAttachmentBubbles()}
+          {renderAddedSkillAndMcpBubbles()}
+        </div>
+      </footer>
+    </section>
+  );
+}
