@@ -135,6 +135,7 @@ import {
 } from "~/lib/client/usecase/workspace/state";
 import {
   applySendResult,
+  executeSendMessageTransport,
   prepareSendMessageExecution,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
@@ -2271,8 +2272,15 @@ export function useWorkspace() {
     assignThreadSendAbortController(threadId, sendAbortController);
 
     try {
-      const { response, payload, isEventStream, operationLogCount } =
-        await chatApiClient.sendMessage(preparedSend.requestPayload, {
+      const transportResult = await executeSendMessageTransport(
+        {
+          sendMessage: (payload, options) =>
+            chatApiClient.sendMessage(payload, options),
+          markAzureAuthRequired,
+        },
+        {
+          requestPayload: preparedSend.requestPayload,
+          requestThreadEnvironment: preparedSend.requestThreadEnvironment,
           signal: sendAbortController.signal,
           onProgress: (message) => {
             appendThreadProgressMessage(threadId, message);
@@ -2283,28 +2291,16 @@ export function useWorkspace() {
               turnId,
             });
           },
-        });
-
-      if (!response.ok || payload.error) {
-        if (payload.errorCode === "azure_login_required") {
-          markAzureAuthRequired();
-        }
-        throw new Error(payload.error || "Failed to send message.");
-      }
-
-      if (!payload.message) {
-        throw new Error("The server returned an empty message.");
-      }
+        },
+      );
 
       applyThreadEnvironmentToThreadState(
         threadId,
-        "threadEnvironment" in payload
-          ? payload.threadEnvironment
-          : preparedSend.requestThreadEnvironment,
+        transportResult.threadEnvironment,
       );
       const assistantMessage = createThreadMessage(
         "assistant",
-        payload.message,
+        transportResult.assistantMessage,
         turnId,
       );
       appendMessageToThreadState(threadId, assistantMessage);
@@ -2321,9 +2317,9 @@ export function useWorkspace() {
           context: {
             threadId,
             turnId,
-            responseLength: payload.message.length,
-            operationLogCount,
-            usedEventStream: isEventStream,
+            responseLength: transportResult.assistantMessage.length,
+            operationLogCount: transportResult.operationLogCount,
+            usedEventStream: transportResult.usedEventStream,
           },
         },
       );

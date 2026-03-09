@@ -3,6 +3,8 @@
  */
 import { createThreadMessage, type ThreadMessage } from "~/lib/client/chat/messages";
 import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
+import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
+import type { ChatApiClientResult } from "~/lib/client/infrastructure/api/chat-api-client";
 import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
 import { mergeSkillSelections } from "~/lib/client/usecase/workspace/thread-runtime";
 import type { ChatApiRequestPayload } from "~/lib/contracts/chat/request";
@@ -271,6 +273,62 @@ export function prepareSendMessageExecution(options: {
       options.baseThread !== null &&
       options.baseThread.deletedAt === null &&
       options.baseThread.messages.length === 0,
+  };
+}
+
+export type SendMessageTransportResult = {
+  assistantMessage: string;
+  threadEnvironment: ThreadEnvironment;
+  operationLogCount: number;
+  usedEventStream: boolean;
+};
+
+export async function executeSendMessageTransport(
+  deps: {
+    sendMessage: (
+      payload: ChatApiRequestPayload,
+      options: {
+        signal: AbortSignal;
+        onProgress: (message: string) => void;
+        onOperationLogRecord: (entry: ThreadOperationLogEntry) => void;
+      },
+    ) => Promise<ChatApiClientResult>;
+    markAzureAuthRequired: () => void;
+  },
+  options: {
+    requestPayload: ChatApiRequestPayload;
+    requestThreadEnvironment: ThreadEnvironment;
+    signal: AbortSignal;
+    onProgress: (message: string) => void;
+    onOperationLogRecord: (entry: ThreadOperationLogEntry) => void;
+  },
+): Promise<SendMessageTransportResult> {
+  const { response, payload, isEventStream, operationLogCount } =
+    await deps.sendMessage(options.requestPayload, {
+      signal: options.signal,
+      onProgress: options.onProgress,
+      onOperationLogRecord: options.onOperationLogRecord,
+    });
+
+  if (!response.ok || payload.error) {
+    if (payload.errorCode === "azure_login_required") {
+      deps.markAzureAuthRequired();
+    }
+    throw new Error(payload.error || "Failed to send message.");
+  }
+
+  if (!payload.message) {
+    throw new Error("The server returned an empty message.");
+  }
+
+  return {
+    assistantMessage: payload.message,
+    threadEnvironment:
+      "threadEnvironment" in payload && payload.threadEnvironment
+        ? payload.threadEnvironment
+        : options.requestThreadEnvironment,
+    operationLogCount,
+    usedEventStream: isEventStream,
   };
 }
 

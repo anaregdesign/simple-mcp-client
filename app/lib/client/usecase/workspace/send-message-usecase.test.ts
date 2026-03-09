@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applySendResult,
   buildChatRequestPayload,
+  executeSendMessageTransport,
   prepareSendMessageExecution,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
@@ -323,5 +324,115 @@ describe("applySendResult", () => {
         error: "unknown",
       }).error,
     ).toBe("Could not reach the server.");
+  });
+});
+
+describe("executeSendMessageTransport", () => {
+  const baseRequestPayload = {
+    threadId: "thread-1",
+    turnId: "turn-1",
+    message: "hello",
+    attachments: [],
+    history: [],
+    azureConfig: {
+      tenantId: "tenant-a",
+      projectName: "project-a",
+      baseUrl: "https://example.openai.azure.com",
+      apiVersion: "v1",
+      deploymentName: "gpt-5",
+    },
+    supportsReasoningEffort: false,
+    webSearchEnabled: false,
+    agentInstruction: "instruction",
+    instructionContextToggles: { system: true },
+    threadEnvironment: {},
+    skills: [],
+    explicitSkillLocations: [],
+    mcpServers: [],
+  };
+
+  it("returns validated transport results", async () => {
+    const sendMessage = vi.fn(async () => ({
+      response: new Response(JSON.stringify({ message: "assistant response" }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+      payload: {
+        message: "assistant response",
+        threadEnvironment: {
+          FOO: "bar",
+        },
+      },
+      isEventStream: false,
+      operationLogCount: 2,
+    }));
+
+    const result = await executeSendMessageTransport(
+      {
+        sendMessage,
+        markAzureAuthRequired: vi.fn(),
+      },
+      {
+        requestPayload: baseRequestPayload,
+        requestThreadEnvironment: {
+          LOCAL: "1",
+        },
+        signal: new AbortController().signal,
+        onProgress: vi.fn(),
+        onOperationLogRecord: vi.fn(),
+      },
+    );
+
+    expect(result).toEqual({
+      assistantMessage: "assistant response",
+      threadEnvironment: {
+        FOO: "bar",
+      },
+      operationLogCount: 2,
+      usedEventStream: false,
+    });
+  });
+
+  it("marks Azure auth required before throwing API errors", async () => {
+    const markAzureAuthRequired = vi.fn();
+
+    await expect(
+      executeSendMessageTransport(
+        {
+          sendMessage: vi.fn(async () => ({
+            response: new Response(
+              JSON.stringify({
+                error: "Azure login is required.",
+                errorCode: "azure_login_required",
+              }),
+              {
+                status: 401,
+                headers: {
+                  "content-type": "application/json",
+                },
+              },
+            ),
+            payload: {
+              error: "Azure login is required.",
+              errorCode: "azure_login_required" as const,
+            },
+            isEventStream: false,
+            operationLogCount: 0,
+          })),
+          markAzureAuthRequired,
+        },
+        {
+          requestPayload: baseRequestPayload,
+          requestThreadEnvironment: {},
+          signal: new AbortController().signal,
+          onProgress: vi.fn(),
+          onOperationLogRecord: vi.fn(),
+        },
+      ),
+    ).rejects.toThrow("Azure login is required.");
+
+    expect(markAzureAuthRequired).toHaveBeenCalledTimes(1);
   });
 });
