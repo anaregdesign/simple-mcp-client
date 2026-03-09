@@ -1,8 +1,6 @@
 /**
  * API route module for /api/threads.
  */
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
-import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
   createThreadApplicationService,
@@ -26,6 +24,12 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import {
+  describeUnexpectedThreadFailure,
+  buildThreadCollectionMetricsContext,
+  presentCreateThreadResult,
+} from "~/lib/server/usecase/threads/thread-route-presentation";
+import { readThreadWritePayload } from "~/lib/server/usecase/threads/thread-route-parsing";
 import type { Route } from "./+types/api.threads";
 
 const THREADS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
@@ -71,19 +75,17 @@ export async function loader({ request }: Route.LoaderArgs) {
       statusCode: 200,
       message: "Threads loaded.",
       userId: user.id,
-      context: {
-        threadCount: threads.length,
-        archivedThreadCount: threads.filter((thread) => thread.deletedAt !== null).length,
-      },
+      context: buildThreadCollectionMetricsContext(threads),
     });
 
     return Response.json({ threads });
   } catch (error) {
+    const failure = describeUnexpectedThreadFailure("load_threads");
     await logServerRouteEvent({
       request,
       route: "/api/threads",
-      eventName: "load_threads_failed",
-      action: "load_threads",
+      eventName: failure.eventName,
+      action: failure.action,
       statusCode: 500,
       error,
       userId: user.id,
@@ -91,8 +93,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
     return errorResponse({
       status: 500,
-      code: "load_threads_failed",
-      error: `Failed to load threads from database: ${readErrorMessage(error)}`,
+      code: failure.code,
+      error: `${failure.message}: ${readErrorMessage(error)}`,
     });
   }
 }
@@ -125,108 +127,87 @@ export async function action({ request }: Route.ActionArgs) {
     return invalidJsonResponse();
   }
 
-  const thread = readThreadWritePayloadFromUnknown(payload.value, {
-    fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-  });
-  if (!thread) {
+  const thread = readThreadWritePayload(payload.value);
+  if (!thread.ok) {
     await logServerRouteEvent({
       request,
       route: "/api/threads",
-      eventName: "invalid_thread_payload",
-      action: "read_thread_snapshot",
+      eventName: thread.issue.eventName,
+      action: thread.issue.action,
       level: "warning",
-      statusCode: 422,
-      message: "Invalid thread payload.",
+      statusCode: thread.issue.statusCode,
+      message: thread.issue.message,
       userId: user.id,
     });
 
-    return validationErrorResponse("invalid_thread_payload", "Invalid thread payload.");
+    return validationErrorResponse(thread.issue.code, thread.issue.error);
   }
 
   try {
-    const created = await threadCollectionActionHandlers.createThread(user.id, thread);
-    if (created.status === "conflict") {
+    const created = await threadCollectionActionHandlers.createThread(
+      user.id,
+      thread.value,
+    );
+    const presentation = presentCreateThreadResult(created);
+    if (presentation.kind === "error") {
       await logServerRouteEvent({
         request,
         route: "/api/threads",
-        eventName: "thread_conflict",
-        action: "create_thread",
-        level: "warning",
-        statusCode: 409,
-        message: "Thread id already exists.",
+        eventName: presentation.eventName,
+        action: presentation.action,
+        level: presentation.level,
+        statusCode: presentation.statusCode,
+        message: presentation.message,
         userId: user.id,
-        threadId: thread.id,
+        threadId: thread.value.id,
       });
 
-      return errorResponse({
-        status: 409,
-        code: "thread_conflict",
-        error: "Thread id already exists.",
-      });
-    }
-
-    if (created.status === "invalid") {
-      await logServerRouteEvent({
-        request,
-        route: "/api/threads",
-        eventName: "invalid_thread_payload",
-        action: "create_thread",
-        level: "warning",
-        statusCode: 422,
-        message: "Thread payload is not persistable.",
-        userId: user.id,
-        threadId: thread.id,
-      });
-
-      return validationErrorResponse(
-        "invalid_thread_payload",
-        "Thread payload is not persistable.",
-      );
+      return presentation.statusCode === 422
+        ? validationErrorResponse(presentation.code, presentation.error)
+        : errorResponse({
+            status: presentation.statusCode,
+            code: presentation.code,
+            error: presentation.error,
+          });
     }
 
     await logServerRouteEvent({
       request,
       route: "/api/threads",
-      eventName: "create_thread_succeeded",
-      action: "create_thread",
-      level: "info",
-      statusCode: 201,
-      message: "Thread created.",
+      eventName: presentation.eventName,
+      action: presentation.action,
+      level: presentation.level,
+      statusCode: presentation.statusCode,
+      message: presentation.message,
       userId: user.id,
-      threadId: created.thread.id,
-      context: {
-        messageCount: created.thread.messages.length,
-        mcpServerCount: created.thread.mcpServers.length,
-        operationLogCount: created.thread.mcpRpcLogs.length,
-        skillSelectionCount: created.thread.skillSelections.length,
-      },
+      threadId: presentation.thread.id,
+      context: presentation.context,
     });
 
     return Response.json(
-      { thread: created.thread },
+      { thread: presentation.thread },
       {
-        status: 201,
-        headers: {
-          Location: `/api/threads/${encodeURIComponent(created.thread.id)}`,
-        },
+        status: presentation.statusCode,
+        headers: presentation.headers,
       },
     );
   } catch (error) {
+    const failure = describeUnexpectedThreadFailure("create_thread");
     await logServerRouteEvent({
       request,
       route: "/api/threads",
-      eventName: "create_thread_failed",
-      action: "create_thread",
+      eventName: failure.eventName,
+      action: failure.action,
       statusCode: 500,
       error,
       userId: user.id,
-      threadId: thread.id,
+      threadId: thread.value.id,
     });
 
     return errorResponse({
       status: 500,
-      code: "create_thread_failed",
-      error: `Failed to create thread in database: ${readErrorMessage(error)}`,
+      code: failure.code,
+      error: `${failure.message}: ${readErrorMessage(error)}`,
     });
   }
 }

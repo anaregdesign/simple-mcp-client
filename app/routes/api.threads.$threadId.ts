@@ -1,8 +1,7 @@
 /**
  * API route module for /api/threads/:threadId.
  */
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
-import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
   authRequiredResponse,
   errorResponse,
@@ -16,13 +15,24 @@ import {
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   createThreadApplicationService,
-  isThreadRestorePayload,
 } from "~/lib/server/usecase/threads/thread-service";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   createThreadPersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
 import { readErrorMessage, readJsonPayload } from "~/lib/server/http";
+import {
+  describeUnexpectedThreadFailure,
+  presentDeleteThreadResult,
+  presentRestoreThreadResult,
+  presentUpdateThreadResult,
+} from "~/lib/server/usecase/threads/thread-route-presentation";
+import {
+  ensureThreadPayloadMatchesPath,
+  readThreadIdParam,
+  readThreadRestoreRequest,
+  readThreadWritePayload,
+} from "~/lib/server/usecase/threads/thread-route-parsing";
 import type { Route } from "./+types/api.threads.$threadId";
 
 const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;
@@ -32,9 +42,8 @@ function getThreadApplicationService() {
 }
 
 export const threadItemActionHandlers = {
-  updateThread: (userId: number, thread: Parameters<
-    ReturnType<typeof getThreadApplicationService>["updateThread"]
-  >[1]) => getThreadApplicationService().updateThread(userId, thread),
+  updateThread: (userId: number, thread: ThreadWritePayload) =>
+    getThreadApplicationService().updateThread(userId, thread),
   logicalDeleteThread: (userId: number, threadId: string) =>
     getThreadApplicationService().logicalDeleteThread(userId, threadId),
   logicalRestoreThread: (userId: number, threadId: string) =>
@@ -62,20 +71,20 @@ export async function action({ request, params }: Route.ActionArgs) {
     return authRequiredResponse();
   }
 
-  const threadId = typeof params.threadId === "string" ? params.threadId.trim() : "";
-  if (!threadId) {
+  const threadId = readThreadIdParam(params.threadId);
+  if (!threadId.ok) {
     await logServerRouteEvent({
       request,
       route: "/api/threads/:threadId",
-      eventName: "invalid_thread_id_payload",
-      action: "read_thread_id",
+      eventName: threadId.issue.eventName,
+      action: threadId.issue.action,
       level: "warning",
-      statusCode: 422,
-      message: "Invalid thread id payload.",
+      statusCode: threadId.issue.statusCode,
+      message: threadId.issue.message,
       userId: user.id,
     });
 
-    return validationErrorResponse("invalid_thread_id", "Invalid thread id payload.");
+    return validationErrorResponse(threadId.issue.code, threadId.issue.error);
   }
 
   try {
@@ -91,172 +100,131 @@ export async function action({ request, params }: Route.ActionArgs) {
           statusCode: 400,
           message: "Invalid JSON body.",
           userId: user.id,
-          threadId,
+          threadId: threadId.value,
         });
 
         return invalidJsonResponse();
       }
 
-      const thread = readThreadWritePayloadFromUnknown(payload.value, {
-        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-      });
-      if (!thread) {
+      const thread = readThreadWritePayload(payload.value);
+      if (!thread.ok) {
         await logServerRouteEvent({
           request,
           route: "/api/threads/:threadId",
-          eventName: "invalid_thread_payload",
-          action: "read_thread_snapshot",
+          eventName: thread.issue.eventName,
+          action: thread.issue.action,
           level: "warning",
-          statusCode: 422,
-          message: "Invalid thread payload.",
+          statusCode: thread.issue.statusCode,
+          message: thread.issue.message,
           userId: user.id,
-          threadId,
+          threadId: threadId.value,
         });
 
-        return validationErrorResponse("invalid_thread_payload", "Invalid thread payload.");
+        return validationErrorResponse(thread.issue.code, thread.issue.error);
       }
-      if (thread.id !== threadId) {
+
+      const mismatchIssue = ensureThreadPayloadMatchesPath(
+        threadId.value,
+        thread.value.id,
+      );
+      if (mismatchIssue) {
         await logServerRouteEvent({
           request,
           route: "/api/threads/:threadId",
-          eventName: "thread_id_mismatch",
-          action: "validate_payload",
+          eventName: mismatchIssue.eventName,
+          action: mismatchIssue.action,
           level: "warning",
-          statusCode: 422,
-          message: "`thread.id` must match path `threadId`.",
+          statusCode: mismatchIssue.statusCode,
+          message: mismatchIssue.message,
           userId: user.id,
-          threadId,
-          context: {
-            payloadThreadId: thread.id,
-          },
+          threadId: threadId.value,
+          context: mismatchIssue.context,
         });
 
-        return validationErrorResponse(
-          "thread_id_mismatch",
-          "`thread.id` must match path `threadId`.",
-        );
+        return validationErrorResponse(mismatchIssue.code, mismatchIssue.error);
       }
 
       const updatedThread = await threadItemActionHandlers.updateThread(
         user.id,
-        thread,
+        thread.value,
       );
-      if (updatedThread.status === "not_found") {
+      const presentation = presentUpdateThreadResult(updatedThread);
+      if (presentation.kind === "error") {
         await logServerRouteEvent({
           request,
           route: "/api/threads/:threadId",
-          eventName: "thread_not_found",
-          action: "update_thread",
-          level: "warning",
-          statusCode: 404,
-          message: "Thread is not available.",
+          eventName: presentation.eventName,
+          action: presentation.action,
+          level: presentation.level,
+          statusCode: presentation.statusCode,
+          message: presentation.message,
           userId: user.id,
-          threadId,
+          threadId: threadId.value,
         });
 
         return errorResponse({
-          status: 404,
-          code: "thread_not_found",
-          error: "Thread is not available.",
-        });
-      }
-      if (updatedThread.status === "archived") {
-        const errorMessage = "Archived thread is read-only. Restore it from Archives to update.";
-        await logServerRouteEvent({
-          request,
-          route: "/api/threads/:threadId",
-          eventName: "thread_archived_conflict",
-          action: "update_thread",
-          level: "warning",
-          statusCode: 409,
-          message: errorMessage,
-          userId: user.id,
-          threadId,
-        });
-
-        return errorResponse({
-          status: 409,
-          code: "thread_archived_conflict",
-          error: errorMessage,
+          status: presentation.statusCode,
+          code: presentation.code,
+          error: presentation.error,
         });
       }
 
       await logServerRouteEvent({
         request,
         route: "/api/threads/:threadId",
-        eventName: "update_thread_succeeded",
-        action: "update_thread",
-        level: "info",
-        statusCode: 200,
-        message: "Thread updated.",
+        eventName: presentation.eventName,
+        action: presentation.action,
+        level: presentation.level,
+        statusCode: presentation.statusCode,
+        message: presentation.message,
         userId: user.id,
-        threadId: updatedThread.thread.id,
-        context: {
-          messageCount: updatedThread.thread.messages.length,
-          mcpServerCount: updatedThread.thread.mcpServers.length,
-          operationLogCount: updatedThread.thread.mcpRpcLogs.length,
-          skillSelectionCount: updatedThread.thread.skillSelections.length,
-        },
+        threadId: presentation.thread.id,
+        context: presentation.context,
       });
-      return Response.json({ thread: updatedThread.thread }, { status: 200 });
+      return Response.json(
+        { thread: presentation.thread },
+        { status: presentation.statusCode },
+      );
     }
 
     if (request.method === "DELETE") {
       const deleted = await threadItemActionHandlers.logicalDeleteThread(
         user.id,
-        threadId,
+        threadId.value,
       );
-      if (deleted.status === "not_found") {
+      const presentation = presentDeleteThreadResult(deleted);
+      if (presentation.kind === "error") {
         await logServerRouteEvent({
           request,
           route: "/api/threads/:threadId",
-          eventName: "thread_not_found",
-          action: "delete_thread",
-          level: "warning",
-          statusCode: 404,
-          message: "Thread is not available.",
+          eventName: presentation.eventName,
+          action: presentation.action,
+          level: presentation.level,
+          statusCode: presentation.statusCode,
+          message: presentation.message,
           userId: user.id,
-          threadId,
+          threadId: threadId.value,
         });
 
         return errorResponse({
-          status: 404,
-          code: "thread_not_found",
-          error: "Thread is not available.",
-        });
-      }
-      if (deleted.status === "empty") {
-        await logServerRouteEvent({
-          request,
-          route: "/api/threads/:threadId",
-          eventName: "thread_delete_disallowed_empty",
-          action: "delete_thread",
-          level: "warning",
-          statusCode: 409,
-          message: "Threads without messages cannot be deleted.",
-          userId: user.id,
-          threadId,
-        });
-
-        return errorResponse({
-          status: 409,
-          code: "thread_delete_disallowed_empty",
-          error: "Threads without messages cannot be deleted.",
+          status: presentation.statusCode,
+          code: presentation.code,
+          error: presentation.error,
         });
       }
 
       await logServerRouteEvent({
         request,
         route: "/api/threads/:threadId",
-        eventName: "delete_thread_succeeded",
-        action: "delete_thread",
-        level: "info",
-        statusCode: 200,
-        message: "Thread archived.",
+        eventName: presentation.eventName,
+        action: presentation.action,
+        level: presentation.level,
+        statusCode: presentation.statusCode,
+        message: presentation.message,
         userId: user.id,
-        threadId: deleted.thread.id,
+        threadId: presentation.thread.id,
       });
-      return Response.json({ thread: deleted.thread });
+      return Response.json({ thread: presentation.thread });
     }
 
     const payload = await readJsonPayload(request);
@@ -270,99 +238,93 @@ export async function action({ request, params }: Route.ActionArgs) {
         statusCode: 400,
         message: "Invalid JSON body.",
         userId: user.id,
-        threadId,
+        threadId: threadId.value,
       });
 
       return invalidJsonResponse();
     }
 
-    if (!isThreadRestorePayload(payload.value)) {
+    const restoreRequest = readThreadRestoreRequest(payload.value);
+    if (!restoreRequest.ok) {
       await logServerRouteEvent({
         request,
         route: "/api/threads/:threadId",
-        eventName: "invalid_restore_payload",
-        action: "validate_payload",
+        eventName: restoreRequest.issue.eventName,
+        action: restoreRequest.issue.action,
         level: "warning",
-        statusCode: 422,
-        message: "`archived` must be false.",
+        statusCode: restoreRequest.issue.statusCode,
+        message: restoreRequest.issue.message,
         userId: user.id,
-        threadId,
+        threadId: threadId.value,
       });
 
-      return validationErrorResponse("invalid_restore_payload", "`archived` must be false.");
+      return validationErrorResponse(
+        restoreRequest.issue.code,
+        restoreRequest.issue.error,
+      );
     }
 
-      const restored = await threadItemActionHandlers.logicalRestoreThread(
-        user.id,
-        threadId,
-      );
-    if (restored.status === "not_found") {
+    const restored = await threadItemActionHandlers.logicalRestoreThread(
+      user.id,
+      threadId.value,
+    );
+    const presentation = presentRestoreThreadResult(restored);
+    if (presentation.kind === "error") {
       await logServerRouteEvent({
         request,
         route: "/api/threads/:threadId",
-        eventName: "thread_not_found",
-        action: "restore_thread",
-        level: "warning",
-        statusCode: 404,
-        message: "Thread is not available.",
+        eventName: presentation.eventName,
+        action: presentation.action,
+        level: presentation.level,
+        statusCode: presentation.statusCode,
+        message: presentation.message,
         userId: user.id,
-        threadId,
+        threadId: threadId.value,
       });
 
       return errorResponse({
-        status: 404,
-        code: "thread_not_found",
-        error: "Thread is not available.",
+        status: presentation.statusCode,
+        code: presentation.code,
+        error: presentation.error,
       });
     }
 
     await logServerRouteEvent({
       request,
       route: "/api/threads/:threadId",
-      eventName: "restore_thread_succeeded",
-      action: "restore_thread",
-      level: "info",
-      statusCode: 200,
-      message: "Thread restored.",
+      eventName: presentation.eventName,
+      action: presentation.action,
+      level: presentation.level,
+      statusCode: presentation.statusCode,
+      message: presentation.message,
       userId: user.id,
-      threadId: restored.thread.id,
+      threadId: presentation.thread.id,
     });
-    return Response.json({ thread: restored.thread });
+    return Response.json({ thread: presentation.thread });
   } catch (error) {
-    const eventName =
-      request.method === "PUT"
-        ? "update_thread_failed"
-        : request.method === "DELETE"
-          ? "delete_thread_failed"
-          : "restore_thread_failed";
-    const action =
+    const failure = describeUnexpectedThreadFailure(
       request.method === "PUT"
         ? "update_thread"
         : request.method === "DELETE"
           ? "delete_thread"
-          : "restore_thread";
+          : "restore_thread",
+    );
 
     await logServerRouteEvent({
       request,
       route: "/api/threads/:threadId",
-      eventName,
-      action,
+      eventName: failure.eventName,
+      action: failure.action,
       statusCode: 500,
       error,
       userId: user.id,
-      threadId,
+      threadId: threadId.value,
     });
 
-    const errorCode =
-      request.method === "PUT"
-        ? "update_thread_failed"
-        : request.method === "DELETE"
-          ? "delete_thread_failed"
-          : "restore_thread_failed";
     return errorResponse({
       status: 500,
-      code: errorCode,
-      error: `Failed to update thread in database: ${readErrorMessage(error)}`,
+      code: failure.code,
+      error: `${failure.message}: ${readErrorMessage(error)}`,
     });
   }
 }
