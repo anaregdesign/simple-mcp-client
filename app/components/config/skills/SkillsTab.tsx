@@ -4,7 +4,7 @@
 import type { ComponentProps } from "react";
 import { SkillRegistrySection } from "~/components/config/skills/SkillRegistrySection";
 import { SkillsSection } from "~/components/config/skills/SkillsSection";
-import type { MainViewTab } from "~/lib/client/shared/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 
 type SkillsTabProps = {
   activeMainTab: MainViewTab;

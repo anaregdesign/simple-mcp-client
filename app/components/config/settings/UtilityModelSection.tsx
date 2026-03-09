@@ -7,7 +7,7 @@ import { StatusMessageList } from "~/components/shared/StatusMessageList";
 import type {
   AzureConnectionOptionView,
   ReasoningEffort,
-} from "~/lib/client/shared/view-types";
+} from "~/lib/client/usecase/workspace/view-types";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import {
   NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,

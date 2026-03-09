@@ -15,7 +15,7 @@ import type {
   MainViewTab,
   McpTransport,
   ReasoningEffort,
-} from "~/lib/client/shared/view-types";
+} from "~/lib/client/usecase/workspace/view-types";
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_FILES,

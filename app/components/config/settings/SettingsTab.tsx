@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { AppearanceSection } from "~/components/config/settings/AppearanceSection";
 import { AzureConnectionSection } from "~/components/config/settings/AzureConnectionSection";
 import { UtilityModelSection } from "~/components/config/settings/UtilityModelSection";
-import type { MainViewTab } from "~/lib/client/shared/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 
 type SettingsTabProps = {
   activeMainTab: MainViewTab;

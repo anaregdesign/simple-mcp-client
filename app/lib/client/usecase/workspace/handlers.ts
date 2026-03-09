@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import type { MainViewTab, McpTransport } from "~/lib/client/shared/view-types";
+import type { MainViewTab, McpTransport } from "~/lib/client/usecase/workspace/view-types";
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import {

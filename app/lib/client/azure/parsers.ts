@@ -3,7 +3,7 @@
  */
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
-import type { ReasoningEffort } from "~/lib/client/shared/view-types";
+import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
 import type {
   AzureSelectionPreferenceSnapshot,

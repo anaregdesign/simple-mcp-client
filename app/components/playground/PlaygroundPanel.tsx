@@ -26,7 +26,7 @@ import type {
   ThreadMessageView,
   ThreadOperationLogEntryView,
   ThreadSkillView,
-} from "~/lib/client/shared/view-types";
+} from "~/lib/client/usecase/workspace/view-types";
 import { formatChatAttachmentSize } from "~/lib/client/chat/attachments";
 import {
   NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,

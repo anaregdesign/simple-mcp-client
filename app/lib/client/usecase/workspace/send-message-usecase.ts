@@ -6,7 +6,7 @@ import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import type { ReasoningEffort } from "~/lib/client/shared/view-types";
+import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import type { ChatRequestMcpServer } from "~/lib/client/usecase/workspace/mcp-runtime";
 
 export type ClientApiChatAttachment = {

@@ -15,7 +15,7 @@ import type {
   McpTransport,
   ReasoningEffort,
   ThemeMode,
-} from "~/lib/client/shared/view-types";
+} from "~/lib/client/usecase/workspace/view-types";
 import type {
   DesktopUpdaterActionState,
   DesktopUpdaterStatus,

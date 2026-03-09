@@ -1,7 +1,7 @@
 /**
  * Client controller runtime module.
  */
-import type { InstructionLanguage } from "~/lib/client/shared/view-types";
+import type { InstructionLanguage } from "~/lib/client/usecase/workspace/view-types";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 

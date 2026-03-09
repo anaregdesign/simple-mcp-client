@@ -6,7 +6,7 @@ import { InstructionSection } from "~/components/config/threads/InstructionSecti
 import {
   ThreadsManageSection,
 } from "~/components/config/threads/ThreadsManageSection";
-import type { MainViewTab } from "~/lib/client/shared/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 import {
   useThreadManagement,
 } from "~/lib/client/usecase/workspace/thread-management/use-thread-management";

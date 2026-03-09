@@ -1,7 +1,7 @@
 /**
  * Client runtime support module.
  */
-import type { InstructionLanguage } from "~/lib/client/shared/view-types";
+import type { InstructionLanguage } from "~/lib/client/usecase/workspace/view-types";
 import {
   INSTRUCTION_ALLOWED_EXTENSIONS,
   INSTRUCTION_DEFAULT_EXTENSION,

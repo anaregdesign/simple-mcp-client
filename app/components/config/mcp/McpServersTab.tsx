@@ -1,7 +1,7 @@
 /**
  * Client UI component module.
  */
-import type { MainViewTab } from "~/lib/client/shared/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 import {
   McpAddServerSection,
   type McpAddServerSectionProps,
