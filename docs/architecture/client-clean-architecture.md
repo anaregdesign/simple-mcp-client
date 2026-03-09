@@ -41,15 +41,30 @@ These historical roots are obsolete and must not be recreated:
 
 ### `app/lib/client/`
 
-SPA runtime logic, client-side orchestration, view-model helpers, selectors, parsers, and feature-specific API clients.
+SPA runtime logic lives under explicit `usecase` and `infrastructure` boundaries.
+
+Preferred structure:
+
+```text
+app/lib/client/
+  usecase/
+    <feature>/
+      use-<feature>.ts
+      state.ts
+      reducer.ts
+      selectors.ts
+      handlers.ts
+  infrastructure/
+    api/
+    browser/
+```
 
 Use this layer for:
 
-- `WorkspaceController`
-- `WorkspaceStore`
-- feature `ApiClient`
-- client-only parsers and selectors
-- thread snapshot update helpers
+- feature-local usecase Hooks and selectors
+- feature-specific API clients
+- browser adapters such as clipboard or file save integration
+- client-only parsers and view-model mapping
 
 Do not put server logic, persistence adapters, or route handlers here.
 
@@ -95,14 +110,13 @@ Target structure:
 
 ```text
 app/lib/server/
-  application/
+  usecase/
   infrastructure/
-  shared/
 ```
 
-Migration residue still exists under additional `app/lib/server/*` directories. When touching those areas:
+Migration residue still exists under additional `app/lib/server/*` directories such as `auth/`, `chat/`, `mcp/`, `observability/`, and `skills/`. When touching those areas:
 
-- prefer extracting reusable logic into `application/`, `infrastructure/`, or `shared/`
+- prefer extracting reusable logic into `usecase/` or `infrastructure/`
 - avoid creating new legacy top-level siblings
 - avoid expanding route-local helper sprawl
 
@@ -122,13 +136,13 @@ Migration residue still exists under additional `app/lib/server/*` directories. 
 
 Use:
 
-- `app/components/client/authorize/`
-- `app/components/client/playground/`
-- `app/components/client/config/threads/`
-- `app/components/client/config/mcp/`
-- `app/components/client/config/skills/`
-- `app/components/client/config/settings/`
-- `app/components/client/shared/`
+- `app/components/authorize/`
+- `app/components/playground/`
+- `app/components/config/threads/`
+- `app/components/config/mcp/`
+- `app/components/config/skills/`
+- `app/components/config/settings/`
+- `app/components/shared/`
 
 Do not create route-local component trees for these concerns.
 
@@ -147,6 +161,8 @@ Examples:
 
 Use `app/lib/contracts/` for shared parsing and validation logic rather than recreating feature roots.
 
+Contracts should expose explicit DTO and resource shapes. Do not leak Prisma model types into `contracts`.
+
 Examples:
 
 - MCP validation
@@ -157,13 +173,13 @@ Examples:
 
 The following files are migration hotspots and should shrink over time:
 
-- `app/lib/client/controller/use-workspace-client-controller.ts`
+- `app/lib/client/usecase/workspace/use-workspace.ts`
 - `app/routes/api.chat.ts`
 
 When adding new behavior:
 
 - do not add reusable orchestration to these files if an extracted module is possible
-- prefer `WorkspaceController`, `WorkspaceStore`, feature `ApiClient`, selector helpers, and server-side helper modules
+- prefer feature-local usecase modules, `client/infrastructure/api`, `client/infrastructure/browser`, selector helpers, and server-side usecase modules
 - keep route files focused on parsing, dispatch, and response wiring
 
 ## Class Policy
@@ -173,10 +189,8 @@ Use `class` only when identity, invariants, lifecycle, or orchestration behavior
 ### Prefer `class`
 
 - domain models with behavior and invariants
-- controllers
-- stores
+- usecase services
 - API clients
-- application services
 - repositories
 - gateways
 - mappers

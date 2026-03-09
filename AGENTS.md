@@ -108,7 +108,7 @@
 - Rebuild transaction-scoped dependencies per request or transaction, and keep transactions short.
 - `/mcp/debug` is a development/debug workflow, not a production access path.
 - When `prisma/schema.prisma` changes for persisted models or fields, update `/mcp/debug` metadata in the same batch and run:
-  - `npm run test:core -- app/lib/server/persistence/mcp-debug-database.test.ts`
+  - `npm run test:core -- app/lib/server/infrastructure/persistence/mcp-debug-database.test.ts`
 
 # Verification
 
