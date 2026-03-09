@@ -6,6 +6,7 @@ import nodeOs from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants/mcp";
+import { resolveWorkingDirectory } from "~/lib/server/usecase/mcp/mcp-cmd-working-directory";
 
 const {
   readAzureArmUserContextMock,
@@ -32,7 +33,7 @@ vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-ga
   logServerRouteEvent: logServerRouteEventMock,
 }));
 
-import { action, loader, mcpCmdRouteTestUtils } from "./mcp.cmd";
+import { action, loader } from "./mcp.cmd";
 
 describe("mcp cmd route", () => {
   beforeEach(() => {
@@ -165,7 +166,7 @@ describe("mcp cmd route", () => {
   });
 
   it("executes shell command and returns stdout/stderr details", async () => {
-    const defaultWorkingDirectoryResult = mcpCmdRouteTestUtils.resolveWorkingDirectory(
+    const defaultWorkingDirectoryResult = resolveWorkingDirectory(
       42,
       "thread-2",
       null,
@@ -333,7 +334,7 @@ describe("mcp cmd route", () => {
   });
 
   it("uses client-provided threadId from tool arguments", async () => {
-    const defaultWorkingDirectoryResult = mcpCmdRouteTestUtils.resolveWorkingDirectory(
+    const defaultWorkingDirectoryResult = resolveWorkingDirectory(
       42,
       "thread-from-client",
       null,
