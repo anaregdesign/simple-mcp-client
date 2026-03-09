@@ -4,25 +4,14 @@ import {
 } from "~/lib/constants/chat";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
+import type {
+  ResolvedThreadTitleAzureConfig,
+  ThreadTitleSuggestionRequest,
+} from "~/lib/server/usecase/threads/thread-title-suggestion-service";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 const THREAD_TITLE_MAX_PLAYGROUND_CONTENT_LENGTH = 12_000;
-
-export type ResolvedThreadTitleAzureConfig = {
-  tenantId: string;
-  projectName: string;
-  baseUrl: string;
-  apiVersion: string;
-  deploymentName: string;
-};
-
-export type ThreadTitleSuggestionRequest = {
-  playgroundContent: string;
-  instruction: string;
-  azureConfig: ResolvedThreadTitleAzureConfig;
-  reasoningEffort: ReasoningEffort | null;
-};
 
 type ThreadTitleSuggestionValidationCode =
   | "invalid_playground_content"
@@ -238,9 +227,7 @@ function readAzureConfig(
           ? normalizeAzureOpenAIBaseURL(value.baseUrl)
           : "",
       apiVersion:
-        typeof value.apiVersion === "string" && value.apiVersion.trim()
-          ? value.apiVersion.trim()
-          : "v1",
+        typeof value.apiVersion === "string" ? value.apiVersion.trim() : "",
       deploymentName:
         typeof value.deploymentName === "string"
           ? value.deploymentName.trim()
@@ -252,10 +239,7 @@ function readAzureConfig(
 function validationIssue(
   code: ThreadTitleSuggestionValidationCode,
   error: string,
-): {
-  ok: false;
-  issue: ThreadTitleSuggestionValidationIssue;
-} {
+): ThreadTitleSuggestionRequestResult {
   return {
     ok: false,
     issue: {

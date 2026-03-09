@@ -25,12 +25,16 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 }));
 
 vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
-  readWorkspaceSkillProfileReconcilePayload: readWorkspaceSkillProfileReconcilePayloadMock,
   createWorkspaceSkillService: createWorkspaceSkillServiceMock.mockReturnValue({
     readWorkspaceSkillProfiles: readWorkspaceSkillProfilesMock,
     discoverWorkspaceSkills: discoverWorkspaceSkillsMock,
     syncWorkspaceSkillMasters: syncWorkspaceSkillMastersMock,
   }),
+}));
+
+vi.mock("~/lib/server/http/skills/workspace-skill-request", () => ({
+  readWorkspaceSkillProfileReconcilePayload:
+    readWorkspaceSkillProfileReconcilePayloadMock,
 }));
 
 vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({

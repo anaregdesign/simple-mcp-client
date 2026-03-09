@@ -1,7 +1,22 @@
 import { THREAD_AUTO_TITLE_SYSTEM_PROMPT } from "~/lib/constants/chat";
 import { buildThreadAutoTitleRequestMessage, normalizeThreadAutoTitle } from "~/lib/contracts/threads/title";
 import type { ThreadTitleGenerationGateway } from "~/lib/domain/repositories/thread-title-generation-gateway";
-import type { ThreadTitleSuggestionRequest } from "./thread-title-suggestion-request";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+
+export type ResolvedThreadTitleAzureConfig = {
+  tenantId: string;
+  projectName: string;
+  baseUrl: string;
+  apiVersion: string;
+  deploymentName: string;
+};
+
+export type ThreadTitleSuggestionRequest = {
+  playgroundContent: string;
+  instruction: string;
+  azureConfig: ResolvedThreadTitleAzureConfig;
+  reasoningEffort: ReasoningEffort | null;
+};
 
 type UpstreamErrorPayload = {
   code: string;

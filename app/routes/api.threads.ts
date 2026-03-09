@@ -26,9 +26,9 @@ import {
   describeUnexpectedThreadFailure,
   buildThreadCollectionMetricsContext,
   presentCreateThreadResult,
-} from "~/lib/server/usecase/threads/thread-route-presentation";
+} from "~/lib/server/http/threads/thread-route-presentation";
 import { presentThreadResources } from "~/lib/server/usecase/threads/thread-resource-presentation";
-import { readThreadWritePayload } from "~/lib/server/usecase/threads/thread-route-parsing";
+import { readThreadWritePayload } from "~/lib/server/http/threads/thread-route-parsing";
 import type { Route } from "./+types/api.threads";
 
 const THREADS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;

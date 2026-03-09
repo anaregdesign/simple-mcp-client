@@ -1,7 +1,7 @@
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
-import { isThreadRestorePayload } from "./thread-service";
+import { isThreadRestorePayload } from "~/lib/server/usecase/threads/thread-service";
 
 export type ThreadRouteValidationIssue = {
   statusCode: 422;

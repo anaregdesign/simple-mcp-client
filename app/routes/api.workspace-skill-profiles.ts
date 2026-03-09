@@ -6,8 +6,8 @@ import {
 } from "~/lib/server/http";
 import {
   createWorkspaceSkillService,
-  readWorkspaceSkillProfileReconcilePayload,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
+import { readWorkspaceSkillProfileReconcilePayload } from "~/lib/server/http/skills/workspace-skill-request";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   createWorkspaceSkillProfilePersistenceRepository,

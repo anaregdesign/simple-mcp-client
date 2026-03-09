@@ -20,8 +20,8 @@ import {
 } from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 import {
   createWorkspaceSkillService,
-  parseSkillRegistryMutationPath,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
+import { parseSkillRegistryMutationPath } from "~/lib/server/http/skills/workspace-skill-request";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   createWorkspaceSkillProfilePersistenceRepository,

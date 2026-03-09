@@ -56,6 +56,9 @@ vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
     discoverWorkspaceSkills: vi.fn(),
     syncWorkspaceSkillMasters: vi.fn(),
   }),
+}));
+
+vi.mock("~/lib/server/http/skills/workspace-skill-request", () => ({
   parseSkillRegistryMutationPath,
 }));
 

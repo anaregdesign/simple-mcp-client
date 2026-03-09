@@ -25,13 +25,13 @@ import {
   presentDeleteThreadResult,
   presentRestoreThreadResult,
   presentUpdateThreadResult,
-} from "~/lib/server/usecase/threads/thread-route-presentation";
+} from "~/lib/server/http/threads/thread-route-presentation";
 import {
   ensureThreadPayloadMatchesPath,
   readThreadIdParam,
   readThreadRestoreRequest,
   readThreadWritePayload,
-} from "~/lib/server/usecase/threads/thread-route-parsing";
+} from "~/lib/server/http/threads/thread-route-parsing";
 import type { Route } from "./+types/api.threads.$threadId";
 
 const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;

@@ -1,12 +1,12 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
+import { presentThreadResource } from "~/lib/server/usecase/threads/thread-resource-presentation";
 import type {
   CreateThreadResult,
   LogicalDeleteThreadResult,
   LogicalRestoreThreadResult,
   UpdateThreadResult,
-} from "./thread-service";
-import { presentThreadResource } from "./thread-resource-presentation";
+} from "~/lib/server/usecase/threads/thread-service";
 
 type ThreadRouteLogLevel = "info" | "warning";
 

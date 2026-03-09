@@ -4,7 +4,7 @@ import {
   readThreadIdParam,
   readThreadRestoreRequest,
   readThreadWritePayload,
-} from "./thread-route-parsing";
+} from "~/lib/server/http/threads/thread-route-parsing";
 
 describe("thread-route-parsing", () => {
   it("reads a trimmed thread id from route params", () => {

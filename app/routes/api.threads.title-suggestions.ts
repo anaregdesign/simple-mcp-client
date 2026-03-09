@@ -17,7 +17,7 @@ import {
 } from "~/lib/server/http";
 import {
   readThreadTitleSuggestionRequest,
-} from "~/lib/server/usecase/threads/thread-title-suggestion-request";
+} from "~/lib/server/http/threads/thread-title-suggestion-request";
 import {
   buildThreadTitleUpstreamError,
   createThreadTitleSuggestionService,

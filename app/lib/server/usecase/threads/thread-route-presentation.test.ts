@@ -11,7 +11,7 @@ import {
   presentDeleteThreadResult,
   presentRestoreThreadResult,
   presentUpdateThreadResult,
-} from "./thread-route-presentation";
+} from "~/lib/server/http/threads/thread-route-presentation";
 
 function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
   return {

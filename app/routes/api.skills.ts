@@ -3,8 +3,8 @@
  */
 import {
   createWorkspaceSkillService,
-  readSkillRegistryRefreshQueryFlag,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
+import { readSkillRegistryRefreshQueryFlag } from "~/lib/server/http/skills/workspace-skill-request";
 import {
   createWorkspaceSkillProfilePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
