@@ -1,7 +1,7 @@
 /**
  * API route module for /api/threads/:threadId.
  */
-import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadWritePayload } from "~/lib/domain/entities/thread-record";
 import {
   authRequiredResponse,
   errorResponse,

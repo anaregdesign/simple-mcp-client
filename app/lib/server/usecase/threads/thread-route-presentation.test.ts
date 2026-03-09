@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadResource } from "~/lib/contracts/threads/types";
+import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
 import {
   buildThreadCollectionMetricsContext,
   buildThreadMutationMetricsContext,
@@ -10,7 +10,7 @@ import {
   presentUpdateThreadResult,
 } from "./thread-route-presentation";
 
-function createThreadResource(threadId = "thread-a"): ThreadResource {
+function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
   return {
     id: threadId,
     userId: 1,

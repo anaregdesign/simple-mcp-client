@@ -2,7 +2,10 @@
  * Test module verifying POST /api/threads behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type {
+  ThreadRecordSnapshot,
+  ThreadWritePayload,
+} from "~/lib/domain/entities/thread-record";
 
 const {
   readAuthenticatedUserMock,
@@ -32,7 +35,7 @@ vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-ga
 import { action, threadCollectionActionHandlers } from "./api.threads";
 const createThreadSpy = vi.spyOn(threadCollectionActionHandlers, "createThread");
 
-function createThreadResource(): ThreadResource {
+function createThreadResource(): ThreadRecordSnapshot {
   return {
     id: "thread-a",
     userId: 10,
@@ -99,7 +102,7 @@ describe("POST /api/threads", () => {
       }),
     } as never);
 
-    const payload = (await response.json()) as { thread?: ThreadResource };
+    const payload = (await response.json()) as { thread?: ThreadRecordSnapshot };
     expect(response.status).toBe(201);
     expect(response.headers.get("location")).toBe("/api/threads/thread-a");
     expect(payload.thread?.id).toBe("thread-a");
