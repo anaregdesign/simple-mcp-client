@@ -4,7 +4,7 @@
 import {
   createWorkspaceSkillService,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
-import { readSkillRegistryRefreshQueryFlag } from "~/lib/server/http/skills/workspace-skill-request";
+import { handleSkillsCollectionLoader } from "~/lib/server/http/skills/skill-discovery-loader";
 import {
   createWorkspaceSkillProfilePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
@@ -13,14 +13,11 @@ import {
 } from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 import {
   authRequiredResponse,
-  errorResponse,
   methodNotAllowedResponse,
-  readErrorMessage,
 } from "~/lib/server/http";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,
-  logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { Route } from "./+types/api.skills";
 const SKILLS_COLLECTION_ALLOWED_METHODS = ["GET"] as const;
@@ -44,43 +41,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     return authRequiredResponse();
   }
 
-  try {
-    const forceRefresh = readSkillRegistryRefreshQueryFlag(request.url);
-    if (forceRefresh) {
-      await logServerRouteEvent({
-        request,
-        route: "/api/skills",
-        eventName: "discover_skills_force_refresh_requested",
-        action: "discover_skills",
-        level: "info",
-        message: "Skill registry cache bypass requested.",
-        userId: user.id,
-        context: {
-          forceRefresh,
-        },
-      });
-    }
-
-    const discoveryResult = await getWorkspaceSkillService().discoverWorkspaceSkills({
-      userId: user.id,
-      forceRefresh,
-    });
-    return Response.json(discoveryResult);
-  } catch (error) {
-    await logServerRouteEvent({
-      request,
-      route: "/api/skills",
-      eventName: "discover_skills_failed",
-      action: "discover_skills",
-      statusCode: 500,
-      error,
-      userId: user.id,
-    });
-
-    return errorResponse({
-      status: 500,
-      code: "discover_skills_failed",
-      error: `Failed to discover skills: ${readErrorMessage(error)}`,
-    });
-  }
+  return handleSkillsCollectionLoader({
+    request,
+    userId: user.id,
+    workspaceSkillService: getWorkspaceSkillService(),
+  });
 }

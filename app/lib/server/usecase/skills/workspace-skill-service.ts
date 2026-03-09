@@ -73,7 +73,3 @@ export function createWorkspaceSkillService(options: {
     options.discoveryGateway,
   );
 }
-
-export function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error.";
-}
