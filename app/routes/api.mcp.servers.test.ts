@@ -21,7 +21,10 @@ import {
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
-import { resolveDefaultFilesystemWorkingDirectory } from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
+import {
+  resolveDefaultFilesystemWorkingDirectory,
+  resolveLegacyFilesystemWorkingDirectory,
+} from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
 type DefaultWorkspaceMcpServerProfileRow =
   (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
@@ -54,6 +57,10 @@ const defaultDrawioMcpServerProfile =
 const defaultMermaidMcpServerProfile =
   readDefaultStdioMcpServerProfile("mcp-mermaid");
 const defaultWorkspaceUserId = 42;
+const testMcpServerProfilePathResolver = {
+  resolveDefaultFilesystemWorkingDirectory,
+  resolveLegacyFilesystemWorkingDirectory,
+};
 
 function readDefaultStdioMcpServerProfile(
   name: string,
@@ -523,6 +530,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       [],
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const resultConfigs = readWorkspaceMcpServerProfileConfigs(result);
 
@@ -749,6 +757,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       existingProfiles,
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
 
     expect(result).toEqual(existingProfiles);
@@ -773,6 +782,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const resultConfigs = readWorkspaceMcpServerProfileConfigs(result);
 
@@ -872,6 +882,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const names = readWorkspaceMcpServerProfileConfigs(result).map((entry) => entry.name);
     expect(names).not.toContain("server-http");
@@ -897,6 +908,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const mermaidProfiles = readWorkspaceMcpServerProfileConfigs(result).filter(
       (entry) =>
@@ -937,6 +949,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const filesystemProfiles = readWorkspaceMcpServerProfileConfigs(result).filter(
       (entry) =>
@@ -993,6 +1006,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const names = readWorkspaceMcpServerProfileConfigs(result).map((entry) => entry.name);
     expect(names).toContain(defaultMicrosoftLearnMcpServerProfile.name);

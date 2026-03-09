@@ -17,12 +17,12 @@ import {
 } from "~/lib/contracts/mcp/server-config-parser";
 import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from "~/lib/contracts/mcp/profile";
 import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
-import {
-  resolveDefaultFilesystemWorkingDirectory,
-  resolveLegacyFilesystemWorkingDirectory,
-} from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
 
 export type IncomingMcpServerConfig = ParsedIncomingMcpServerConfig;
+export type McpServerProfilePathResolver = {
+  resolveDefaultFilesystemWorkingDirectory(workspaceUserId: number): string;
+  resolveLegacyFilesystemWorkingDirectory(): string;
+};
 
 const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
@@ -50,6 +50,7 @@ const defaultFilesystemWorkspaceMcpServerProfile =
 export class McpServerProfileService {
   constructor(
     private readonly repository: WorkspaceMcpServerProfileRepository,
+    private readonly pathResolver: McpServerProfilePathResolver,
   ) {}
 
   async readWorkspaceMcpServerProfiles(
@@ -66,14 +67,22 @@ export class McpServerProfileService {
   }
 
   async ensureDefaultMcpServersForUser(userId: number): Promise<void> {
-    return ensureDefaultMcpServersForUser(this.repository, userId);
+    return ensureDefaultMcpServersForUser(
+      this.repository,
+      userId,
+      this.pathResolver,
+    );
   }
 
   mergeDefaultWorkspaceMcpServerProfiles(
     currentProfiles: WorkspaceMcpServerProfile[],
     workspaceUserId: number,
   ): WorkspaceMcpServerProfile[] {
-    return mergeDefaultWorkspaceMcpServerProfiles(currentProfiles, workspaceUserId);
+    return mergeDefaultWorkspaceMcpServerProfiles(
+      currentProfiles,
+      workspaceUserId,
+      this.pathResolver,
+    );
   }
 
   upsertWorkspaceMcpServerProfile(
@@ -98,8 +107,9 @@ export class McpServerProfileService {
 
 export function createMcpServerProfileService(
   repository: WorkspaceMcpServerProfileRepository,
+  pathResolver: McpServerProfilePathResolver,
 ): McpServerProfileService {
-  return new McpServerProfileService(repository);
+  return new McpServerProfileService(repository, pathResolver);
 }
 
 export async function readWorkspaceMcpServerProfiles(
@@ -145,10 +155,12 @@ export async function writeWorkspaceMcpServerProfiles(
 export function mergeDefaultWorkspaceMcpServerProfiles(
   currentProfiles: WorkspaceMcpServerProfile[],
   workspaceUserId: number,
+  pathResolver: McpServerProfilePathResolver,
 ): WorkspaceMcpServerProfile[] {
   const mergedProfiles = normalizeLegacyDefaultProfiles(
     currentProfiles,
     workspaceUserId,
+    pathResolver,
   );
   const profileKeys = new Set(
     mergedProfiles
@@ -158,7 +170,12 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
   );
 
   const nextProfiles = [...mergedProfiles];
-  for (const profile of buildDefaultMcpServerProfiles(workspaceUserId)) {
+  for (
+    const profile of buildDefaultMcpServerProfiles(
+      workspaceUserId,
+      pathResolver,
+    )
+  ) {
     const config = readMcpServerFromWorkspaceProfileResource(profile);
     if (!config) {
       continue;
@@ -181,6 +198,7 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
 export async function ensureDefaultMcpServersForUser(
   repository: WorkspaceMcpServerProfileRepository,
   userId: number,
+  pathResolver: McpServerProfilePathResolver,
 ): Promise<void> {
   const currentProfiles = await readWorkspaceMcpServerProfiles(
     repository,
@@ -189,6 +207,7 @@ export async function ensureDefaultMcpServersForUser(
   const nextProfiles = mergeDefaultWorkspaceMcpServerProfiles(
     currentProfiles,
     userId,
+    pathResolver,
   );
   if (nextProfiles.length === currentProfiles.length) {
     return;
@@ -199,9 +218,10 @@ export async function ensureDefaultMcpServersForUser(
 
 function buildDefaultMcpServerProfiles(
   workspaceUserId: number,
+  pathResolver: McpServerProfilePathResolver,
 ): WorkspaceMcpServerProfile[] {
   const defaultStdioWorkingDirectory =
-    resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
+    pathResolver.resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
   return DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile, index) =>
     defaultProfile.transport === "stdio"
       ? createWorkspaceMcpServerProfile({
@@ -238,11 +258,12 @@ function buildDefaultMcpServerProfiles(
 function normalizeLegacyDefaultProfiles(
   currentProfiles: WorkspaceMcpServerProfile[],
   workspaceUserId: number,
+  pathResolver: McpServerProfilePathResolver,
 ): WorkspaceMcpServerProfile[] {
   const defaultWorkingDirectory =
-    resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
+    pathResolver.resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
   const legacyDefaultWorkingDirectory =
-    resolveLegacyFilesystemWorkingDirectory();
+    pathResolver.resolveLegacyFilesystemWorkingDirectory();
   const normalizedProfiles: WorkspaceMcpServerProfile[] = [];
 
   for (const profile of currentProfiles) {
