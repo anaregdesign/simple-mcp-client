@@ -12,20 +12,17 @@ import {
   type AzureTenant,
 } from "~/lib/server/usecase/azure/azure-project-service";
 import {
-  createAzureSelectionService,
+  type AzureSelectionService,
   type AzureSelectionPreference,
 } from "~/lib/server/usecase/azure/azure-selection-service";
 import {
-  createAzureSelectionPreferencePersistenceRepository,
-} from "~/lib/server/infrastructure/repositories/azure-selection-preference-persistence-repository";
-import {
-  mcpServerProfileService,
+  type McpServerProfileService,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 import {
   workspaceSkillService,
   type SkillDiscoveryResult,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
-import { threadQueryService } from "~/lib/server/usecase/threads/thread-service";
+import { type ThreadQueryService } from "~/lib/server/usecase/threads/thread-service";
 import type { AuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
@@ -53,21 +50,29 @@ type WorkspaceBootstrapData = {
   desktopStatus: null;
 };
 
+type WorkspaceBootstrapDependencies = {
+  azureSelectionService: AzureSelectionService;
+  mcpServerProfileService: McpServerProfileService;
+  threadQueryService: ThreadQueryService;
+};
+
 export class WorkspaceBootstrapService {
+  constructor(
+    private readonly dependencies: WorkspaceBootstrapDependencies,
+  ) {}
+
   async loadWorkspaceBootstrap(
     options: WorkspaceBootstrapOptions,
   ): Promise<WorkspaceBootstrapData | null> {
-    const dependencies = getAzureDependencies();
-    const tokenResult = await getArmAccessToken(dependencies);
+    const azureDependencies = getAzureDependencies();
+    const tokenResult = await getArmAccessToken(azureDependencies);
     if (!tokenResult.ok) {
       return null;
     }
 
-    const azureSelectionService = createAzureSelectionService(
-      createAzureSelectionPreferencePersistenceRepository(),
+    await this.dependencies.mcpServerProfileService.ensureDefaultMcpServersForUser(
+      options.user.id,
     );
-
-    await mcpServerProfileService.ensureDefaultMcpServersForUser(options.user.id);
 
     const [
       principal,
@@ -78,19 +83,24 @@ export class WorkspaceBootstrapService {
       workspaceMcpServerProfiles,
       skillDiscovery,
     ] = await Promise.all([
-      resolveAzurePrincipalProfile(tokenResult, dependencies),
-      azureProjectQueryService.loadAzureProjectsWithFallback(options.request, tokenResult.token),
+      resolveAzurePrincipalProfile(tokenResult, azureDependencies),
+      azureProjectQueryService.loadAzureProjectsWithFallback(
+        options.request,
+        tokenResult.token,
+      ),
       azureProjectQueryService.loadAzureTenantsWithFallback(
         options.request,
         tokenResult.token,
         tokenResult.tenantId,
       ),
-      azureSelectionService.readStoredSelection({
+      this.dependencies.azureSelectionService.readStoredSelection({
         tenantId: options.user.tenantId,
         principalId: options.user.principalId,
       }),
-      threadQueryService.readUserThreads(options.user.id),
-      mcpServerProfileService.readWorkspaceMcpServerProfiles(options.user.id),
+      this.dependencies.threadQueryService.readUserThreads(options.user.id),
+      this.dependencies.mcpServerProfileService.readWorkspaceMcpServerProfiles(
+        options.user.id,
+      ),
       workspaceSkillService.discoverWorkspaceSkills({
         userId: options.user.id,
         forceRefresh: false,
@@ -122,7 +132,11 @@ export class WorkspaceBootstrapService {
   }
 }
 
-export const workspaceBootstrapService = new WorkspaceBootstrapService();
+export function createWorkspaceBootstrapService(
+  dependencies: WorkspaceBootstrapDependencies,
+): WorkspaceBootstrapService {
+  return new WorkspaceBootstrapService(dependencies);
+}
 
 async function loadAzureDeploymentsByProjectId(
   accessToken: string,
