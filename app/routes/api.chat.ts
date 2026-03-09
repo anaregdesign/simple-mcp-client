@@ -86,13 +86,13 @@ import {
   type ClientMcpServerConfig,
 } from "~/lib/server/infrastructure/gateways/chat/request-parser";
 import { logChatRequestValidationError } from "~/lib/server/infrastructure/gateways/chat/request-validation-log";
-import { readSkillMarkdown } from "~/lib/server/skills/catalog";
+import { readSkillMarkdown } from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 import {
   readSkillResourceBuffer,
   readSkillResourceText,
   runSkillScript,
   type SkillResourceKind,
-} from "~/lib/server/skills/runtime";
+} from "~/lib/server/infrastructure/gateways/skills/skill-runtime";
 import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
 import { cleanupChatRuntime } from "~/lib/server/infrastructure/gateways/chat/chat-runtime-cleanup";
 import { prepareMcpRuntime } from "~/lib/server/infrastructure/gateways/mcp/chat-mcp-runtime";

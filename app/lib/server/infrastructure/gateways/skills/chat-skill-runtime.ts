@@ -3,11 +3,11 @@ import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   readSkillFrontmatter,
   readSkillMarkdown,
-} from "~/lib/server/skills/catalog";
+} from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 import {
   inspectSkillResourceManifest,
   type SkillResourceFileEntry,
-} from "~/lib/server/skills/runtime";
+} from "~/lib/server/infrastructure/gateways/skills/skill-runtime";
 
 export type ActiveSkillRuntimeEntry = {
   name: string;

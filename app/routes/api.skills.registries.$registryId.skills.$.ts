@@ -12,7 +12,7 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
-import { discoverSkillCatalog } from "~/lib/server/skills/catalog";
+import { discoverSkillCatalog } from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 import {
   deleteInstalledSkillFromRegistry,
   discoverSkillRegistries,

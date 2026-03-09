@@ -10,7 +10,7 @@ import {
   readSkillFrontmatter,
   resolveCodexHomeDirectory,
   resolveSkillCatalogRoots,
-} from "~/lib/server/skills/catalog";
+} from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 
 const tempDirectories: string[] = [];
 

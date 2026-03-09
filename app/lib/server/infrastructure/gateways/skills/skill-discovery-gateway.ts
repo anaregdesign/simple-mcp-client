@@ -1,4 +1,4 @@
-import { discoverSkillCatalog } from "~/lib/server/skills/catalog";
+import { discoverSkillCatalog } from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 import { discoverSkillRegistries } from "~/lib/server/skills/registry";
 
 export async function discoverWorkspaceSkillCatalog(options: {

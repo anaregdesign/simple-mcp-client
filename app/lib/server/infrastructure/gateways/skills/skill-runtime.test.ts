@@ -11,7 +11,7 @@ import {
   readSkillResourceBuffer,
   readSkillResourceText,
   runSkillScript,
-} from "~/lib/server/skills/runtime";
+} from "~/lib/server/infrastructure/gateways/skills/skill-runtime";
 
 const tempDirectories: string[] = [];
 const hasPowerShellRuntime = canRunCommand(

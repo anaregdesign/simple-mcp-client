@@ -52,7 +52,7 @@ vi.mock("~/lib/server/skills/registry", () => ({
   discoverSkillRegistries,
 }));
 
-vi.mock("~/lib/server/skills/catalog", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/skills/skill-catalog", () => ({
   discoverSkillCatalog,
 }));
 
