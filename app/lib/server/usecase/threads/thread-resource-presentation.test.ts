@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import {
+  ThreadRecord,
+  type ThreadRecordSnapshot,
+} from "~/lib/domain/entities/thread-record";
 import {
   presentThreadResource,
   presentThreadResources,
@@ -103,7 +106,9 @@ function createThreadSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
 
 describe("thread-resource-presentation", () => {
   it("serializes a thread snapshot into a transport resource", () => {
-    expect(presentThreadResource(createThreadSnapshot())).toMatchObject({
+    expect(
+      presentThreadResource(new ThreadRecord(createThreadSnapshot())),
+    ).toMatchObject({
       id: "thread-a",
       reasoningEffort: "medium",
       threadEnvironmentJson: "{\"PROJECT\":\"local-playground\"}",
@@ -137,8 +142,8 @@ describe("thread-resource-presentation", () => {
   it("serializes lists of thread snapshots", () => {
     expect(
       presentThreadResources([
-        createThreadSnapshot("thread-a"),
-        createThreadSnapshot("thread-b"),
+        new ThreadRecord(createThreadSnapshot("thread-a")),
+        new ThreadRecord(createThreadSnapshot("thread-b")),
       ]).map((thread) => thread.id),
     ).toEqual(["thread-a", "thread-b"]);
   });

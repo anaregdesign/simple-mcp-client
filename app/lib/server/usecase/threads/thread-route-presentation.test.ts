@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import {
+  ThreadRecord,
+  type ThreadRecordSnapshot,
+} from "~/lib/domain/entities/thread-record";
 import {
   buildThreadCollectionMetricsContext,
   buildThreadMutationMetricsContext,
@@ -90,13 +93,17 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
   };
 }
 
+function createThreadRecord(threadId = "thread-a"): ThreadRecord {
+  return new ThreadRecord(createThreadResource(threadId));
+}
+
 describe("thread-route-presentation", () => {
   it("builds collection metrics from thread snapshots", () => {
-    const activeThread = createThreadResource("thread-a");
-    const archivedThread = {
+    const activeThread = createThreadRecord("thread-a");
+    const archivedThread = new ThreadRecord({
       ...createThreadResource("thread-b"),
       deletedAt: "2026-01-03T00:00:00.000Z",
-    };
+    });
 
     expect(
       buildThreadCollectionMetricsContext([activeThread, archivedThread]),
@@ -107,7 +114,7 @@ describe("thread-route-presentation", () => {
   });
 
   it("builds mutation metrics from a single thread", () => {
-    expect(buildThreadMutationMetricsContext(createThreadResource())).toEqual({
+    expect(buildThreadMutationMetricsContext(createThreadRecord())).toEqual({
       messageCount: 1,
       mcpServerCount: 1,
       operationLogCount: 1,
@@ -118,7 +125,7 @@ describe("thread-route-presentation", () => {
   it("presents create thread outcomes", () => {
     const created = presentCreateThreadResult({
       status: "created",
-      thread: createThreadResource(),
+      thread: createThreadRecord(),
     });
     const conflict = presentCreateThreadResult({ status: "conflict" });
     const invalid = presentCreateThreadResult({ status: "invalid" });
@@ -147,7 +154,7 @@ describe("thread-route-presentation", () => {
     expect(
       presentUpdateThreadResult({
         status: "ok",
-        thread: createThreadResource(),
+        thread: createThreadRecord(),
       }),
     ).toMatchObject({
       kind: "success",
@@ -170,7 +177,7 @@ describe("thread-route-presentation", () => {
     expect(
       presentDeleteThreadResult({
         status: "ok",
-        thread: createThreadResource(),
+        thread: createThreadRecord(),
       }),
     ).toMatchObject({
       kind: "success",

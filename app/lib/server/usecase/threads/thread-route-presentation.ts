@@ -1,5 +1,5 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
 import type {
   CreateThreadResult,
   LogicalDeleteThreadResult,
@@ -44,7 +44,7 @@ export type ThreadUnexpectedFailureOperation =
   | "restore_thread";
 
 export function buildThreadCollectionMetricsContext(
-  threads: ThreadRecordSnapshot[],
+  threads: ThreadRecord[],
 ): Record<string, number> {
   return {
     threadCount: threads.length,
@@ -53,7 +53,7 @@ export function buildThreadCollectionMetricsContext(
 }
 
 export function buildThreadMutationMetricsContext(
-  thread: ThreadRecordSnapshot,
+  thread: ThreadRecord,
 ): Record<string, number> {
   return {
     messageCount: thread.messages.length,

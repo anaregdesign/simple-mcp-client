@@ -4,10 +4,8 @@ import {
   THREAD_ENVIRONMENT_VARIABLES_MAX,
 } from "~/lib/constants/chat";
 import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
-import type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
 
-export { cloneThreadEnvironment } from "~/lib/domain/entities/thread-record";
-export type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
+export type ThreadEnvironment = Record<string, string>;
 
 type ParseThreadEnvironmentResult =
   | {
@@ -25,6 +23,10 @@ export function readThreadEnvironmentFromUnknown(value: unknown): ThreadEnvironm
     pathLabel: "threadEnvironment",
   });
   return parsed.ok ? parsed.value : {};
+}
+
+export function cloneThreadEnvironment(value: ThreadEnvironment): ThreadEnvironment {
+  return { ...value };
 }
 
 export function parseThreadEnvironmentFromUnknown(

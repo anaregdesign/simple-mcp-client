@@ -1,14 +1,14 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
 
 export function presentThreadResources(
-  threads: ThreadRecordSnapshot[],
+  threads: ThreadRecord[],
 ): ThreadResource[] {
   return threads.map((thread) => presentThreadResource(thread));
 }
 
 export function presentThreadResource(
-  thread: ThreadRecordSnapshot,
+  thread: ThreadRecord,
 ): ThreadResource {
   return {
     id: thread.id,

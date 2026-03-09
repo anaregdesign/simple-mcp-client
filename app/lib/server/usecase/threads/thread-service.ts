@@ -1,20 +1,15 @@
 /**
  * Thread application service module.
  */
-import type {
-  ThreadRecord,
-  ThreadRecordSnapshot,
-  ThreadWritePayload,
-} from "~/lib/domain/entities/thread-record";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
 import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
 
 export class ThreadQueryService {
   constructor(private readonly repository: ThreadRepository) {}
 
-  async readUserThreads(userId: number): Promise<ThreadRecordSnapshot[]> {
-    return (await this.repository.listByUserId(userId)).map((thread) =>
-      thread.toSnapshot(),
-    );
+  async readUserThreads(userId: number): Promise<ThreadRecord[]> {
+    return await this.repository.listByUserId(userId);
   }
 }
 
@@ -65,7 +60,7 @@ export function createThreadApplicationService(
 export type CreateThreadResult =
   | {
       status: "created";
-      thread: ThreadRecordSnapshot;
+      thread: ThreadRecord;
     }
   | {
       status: "conflict";
@@ -96,7 +91,7 @@ async function createThread(
 
     return {
       status: "created",
-      thread: saved.thread.toSnapshot(),
+      thread: saved.thread,
     };
   } catch (error) {
     if (isThreadIdConflictError(error)) {
@@ -111,7 +106,7 @@ async function createThread(
 export type UpdateThreadResult =
   | {
       status: "ok";
-      thread: ThreadRecordSnapshot;
+      thread: ThreadRecord;
     }
   | {
       status: "not_found";
@@ -140,7 +135,7 @@ async function updateThread(
 
   return {
     status: "ok",
-    thread: saved.thread.toSnapshot(),
+    thread: saved.thread,
   };
 }
 
@@ -161,7 +156,7 @@ export type LogicalDeleteThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadRecordSnapshot;
+      thread: ThreadRecord;
     };
 
 async function logicalDeleteThread(
@@ -179,7 +174,7 @@ async function logicalDeleteThread(
   if (existing.isArchived()) {
     return {
       status: "ok",
-      thread: existing.toSnapshot(),
+      thread: existing,
     };
   }
 
@@ -194,7 +189,7 @@ async function logicalDeleteThread(
 
   return {
     status: "ok",
-    thread: deleted.toSnapshot(),
+    thread: deleted,
   };
 }
 
@@ -204,7 +199,7 @@ export type LogicalRestoreThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadRecordSnapshot;
+      thread: ThreadRecord;
     };
 
 async function logicalRestoreThread(
@@ -219,7 +214,7 @@ async function logicalRestoreThread(
   if (!existing.isArchived()) {
     return {
       status: "ok",
-      thread: existing.toSnapshot(),
+      thread: existing,
     };
   }
 
@@ -230,7 +225,7 @@ async function logicalRestoreThread(
 
   return {
     status: "ok",
-    thread: restored.toSnapshot(),
+    thread: restored,
   };
 }
 

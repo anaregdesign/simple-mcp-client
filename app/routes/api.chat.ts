@@ -56,14 +56,10 @@ import {
 } from "~/lib/constants/skills";
 import {
   cloneThreadEnvironment,
-} from "~/lib/domain/entities/thread-record";
-import type {
-  ThreadEnvironment,
-  ThreadInstructionContextToggles,
-} from "~/lib/domain/entities/thread-record";
-import {
   parseThreadEnvironmentFromUnknown,
 } from "~/lib/contracts/threads/environment";
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import {
   isDeploymentReasoningEffortCompatible,
   isWebSearchCompatibleReasoningEffort,

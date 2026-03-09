@@ -3,7 +3,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import {
+  ThreadRecord,
+  type ThreadRecordSnapshot,
+} from "~/lib/domain/entities/thread-record";
 import type { CreateThreadResult } from "~/lib/server/usecase/threads/thread-service";
 
 const {
@@ -63,7 +66,7 @@ vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
 
 import { action } from "./api.threads";
 
-function createThreadResource(): ThreadRecordSnapshot {
+function createThreadRecordSnapshot(): ThreadRecordSnapshot {
   return {
     id: "thread-a",
     userId: 10,
@@ -85,6 +88,10 @@ function createThreadResource(): ThreadRecordSnapshot {
     mcpRpcLogs: [],
     skillSelections: [],
   };
+}
+
+function createThreadResource(): ThreadRecord {
+  return new ThreadRecord(createThreadRecordSnapshot());
 }
 
 describe("POST /api/threads", () => {

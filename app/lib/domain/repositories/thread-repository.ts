@@ -1,7 +1,5 @@
-import type {
-  ThreadRecord,
-  ThreadWritePayload,
-} from "~/lib/domain/entities/thread-record";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
 
 export type ThreadRecordHead = {
   deletedAt: string | null;

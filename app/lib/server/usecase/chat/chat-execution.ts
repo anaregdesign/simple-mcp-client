@@ -24,12 +24,12 @@ import {
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
 import {
   cloneThreadEnvironment,
-} from "~/lib/domain/entities/thread-record";
+} from "~/lib/contracts/threads/environment";
 import type {
-  ThreadEnvironment,
-  ThreadInstructionContextToggles,
   ThreadSkillActivation,
-} from "~/lib/domain/entities/thread-record";
+} from "~/lib/contracts/skills/types";
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
 import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";

@@ -1,24 +1,20 @@
-import {
-  DEFAULT_REASONING_EFFORT,
-  DEFAULT_WEB_SEARCH_ENABLED,
-} from "~/lib/constants/chat";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
-export type ThreadAttachment = {
+type ThreadAttachment = {
   name: string;
   mimeType: string;
   sizeBytes: number;
   dataUrl: string;
 };
 
-export type ThreadSkillActivation = {
+type ThreadSkillActivation = {
   name: string;
   location: string;
 };
 
-export type ThreadMessageRole = "user" | "assistant";
+type ThreadMessageRole = "user" | "assistant";
 
-export type ThreadMessage = {
+type ThreadMessage = {
   id: string;
   role: ThreadMessageRole;
   content: string;
@@ -28,7 +24,7 @@ export type ThreadMessage = {
   skillActivations: ThreadSkillActivation[];
 };
 
-export type ThreadOperationLogEntry = {
+type ThreadOperationLogEntry = {
   id: string;
   sequence: number;
   operationType: "mcp" | "skill";
@@ -42,7 +38,7 @@ export type ThreadOperationLogEntry = {
   turnId: string;
 };
 
-export type ThreadMcpHttpServerConfig = {
+type ThreadMcpHttpServerConfig = {
   id: string;
   name: string;
   connectOnThreadCreate?: boolean;
@@ -54,7 +50,7 @@ export type ThreadMcpHttpServerConfig = {
   timeoutSeconds: number;
 };
 
-export type ThreadMcpStdioServerConfig = {
+type ThreadMcpStdioServerConfig = {
   id: string;
   name: string;
   connectOnThreadCreate?: boolean;
@@ -65,22 +61,17 @@ export type ThreadMcpStdioServerConfig = {
   env: Record<string, string>;
 };
 
-export type ThreadMcpServerConfig =
+type ThreadMcpServerConfig =
   | ThreadMcpHttpServerConfig
   | ThreadMcpStdioServerConfig;
 
-export type ThreadEnvironment = Record<string, string>;
+type ThreadEnvironment = Record<string, string>;
 
-export type ThreadInstructionContextToggles = {
+type ThreadInstructionContextToggles = {
   system: boolean;
 };
 
-export const DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES: ThreadInstructionContextToggles =
-  {
-    system: true,
-  };
-
-export type ThreadWritePayload = {
+type ThreadWritePayload = {
   id: string;
   name: string;
   createdAt: string;
@@ -204,60 +195,6 @@ export type ThreadRecordSnapshot = {
   skillSelections: ThreadSkillActivationRecord[];
 };
 
-export function cloneThreadEnvironment(value: ThreadEnvironment): ThreadEnvironment {
-  return { ...value };
-}
-
-export function cloneThreadInstructionContextToggles(
-  value: ThreadInstructionContextToggles,
-): ThreadInstructionContextToggles {
-  return {
-    system: value.system === true,
-  };
-}
-
-export function hasNonDefaultThreadInstructionContextToggles(
-  value: ThreadInstructionContextToggles,
-): boolean {
-  return value.system !== DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES.system;
-}
-
-export function hasThreadInteraction(
-  snapshot: Pick<ThreadWritePayload, "messages"> &
-    Partial<Pick<ThreadWritePayload, "skillSelections">>,
-): boolean {
-  if (snapshot.messages.length > 0) {
-    return true;
-  }
-
-  return (snapshot.skillSelections?.length ?? 0) > 0;
-}
-
-export function hasThreadPersistableState(
-  snapshot: Pick<
-    ThreadWritePayload,
-    | "messages"
-    | "reasoningEffort"
-    | "webSearchEnabled"
-    | "instructionContextToggles"
-    | "threadEnvironment"
-  > &
-    Partial<Pick<ThreadWritePayload, "skillSelections">>,
-): boolean {
-  if (hasThreadInteraction(snapshot)) {
-    return true;
-  }
-
-  return (
-    snapshot.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
-    snapshot.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
-    hasNonDefaultThreadInstructionContextToggles(
-      snapshot.instructionContextToggles,
-    ) ||
-    Object.keys(snapshot.threadEnvironment).length > 0
-  );
-}
-
 export class ThreadRecord {
   private readonly snapshot: ThreadRecordSnapshot;
 
@@ -267,6 +204,68 @@ export class ThreadRecord {
 
   static fromSnapshot(snapshot: ThreadRecordSnapshot): ThreadRecord {
     return new ThreadRecord(snapshot);
+  }
+
+  get id(): string {
+    return this.snapshot.id;
+  }
+
+  get userId(): number {
+    return this.snapshot.userId;
+  }
+
+  get name(): string {
+    return this.snapshot.name;
+  }
+
+  get createdAt(): string {
+    return this.snapshot.createdAt;
+  }
+
+  get updatedAt(): string {
+    return this.snapshot.updatedAt;
+  }
+
+  get deletedAt(): string | null {
+    return this.snapshot.deletedAt;
+  }
+
+  get reasoningEffort(): ReasoningEffort {
+    return this.snapshot.reasoningEffort;
+  }
+
+  get webSearchEnabled(): boolean {
+    return this.snapshot.webSearchEnabled;
+  }
+
+  get threadEnvironment(): ThreadEnvironment {
+    return { ...this.snapshot.threadEnvironment };
+  }
+
+  get instructionContextToggles(): ThreadInstructionContextToggles {
+    return {
+      ...this.snapshot.instructionContextToggles,
+    };
+  }
+
+  get instruction(): ThreadInstructionRecord | null {
+    return this.snapshot.instruction ? { ...this.snapshot.instruction } : null;
+  }
+
+  get messages(): ThreadMessageRecord[] {
+    return cloneThreadMessages(this.snapshot.messages);
+  }
+
+  get mcpServers(): ThreadMcpServerRecord[] {
+    return cloneThreadMcpServers(this.snapshot.mcpServers);
+  }
+
+  get mcpRpcLogs(): ThreadOperationLogRecord[] {
+    return cloneThreadOperationLogs(this.snapshot.mcpRpcLogs);
+  }
+
+  get skillSelections(): ThreadSkillActivationRecord[] {
+    return cloneThreadSkillSelections(this.snapshot.skillSelections);
   }
 
   isArchived(): boolean {
@@ -290,36 +289,58 @@ function cloneThreadRecordSnapshot(snapshot: ThreadRecordSnapshot): ThreadRecord
     threadEnvironment: { ...snapshot.threadEnvironment },
     instructionContextToggles: { ...snapshot.instructionContextToggles },
     instruction: snapshot.instruction ? { ...snapshot.instruction } : null,
-    messages: snapshot.messages.map((message) => ({
-      ...message,
-      attachments: message.attachments.map((attachment) => ({ ...attachment })),
-      skillActivations: message.skillActivations.map((activation) => ({
-        ...activation,
-        skillProfile: { ...activation.skillProfile },
-      })),
-    })),
-    mcpServers: snapshot.mcpServers.map((server) =>
-      server.transport === "stdio"
-        ? {
-            ...server,
-            args: [...server.args],
-            env: { ...server.env },
-          }
-        : {
-            ...server,
-            headers: { ...server.headers },
-          },
-    ),
-    mcpRpcLogs: snapshot.mcpRpcLogs.map((entry) => ({
-      ...entry,
-      request: cloneJsonCompatibleValue(entry.request),
-      response: cloneJsonCompatibleValue(entry.response),
-    })),
-    skillSelections: snapshot.skillSelections.map((selection) => ({
-      ...selection,
-      skillProfile: { ...selection.skillProfile },
-    })),
+    messages: cloneThreadMessages(snapshot.messages),
+    mcpServers: cloneThreadMcpServers(snapshot.mcpServers),
+    mcpRpcLogs: cloneThreadOperationLogs(snapshot.mcpRpcLogs),
+    skillSelections: cloneThreadSkillSelections(snapshot.skillSelections),
   };
+}
+
+function cloneThreadMessages(messages: ThreadMessageRecord[]): ThreadMessageRecord[] {
+  return messages.map((message) => ({
+    ...message,
+    attachments: message.attachments.map((attachment) => ({ ...attachment })),
+    skillActivations: message.skillActivations.map((activation) => ({
+      ...activation,
+      skillProfile: { ...activation.skillProfile },
+    })),
+  }));
+}
+
+function cloneThreadMcpServers(
+  servers: ThreadMcpServerRecord[],
+): ThreadMcpServerRecord[] {
+  return servers.map((server) =>
+    server.transport === "stdio"
+      ? {
+          ...server,
+          args: [...server.args],
+          env: { ...server.env },
+        }
+      : {
+          ...server,
+          headers: { ...server.headers },
+        },
+  );
+}
+
+function cloneThreadOperationLogs(
+  entries: ThreadOperationLogRecord[],
+): ThreadOperationLogRecord[] {
+  return entries.map((entry) => ({
+    ...entry,
+    request: cloneJsonCompatibleValue(entry.request),
+    response: cloneJsonCompatibleValue(entry.response),
+  }));
+}
+
+function cloneThreadSkillSelections(
+  selections: ThreadSkillActivationRecord[],
+): ThreadSkillActivationRecord[] {
+  return selections.map((selection) => ({
+    ...selection,
+    skillProfile: { ...selection.skillProfile },
+  }));
 }
 
 function cloneJsonCompatibleValue<T>(value: T): T {

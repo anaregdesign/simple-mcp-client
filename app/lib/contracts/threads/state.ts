@@ -2,14 +2,15 @@ import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import {
-  cloneThreadEnvironment,
-} from "~/lib/domain/entities/thread-record";
+import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
 import {
   cloneThreadInstructionContextToggles,
-  hasThreadInteraction,
-  hasThreadPersistableState,
-} from "~/lib/domain/entities/thread-record";
+  hasNonDefaultThreadInstructionContextToggles,
+} from "~/lib/contracts/threads/instruction-context";
+import {
+  DEFAULT_REASONING_EFFORT,
+  DEFAULT_WEB_SEARCH_ENABLED,
+} from "~/lib/constants/chat";
 import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
 
 export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
@@ -81,7 +82,41 @@ export function buildThreadSaveSignature(
   });
 }
 
-export { hasThreadInteraction, hasThreadPersistableState };
+export function hasThreadInteraction(
+  snapshot: Pick<ThreadWritePayload, "messages"> &
+    Partial<Pick<ThreadWritePayload, "skillSelections">>,
+): boolean {
+  if (snapshot.messages.length > 0) {
+    return true;
+  }
+
+  return (snapshot.skillSelections?.length ?? 0) > 0;
+}
+
+export function hasThreadPersistableState(
+  snapshot: Pick<
+    ThreadWritePayload,
+    | "messages"
+    | "reasoningEffort"
+    | "webSearchEnabled"
+    | "instructionContextToggles"
+    | "threadEnvironment"
+  > &
+    Partial<Pick<ThreadWritePayload, "skillSelections">>,
+): boolean {
+  if (hasThreadInteraction(snapshot)) {
+    return true;
+  }
+
+  return (
+    snapshot.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
+    snapshot.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
+    hasNonDefaultThreadInstructionContextToggles(
+      snapshot.instructionContextToggles,
+    ) ||
+    Object.keys(snapshot.threadEnvironment).length > 0
+  );
+}
 
 export function isThreadArchived(
   thread: Pick<ThreadState, "deletedAt"> | null | undefined,

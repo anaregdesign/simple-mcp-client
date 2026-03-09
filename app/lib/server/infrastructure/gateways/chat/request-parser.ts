@@ -22,10 +22,10 @@ import {
   CHAT_MAX_ACTIVE_SKILLS,
 } from "~/lib/constants/skills";
 import type {
-  ThreadEnvironment,
-  ThreadInstructionContextToggles,
   ThreadSkillActivation,
-} from "~/lib/domain/entities/thread-record";
+} from "~/lib/contracts/skills/types";
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
   parseThreadEnvironmentFromUnknown,

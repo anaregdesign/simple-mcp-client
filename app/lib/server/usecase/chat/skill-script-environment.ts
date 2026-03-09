@@ -4,7 +4,7 @@ import {
   THREAD_ENVIRONMENT_VARIABLES_MAX,
 } from "~/lib/constants/chat";
 import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
-import type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
+import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 
 export function applySkillScriptEnvironmentChanges(
   threadEnvironment: ThreadEnvironment,

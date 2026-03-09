@@ -3,8 +3,8 @@ import {
   type AzurePrincipalProfile,
 } from "~/lib/domain/repositories/azure-arm-access-gateway";
 import type { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
+import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
 import type { WorkspaceMcpServerProfile } from "~/lib/domain/entities/workspace-mcp-server-profile";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
 import {
   parseProjectId,
   type AzureProjectQueryService,
@@ -43,7 +43,7 @@ type WorkspaceBootstrapData = {
   azureTenants: AzureTenant[];
   azureSelection: AzureSelectionPreference | null;
   azureDeploymentsByProjectId: Record<string, AzureDeployment[]>;
-  threads: ThreadRecordSnapshot[];
+  threads: ThreadRecord[];
   workspaceMcpServerProfiles: WorkspaceMcpServerProfile[];
   skills: SkillDiscoveryResult["skills"];
   skillRegistries: SkillDiscoveryResult["registries"];

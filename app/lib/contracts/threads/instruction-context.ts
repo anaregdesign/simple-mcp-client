@@ -1,11 +1,11 @@
-import type { ThreadInstructionContextToggles } from "~/lib/domain/entities/thread-record";
+export type ThreadInstructionContextToggles = {
+  system: boolean;
+};
 
-export {
-  cloneThreadInstructionContextToggles,
-  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
-  hasNonDefaultThreadInstructionContextToggles,
-} from "~/lib/domain/entities/thread-record";
-export type { ThreadInstructionContextToggles } from "~/lib/domain/entities/thread-record";
+export const DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES: ThreadInstructionContextToggles =
+  {
+    system: true,
+  };
 
 export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
   {
@@ -24,6 +24,20 @@ export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
 export type ThreadInstructionContextToggleOption =
   (typeof THREAD_INSTRUCTION_CONTEXT_OPTIONS)[number];
 export type ThreadInstructionContextToggleKey = ThreadInstructionContextToggleOption["key"];
+
+export function cloneThreadInstructionContextToggles(
+  value: ThreadInstructionContextToggles,
+): ThreadInstructionContextToggles {
+  return {
+    system: value.system === true,
+  };
+}
+
+export function hasNonDefaultThreadInstructionContextToggles(
+  value: ThreadInstructionContextToggles,
+): boolean {
+  return value.system !== DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES.system;
+}
 
 export function readThreadInstructionContextTogglesFromUnknown(
   value: unknown,

@@ -2,7 +2,10 @@
  * Test module verifying api.threads.$threadId behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import {
+  ThreadRecord,
+  type ThreadRecordSnapshot,
+} from "~/lib/domain/entities/thread-record";
 
 const {
   readAuthenticatedUser,
@@ -56,7 +59,7 @@ vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-ga
 
 import { action, loader } from "./api.threads.$threadId";
 
-function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
+function createThreadRecordSnapshot(threadId = "thread-a"): ThreadRecordSnapshot {
   return {
     id: threadId,
     userId: 1,
@@ -78,6 +81,10 @@ function createThreadResource(threadId = "thread-a"): ThreadRecordSnapshot {
     mcpRpcLogs: [],
     skillSelections: [],
   };
+}
+
+function createThreadResource(threadId = "thread-a"): ThreadRecord {
+  return new ThreadRecord(createThreadRecordSnapshot(threadId));
 }
 
 describe("/api/threads/:threadId", () => {
