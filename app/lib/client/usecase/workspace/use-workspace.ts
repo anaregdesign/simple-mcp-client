@@ -43,7 +43,6 @@ import {
   readChatCommandMatchAtCursor,
 } from "~/lib/client/chat/commands";
 import type { ThreadMessage } from "~/lib/client/chat/messages";
-import { createThreadMessage } from "~/lib/client/chat/messages";
 import type {
   ThreadOperationLogEntry,
 } from "~/lib/client/chat/stream";
@@ -134,11 +133,11 @@ import {
   createInitialWorkspaceInteractionState,
 } from "~/lib/client/usecase/workspace/state";
 import {
-  applySendResult,
   executeSendMessageTransport,
-  prepareSendMessageExecution,
-  validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
+import {
+  sendMessage as sendMessageOperation,
+} from "~/lib/client/usecase/workspace/send-message-operations";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
@@ -1886,6 +1885,78 @@ export function useWorkspace() {
     };
   }
 
+  function buildSendMessageOperationDeps() {
+    return {
+      readActiveThreadId: () => activeThreadIdRef.current,
+      readDraft: () => draft,
+      readSelectedPlaygroundAzureDeploymentName: () =>
+        selectedPlaygroundAzureDeploymentName,
+      isArchivedThread,
+      readThreadRequestState,
+      readThreadOperationPhase: () => threadOperationPhase,
+      isChatLocked,
+      readActivePlaygroundAzureConnection: () => activePlaygroundAzureConnection,
+      isAzureAuthRequired,
+      isLoadingPlaygroundAzureDeployments,
+      isSelectedPlaygroundDeploymentAvailable: (deploymentName: string) =>
+        includesAzureDeploymentName(playgroundAzureDeployments, deploymentName),
+      isPlaygroundReasoningEffortSupported,
+      isSelectedPlaygroundReasoningEffortOptionAvailable: (
+        nextReasoningEffort: ReasoningEffort,
+      ) =>
+        effectivePlaygroundReasoningEffortOptions.includes(nextReasoningEffort),
+      readReasoningEffort: () => reasoningEffort,
+      readWebSearchEnabled: () => webSearchEnabled,
+      readBaseThread: (threadId: string) =>
+        findThreadStateById(threadsRef.current, threadId),
+      readDraftAttachments: () => draftAttachments,
+      readMessages: () => messages,
+      readMcpServers: () => mcpServers,
+      readSelectedMessageSkillActivations: () =>
+        selectedMessageSkillActivations,
+      readSelectedThreadSkills: () => selectedThreadSkills,
+      readAgentInstruction: () => agentInstruction,
+      readInstructionContextToggles: () => instructionContextToggles,
+      readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+      createTurnId: () => createId("turn"),
+      setThreadError,
+      setUiError,
+      setActiveMainTab,
+      appendMessageToThreadState,
+      setDraft,
+      setSelectedMessageSkillActivations,
+      setDraftAttachments,
+      setChatAttachmentError,
+      setSystemNotice,
+      clearAzureSessionStatus,
+      updateThreadRequestState,
+      logClientInfo,
+      logClientError,
+      refreshThreadTitleInBackground,
+      assignThreadSendAbortController,
+      sendMessageTransport: (options: Parameters<
+        typeof executeSendMessageTransport
+      >[1]) =>
+        executeSendMessageTransport(
+          {
+            sendMessage: (payload, sendOptions) =>
+              chatApiClient.sendMessage(payload, sendOptions),
+            markAzureAuthRequired,
+          },
+          options,
+        ),
+      appendThreadProgressMessage,
+      appendThreadOperationLogToThreadState,
+      applyThreadEnvironmentToThreadState,
+      clearThreadSendAbortController,
+      scheduleThreadStateSave: (threadId: string) => {
+        window.setTimeout(() => {
+          void saveThreadStateSilentlyIfNeeded(threadId);
+        }, 0);
+      },
+    };
+  }
+
   function updateThreadStateById(
     threadId: string,
     updater: (current: ThreadState) => ThreadState,
@@ -2160,214 +2231,7 @@ export function useWorkspace() {
   }
 
   async function sendMessage() {
-    const threadId = activeThreadIdRef.current.trim();
-    const content = draft.trim();
-    const deploymentName = selectedPlaygroundAzureDeploymentName.trim();
-    const preconditionViolation = validateSendPreconditions({
-      content,
-      threadId,
-      isArchivedThread: isArchivedThread(threadId),
-      isThreadSending: readThreadRequestState(threadId).isSending,
-      isThreadPhaseBlockingSend:
-        isThreadPhaseBlockingSend(threadOperationPhase),
-      isChatLocked,
-      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
-      isAzureAuthRequired,
-      isLoadingPlaygroundAzureDeployments,
-      deploymentName,
-      isSelectedDeploymentValid: includesAzureDeploymentName(
-        playgroundAzureDeployments,
-        deploymentName,
-      ),
-      isPlaygroundReasoningEffortSupported,
-      isSelectedPlaygroundReasoningEffortOptionAvailable:
-        effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort),
-      webSearchEnabled,
-      isPlaygroundReasoningEffortWebSearchCompatible:
-        !webSearchEnabled ||
-        !isPlaygroundReasoningEffortSupported ||
-        isWebSearchCompatibleReasoningEffort(reasoningEffort),
-    });
-    if (preconditionViolation) {
-      if (
-        preconditionViolation.type === "thread_error" &&
-        preconditionViolation.message
-      ) {
-        setThreadError(preconditionViolation.message);
-      }
-      if (preconditionViolation.type === "ui_error") {
-        setUiError(preconditionViolation.message);
-      }
-      if (preconditionViolation.targetTab) {
-        setActiveMainTab(preconditionViolation.targetTab);
-      }
-      return;
-    }
-
-    if (
-      !content ||
-      !threadId ||
-      !activePlaygroundAzureConnection ||
-      !deploymentName
-    ) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(threadsRef.current, threadId);
-    const turnId = createId("turn");
-    const preparedSend = prepareSendMessageExecution({
-      threadId,
-      turnId,
-      content,
-      draftAttachments,
-      messages,
-      mcpServers,
-      selectedMessageSkillActivations,
-      selectedThreadSkills,
-      baseThread,
-      agentInstruction,
-      instructionContextToggles,
-      activeAzureTenantId: activeAzureTenantIdRef.current,
-      activePlaygroundAzureConnection,
-      deploymentName,
-      isPlaygroundReasoningEffortSupported,
-      reasoningEffort,
-      webSearchEnabled,
-    });
-
-    appendMessageToThreadState(threadId, preparedSend.userMessage);
-    setDraft("");
-    setSelectedMessageSkillActivations([]);
-    setDraftAttachments([]);
-    setChatAttachmentError(null);
-    setUiError(null);
-    setSystemNotice(null);
-    clearAzureSessionStatus();
-    updateThreadRequestState(threadId, (current) =>
-      applySendResult(current, {
-        status: "optimistic",
-        turnId,
-      }),
-    );
-    logClientInfo("send_message_started", "Thread message request started.", {
-      action: "send_message",
-      context: {
-        threadId,
-        turnId,
-        messageLength: content.length,
-        historyCount: preparedSend.requestPayload.history.length,
-        attachmentCount: preparedSend.requestPayload.attachments.length,
-        mcpServerCount: preparedSend.requestMcpServers.length,
-        skillSelectionCount: preparedSend.requestSkillSelections.length,
-      },
-    });
-    if (preparedSend.shouldRefreshThreadTitleOnFirstMessage) {
-      void refreshThreadTitleInBackground({
-        threadId,
-        reason: "first_message",
-      });
-    }
-
-    const sendAbortController = new AbortController();
-    assignThreadSendAbortController(threadId, sendAbortController);
-
-    try {
-      const transportResult = await executeSendMessageTransport(
-        {
-          sendMessage: (payload, options) =>
-            chatApiClient.sendMessage(payload, options),
-          markAzureAuthRequired,
-        },
-        {
-          requestPayload: preparedSend.requestPayload,
-          requestThreadEnvironment: preparedSend.requestThreadEnvironment,
-          signal: sendAbortController.signal,
-          onProgress: (message) => {
-            appendThreadProgressMessage(threadId, message);
-          },
-          onOperationLogRecord: (entry) => {
-            appendThreadOperationLogToThreadState(threadId, {
-              ...entry,
-              turnId,
-            });
-          },
-        },
-      );
-
-      applyThreadEnvironmentToThreadState(
-        threadId,
-        transportResult.threadEnvironment,
-      );
-      const assistantMessage = createThreadMessage(
-        "assistant",
-        transportResult.assistantMessage,
-        turnId,
-      );
-      appendMessageToThreadState(threadId, assistantMessage);
-      updateThreadRequestState(threadId, (current) =>
-        applySendResult(current, {
-          status: "succeeded",
-        }),
-      );
-      logClientInfo(
-        "send_message_succeeded",
-        "Thread message request completed.",
-        {
-          action: "send_message",
-          context: {
-            threadId,
-            turnId,
-            responseLength: transportResult.assistantMessage.length,
-            operationLogCount: transportResult.operationLogCount,
-            usedEventStream: transportResult.usedEventStream,
-          },
-        },
-      );
-    } catch (sendError) {
-      const wasCanceled = sendAbortController.signal.aborted;
-      if (wasCanceled) {
-        logClientInfo(
-          "send_message_canceled",
-          "Thread message request canceled.",
-          {
-            action: "send_message_cancel",
-            context: {
-              threadId,
-              turnId,
-            },
-          },
-        );
-        updateThreadRequestState(threadId, (current) =>
-          applySendResult(current, {
-            status: "canceled",
-          }),
-        );
-        return;
-      }
-
-      logClientError("send_message_failed", sendError, {
-        action: "send_message",
-        context: {
-          threadId,
-          turnId,
-          messageLength: content.length,
-          attachmentCount: preparedSend.requestPayload.attachments.length,
-          skillSelectionCount: preparedSend.requestSkillSelections.length,
-        },
-      });
-      updateThreadRequestState(threadId, (current) =>
-        applySendResult(current, {
-          status: "failed",
-          turnId,
-          error: sendError,
-        }),
-      );
-    } finally {
-      clearThreadSendAbortController(threadId, sendAbortController);
-      window.setTimeout(() => {
-        void saveThreadStateSilentlyIfNeeded(threadId);
-      }, 0);
-    }
+    await sendMessageOperation(buildSendMessageOperationDeps());
   }
 
   function handleReloadSkills() {
