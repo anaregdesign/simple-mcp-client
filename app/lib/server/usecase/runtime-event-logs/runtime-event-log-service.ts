@@ -1,9 +1,9 @@
 /**
  * Runtime event log application service module.
  */
+import type { RuntimeEventLogReadRecord } from "~/lib/domain/entities/runtime-event-log";
 import type {
   RuntimeEventLogOwner,
-  RuntimeEventLogReadRecord,
   RuntimeEventLogRepository,
 } from "~/lib/domain/repositories/runtime-event-log-repository";
 

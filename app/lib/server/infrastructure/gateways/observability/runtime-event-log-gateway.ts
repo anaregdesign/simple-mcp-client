@@ -3,12 +3,12 @@
  */
 import {
   readErrorDetails,
-  type RuntimeEventLogInput,
-  type RuntimeEventLogLevel,
 } from "~/lib/contracts/shared/runtime-event-log";
-import {
-  type RuntimeEventLogReadRecord,
-} from "~/lib/domain/repositories/runtime-event-log-repository";
+import type {
+  RuntimeEventLogInput,
+  RuntimeEventLogLevel,
+  RuntimeEventLogReadRecord,
+} from "~/lib/domain/entities/runtime-event-log";
 import { runtimeEventLogPersistenceRepository } from "~/lib/server/infrastructure/repositories/runtime-event-log-persistence-repository";
 
 type ProcessWithUncaughtMonitor = NodeJS.Process & {
