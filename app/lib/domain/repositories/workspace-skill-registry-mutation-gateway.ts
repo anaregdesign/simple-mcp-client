@@ -1,4 +1,4 @@
-import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry-id";
 
 export type WorkspaceSkillRegistryInstallResult = {
   skillName: string;

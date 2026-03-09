@@ -1,7 +1,7 @@
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/contracts/skills/types";
+} from "~/lib/domain/entities/skill-catalog";
 
 export type WorkspaceSkillCatalogDiscovery = {
   skills: SkillCatalogEntry[];
