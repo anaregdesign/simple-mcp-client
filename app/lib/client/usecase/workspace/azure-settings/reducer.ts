@@ -39,11 +39,20 @@ export function azureSettingsReducer(
   action: AzureSettingsAction,
 ): AzureSettingsState {
   switch (action.type) {
-    case "state/patch":
+    case "state/patch": {
+      const patchEntries = Object.entries(action.patch) as Array<
+        [keyof AzureSettingsState, AzureSettingsState[keyof AzureSettingsState]]
+      >;
+      const hasStateChange = patchEntries.some(([key, value]) => !Object.is(state[key], value));
+      if (!hasStateChange) {
+        return state;
+      }
+
       return {
         ...state,
         ...action.patch,
       };
+    }
     case "project_cache/upsert":
       return {
         ...state,

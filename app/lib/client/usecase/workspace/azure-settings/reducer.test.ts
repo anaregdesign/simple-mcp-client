@@ -19,6 +19,19 @@ describe("azureSettingsReducer", () => {
     expect(next.selectedPlaygroundAzureConnectionId).toBe("project-a");
   });
 
+  it("returns the same state for a no-op patch", () => {
+    const state = createInitialAzureSettingsReducerState();
+    const next = azureSettingsReducer(state, {
+      type: "state/patch",
+      patch: {
+        theme: state.theme,
+        isAzureAuthRequired: state.isAzureAuthRequired,
+      },
+    });
+
+    expect(next).toBe(state);
+  });
+
   it("clears tenant-scoped caches", () => {
     const state = azureSettingsReducer(
       createInitialAzureSettingsReducerState(),

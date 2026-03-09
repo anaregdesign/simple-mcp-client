@@ -1055,7 +1055,7 @@ export function useAzureSettings(
 
   useEffect(() => {
     void loadAzureProjects();
-  }, [loadAzureProjects]);
+  }, []);
 
   useEffect(() => {
     if (!state.isAzureAuthRequired) {
@@ -1089,7 +1089,7 @@ export function useAzureSettings(
       window.removeEventListener("focus", refreshConnections);
       document.removeEventListener("visibilitychange", refreshConnections);
     };
-  }, [loadAzureProjects, state.isAzureAuthRequired]);
+  }, [state.isAzureAuthRequired]);
 
   useEffect(() => {
     if (!activePlaygroundAzureConnection) {
@@ -1105,7 +1105,7 @@ export function useAzureSettings(
     void loadAzureDeployments(activePlaygroundAzureConnection.id, "playground", {
       force: true,
     });
-  }, [activePlaygroundAzureConnection, loadAzureDeployments]);
+  }, [activePlaygroundAzureConnection]);
 
   useEffect(() => {
     if (!activeUtilityAzureConnection) {
@@ -1121,7 +1121,7 @@ export function useAzureSettings(
     void loadAzureDeployments(activeUtilityAzureConnection.id, "utility", {
       force: true,
     });
-  }, [activeUtilityAzureConnection, loadAzureDeployments]);
+  }, [activeUtilityAzureConnection]);
 
   useEffect(() => {
     if (state.isAzureAuthRequired) {
@@ -1161,9 +1161,6 @@ export function useAzureSettings(
       deploymentName,
     });
   }, [
-    options.activeAzurePrincipalIdRef,
-    options.activeAzureTenantIdRef,
-    saveAzureSelectionPreference,
     state.azureConnections,
     state.isAzureAuthRequired,
     state.playgroundAzureDeployments,
@@ -1212,9 +1209,6 @@ export function useAzureSettings(
     });
   }, [
     effectiveUtilityReasoningEffort,
-    options.activeAzurePrincipalIdRef,
-    options.activeAzureTenantIdRef,
-    saveAzureSelectionPreference,
     state.azureConnections,
     state.isAzureAuthRequired,
     state.selectedUtilityAzureConnectionId,
