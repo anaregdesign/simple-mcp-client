@@ -2,7 +2,11 @@ import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
 import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
-import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import {
+  ThreadRecord,
+  type ThreadRecordSnapshot,
+  type ThreadWritePayload,
+} from "~/lib/domain/entities/thread-record";
 import type {
   ThreadRecordHead,
   ThreadRepository,
@@ -56,10 +60,10 @@ const threadResourceInclude = {
 } as const;
 
 export class ThreadPersistenceRepository implements ThreadRepository {
-  async listByUserId(userId: number): Promise<ThreadResource[]> {
+  async listByUserId(userId: number): Promise<ThreadRecord[]> {
     await ensurePersistenceDatabaseReady();
 
-    return prisma.thread.findMany({
+    const threads = await prisma.thread.findMany({
       where: {
         userId,
       },
@@ -73,21 +77,25 @@ export class ThreadPersistenceRepository implements ThreadRepository {
       ],
       include: threadResourceInclude,
     });
+
+    return threads.map(mapThreadRecord);
   }
 
   async findByIdForUser(
     userId: number,
     threadId: string,
-  ): Promise<ThreadResource | null> {
+  ): Promise<ThreadRecord | null> {
     await ensurePersistenceDatabaseReady();
 
-    return prisma.thread.findFirst({
+    const thread = await prisma.thread.findFirst({
       where: {
         id: threadId,
         userId,
       },
       include: threadResourceInclude,
     });
+
+    return thread ? mapThreadRecord(thread) : null;
   }
 
   async readHead(
@@ -110,7 +118,7 @@ export class ThreadPersistenceRepository implements ThreadRepository {
   async savePayload(
     userId: number,
     payload: ThreadWritePayload,
-  ): Promise<{ thread: ThreadResource; created: boolean } | null> {
+  ): Promise<{ thread: ThreadRecord; created: boolean } | null> {
     await ensurePersistenceDatabaseReady();
     let created = false;
 
@@ -383,7 +391,7 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     userId: number,
     threadId: string,
     deletedAt: string | null,
-  ): Promise<ThreadResource | null> {
+  ): Promise<ThreadRecord | null> {
     await ensurePersistenceDatabaseReady();
 
     const existing = await this.findByIdForUser(userId, threadId);
@@ -408,6 +416,10 @@ export class ThreadPersistenceRepository implements ThreadRepository {
 
 export function createThreadPersistenceRepository(): ThreadRepository {
   return new ThreadPersistenceRepository();
+}
+
+function mapThreadRecord(snapshot: ThreadRecordSnapshot): ThreadRecord {
+  return ThreadRecord.fromSnapshot(snapshot);
 }
 
 async function upsertThreadSkillProfiles(options: {

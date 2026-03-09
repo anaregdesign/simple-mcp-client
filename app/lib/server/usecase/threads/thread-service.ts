@@ -1,14 +1,20 @@
 /**
  * Thread application service module.
  */
-import type { ThreadWritePayload, ThreadResource } from "~/lib/contracts/threads/types";
+import type {
+  ThreadRecord,
+  ThreadRecordSnapshot,
+  ThreadWritePayload,
+} from "~/lib/domain/entities/thread-record";
 import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
 
 export class ThreadQueryService {
   constructor(private readonly repository: ThreadRepository) {}
 
-  async readUserThreads(userId: number): Promise<ThreadResource[]> {
-    return this.repository.listByUserId(userId);
+  async readUserThreads(userId: number): Promise<ThreadRecordSnapshot[]> {
+    return (await this.repository.listByUserId(userId)).map((thread) =>
+      thread.toSnapshot(),
+    );
   }
 }
 
@@ -59,7 +65,7 @@ export function createThreadApplicationService(
 export type CreateThreadResult =
   | {
       status: "created";
-      thread: ThreadResource;
+      thread: ThreadRecordSnapshot;
     }
   | {
       status: "conflict";
@@ -90,7 +96,7 @@ async function createThread(
 
     return {
       status: "created",
-      thread: saved.thread,
+      thread: saved.thread.toSnapshot(),
     };
   } catch (error) {
     if (isThreadIdConflictError(error)) {
@@ -105,7 +111,7 @@ async function createThread(
 export type UpdateThreadResult =
   | {
       status: "ok";
-      thread: ThreadResource;
+      thread: ThreadRecordSnapshot;
     }
   | {
       status: "not_found";
@@ -134,7 +140,7 @@ async function updateThread(
 
   return {
     status: "ok",
-    thread: saved.thread,
+    thread: saved.thread.toSnapshot(),
   };
 }
 
@@ -142,7 +148,7 @@ async function saveThreadPayload(
   repository: ThreadRepository,
   userId: number,
   payload: ThreadWritePayload,
-): Promise<{ thread: ThreadResource; created: boolean } | null> {
+): Promise<{ thread: ThreadRecord; created: boolean } | null> {
   return repository.savePayload(userId, payload);
 }
 
@@ -155,7 +161,7 @@ export type LogicalDeleteThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadResource;
+      thread: ThreadRecordSnapshot;
     };
 
 async function logicalDeleteThread(
@@ -167,13 +173,13 @@ async function logicalDeleteThread(
   if (!existing) {
     return { status: "not_found" };
   }
-  if (existing.messages.length === 0 && existing.skillSelections.length === 0) {
+  if (!existing.canBeArchived()) {
     return { status: "empty" };
   }
-  if (existing.deletedAt !== null) {
+  if (existing.isArchived()) {
     return {
       status: "ok",
-      thread: existing,
+      thread: existing.toSnapshot(),
     };
   }
 
@@ -188,7 +194,7 @@ async function logicalDeleteThread(
 
   return {
     status: "ok",
-    thread: deleted,
+    thread: deleted.toSnapshot(),
   };
 }
 
@@ -198,7 +204,7 @@ export type LogicalRestoreThreadResult =
     }
   | {
       status: "ok";
-      thread: ThreadResource;
+      thread: ThreadRecordSnapshot;
     };
 
 async function logicalRestoreThread(
@@ -210,10 +216,10 @@ async function logicalRestoreThread(
   if (!existing) {
     return { status: "not_found" };
   }
-  if (existing.deletedAt === null) {
+  if (!existing.isArchived()) {
     return {
       status: "ok",
-      thread: existing,
+      thread: existing.toSnapshot(),
     };
   }
 
@@ -224,7 +230,7 @@ async function logicalRestoreThread(
 
   return {
     status: "ok",
-    thread: restored,
+    thread: restored.toSnapshot(),
   };
 }
 
