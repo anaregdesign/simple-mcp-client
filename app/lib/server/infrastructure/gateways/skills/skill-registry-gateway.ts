@@ -27,7 +27,7 @@ import {
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
   type SkillRegistryOption,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
 import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
 import type {
   WorkspaceSkillRegistryMutationGateway,

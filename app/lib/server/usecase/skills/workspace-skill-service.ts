@@ -5,7 +5,7 @@ import {
   isSkillRegistryId,
   parseSkillRegistrySkillName,
   readSkillRegistrySkillNameValidationMessage,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
@@ -13,7 +13,7 @@ import type {
 import type {
   WorkspaceSkillProfilesData,
 } from "~/lib/domain/entities/workspace-skill-profile";
-import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry-id";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 import type {
   WorkspaceSkillDiscoveryGateway,
 } from "~/lib/domain/repositories/workspace-skill-discovery-gateway";
