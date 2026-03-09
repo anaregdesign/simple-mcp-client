@@ -4,16 +4,11 @@
 import type { Route } from "./+types/api.chat";
 import {
   Agent,
-  MCPServerSSE,
-  MCPServerStdio,
-  MCPServerStreamableHttp,
   tool,
-  type MCPServer,
 } from "@openai/agents";
 import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
-  type ThreadMcpServerSession,
 } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
 import { registerThreadMcpServerSessionPoolShutdownHooks } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool-shutdown";
 import {
@@ -92,15 +87,24 @@ import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gatew
 import { cleanupChatRuntime } from "~/lib/server/infrastructure/gateways/chat/chat-runtime-cleanup";
 import { prepareMcpRuntime } from "~/lib/server/infrastructure/gateways/mcp/chat-mcp-runtime";
 import {
+  buildMcpConnectParams,
+  buildMcpConnectSuccessResponse,
+  buildThreadOperationLogRequestId,
+  createMcpServerSession,
+  instrumentMcpServer,
+  type JsonRpcRequestPayload,
+  type JsonRpcResponsePayload,
+  type McpServerSessionRefreshState,
+  type ThreadOperationLogRecord,
+} from "~/lib/server/infrastructure/gateways/mcp/mcp-session-logging";
+import {
   buildMcpContextRequestHeaders,
   buildMcpHttpRequestHeaders,
   buildMcpHttpRuntimeHeaders,
-  fetchWithMcpMetaNormalization,
   isLocalPlaygroundMcpContextUrl,
   normalizeMcpInitializeNullOptionals,
   normalizeMcpListToolsNullOptionals,
   normalizeMcpMetaNulls,
-  type McpRequestContext,
 } from "~/lib/server/infrastructure/gateways/mcp/mcp-http-session-helpers";
 import {
   readOptionalRequestHeaderValue,
@@ -173,50 +177,11 @@ type ChatMcpRuntimeMetrics = {
   mcpConnectDurationMs: number;
   mcpSetupDurationMs: number;
 };
-type McpServerSessionRefreshState = {
-  requestContext: McpRequestContext;
-  getAzureAuthorizationToken: (scope: string) => Promise<string>;
-  logHandlers: {
-    nextSequence: () => number;
-    onRecord: (record: ThreadOperationLogRecord) => void;
-  };
-};
 type ChatExecutionResult = {
   message: string;
   threadEnvironment: ThreadEnvironment;
   operationLogCount: number;
   mcpRuntimeMetrics: ChatMcpRuntimeMetrics;
-};
-type JsonRpcRequestPayload = {
-  jsonrpc: "2.0";
-  id: string;
-  method: string;
-  params: Record<string, unknown>;
-};
-type JsonRpcResponsePayload =
-  | {
-      jsonrpc: "2.0";
-      id: string;
-      result: unknown;
-    }
-  | {
-      jsonrpc: "2.0";
-      id: string;
-      error: {
-        message: string;
-      };
-    };
-type ThreadOperationLogRecord = {
-  id: string;
-  sequence: number;
-  operationType: "mcp" | "skill";
-  serverName: string;
-  method: string;
-  startedAt: string;
-  completedAt: string;
-  request: JsonRpcRequestPayload;
-  response: JsonRpcResponsePayload;
-  isError: boolean;
 };
 type ChatExecutionEvent =
   | {
@@ -648,306 +613,6 @@ function applyDefaultThreadDirectoryToStdioServers(
 
 function buildMcpServerSessionConfigKey(config: ClientMcpServerConfig): string {
   return buildMcpServerConfigKey(config);
-}
-
-function buildMcpConnectSuccessResponse(
-  requestId: string,
-  status: "connected" | "reused",
-): JsonRpcResponsePayload {
-  return {
-    jsonrpc: "2.0",
-    id: requestId,
-    result: {
-      status,
-    },
-  };
-}
-
-async function createMcpServerSession(
-  config: ClientMcpServerConfig,
-): Promise<ThreadMcpServerSession<McpServerSessionRefreshState>> {
-  if (config.transport === "stdio") {
-    const env = buildStdioSpawnEnvironment(config.env);
-    const command = resolveExecutableCommand(config.command, env);
-    const server = new MCPServerStdio({
-      name: config.name,
-      command,
-      args: config.args,
-      cwd: config.cwd,
-      env,
-    });
-    return {
-      server,
-      refreshBeforeUse: async (refreshState) => {
-        instrumentMcpServer(server, refreshState.logHandlers);
-      },
-    };
-  }
-
-  const requestInit: RequestInit = {
-    headers: {},
-  };
-  const server =
-    config.transport === "sse"
-      ? new MCPServerSSE({
-          name: config.name,
-          url: config.url,
-          clientSessionTimeoutSeconds: config.timeoutSeconds,
-          timeout: config.timeoutSeconds * 1000,
-          fetch: fetchWithMcpMetaNormalization,
-          requestInit,
-        })
-      : new MCPServerStreamableHttp({
-          name: config.name,
-          url: config.url,
-          clientSessionTimeoutSeconds: config.timeoutSeconds,
-          timeout: config.timeoutSeconds * 1000,
-          fetch: fetchWithMcpMetaNormalization,
-          requestInit,
-        });
-  return {
-    server,
-    refreshBeforeUse: async (refreshState) => {
-      instrumentMcpServer(server, refreshState.logHandlers);
-      const headers = await buildMcpHttpRuntimeHeaders(config, refreshState);
-      requestInit.headers = headers;
-    },
-  };
-}
-
-type InstrumentMcpServerHandlers = {
-  nextSequence: () => number;
-  onRecord: (record: ThreadOperationLogRecord) => void;
-};
-
-type InstrumentedMcpServerState = {
-  handlers: InstrumentMcpServerHandlers;
-  resetListToolsCache: () => void;
-};
-
-const instrumentedMcpServerStateSymbol = Symbol(
-  "local-playground.instrumented-mcp-server-state",
-);
-
-function instrumentMcpServer(
-  server: MCPServer,
-  handlers: InstrumentMcpServerHandlers,
-): MCPServer {
-  const instrumentedServer = server as MCPServer & {
-    [instrumentedMcpServerStateSymbol]?: InstrumentedMcpServerState;
-  };
-  const existingState = instrumentedServer[instrumentedMcpServerStateSymbol];
-  if (existingState) {
-    existingState.handlers = handlers;
-    return server;
-  }
-
-  const originalListTools = server.listTools.bind(server);
-  const originalCallTool = server.callTool.bind(server);
-  const originalInvalidateToolsCache = server.invalidateToolsCache.bind(server);
-  let hasCachedListToolsResult = false;
-  let cachedListToolsResult: Awaited<
-    ReturnType<typeof originalListTools>
-  > | null = null;
-  let pendingListToolsResult: Promise<
-    Awaited<ReturnType<typeof originalListTools>>
-  > | null = null;
-  const state: InstrumentedMcpServerState = {
-    handlers,
-    resetListToolsCache: () => {
-      hasCachedListToolsResult = false;
-      cachedListToolsResult = null;
-      pendingListToolsResult = null;
-    },
-  };
-  instrumentedServer[instrumentedMcpServerStateSymbol] = state;
-
-  server.listTools = async () => {
-    if (hasCachedListToolsResult && cachedListToolsResult !== null) {
-      return cachedListToolsResult;
-    }
-    if (pendingListToolsResult) {
-      return pendingListToolsResult;
-    }
-
-    const sequence = state.handlers.nextSequence();
-    const requestId = buildThreadOperationLogRequestId(server.name, sequence);
-    const startedAt = new Date().toISOString();
-    const requestPayload: JsonRpcRequestPayload = {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "tools/list",
-      params: {},
-    };
-
-    const requestPromise = (async () => {
-      try {
-        const result = await originalListTools();
-        const responsePayload: JsonRpcResponsePayload = {
-          jsonrpc: "2.0",
-          id: requestId,
-          result: {
-            tools: toSerializableValue(result),
-          },
-        };
-
-        state.handlers.onRecord({
-          id: requestId,
-          sequence,
-          operationType: "mcp",
-          serverName: server.name,
-          method: "tools/list",
-          startedAt,
-          completedAt: new Date().toISOString(),
-          request: requestPayload,
-          response: responsePayload,
-          isError: false,
-        });
-
-        cachedListToolsResult = result;
-        hasCachedListToolsResult = true;
-        return result;
-      } catch (error) {
-        const responsePayload: JsonRpcResponsePayload = {
-          jsonrpc: "2.0",
-          id: requestId,
-          error: {
-            message: readErrorMessage(error),
-          },
-        };
-
-        state.handlers.onRecord({
-          id: requestId,
-          sequence,
-          operationType: "mcp",
-          serverName: server.name,
-          method: "tools/list",
-          startedAt,
-          completedAt: new Date().toISOString(),
-          request: requestPayload,
-          response: responsePayload,
-          isError: true,
-        });
-
-        throw error;
-      } finally {
-        pendingListToolsResult = null;
-      }
-    })();
-
-    pendingListToolsResult = requestPromise;
-    return requestPromise;
-  };
-
-  server.invalidateToolsCache = () => {
-    state.resetListToolsCache();
-    return originalInvalidateToolsCache();
-  };
-
-  server.callTool = async (toolName, args, meta) => {
-    const sequence = state.handlers.nextSequence();
-    const requestId = buildThreadOperationLogRequestId(server.name, sequence);
-    const startedAt = new Date().toISOString();
-    const requestPayload: JsonRpcRequestPayload = {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "tools/call",
-      params: {
-        name: toolName,
-        arguments: toSerializableValue(args ?? {}),
-        ...(meta ? { _meta: toSerializableValue(meta) } : {}),
-      },
-    };
-
-    try {
-      const result = await originalCallTool(toolName, args, meta);
-      const responsePayload: JsonRpcResponsePayload = {
-        jsonrpc: "2.0",
-        id: requestId,
-        result: toSerializableValue(result),
-      };
-
-      state.handlers.onRecord({
-        id: requestId,
-        sequence,
-        operationType: "mcp",
-        serverName: server.name,
-        method: "tools/call",
-        startedAt,
-        completedAt: new Date().toISOString(),
-        request: requestPayload,
-        response: responsePayload,
-        isError: false,
-      });
-
-      return result;
-    } catch (error) {
-      const responsePayload: JsonRpcResponsePayload = {
-        jsonrpc: "2.0",
-        id: requestId,
-        error: {
-          message: readErrorMessage(error),
-        },
-      };
-
-      state.handlers.onRecord({
-        id: requestId,
-        sequence,
-        operationType: "mcp",
-        serverName: server.name,
-        method: "tools/call",
-        startedAt,
-        completedAt: new Date().toISOString(),
-        request: requestPayload,
-        response: responsePayload,
-        isError: true,
-      });
-
-      throw error;
-    }
-  };
-
-  return server;
-}
-
-function buildThreadOperationLogRequestId(
-  serverName: string,
-  sequence: number,
-): string {
-  const normalizedName =
-    serverName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]+/g, "-") || "mcp";
-  return `${normalizedName}-${Date.now()}-${sequence}`;
-}
-
-function buildMcpConnectParams(
-  serverConfig: ClientMcpServerConfig,
-): Record<string, unknown> {
-  if (serverConfig.transport === "stdio") {
-    return {
-      transport: "stdio",
-      command: serverConfig.command,
-      args: serverConfig.args,
-      cwd: serverConfig.cwd ?? "",
-      envKeys: Object.keys(serverConfig.env).sort((left, right) =>
-        left.localeCompare(right),
-      ),
-      env: toSerializableValue(serverConfig.env),
-    };
-  }
-
-  return {
-    transport: serverConfig.transport,
-    url: serverConfig.url,
-    headerKeys: Object.keys(serverConfig.headers).sort((left, right) =>
-      left.localeCompare(right),
-    ),
-    useAzureAuth: serverConfig.useAzureAuth,
-    azureAuthScope: serverConfig.azureAuthScope,
-    timeoutSeconds: serverConfig.timeoutSeconds,
-  };
 }
 
 function toSerializableValue(value: unknown): unknown {
