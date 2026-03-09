@@ -12,20 +12,31 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
-import { discoverSkillCatalog } from "~/lib/server/infrastructure/gateways/skills/skill-catalog";
 import {
   deleteInstalledSkillFromRegistry,
-  discoverSkillRegistries,
   installSkillFromRegistry,
 } from "~/lib/server/infrastructure/gateways/skills/skill-registry-gateway";
 import {
+  createWorkspaceSkillDiscoveryGateway,
+} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
+import {
+  createWorkspaceSkillService,
   parseSkillRegistryMutationPath,
-  syncWorkspaceSkillMasters,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import {
+  createWorkspaceSkillProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
 import type { Route } from "./+types/api.skills.registries.$registryId.skills.$";
 
 const SKILL_REGISTRY_SKILL_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
+
+function getWorkspaceSkillService() {
+  return createWorkspaceSkillService({
+    repository: createWorkspaceSkillProfilePersistenceRepository(),
+    discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
+  });
+}
 
 export function loader() {
   installGlobalServerErrorLogging();
@@ -97,24 +108,25 @@ export async function action({ request, params }: Route.ActionArgs) {
         : `Skill "${deleteResult.skillName}" was not installed.`;
     }
 
-    const [catalogDiscovery, registryDiscovery] = await Promise.all([
-      discoverSkillCatalog({ workspaceUserId: user.id }),
-      discoverSkillRegistries({ workspaceUserId: user.id }),
-    ]);
-    await syncWorkspaceSkillMasters({
+    const workspaceSkillService = getWorkspaceSkillService();
+    const discoveryResult = await workspaceSkillService.discoverWorkspaceSkills({
       userId: user.id,
-      skills: catalogDiscovery.skills,
-      registries: registryDiscovery.catalogs,
+      forceRefresh: true,
+    });
+    await workspaceSkillService.syncWorkspaceSkillMasters({
+      userId: user.id,
+      skills: discoveryResult.skills,
+      registries: discoveryResult.registries,
     });
 
     return Response.json(
       {
         message,
-        skills: catalogDiscovery.skills,
-        registries: registryDiscovery.catalogs,
-        skillWarnings: catalogDiscovery.warnings,
-        registryWarnings: registryDiscovery.warnings,
-        warnings: [...catalogDiscovery.warnings, ...registryDiscovery.warnings],
+        skills: discoveryResult.skills,
+        registries: discoveryResult.registries,
+        skillWarnings: discoveryResult.skillWarnings,
+        registryWarnings: discoveryResult.registryWarnings,
+        warnings: discoveryResult.warnings,
       },
       {
         status,

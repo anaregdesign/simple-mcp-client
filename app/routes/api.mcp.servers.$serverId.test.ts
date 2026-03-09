@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   readAuthenticatedUser,
+  createMcpServerProfileService,
   readWorkspaceMcpServerProfiles,
   deleteWorkspaceMcpServerProfile,
   writeWorkspaceMcpServerProfiles,
@@ -14,6 +15,7 @@ const {
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
+  createMcpServerProfileService: vi.fn(),
   readWorkspaceMcpServerProfiles: vi.fn(async () => []),
   deleteWorkspaceMcpServerProfile: vi.fn(() => ({ profiles: [], deleted: false })),
   writeWorkspaceMcpServerProfiles: vi.fn(async () => undefined),
@@ -41,9 +43,11 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 }));
 
 vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
-  readWorkspaceMcpServerProfiles,
+  createMcpServerProfileService: createMcpServerProfileService.mockReturnValue({
+    readWorkspaceMcpServerProfiles,
+    writeWorkspaceMcpServerProfiles,
+  }),
   deleteWorkspaceMcpServerProfile,
-  writeWorkspaceMcpServerProfiles,
   parseIncomingMcpServer,
   mergeDefaultWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
@@ -60,6 +64,7 @@ describe("/api/mcp/servers/:serverId", () => {
   beforeEach(() => {
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
+    createMcpServerProfileService.mockClear();
     readWorkspaceMcpServerProfiles.mockReset();
     readWorkspaceMcpServerProfiles.mockResolvedValue([]);
     deleteWorkspaceMcpServerProfile.mockReset();

@@ -11,14 +11,16 @@ import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
 } from "~/lib/contracts/skills/types";
-import {
-  createWorkspaceSkillProfilePersistenceRepository,
-} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
-import {
-  discoverWorkspaceSkillCatalog,
-  discoverWorkspaceSkillRegistries,
-} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
-import type { WorkspaceSkillProfilesData } from "~/lib/domain/repositories/workspace-skill-profile-repository";
+import type {
+  WorkspaceSkillProfilesData,
+} from "~/lib/contracts/skills/workspace-skill-profiles";
+import type {
+  WorkspaceSkillDiscoveryGateway,
+} from "~/lib/domain/repositories/workspace-skill-discovery-gateway";
+import type {
+  SyncWorkspaceSkillMastersResult,
+  WorkspaceSkillProfileRepository,
+} from "~/lib/domain/repositories/workspace-skill-profile-repository";
 
 export type SkillDiscoveryResult = {
   skills: SkillCatalogEntry[];
@@ -32,34 +34,55 @@ type WorkspaceSkillProfileReconcilePayload = {
   forceRefresh: boolean;
 };
 
-const workspaceSkillProfileRepository =
-  createWorkspaceSkillProfilePersistenceRepository();
-
 export class WorkspaceSkillService {
+  constructor(
+    private readonly repository: WorkspaceSkillProfileRepository,
+    private readonly discoveryGateway: WorkspaceSkillDiscoveryGateway,
+  ) {}
+
   async readWorkspaceSkillProfiles(userId: number): Promise<WorkspaceSkillProfilesData> {
-    return readWorkspaceSkillProfiles(userId);
+    return this.repository.readByUserId(userId);
   }
 
   async discoverWorkspaceSkills(options: {
     userId: number;
     forceRefresh: boolean;
   }): Promise<SkillDiscoveryResult> {
-    return discoverWorkspaceSkills(options);
+    const [catalogDiscovery, registryDiscovery] = await Promise.all([
+      this.discoveryGateway.discoverCatalog({ workspaceUserId: options.userId }),
+      this.discoveryGateway.discoverRegistries({
+        workspaceUserId: options.userId,
+        forceRefresh: options.forceRefresh,
+      }),
+    ]);
+
+    return {
+      skills: catalogDiscovery.skills,
+      registries: registryDiscovery.catalogs,
+      skillWarnings: catalogDiscovery.warnings,
+      registryWarnings: registryDiscovery.warnings,
+      warnings: [...catalogDiscovery.warnings, ...registryDiscovery.warnings],
+    };
   }
 
   async syncWorkspaceSkillMasters(options: {
     userId: number;
     skills: SkillCatalogEntry[];
     registries: SkillRegistryCatalog[];
-  }): Promise<{
-    workspaceSkillProfileCount: number;
-    workspaceSkillRegistryProfileCount: number;
-  }> {
-    return syncWorkspaceSkillMasters(options);
+  }): Promise<SyncWorkspaceSkillMastersResult> {
+    return this.repository.syncSkillMasters(options);
   }
 }
 
-export const workspaceSkillService = new WorkspaceSkillService();
+export function createWorkspaceSkillService(options: {
+  repository: WorkspaceSkillProfileRepository;
+  discoveryGateway: WorkspaceSkillDiscoveryGateway;
+}): WorkspaceSkillService {
+  return new WorkspaceSkillService(
+    options.repository,
+    options.discoveryGateway,
+  );
+}
 
 export function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error.";
@@ -179,44 +202,6 @@ export function parseSkillRegistryMutationPath(
       registryId,
       skillName: parsedSkillName.normalizedSkillName,
     },
-  };
-}
-
-export async function syncWorkspaceSkillMasters(options: {
-  userId: number;
-  skills: SkillCatalogEntry[];
-  registries: SkillRegistryCatalog[];
-}): Promise<{
-  workspaceSkillProfileCount: number;
-  workspaceSkillRegistryProfileCount: number;
-}> {
-  return workspaceSkillProfileRepository.syncMasters(options);
-}
-
-async function readWorkspaceSkillProfiles(
-  userId: number,
-): Promise<WorkspaceSkillProfilesData> {
-  return workspaceSkillProfileRepository.readProfiles(userId);
-}
-
-async function discoverWorkspaceSkills(options: {
-  userId: number;
-  forceRefresh: boolean;
-}): Promise<SkillDiscoveryResult> {
-  const [catalogDiscovery, registryDiscovery] = await Promise.all([
-    discoverWorkspaceSkillCatalog({ workspaceUserId: options.userId }),
-    discoverWorkspaceSkillRegistries({
-      workspaceUserId: options.userId,
-      forceRefresh: options.forceRefresh,
-    }),
-  ]);
-
-  return {
-    skills: catalogDiscovery.skills,
-    registries: registryDiscovery.catalogs,
-    skillWarnings: catalogDiscovery.warnings,
-    registryWarnings: registryDiscovery.warnings,
-    warnings: [...catalogDiscovery.warnings, ...registryDiscovery.warnings],
   };
 }
 

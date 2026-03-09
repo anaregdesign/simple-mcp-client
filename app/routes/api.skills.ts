@@ -2,10 +2,16 @@
  * API route module for /api/skills.
  */
 import {
+  createWorkspaceSkillService,
   readSkillRegistryRefreshQueryFlag,
   skillsRouteTestUtils,
-  workspaceSkillService,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
+import {
+  createWorkspaceSkillProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
+import {
+  createWorkspaceSkillDiscoveryGateway,
+} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 import {
   authRequiredResponse,
   errorResponse,
@@ -22,6 +28,13 @@ import type { Route } from "./+types/api.skills";
 export { skillsRouteTestUtils };
 
 const SKILLS_COLLECTION_ALLOWED_METHODS = ["GET"] as const;
+
+function getWorkspaceSkillService() {
+  return createWorkspaceSkillService({
+    repository: createWorkspaceSkillProfilePersistenceRepository(),
+    discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
+  });
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -52,7 +65,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       });
     }
 
-    const discoveryResult = await workspaceSkillService.discoverWorkspaceSkills({
+    const discoveryResult = await getWorkspaceSkillService().discoverWorkspaceSkills({
       userId: user.id,
       forceRefresh,
     });

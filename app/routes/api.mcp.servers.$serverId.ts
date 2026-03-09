@@ -15,17 +15,25 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
 import {
+  createMcpServerProfileService,
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,
   parseIncomingMcpServer,
-  readWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
-  writeWorkspaceMcpServerProfiles,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import {
+  createWorkspaceMcpServerProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-mcp-server-profile-persistence-repository";
 import type { Route } from "./+types/api.mcp.servers.$serverId";
 
 const MCP_SERVER_ITEM_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
+
+function getMcpServerProfileService() {
+  return createMcpServerProfileService(
+    createWorkspaceMcpServerProfilePersistenceRepository(),
+  );
+}
 
 export function loader() {
   installGlobalServerErrorLogging();
@@ -51,7 +59,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (request.method === "DELETE") {
     try {
-      const currentProfiles = await readWorkspaceMcpServerProfiles(user.id);
+      const mcpServerProfileService = getMcpServerProfileService();
+      const currentProfiles =
+        await mcpServerProfileService.readWorkspaceMcpServerProfiles(user.id);
       const deleteResult = deleteWorkspaceMcpServerProfile(currentProfiles, serverId);
       if (!deleteResult.deleted) {
         return errorResponse({
@@ -61,7 +71,10 @@ export async function action({ request, params }: Route.ActionArgs) {
         });
       }
 
-      await writeWorkspaceMcpServerProfiles(user.id, deleteResult.profiles);
+      await mcpServerProfileService.writeWorkspaceMcpServerProfiles(
+        user.id,
+        deleteResult.profiles,
+      );
       return Response.json({ profiles: deleteResult.profiles });
     } catch (error) {
       await logServerRouteEvent({
@@ -100,7 +113,9 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   try {
-    const currentProfiles = await readWorkspaceMcpServerProfiles(user.id);
+    const mcpServerProfileService = getMcpServerProfileService();
+    const currentProfiles =
+      await mcpServerProfileService.readWorkspaceMcpServerProfiles(user.id);
     const profilesWithDefaults = mergeDefaultWorkspaceMcpServerProfiles(currentProfiles, user.id);
     const hasTargetProfile = profilesWithDefaults.some((profile) => profile.id === serverId);
     if (!hasTargetProfile) {
@@ -121,7 +136,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       },
     );
 
-    await writeWorkspaceMcpServerProfiles(user.id, profiles);
+    await mcpServerProfileService.writeWorkspaceMcpServerProfiles(
+      user.id,
+      profiles,
+    );
     return Response.json({ profile, profiles, warning });
   } catch (error) {
     await logServerRouteEvent({

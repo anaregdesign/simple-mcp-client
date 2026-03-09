@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   readAuthenticatedWorkspaceUserMock,
   loadWorkspaceBootstrapMock,
+  createWorkspaceBootstrapServiceMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
   readAuthenticatedWorkspaceUserMock: vi.fn(),
   loadWorkspaceBootstrapMock: vi.fn(),
+  createWorkspaceBootstrapServiceMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
@@ -17,9 +19,10 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 }));
 
 vi.mock("~/lib/server/usecase/workspace/workspace-bootstrap-service", () => ({
-  workspaceBootstrapService: {
-    loadWorkspaceBootstrap: loadWorkspaceBootstrapMock,
-  },
+  createWorkspaceBootstrapService:
+    createWorkspaceBootstrapServiceMock.mockReturnValue({
+      loadWorkspaceBootstrap: loadWorkspaceBootstrapMock,
+    }),
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({

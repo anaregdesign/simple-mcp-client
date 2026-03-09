@@ -1,6 +1,35 @@
 import { structuredAuthRequiredResponse, structuredErrorResponse, methodNotAllowedResponse, successResponse } from "~/lib/server/http";
 import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
-import { workspaceBootstrapService } from "~/lib/server/usecase/workspace/workspace-bootstrap-service";
+import {
+  createWorkspaceBootstrapService,
+} from "~/lib/server/usecase/workspace/workspace-bootstrap-service";
+import {
+  createAzureSelectionService,
+} from "~/lib/server/usecase/azure/azure-selection-service";
+import {
+  createMcpServerProfileService,
+} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
+import {
+  createThreadQueryService,
+} from "~/lib/server/usecase/threads/thread-service";
+import {
+  createWorkspaceSkillService,
+} from "~/lib/server/usecase/skills/workspace-skill-service";
+import {
+  createAzureSelectionPreferencePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/azure-selection-preference-persistence-repository";
+import {
+  createWorkspaceMcpServerProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-mcp-server-profile-persistence-repository";
+import {
+  createThreadPersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
+import {
+  createWorkspaceSkillProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
+import {
+  createWorkspaceSkillDiscoveryGateway,
+} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -8,6 +37,24 @@ import {
 import type { Route } from "./+types/api.workspace-bootstrap";
 
 const WORKSPACE_BOOTSTRAP_ALLOWED_METHODS = ["GET"] as const;
+
+function getWorkspaceBootstrapService() {
+  return createWorkspaceBootstrapService({
+    azureSelectionService: createAzureSelectionService(
+      createAzureSelectionPreferencePersistenceRepository(),
+    ),
+    mcpServerProfileService: createMcpServerProfileService(
+      createWorkspaceMcpServerProfilePersistenceRepository(),
+    ),
+    threadQueryService: createThreadQueryService(
+      createThreadPersistenceRepository(),
+    ),
+    workspaceSkillService: createWorkspaceSkillService({
+      repository: createWorkspaceSkillProfilePersistenceRepository(),
+      discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
+    }),
+  });
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -22,7 +69,10 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    const data = await workspaceBootstrapService.loadWorkspaceBootstrap({ request, user });
+    const data = await getWorkspaceBootstrapService().loadWorkspaceBootstrap({
+      request,
+      user,
+    });
     if (!data) {
       return structuredAuthRequiredResponse();
     }

@@ -5,10 +5,16 @@ import {
   readErrorMessage,
 } from "~/lib/server/http";
 import {
+  createWorkspaceSkillService,
   readWorkspaceSkillProfileReconcilePayload,
-  workspaceSkillService,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import {
+  createWorkspaceSkillProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
+import {
+  createWorkspaceSkillDiscoveryGateway,
+} from "~/lib/server/infrastructure/gateways/skills/skill-discovery-gateway";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -16,6 +22,13 @@ import {
 import type { Route } from "./+types/api.workspace-skill-profiles";
 
 const WORKSPACE_SKILL_PROFILES_ALLOWED_METHODS = ["GET", "PUT"] as const;
+
+function getWorkspaceSkillService() {
+  return createWorkspaceSkillService({
+    repository: createWorkspaceSkillProfilePersistenceRepository(),
+    discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
+  });
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -30,7 +43,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    const data = await workspaceSkillService.readWorkspaceSkillProfiles(user.id);
+    const data = await getWorkspaceSkillService().readWorkspaceSkillProfiles(user.id);
     return Response.json(data);
   } catch (error) {
     await logServerRouteEvent({
@@ -84,6 +97,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
+    const workspaceSkillService = getWorkspaceSkillService();
     const discoveryResult = await workspaceSkillService.discoverWorkspaceSkills({
       userId: user.id,
       forceRefresh: payloadResult.value.forceRefresh,

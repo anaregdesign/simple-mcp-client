@@ -6,11 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   parseSkillRegistryMutationPath,
   readAuthenticatedUser,
+  createWorkspaceSkillService,
+  discoverWorkspaceSkills,
   syncWorkspaceSkillMasters,
   installSkillFromRegistry,
   deleteInstalledSkillFromRegistry,
-  discoverSkillCatalog,
-  discoverSkillRegistries,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   parseSkillRegistryMutationPath: vi.fn(() => ({
@@ -21,6 +21,14 @@ const {
     },
   })),
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
+  createWorkspaceSkillService: vi.fn(),
+  discoverWorkspaceSkills: vi.fn(async () => ({
+    skills: [],
+    registries: [],
+    skillWarnings: [],
+    registryWarnings: [],
+    warnings: [],
+  })),
   syncWorkspaceSkillMasters: vi.fn(async () => undefined),
   installSkillFromRegistry: vi.fn(async () => ({
     skillName: "gh-fix-ci",
@@ -32,8 +40,6 @@ const {
     installLocation: "/tmp/gh-fix-ci/SKILL.md",
     removed: true,
   })),
-  discoverSkillCatalog: vi.fn(async () => ({ skills: [], warnings: [] })),
-  discoverSkillRegistries: vi.fn(async () => ({ catalogs: [], warnings: [] })),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
@@ -42,18 +48,16 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 }));
 
 vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
+  createWorkspaceSkillService: createWorkspaceSkillService.mockReturnValue({
+    discoverWorkspaceSkills,
+    syncWorkspaceSkillMasters,
+  }),
   parseSkillRegistryMutationPath,
-  syncWorkspaceSkillMasters,
 }));
 
 vi.mock("~/lib/server/infrastructure/gateways/skills/skill-registry-gateway", () => ({
   installSkillFromRegistry,
   deleteInstalledSkillFromRegistry,
-  discoverSkillRegistries,
-}));
-
-vi.mock("~/lib/server/infrastructure/gateways/skills/skill-catalog", () => ({
-  discoverSkillCatalog,
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -75,6 +79,15 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
     });
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
+    createWorkspaceSkillService.mockClear();
+    discoverWorkspaceSkills.mockReset();
+    discoverWorkspaceSkills.mockResolvedValue({
+      skills: [],
+      registries: [],
+      skillWarnings: [],
+      registryWarnings: [],
+      warnings: [],
+    });
     syncWorkspaceSkillMasters.mockReset();
     syncWorkspaceSkillMasters.mockResolvedValue(undefined);
     installSkillFromRegistry.mockReset();
@@ -89,10 +102,6 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
       installLocation: "/tmp/gh-fix-ci/SKILL.md",
       removed: true,
     });
-    discoverSkillCatalog.mockReset();
-    discoverSkillCatalog.mockResolvedValue({ skills: [], warnings: [] });
-    discoverSkillRegistries.mockReset();
-    discoverSkillRegistries.mockResolvedValue({ catalogs: [], warnings: [] });
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
   });

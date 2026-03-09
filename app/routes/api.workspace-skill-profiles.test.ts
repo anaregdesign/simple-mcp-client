@@ -5,6 +5,7 @@ const {
   readWorkspaceSkillProfilesMock,
   discoverWorkspaceSkillsMock,
   syncWorkspaceSkillMastersMock,
+  createWorkspaceSkillServiceMock,
   readWorkspaceSkillProfileReconcilePayloadMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
@@ -13,6 +14,7 @@ const {
   readWorkspaceSkillProfilesMock: vi.fn(),
   discoverWorkspaceSkillsMock: vi.fn(),
   syncWorkspaceSkillMastersMock: vi.fn(),
+  createWorkspaceSkillServiceMock: vi.fn(),
   readWorkspaceSkillProfileReconcilePayloadMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
@@ -24,11 +26,11 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 
 vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
   readWorkspaceSkillProfileReconcilePayload: readWorkspaceSkillProfileReconcilePayloadMock,
-  workspaceSkillService: {
+  createWorkspaceSkillService: createWorkspaceSkillServiceMock.mockReturnValue({
     readWorkspaceSkillProfiles: readWorkspaceSkillProfilesMock,
     discoverWorkspaceSkills: discoverWorkspaceSkillsMock,
     syncWorkspaceSkillMasters: syncWorkspaceSkillMastersMock,
-  },
+  }),
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -41,6 +43,7 @@ import { action, loader } from "./api.workspace-skill-profiles";
 describe("/api/workspace-skill-profiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createWorkspaceSkillServiceMock.mockClear();
     readAuthenticatedUserMock.mockResolvedValue({ id: 10 });
     readWorkspaceSkillProfilesMock.mockResolvedValue({
       workspaceSkillProfiles: [],

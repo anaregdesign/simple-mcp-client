@@ -5,10 +5,13 @@ import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import {
-  threadApplicationService,
-  threadQueryService,
+  createThreadApplicationService,
+  createThreadQueryService,
   type CreateThreadResult,
 } from "~/lib/server/usecase/threads/thread-service";
+import {
+  createThreadPersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
 import {
   authRequiredResponse,
   errorResponse,
@@ -27,12 +30,20 @@ import type { Route } from "./+types/api.threads";
 
 const THREADS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
 
+function getThreadServices() {
+  const repository = createThreadPersistenceRepository();
+  return {
+    threadApplicationService: createThreadApplicationService(repository),
+    threadQueryService: createThreadQueryService(repository),
+  };
+}
+
 export const threadCollectionActionHandlers = {
   createThread: (
     userId: number,
     payload: ThreadWritePayload,
   ): Promise<CreateThreadResult> =>
-    threadApplicationService.createThread(userId, payload),
+    getThreadServices().threadApplicationService.createThread(userId, payload),
 };
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -48,7 +59,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
-    const threads = await threadQueryService.readUserThreads(user.id);
+    const threads = await getThreadServices().threadQueryService.readUserThreads(
+      user.id,
+    );
     await logServerRouteEvent({
       request,
       route: "/api/threads",

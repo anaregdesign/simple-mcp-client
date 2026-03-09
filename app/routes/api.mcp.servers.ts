@@ -12,10 +12,15 @@ import {
 } from "~/lib/server/http";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
-  mcpServerProfileService,
+  createMcpServerProfileService,
+  mergeDefaultWorkspaceMcpServerProfiles,
   mcpServersRouteTestUtils,
   parseIncomingMcpServer,
+  upsertWorkspaceMcpServerProfile,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
+import {
+  createWorkspaceMcpServerProfilePersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/workspace-mcp-server-profile-persistence-repository";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
@@ -25,6 +30,12 @@ import type { Route } from "./+types/api.mcp.servers";
 export { mcpServersRouteTestUtils, parseIncomingMcpServer };
 
 const MCP_SERVERS_COLLECTION_ALLOWED_METHODS = ["GET", "POST"] as const;
+
+function getMcpServerProfileService() {
+  return createMcpServerProfileService(
+    createWorkspaceMcpServerProfilePersistenceRepository(),
+  );
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -39,8 +50,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
 
   try {
+    const mcpServerProfileService = getMcpServerProfileService();
     await mcpServerProfileService.ensureDefaultMcpServersForUser(user.id);
-    const profiles = await mcpServerProfileService.readWorkspaceMcpServerProfiles(user.id);
+    const profiles = await mcpServerProfileService.readWorkspaceMcpServerProfiles(
+      user.id,
+    );
     return Response.json({ profiles });
   } catch (error) {
     await logServerRouteEvent({
@@ -129,13 +143,16 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    const currentProfiles = await mcpServerProfileService.readWorkspaceMcpServerProfiles(user.id);
-    const profilesWithDefaults = mcpServerProfileService.mergeDefaultWorkspaceMcpServerProfiles(
+    const mcpServerProfileService = getMcpServerProfileService();
+    const currentProfiles = await mcpServerProfileService.readWorkspaceMcpServerProfiles(
+      user.id,
+    );
+    const profilesWithDefaults = mergeDefaultWorkspaceMcpServerProfiles(
       currentProfiles,
       user.id,
     );
     const existingIds = new Set(profilesWithDefaults.map((profile) => profile.id));
-    const { profile, profiles, warning } = mcpServerProfileService.upsertWorkspaceMcpServerProfile(
+    const { profile, profiles, warning } = upsertWorkspaceMcpServerProfile(
       user.id,
       profilesWithDefaults,
       incomingResult.value,

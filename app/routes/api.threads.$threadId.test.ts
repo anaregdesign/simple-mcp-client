@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   readAuthenticatedUser,
+  createThreadApplicationService,
   updateThread,
   logicalDeleteThread,
   logicalRestoreThread,
@@ -13,6 +14,7 @@ const {
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
+  createThreadApplicationService: vi.fn(),
   updateThread: vi.fn<any>(async () => ({ status: "not_found" })),
   logicalDeleteThread: vi.fn<any>(async () => ({ status: "not_found" as const })),
   logicalRestoreThread: vi.fn(async () => ({ status: "not_found" as const })),
@@ -25,12 +27,22 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser,
 }));
 
-vi.mock("~/lib/server/usecase/threads/thread-service", () => ({
-  updateThread,
-  logicalDeleteThread,
-  logicalRestoreThread,
-  isThreadRestorePayload,
-}));
+vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/lib/server/usecase/threads/thread-service")
+  >("~/lib/server/usecase/threads/thread-service");
+
+  return {
+    ...actual,
+    createThreadApplicationService:
+      createThreadApplicationService.mockReturnValue({
+        updateThread,
+        logicalDeleteThread,
+        logicalRestoreThread,
+      }),
+    isThreadRestorePayload,
+  };
+});
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
   readThreadWritePayloadFromUnknown,
@@ -71,6 +83,7 @@ describe("/api/threads/:threadId", () => {
   beforeEach(() => {
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
+    createThreadApplicationService.mockClear();
     updateThread.mockReset();
     updateThread.mockResolvedValue({ status: "not_found" });
     logicalDeleteThread.mockReset();

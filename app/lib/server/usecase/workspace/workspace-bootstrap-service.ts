@@ -19,7 +19,7 @@ import {
   type McpServerProfileService,
 } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 import {
-  workspaceSkillService,
+  type WorkspaceSkillService,
   type SkillDiscoveryResult,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import { type ThreadQueryService } from "~/lib/server/usecase/threads/thread-service";
@@ -54,6 +54,7 @@ type WorkspaceBootstrapDependencies = {
   azureSelectionService: AzureSelectionService;
   mcpServerProfileService: McpServerProfileService;
   threadQueryService: ThreadQueryService;
+  workspaceSkillService: WorkspaceSkillService;
 };
 
 export class WorkspaceBootstrapService {
@@ -101,7 +102,7 @@ export class WorkspaceBootstrapService {
       this.dependencies.mcpServerProfileService.readWorkspaceMcpServerProfiles(
         options.user.id,
       ),
-      workspaceSkillService.discoverWorkspaceSkills({
+      this.dependencies.workspaceSkillService.discoverWorkspaceSkills({
         userId: options.user.id,
         forceRefresh: false,
       }),

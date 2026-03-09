@@ -15,16 +15,31 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
 import {
+  createThreadApplicationService,
   isThreadRestorePayload,
-  logicalDeleteThread,
-  logicalRestoreThread,
-  updateThread,
 } from "~/lib/server/usecase/threads/thread-service";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import {
+  createThreadPersistenceRepository,
+} from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
 import { readErrorMessage, readJsonPayload } from "~/lib/server/http";
 import type { Route } from "./+types/api.threads.$threadId";
 
 const THREAD_ITEM_ALLOWED_METHODS = ["PUT", "PATCH", "DELETE"] as const;
+
+function getThreadApplicationService() {
+  return createThreadApplicationService(createThreadPersistenceRepository());
+}
+
+export const threadItemActionHandlers = {
+  updateThread: (userId: number, thread: Parameters<
+    ReturnType<typeof getThreadApplicationService>["updateThread"]
+  >[1]) => getThreadApplicationService().updateThread(userId, thread),
+  logicalDeleteThread: (userId: number, threadId: string) =>
+    getThreadApplicationService().logicalDeleteThread(userId, threadId),
+  logicalRestoreThread: (userId: number, threadId: string) =>
+    getThreadApplicationService().logicalRestoreThread(userId, threadId),
+};
 
 export function loader() {
   installGlobalServerErrorLogging();
@@ -122,7 +137,10 @@ export async function action({ request, params }: Route.ActionArgs) {
         );
       }
 
-      const updatedThread = await updateThread(user.id, thread);
+      const updatedThread = await threadItemActionHandlers.updateThread(
+        user.id,
+        thread,
+      );
       if (updatedThread.status === "not_found") {
         await logServerRouteEvent({
           request,
@@ -184,7 +202,10 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     if (request.method === "DELETE") {
-      const deleted = await logicalDeleteThread(user.id, threadId);
+      const deleted = await threadItemActionHandlers.logicalDeleteThread(
+        user.id,
+        threadId,
+      );
       if (deleted.status === "not_found") {
         await logServerRouteEvent({
           request,
@@ -271,7 +292,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       return validationErrorResponse("invalid_restore_payload", "`archived` must be false.");
     }
 
-    const restored = await logicalRestoreThread(user.id, threadId);
+      const restored = await threadItemActionHandlers.logicalRestoreThread(
+        user.id,
+        threadId,
+      );
     if (restored.status === "not_found") {
       await logServerRouteEvent({
         request,

@@ -1,23 +1,79 @@
-import { describe, expect, it } from "vitest";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
-import { parseSkillRegistryMutationPath } from "./workspace-skill-service";
+import { describe, expect, it, vi } from "vitest";
+import type { WorkspaceSkillDiscoveryGateway } from "~/lib/domain/repositories/workspace-skill-discovery-gateway";
+import type { WorkspaceSkillProfileRepository } from "~/lib/domain/repositories/workspace-skill-profile-repository";
+import { createWorkspaceSkillService } from "~/lib/server/usecase/skills/workspace-skill-service";
 
-describe("workspace-skill-service", () => {
-  it("parses valid registry and skill path", () => {
-    const registryId = SKILL_REGISTRY_OPTIONS[0]?.id;
-    expect(typeof registryId).toBe("string");
-    if (!registryId) {
-      return;
-    }
+function createRepositoryMock(): WorkspaceSkillProfileRepository {
+  return {
+    readByUserId: vi.fn(),
+    syncSkillMasters: vi.fn(),
+  };
+}
 
-    const parsed = parseSkillRegistryMutationPath(registryId, "demo-skill");
-    expect(parsed.ok).toBe(true);
+function createDiscoveryGatewayMock(): WorkspaceSkillDiscoveryGateway {
+  return {
+    discoverCatalog: vi.fn(),
+    discoverRegistries: vi.fn(),
+  };
+}
+
+describe("WorkspaceSkillService", () => {
+  it("aggregates discovery results from the injected gateway", async () => {
+    const repository = createRepositoryMock();
+    const discoveryGateway = createDiscoveryGatewayMock();
+    vi.mocked(discoveryGateway.discoverCatalog).mockResolvedValue({
+      skills: [],
+      warnings: ["catalog warning"],
+    });
+    vi.mocked(discoveryGateway.discoverRegistries).mockResolvedValue({
+      catalogs: [],
+      warnings: ["registry warning"],
+    });
+
+    const service = createWorkspaceSkillService({
+      repository,
+      discoveryGateway,
+    });
+    const result = await service.discoverWorkspaceSkills({
+      userId: 10,
+      forceRefresh: true,
+    });
+
+    expect(result).toEqual({
+      skills: [],
+      registries: [],
+      skillWarnings: ["catalog warning"],
+      registryWarnings: ["registry warning"],
+      warnings: ["catalog warning", "registry warning"],
+    });
   });
 
-  it("rejects invalid registry id", () => {
-    expect(parseSkillRegistryMutationPath("unknown-registry", "demo-skill")).toEqual({
-      ok: false,
-      error: "`registryId` is invalid.",
+  it("delegates profile sync to the injected repository", async () => {
+    const repository = createRepositoryMock();
+    const discoveryGateway = createDiscoveryGatewayMock();
+    vi.mocked(repository.syncSkillMasters).mockResolvedValue({
+      workspaceSkillProfileCount: 2,
+      workspaceSkillRegistryProfileCount: 1,
+    });
+
+    const service = createWorkspaceSkillService({
+      repository,
+      discoveryGateway,
+    });
+    const result = await service.syncWorkspaceSkillMasters({
+      userId: 10,
+      skills: [],
+      registries: [],
+    });
+
+    expect(result).toEqual({
+      workspaceSkillProfileCount: 2,
+      workspaceSkillRegistryProfileCount: 1,
+    });
+    expect(repository.syncSkillMasters).toHaveBeenCalledWith({
+      userId: 10,
+      skills: [],
+      registries: [],
     });
   });
 });
