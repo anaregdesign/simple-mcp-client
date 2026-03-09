@@ -470,8 +470,17 @@ export function useWorkspace() {
     selectedPlaygroundAzureDeploymentNameRef,
     selectedUtilityAzureConnectionIdRef,
     selectedUtilityAzureDeploymentNameRef,
-    clearWorkspaceMcpServerProfilesState,
-    loadWorkspaceMcpServerProfiles,
+    clearWorkspaceMcpServerProfilesState: (nextError) => {
+      clearWorkspaceMcpServerProfilesStateOperation(
+        buildWorkspaceMcpServerProfileOperationDeps(),
+        nextError,
+      );
+    },
+    loadWorkspaceMcpServerProfiles: async () => {
+      await loadWorkspaceMcpServerProfilesOperation(
+        buildWorkspaceMcpServerProfileOperationDeps(),
+      );
+    },
     clearThreadsState,
     showThreadReloadPlaceholder,
     loadThreads,
@@ -1318,12 +1327,6 @@ export function useWorkspace() {
     };
   }
 
-  async function loadWorkspaceMcpServerProfiles() {
-    await loadWorkspaceMcpServerProfilesOperation(
-      buildWorkspaceMcpServerProfileOperationDeps(),
-    );
-  }
-
   async function loadAvailableSkills(
     options: {
       clearStatus?: boolean;
@@ -1348,22 +1351,6 @@ export function useWorkspace() {
     await updateSkillRegistrySkillOperation(
       buildSkillCatalogOperationDeps(),
       options,
-    );
-  }
-
-  function clearWorkspaceMcpServerProfilesState(
-    nextError: string | null = null,
-  ) {
-    clearWorkspaceMcpServerProfilesStateOperation(
-      buildWorkspaceMcpServerProfileOperationDeps(),
-      nextError,
-    );
-  }
-
-  function applyWorkspaceMcpServerProfiles(profiles: McpServerConfig[]) {
-    applyWorkspaceMcpServerProfilesOperation(
-      buildWorkspaceMcpServerProfileOperationDeps(),
-      profiles,
     );
   }
 
@@ -2178,31 +2165,6 @@ export function useWorkspace() {
   });
 
   // MCP save/connect and chat execution flow.
-  async function saveMcpServerToConfig(
-    server: McpServerConfig,
-    options: {
-      isUpdate?: boolean;
-    } = {},
-  ): Promise<{
-    profile: McpServerConfig;
-    warning: string | null;
-  }> {
-    return await saveMcpServerToConfigOperation(
-      buildWorkspaceMcpServerProfileOperationDeps(),
-      server,
-      options,
-    );
-  }
-
-  async function deleteWorkspaceMcpServerProfileFromConfig(
-    serverId: string,
-  ): Promise<McpServerConfig[]> {
-    return await deleteWorkspaceMcpServerProfileFromConfigOperation(
-      buildWorkspaceMcpServerProfileOperationDeps(),
-      serverId,
-    );
-  }
-
   function connectMcpServerToActiveThread(serverToConnect: McpServerConfig) {
     const activeId = activeThreadIdRef.current.trim();
     if (!activeId) {
@@ -2255,7 +2217,10 @@ export function useWorkspace() {
     readEditingMcpServerId: () => editingMcpServerId,
     isDeletingWorkspaceMcpServerProfile,
     setWorkspaceMcpServerProfileError,
-    loadWorkspaceMcpServerProfiles,
+    loadWorkspaceMcpServerProfiles: async () =>
+      await loadWorkspaceMcpServerProfilesOperation(
+        buildWorkspaceMcpServerProfileOperationDeps(),
+      ),
     clearMcpServerEditState,
     setEditingMcpServerId,
     populateMcpServerFormForEdit,
@@ -2263,9 +2228,23 @@ export function useWorkspace() {
     setMcpFormWarning,
     setIsDeletingWorkspaceMcpServerProfile,
     setIsSavingMcpServer,
-    applyWorkspaceMcpServerProfiles,
-    deleteWorkspaceMcpServerProfileFromConfig,
-    saveMcpServerToConfig,
+    applyWorkspaceMcpServerProfiles: (profiles) => {
+      applyWorkspaceMcpServerProfilesOperation(
+        buildWorkspaceMcpServerProfileOperationDeps(),
+        profiles,
+      );
+    },
+    deleteWorkspaceMcpServerProfileFromConfig: async (serverId) =>
+      await deleteWorkspaceMcpServerProfileFromConfigOperation(
+        buildWorkspaceMcpServerProfileOperationDeps(),
+        serverId,
+      ),
+    saveMcpServerToConfig: async (server, options) =>
+      await saveMcpServerToConfigOperation(
+        buildWorkspaceMcpServerProfileOperationDeps(),
+        server,
+        options,
+      ),
     connectMcpServerToActiveThread,
     resetMcpServerFormInputs,
     updateThreadStateById,
