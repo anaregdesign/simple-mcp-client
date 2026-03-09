@@ -222,11 +222,17 @@ import {
   type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
 import {
-  createMcpProfileHandlers,
-  createInstructionEditingHandlers,
-  createSkillSelectionHandlers,
   createThreadLifecycleHandlers,
-} from "~/lib/client/usecase/workspace/handlers";
+} from "~/lib/client/usecase/workspace/thread-lifecycle-handlers";
+import {
+  createInstructionEditingHandlers,
+} from "~/lib/client/usecase/workspace/instruction-editing-handlers";
+import {
+  createMcpProfileHandlers,
+} from "~/lib/client/usecase/workspace/mcp-profile-handlers";
+import {
+  createSkillSelectionHandlers,
+} from "~/lib/client/usecase/workspace/skill-selection-handlers";
 import {
   type InstructionEnhanceComparison,
   type SkillsApiResponse,
