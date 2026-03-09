@@ -4,7 +4,6 @@ import {
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
 import type { SkillsApiResponse } from "~/lib/client/usecase/workspace/types";
-import { readStringList } from "~/lib/client/shared/collections";
 import {
   readSkillCatalogList,
   readSkillRegistryCatalogList,
@@ -98,6 +97,28 @@ function readSkillsCatalogSnapshot(payload: SkillsApiResponse): SkillsCatalogSna
     message: typeof payload.message === "string" && payload.message.trim() ? payload.message : null,
     payload,
   };
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+
+    const normalized = entry.trim();
+    if (!normalized) {
+      continue;
+    }
+
+    result.push(normalized);
+  }
+
+  return result;
 }
 
 function buildSkillRegistrySkillApiPath(

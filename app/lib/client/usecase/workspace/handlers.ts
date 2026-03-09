@@ -27,7 +27,7 @@ import {
   parseStdioArgsInput,
   parseStdioEnvInput,
 } from "~/lib/client/usecase/workspace/mcp-stdio-inputs";
-import { createId } from "~/lib/client/shared/ids";
+import { createId } from "~/lib/client/usecase/workspace/ids";
 import type {
   ThreadInstructionContextToggles,
   ThreadInstructionContextToggleKey,
@@ -50,7 +50,7 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
-import { getFileExtension } from "~/lib/client/shared/files";
+import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import {
   canStartThreadOperation,
   type ThreadOperationPhase,

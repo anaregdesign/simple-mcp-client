@@ -167,10 +167,10 @@ import type {
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
 import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
-import { readStringList } from "~/lib/client/shared/collections";
-import { getFileExtension } from "~/lib/client/shared/files";
-import { createId } from "~/lib/client/shared/ids";
-import { clampNumber } from "~/lib/client/shared/numbers";
+import { readStringList } from "~/lib/client/usecase/workspace/collections";
+import { getFileExtension } from "~/lib/client/usecase/workspace/files";
+import { createId } from "~/lib/client/usecase/workspace/ids";
+import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import {
   getDefaultDesktopUpdaterStatus,
   readDesktopApi,
