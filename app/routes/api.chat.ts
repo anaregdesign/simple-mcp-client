@@ -125,7 +125,15 @@ import {
   type ActiveSkillRuntimeEntry,
   type SkillRuntimeContext,
 } from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime";
+import {
+  emitSkillActivationOperationLogs,
+  isSkillOperationErrorResult,
+} from "~/lib/server/infrastructure/gateways/skills/skill-operation-records";
 import { prepareSkillRuntime } from "~/lib/server/usecase/chat/chat-skill-runtime-preparation";
+import {
+  buildChatExecutionLogContext,
+  buildChatExecutionSuccessLogContext,
+} from "~/lib/server/usecase/chat/chat-execution-log-context";
 import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,
@@ -137,7 +145,6 @@ import {
 } from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
 import {
   type ChatExecutionOptions,
-  RequestCanceledError as ChatExecutionRequestCanceledError,
   type UpstreamErrorPayload,
   buildUpstreamErrorMessage as buildUpstreamErrorMessageUsecase,
   buildUpstreamErrorPayload as buildUpstreamErrorPayloadUsecase,
@@ -167,10 +174,12 @@ import {
   updateSkillOperationErrorLoopState,
   updateSkillOperationLoopState,
 } from "~/lib/server/usecase/chat/skill-operation-loop";
+import { applySkillScriptEnvironmentChanges } from "~/lib/server/usecase/chat/skill-script-environment";
 import {
   applyDefaultThreadDirectoryToStdioServers,
   buildMcpServerSessionConfigKey,
 } from "~/lib/server/usecase/chat/mcp-server-config-normalization";
+import { clipTextForSkillTool } from "~/lib/server/usecase/chat/skill-tool-text";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 type ChatMcpRuntimeMetrics = {
@@ -534,40 +543,6 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
       });
     }
   });
-}
-
-function buildChatExecutionLogContext(
-  options: ChatExecutionOptions,
-): Record<string, unknown> {
-  return {
-    turnId: options.turnId,
-    tenantId: options.azureConfig.tenantId,
-    deploymentName: options.azureConfig.deploymentName,
-    messageLength: options.message.length,
-    historyCount: options.history.length,
-    attachmentCount: options.attachments.length,
-    threadEnvironmentKeyCount: Object.keys(options.threadEnvironment).length,
-    reasoningEffort: options.reasoningEffort,
-    webSearchEnabled: options.webSearchEnabled,
-    webSearchUserLocationCountry:
-      options.webSearchUserLocation?.country ?? null,
-    systemInstructionContextEnabled: options.instructionContextToggles.system,
-    mcpServerCount: options.mcpServers.length,
-    skillCount: options.skills.length,
-    explicitSkillLocationCount: options.explicitSkillLocations.length,
-  };
-}
-
-function buildChatExecutionSuccessLogContext(
-  options: ChatExecutionOptions,
-  result: ChatExecutionResult,
-): Record<string, unknown> {
-  return {
-    ...buildChatExecutionLogContext(options),
-    responseLength: result.message.length,
-    operationLogCount: result.operationLogCount,
-    ...result.mcpRuntimeMetrics,
-  };
 }
 
 function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
@@ -1561,207 +1536,6 @@ function buildSkillTools(
   ];
 }
 
-function emitSkillActivationOperationLogs(
-  runtime: SkillRuntimeContext,
-  handlers: {
-    nextSequence: () => number;
-    onRecord: (record: ThreadOperationLogRecord) => void;
-  },
-  executionContext: SkillToolExecutionContext,
-): void {
-  const records = buildInitialSkillOperationRecords(runtime, {
-    nextSequence: handlers.nextSequence,
-    threadEnvironment: executionContext.threadEnvironment,
-  });
-  for (const record of records) {
-    handlers.onRecord(record);
-  }
-}
-
-function buildInitialSkillOperationRecords(
-  runtime: SkillRuntimeContext,
-  options: {
-    nextSequence: () => number;
-    threadEnvironment: ThreadEnvironment;
-  },
-): ThreadOperationLogRecord[] {
-  const records: ThreadOperationLogRecord[] = [];
-  for (const skill of runtime.activeSkills) {
-    records.push(buildSkillActivateOperationRecord(skill, options));
-    if (skill.guidePreloadRequested) {
-      records.push(buildSkillGuideReadOperationRecord(skill, options));
-    }
-  }
-  if (runtime.activeSkills.length > 0) {
-    records.push(buildSkillEnvironmentSnapshotOperationRecord(options));
-  }
-  return records;
-}
-
-function buildSkillActivateOperationRecord(
-  skill: ActiveSkillRuntimeEntry,
-  options: {
-    nextSequence: () => number;
-    threadEnvironment: ThreadEnvironment;
-  },
-): ThreadOperationLogRecord {
-  const sequence = options.nextSequence();
-  const requestId = buildThreadOperationLogRequestId(skill.name, sequence);
-  const startedAt = new Date().toISOString();
-
-  return {
-    id: requestId,
-    sequence,
-    operationType: "skill",
-    serverName: skill.name,
-    method: "skill/activate",
-    startedAt,
-    completedAt: new Date().toISOString(),
-    request: {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "skill/activate",
-      params: {
-        name: skill.name,
-        location: skill.location,
-        preloadMode: skill.guidePreloadRequested
-          ? "full_guide"
-          : "frontmatter_only",
-        threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
-      },
-    },
-    response: {
-      jsonrpc: "2.0",
-      id: requestId,
-      result: {
-        status: "active",
-        preloadedFullGuide: skill.preloadedGuideMarkdown !== null,
-        resources: {
-          scripts: skill.scripts.length,
-          references: skill.references.length,
-          assets: skill.assets.length,
-        },
-      },
-    },
-    isError: false,
-  };
-}
-
-function buildSkillGuideReadOperationRecord(
-  skill: ActiveSkillRuntimeEntry,
-  options: {
-    nextSequence: () => number;
-    threadEnvironment: ThreadEnvironment;
-  },
-): ThreadOperationLogRecord {
-  const sequence = options.nextSequence();
-  const requestId = buildThreadOperationLogRequestId(skill.name, sequence);
-  const startedAt = new Date().toISOString();
-  const request: JsonRpcRequestPayload = {
-    jsonrpc: "2.0",
-    id: requestId,
-    method: "skill_read_guide",
-    params: {
-      skill: skill.location,
-      maxChars: AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
-      threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
-    },
-  };
-
-  if (skill.preloadedGuideMarkdown === null) {
-    return {
-      id: requestId,
-      sequence,
-      operationType: "skill",
-      serverName: skill.name,
-      method: "skill_read_guide",
-      startedAt,
-      completedAt: new Date().toISOString(),
-      request,
-      response: {
-        jsonrpc: "2.0",
-        id: requestId,
-        error: {
-          message:
-            skill.preloadedGuideErrorMessage ??
-            `Failed to preload SKILL.md for active Skill "${skill.name}".`,
-        },
-      },
-      isError: true,
-    };
-  }
-
-  const lineNormalized = skill.preloadedGuideMarkdown.replace(/\r\n?/g, "\n");
-  const lines = lineNormalized.split("\n");
-  const clipped = clipTextForSkillTool(
-    lineNormalized,
-    AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
-  );
-
-  return {
-    id: requestId,
-    sequence,
-    operationType: "skill",
-    serverName: skill.name,
-    method: "skill_read_guide",
-    startedAt,
-    completedAt: new Date().toISOString(),
-    request,
-    response: {
-      jsonrpc: "2.0",
-      id: requestId,
-      result: {
-        ok: true,
-        skill: skill.name,
-        location: skill.location,
-        path: "SKILL.md",
-        startLine: 1,
-        endLine: lines.length,
-        totalLines: lines.length,
-        truncated: clipped.truncated,
-        text: clipped.value,
-      },
-    },
-    isError: false,
-  };
-}
-
-function buildSkillEnvironmentSnapshotOperationRecord(options: {
-  nextSequence: () => number;
-  threadEnvironment: ThreadEnvironment;
-}): ThreadOperationLogRecord {
-  const sequence = options.nextSequence();
-  const requestId = buildThreadOperationLogRequestId("skill-runtime", sequence);
-  const startedAt = new Date().toISOString();
-  const threadEnvironment = cloneThreadEnvironment(options.threadEnvironment);
-
-  return {
-    id: requestId,
-    sequence,
-    operationType: "skill",
-    serverName: "skill-runtime",
-    method: "skill/environment_snapshot",
-    startedAt,
-    completedAt: new Date().toISOString(),
-    request: {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "skill/environment_snapshot",
-      params: {
-        threadEnvironment,
-      },
-    },
-    response: {
-      jsonrpc: "2.0",
-      id: requestId,
-      result: {
-        threadEnvironment,
-      },
-    },
-    isError: false,
-  };
-}
-
 function buildSkillResourcePreview(
   skill: ActiveSkillRuntimeEntry,
   selectedCategory: SkillToolCategory | null,
@@ -1841,22 +1615,6 @@ function buildSkillScriptRunFailureMessage(result: {
   return `Skill script exited with code ${result.exitCode}.`;
 }
 
-function isSkillOperationErrorResult(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  if (value.ok === false) {
-    return true;
-  }
-
-  if (Object.hasOwn(value, "exitCode")) {
-    return value.exitCode !== 0;
-  }
-
-  return false;
-}
-
 function readSkillToolCategory(value: unknown): SkillToolCategory | null {
   return value === "scripts" || value === "references" || value === "assets"
     ? value
@@ -1886,26 +1644,6 @@ function normalizeSkillReadMaxChars(value: unknown): number {
   }
 
   return Math.min(parsedValue, AGENT_SKILL_READ_TEXT_MAX_CHARS);
-}
-
-function clipTextForSkillTool(
-  value: string,
-  maxChars: number,
-): {
-  value: string;
-  truncated: boolean;
-} {
-  if (value.length <= maxChars) {
-    return {
-      value,
-      truncated: false,
-    };
-  }
-
-  return {
-    value: value.slice(0, maxChars),
-    truncated: true,
-  };
 }
 
 function readSkillScriptArgs(value: unknown): ParseResult<string[]> {
@@ -1966,75 +1704,6 @@ function buildSkillScriptEnvironment(
   }
 
   return buildStdioSpawnEnvironment(baseEnvironment);
-}
-
-function applySkillScriptEnvironmentChanges(
-  threadEnvironment: ThreadEnvironment,
-  changes: {
-    captured: boolean;
-    updated: Record<string, string>;
-    removed: string[];
-  },
-): {
-  captured: boolean;
-  updated: string[];
-  removed: string[];
-  ignored: string[];
-} {
-  if (!changes.captured) {
-    return {
-      captured: false,
-      updated: [],
-      removed: [],
-      ignored: [],
-    };
-  }
-
-  const updatedKeys: string[] = [];
-  const ignoredKeys: string[] = [];
-  const removedKeys: string[] = [];
-  for (const key of changes.removed) {
-    if (!(key in threadEnvironment)) {
-      continue;
-    }
-
-    delete threadEnvironment[key];
-    removedKeys.push(key);
-  }
-
-  let threadEnvironmentEntryCount = Object.keys(threadEnvironment).length;
-  for (const [key, value] of Object.entries(changes.updated)) {
-    if (
-      key.length > THREAD_ENVIRONMENT_KEY_MAX_LENGTH ||
-      !ENV_KEY_PATTERN.test(key) ||
-      value.length > THREAD_ENVIRONMENT_VALUE_MAX_LENGTH
-    ) {
-      ignoredKeys.push(key);
-      continue;
-    }
-
-    const alreadyExists = key in threadEnvironment;
-    if (
-      !alreadyExists &&
-      threadEnvironmentEntryCount >= THREAD_ENVIRONMENT_VARIABLES_MAX
-    ) {
-      ignoredKeys.push(key);
-      continue;
-    }
-
-    threadEnvironment[key] = value;
-    if (!alreadyExists) {
-      threadEnvironmentEntryCount += 1;
-    }
-    updatedKeys.push(key);
-  }
-
-  return {
-    captured: true,
-    updated: updatedKeys,
-    removed: removedKeys,
-    ignored: ignoredKeys,
-  };
 }
 
 function readUnsetThreadEnvironmentKeys(value: unknown): ParseResult<string[]> {
@@ -2163,58 +1832,3 @@ function readErrorMessage(error: unknown): string {
 function sleep(durationMs: number): Promise<void> {
   return sleepUsecase(durationMs);
 }
-
-export const chatRouteTestUtils = {
-  readTemperature,
-  isWebSearchCompatibleReasoningEffort,
-  isDeploymentReasoningEffortCompatible,
-  readWebSearchEnabled,
-  readWebSearchUserLocationFromRequest,
-  readInstructionContextToggles,
-  readAttachments,
-  readThreadEnvironment,
-  hasNonPdfAttachments: hasNonPdfAttachmentsUsecase,
-  readSkills,
-  readExplicitSkillLocations,
-  readMcpServers,
-  buildMcpHttpRequestHeaders,
-  buildMcpContextRequestHeaders,
-  buildMcpHttpRuntimeHeaders,
-  buildMcpServerSessionConfigKey,
-  buildMcpConnectSuccessResponse,
-  isLocalPlaygroundMcpContextUrl,
-  buildChatExecutionSuccessLogContext,
-  createInitialChatMcpRuntimeMetrics,
-  normalizeMcpMetaNulls,
-  normalizeMcpInitializeNullOptionals,
-  normalizeMcpListToolsNullOptionals,
-  readProgressEventFromRunStreamEvent,
-  buildStdioSpawnEnvironment,
-  resolveExecutableCommand,
-  isSkillOperationErrorResult,
-  buildSkillOperationLoopSignature,
-  updateSkillOperationLoopState,
-  updateSkillOperationErrorLoopState,
-  buildSkillOperationErrorSignature,
-  buildRepeatedSkillOperationLoopMessage,
-  incrementSkillOperationCount,
-  readSkillOperationCallLimit,
-  readSkillOperationSignatureCallLimit,
-  buildSkillOperationCountExceededMessage,
-  buildSkillOperationErrorCountExceededMessage,
-  buildSkillOperationSignatureCountExceededMessage,
-  shouldCacheSkillOperationResult,
-  applySkillScriptEnvironmentChanges,
-  buildInitialSkillOperationRecords,
-  instrumentMcpServer,
-  buildUpstreamErrorMessage,
-  buildUpstreamErrorPayload,
-  isTransientNetworkTerminationError,
-  isRequestCanceledError,
-  shouldRetryChatExecution,
-  runAgentWithTimeout: runAgentWithTimeoutUsecase,
-  throwIfAborted,
-  RequestCanceledError: ChatExecutionRequestCanceledError,
-  resolveThreadDirectoryPath,
-  applyDefaultThreadDirectoryToStdioServers,
-};

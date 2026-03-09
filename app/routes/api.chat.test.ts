@@ -7,62 +7,84 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CHAT_MAX_IDENTICAL_SKILL_OPERATION_CALLS_PER_SIGNATURE, CHAT_MAX_IDENTICAL_SKILL_RUN_SCRIPT_CALLS_PER_SIGNATURE, CHAT_MAX_SKILL_OPERATION_CALLS_PER_SERVER_METHOD, CHAT_MAX_SKILL_RUN_SCRIPT_CALLS_PER_SERVER_METHOD, THREAD_ENVIRONMENT_VARIABLES_MAX } from "~/lib/constants/chat";
 import { MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_LOCAL_PLAYGROUND_CLIENT_PLATFORM_HEADER, MCP_LOCAL_PLAYGROUND_CLIENT_USER_AGENT_HEADER, MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER, MCP_LOCAL_PLAYGROUND_TURN_ID_HEADER } from "~/lib/constants/mcp";
-import { chatRouteTestUtils } from "./api.chat";
-
-const {
-  readTemperature,
-  isWebSearchCompatibleReasoningEffort,
-  isDeploymentReasoningEffortCompatible,
-  readWebSearchEnabled,
-  readWebSearchUserLocationFromRequest,
-  readInstructionContextToggles,
-  readAttachments,
-  readThreadEnvironment,
-  hasNonPdfAttachments,
-  readSkills,
-  readExplicitSkillLocations,
-  readMcpServers,
-  buildMcpHttpRequestHeaders,
-  buildMcpContextRequestHeaders,
-  buildMcpHttpRuntimeHeaders,
-  buildMcpServerSessionConfigKey,
-  buildMcpConnectSuccessResponse,
+import {
   buildChatExecutionSuccessLogContext,
+} from "~/lib/server/usecase/chat/chat-execution-log-context";
+import {
+  RequestCanceledError,
+  buildUpstreamErrorMessage,
+  buildUpstreamErrorPayload,
   createInitialChatMcpRuntimeMetrics,
-  isLocalPlaygroundMcpContextUrl,
-  normalizeMcpMetaNulls,
-  normalizeMcpInitializeNullOptionals,
-  normalizeMcpListToolsNullOptionals,
-  readProgressEventFromRunStreamEvent,
-  buildStdioSpawnEnvironment,
-  resolveExecutableCommand,
-  isSkillOperationErrorResult,
-  buildSkillOperationLoopSignature,
-  updateSkillOperationLoopState,
-  updateSkillOperationErrorLoopState,
-  buildSkillOperationErrorSignature,
+  hasNonPdfAttachments,
+  isRequestCanceledError,
+  isTransientNetworkTerminationError,
+  runAgentWithTimeout,
+  shouldRetryChatExecution,
+  throwIfAborted,
+} from "~/lib/server/usecase/chat/chat-execution";
+import {
+  applyDefaultThreadDirectoryToStdioServers,
+  buildMcpServerSessionConfigKey,
+} from "~/lib/server/usecase/chat/mcp-server-config-normalization";
+import {
   buildRepeatedSkillOperationLoopMessage,
+  buildSkillOperationCountExceededMessage,
+  buildSkillOperationErrorCountExceededMessage,
+  buildSkillOperationErrorSignature,
+  buildSkillOperationLoopSignature,
+  buildSkillOperationSignatureCountExceededMessage,
   incrementSkillOperationCount,
   readSkillOperationCallLimit,
   readSkillOperationSignatureCallLimit,
-  buildSkillOperationCountExceededMessage,
-  buildSkillOperationErrorCountExceededMessage,
-  buildSkillOperationSignatureCountExceededMessage,
   shouldCacheSkillOperationResult,
+  updateSkillOperationErrorLoopState,
+  updateSkillOperationLoopState,
+} from "~/lib/server/usecase/chat/skill-operation-loop";
+import {
   applySkillScriptEnvironmentChanges,
+} from "~/lib/server/usecase/chat/skill-script-environment";
+import {
+  buildStdioSpawnEnvironment,
+  resolveExecutableCommand,
+} from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
+import {
   buildInitialSkillOperationRecords,
+  isSkillOperationErrorResult,
+} from "~/lib/server/infrastructure/gateways/skills/skill-operation-records";
+import {
+  buildMcpContextRequestHeaders,
+  buildMcpHttpRequestHeaders,
+  buildMcpHttpRuntimeHeaders,
+  isLocalPlaygroundMcpContextUrl,
+  normalizeMcpInitializeNullOptionals,
+  normalizeMcpListToolsNullOptionals,
+  normalizeMcpMetaNulls,
+} from "~/lib/server/infrastructure/gateways/mcp/mcp-http-session-helpers";
+import {
+  buildMcpConnectSuccessResponse,
   instrumentMcpServer,
-  buildUpstreamErrorMessage,
-  buildUpstreamErrorPayload,
-  isTransientNetworkTerminationError,
-  isRequestCanceledError,
-  shouldRetryChatExecution,
-  throwIfAborted,
-  runAgentWithTimeout,
-  RequestCanceledError,
+} from "~/lib/server/infrastructure/gateways/mcp/mcp-session-logging";
+import {
+  isDeploymentReasoningEffortCompatible,
+  isWebSearchCompatibleReasoningEffort,
+  readAttachments,
+  readExplicitSkillLocations,
+  readInstructionContextToggles,
+  readMcpServers,
+  readSkills,
+  readTemperature,
+  readThreadEnvironment,
+  readWebSearchEnabled,
+} from "~/lib/server/infrastructure/gateways/chat/request-parser";
+import {
+  readWebSearchUserLocationFromRequest,
+} from "~/lib/server/infrastructure/gateways/chat/request-metadata";
+import {
+  readProgressEventFromRunStreamEvent,
+} from "~/lib/server/infrastructure/gateways/chat/run-stream-progress";
+import {
   resolveThreadDirectoryPath,
-  applyDefaultThreadDirectoryToStdioServers,
-} = chatRouteTestUtils;
+} from "~/lib/server/infrastructure/gateways/chat/thread-directory-context";
 
 describe("readWebSearchEnabled", () => {
   it("defaults to false for omitted or invalid values", () => {
