@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type SyntheticEvent,
 } from "react";
 import type {
   ThemeMode,
@@ -19,19 +18,12 @@ import type {
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_FILES,
-  CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH,
-  CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES,
-  CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES,
-  CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES,
-  CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES,
   DEFAULT_AGENT_INSTRUCTION,
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
   THREAD_DEFAULT_NAME,
 } from "~/lib/constants/chat";
 import {
-  CLIENT_CHAT_INPUT_MAX_HEIGHT_PX,
-  CLIENT_CHAT_INPUT_MIN_HEIGHT_PX,
   DEFAULT_THEME_MODE,
   INITIAL_THREAD_MESSAGES,
   CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
@@ -55,12 +47,7 @@ import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure
 import { buildThreadOperationLogsByTurnId } from "~/lib/client/chat/history";
 import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
 import {
-  formatChatAttachmentSize,
-  readFileAsDataUrl,
-} from "~/lib/client/chat/attachments";
-import {
   readChatCommandMatchAtCursor,
-  replaceChatCommandToken,
 } from "~/lib/client/chat/commands";
 import type { ThreadMessage } from "~/lib/client/chat/messages";
 import { createThreadMessage } from "~/lib/client/chat/messages";
@@ -219,11 +206,15 @@ import {
   buildThreadsTabProps,
   buildUnauthenticatedPanelProps,
   readSkillCommandSuggestions,
-  type ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/selectors";
 import {
   createThreadLifecycleHandlers,
 } from "~/lib/client/usecase/workspace/thread-lifecycle-handlers";
+import {
+  createChatComposerHandlers,
+  type ChatCommandProvider,
+  resizeChatComposerInput,
+} from "~/lib/client/usecase/workspace/chat-composer-handlers";
 import {
   createInstructionEditingHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editing-handlers";
@@ -240,13 +231,6 @@ import {
   type ThreadTitleApiResponse,
   type ThreadsApiResponse,
 } from "~/lib/client/usecase/workspace/types";
-
-type ChatCommandProvider = {
-  keyword: string;
-  emptyHint: string;
-  readSuggestions: (query: string) => ChatCommandSuggestion[];
-  applySuggestion: (suggestion: ChatCommandSuggestion) => void;
-};
 
 /**
  * Client runtime controller.
@@ -891,7 +875,7 @@ export function useWorkspace() {
       return;
     }
 
-    resizeChatInput(input);
+    resizeChatComposerInput(input);
   }, [draft]);
 
   useEffect(() => {
@@ -2975,283 +2959,47 @@ export function useWorkspace() {
     },
   });
 
-  function handleSelectActiveChatCommandSuggestion(suggestionIdRaw: string) {
-    const suggestionId = suggestionIdRaw.trim();
-    if (
-      !suggestionId ||
-      !activeChatCommandMatch ||
-      !activeChatCommandProvider
-    ) {
-      return;
-    }
-
-    const suggestion =
-      activeChatCommandSuggestions.find((entry) => entry.id === suggestionId) ??
-      null;
-    if (!suggestion || !suggestion.isAvailable) {
-      return;
-    }
-
-    activeChatCommandProvider.applySuggestion(suggestion);
-
-    const nextDraft = replaceChatCommandToken({
-      value: draft,
-      rangeStart: activeChatCommandMatch.rangeStart,
-      rangeEnd: activeChatCommandMatch.rangeEnd,
-      replacement: "",
-    });
-    pendingChatCommandCursorIndexRef.current = nextDraft.cursorIndex;
-    setDraft(nextDraft.value);
-    setChatComposerCursorIndex(nextDraft.cursorIndex);
-    setChatCommandHighlightedIndex(0);
-    setChatAttachmentError(null);
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      setThreadError(
-        "Archived thread is read-only. Restore it from Archives to continue.",
-      );
-      setActiveMainTab("threads");
-      return;
-    }
-    if (isChatLocked) {
-      setActiveMainTab("settings");
-      return;
-    }
-    void sendMessage();
-  }
-
-  function handleInputKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (
-      event.nativeEvent.isComposing ||
-      isComposing ||
-      event.nativeEvent.keyCode === 229
-    ) {
-      return;
-    }
-
-    if (activeChatCommandMenu && activeChatCommandMenu.suggestions.length > 0) {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setChatCommandHighlightedIndex((current) => {
-          const total = activeChatCommandMenu.suggestions.length;
-          if (total <= 0) {
-            return 0;
-          }
-
-          return (current + 1) % total;
-        });
-        return;
-      }
-
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setChatCommandHighlightedIndex((current) => {
-          const total = activeChatCommandMenu.suggestions.length;
-          if (total <= 0) {
-            return 0;
-          }
-
-          return (current - 1 + total) % total;
-        });
-        return;
-      }
-
-      if (event.key === "Enter" && !event.shiftKey) {
-        const activeSuggestion =
-          activeChatCommandMenu.suggestions[activeChatCommandHighlightIndex];
-        if (!activeSuggestion) {
-          return;
-        }
-
-        event.preventDefault();
-        handleSelectActiveChatCommandSuggestion(activeSuggestion.id);
-        return;
-      }
-    }
-
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      if (isArchivedThread(activeThreadIdRef.current)) {
-        setThreadError(
-          "Archived thread is read-only. Restore it from Archives to continue.",
-        );
-        setActiveMainTab("threads");
-        return;
-      }
-      if (isChatLocked) {
-        setActiveMainTab("settings");
-        return;
-      }
-      void sendMessage();
-    }
-  }
-
-  function handleDraftChange(
-    event: React.ChangeEvent<HTMLTextAreaElement>,
-    value: string,
-  ) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    const cursorIndex = event.currentTarget.selectionStart ?? value.length;
-    setDraft(value);
-    setChatComposerCursorIndex(cursorIndex);
-    setChatAttachmentError(null);
-    resizeChatInput(event.currentTarget);
-  }
-
-  function handleInputSelect(event: SyntheticEvent<HTMLTextAreaElement>) {
-    const target = event.currentTarget;
-    setChatComposerCursorIndex(target.selectionStart ?? target.value.length);
-  }
-
-  function handleOpenChatAttachmentPicker() {
-    if (
-      isSending ||
-      isChatLocked ||
-      isArchivedThread(activeThreadIdRef.current)
-    ) {
-      return;
-    }
-
-    chatAttachmentInputRef.current?.click();
-  }
-
-  async function handleChatAttachmentFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const input = event.currentTarget;
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      input.value = "";
-      return;
-    }
-    const selectedFiles = input.files ? Array.from(input.files) : [];
-    if (selectedFiles.length === 0) {
-      input.value = "";
-      return;
-    }
-
-    setChatAttachmentError(null);
-
-    const availableSlots = CHAT_ATTACHMENT_MAX_FILES - draftAttachments.length;
-    if (availableSlots <= 0) {
-      setChatAttachmentError(
-        `You can attach up to ${CHAT_ATTACHMENT_MAX_FILES} files.`,
-      );
-      input.value = "";
-      return;
-    }
-
-    const filesToProcess = selectedFiles.slice(0, availableSlots);
-    const nextAttachments: DraftChatAttachment[] = [];
-    let nextTotalSize = draftAttachmentTotalSizeBytes;
-    let nextPdfTotalSize = draftPdfAttachmentTotalSizeBytes;
-    let validationError: string | null = null;
-
-    for (const file of filesToProcess) {
-      const normalizedName = file.name.trim() || "attachment";
-      if (normalizedName.length > CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH) {
-        validationError = `Attachment file names must be ${CHAT_ATTACHMENT_MAX_FILE_NAME_LENGTH} characters or fewer.`;
-        break;
-      }
-
-      const extension = getFileExtension(normalizedName);
-      if (!CHAT_ATTACHMENT_ALLOWED_EXTENSIONS.has(extension)) {
-        validationError = `Attachment "${normalizedName}" is not supported. Only ${chatAttachmentFormatHint} files can be attached.`;
-        break;
-      }
-
-      const normalizedMimeType = file.type.trim().toLowerCase();
-
-      if (file.size <= 0) {
-        validationError = `Attachment "${normalizedName}" is empty.`;
-        break;
-      }
-
-      const maxFileSizeBytes =
-        extension === "pdf"
-          ? CHAT_ATTACHMENT_MAX_PDF_FILE_SIZE_BYTES
-          : CHAT_ATTACHMENT_MAX_NON_PDF_FILE_SIZE_BYTES;
-      if (file.size > maxFileSizeBytes) {
-        validationError = `Attachment "${normalizedName}" is too large. Max size is ${formatChatAttachmentSize(maxFileSizeBytes)} for .${extension} files.`;
-        break;
-      }
-
-      if (nextTotalSize + file.size > CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES) {
-        validationError = `Total attachment size cannot exceed ${formatChatAttachmentSize(CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES)}.`;
-        break;
-      }
-      if (
-        extension === "pdf" &&
-        nextPdfTotalSize + file.size > CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES
-      ) {
-        validationError = `Total PDF attachment size cannot exceed ${formatChatAttachmentSize(CHAT_ATTACHMENT_MAX_PDF_TOTAL_SIZE_BYTES)}.`;
-        break;
-      }
-
-      try {
-        const dataUrl = await readFileAsDataUrl(file);
-        nextAttachments.push({
-          id: createId("attachment"),
-          name: normalizedName,
-          mimeType: normalizedMimeType || "application/octet-stream",
-          sizeBytes: file.size,
-          dataUrl,
-        });
-        nextTotalSize += file.size;
-        if (extension === "pdf") {
-          nextPdfTotalSize += file.size;
-        }
-      } catch (readAttachmentError) {
-        logClientError("read_attachment_failed", readAttachmentError, {
-          action: "read_chat_attachment",
-          context: {
-            fileName: normalizedName,
-            fileSize: file.size,
-          },
-        });
-        validationError = `Failed to read "${normalizedName}".`;
-        break;
-      }
-    }
-
-    if (!validationError && selectedFiles.length > filesToProcess.length) {
-      validationError = `You can attach up to ${CHAT_ATTACHMENT_MAX_FILES} files.`;
-    }
-
-    if (nextAttachments.length > 0) {
-      setDraftAttachments((current) => [...current, ...nextAttachments]);
-    }
-
-    setChatAttachmentError(validationError);
-    input.value = "";
-  }
-
-  function handleRemoveDraftAttachment(id: string) {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      return;
-    }
-
-    setDraftAttachments((current) =>
-      current.filter((attachment) => attachment.id !== id),
-    );
-    setChatAttachmentError(null);
-  }
-
-  function resizeChatInput(input: HTMLTextAreaElement) {
-    input.style.height = "auto";
-    const boundedHeight = Math.max(
-      CLIENT_CHAT_INPUT_MIN_HEIGHT_PX,
-      Math.min(input.scrollHeight, CLIENT_CHAT_INPUT_MAX_HEIGHT_PX),
-    );
-    input.style.height = `${boundedHeight}px`;
-    input.style.overflowY =
-      input.scrollHeight > CLIENT_CHAT_INPUT_MAX_HEIGHT_PX ? "auto" : "hidden";
-  }
+  const {
+    handleSelectActiveChatCommandSuggestion,
+    handleSubmit,
+    handleInputKeyDown,
+    handleDraftChange,
+    handleInputSelect,
+    handleOpenChatAttachmentPicker,
+    handleChatAttachmentFileChange,
+    handleRemoveDraftAttachment,
+  } = createChatComposerHandlers({
+    isArchivedThread,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    isChatLocked,
+    isSending,
+    isComposing,
+    readDraft: () => draft,
+    readDraftAttachments: () => draftAttachments,
+    readDraftAttachmentTotalSizeBytes: () => draftAttachmentTotalSizeBytes,
+    readDraftPdfAttachmentTotalSizeBytes: () =>
+      draftPdfAttachmentTotalSizeBytes,
+    chatAttachmentFormatHint,
+    readActiveChatCommandMatch: () => activeChatCommandMatch,
+    readActiveChatCommandProvider: () => activeChatCommandProvider,
+    readActiveChatCommandSuggestions: () => activeChatCommandSuggestions,
+    readActiveChatCommandMenu: () => activeChatCommandMenu,
+    readActiveChatCommandHighlightIndex: () =>
+      activeChatCommandHighlightIndex,
+    readChatAttachmentInput: () => chatAttachmentInputRef.current,
+    setPendingChatCommandCursorIndex: (value) => {
+      pendingChatCommandCursorIndexRef.current = value;
+    },
+    setDraft,
+    setChatComposerCursorIndex,
+    setChatCommandHighlightedIndex,
+    setChatAttachmentError,
+    setDraftAttachments,
+    setThreadError,
+    setActiveMainTab,
+    sendMessage,
+    logClientError,
+  });
 
   function handleChatProjectChange(projectId: string) {
     handleSelectPlaygroundProject(projectId);
