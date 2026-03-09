@@ -36,7 +36,6 @@ import {
   MCP_TIMEOUT_SECONDS_MAX,
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
-import { CLIENT_SKILLS_RELOAD_MIN_INTERVAL_MS } from "~/lib/constants/skills";
 import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
 import { buildThreadOperationLogsByTurnId } from "~/lib/client/chat/history";
 import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
@@ -56,7 +55,7 @@ import {
 } from "~/lib/client/usecase/workspace/instruction-document";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/main-splitter";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import { buildMcpServerKey, upsertMcpServer } from "~/lib/contracts/mcp/profile";
+import { buildMcpServerKey } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
@@ -202,11 +201,24 @@ import {
   createInstructionPromptHandlers,
 } from "~/lib/client/usecase/workspace/instruction-prompt-handlers";
 import {
+  applySkillsCatalogSnapshot as applySkillsCatalogSnapshotOperation,
+  handleReloadSkills as handleReloadSkillsOperation,
+  loadAvailableSkills as loadAvailableSkillsOperation,
+  updateSkillRegistrySkill as updateSkillRegistrySkillOperation,
+} from "~/lib/client/usecase/workspace/skill-catalog-operations";
+import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profile-handlers";
 import {
   createSkillSelectionHandlers,
 } from "~/lib/client/usecase/workspace/skill-selection-handlers";
+import {
+  applyWorkspaceMcpServerProfiles as applyWorkspaceMcpServerProfilesOperation,
+  clearWorkspaceMcpServerProfilesState as clearWorkspaceMcpServerProfilesStateOperation,
+  deleteWorkspaceMcpServerProfileFromConfig as deleteWorkspaceMcpServerProfileFromConfigOperation,
+  loadWorkspaceMcpServerProfiles as loadWorkspaceMcpServerProfilesOperation,
+  saveMcpServerToConfig as saveMcpServerToConfigOperation,
+} from "~/lib/client/usecase/workspace/workspace-mcp-server-profile-operations";
 import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
@@ -1233,64 +1245,87 @@ export function useWorkspace() {
   ]);
 
   // Saved MCP / Skills loading flows.
-  async function loadWorkspaceMcpServerProfiles() {
-    const expectedUserKey = activeWorkspaceUserKeyRef.current.trim();
-    if (!expectedUserKey) {
-      clearWorkspaceMcpServerProfilesState();
-      return;
-    }
-
-    const requestSeq = workspaceMcpServerProfileRequestSeqRef.current + 1;
-    workspaceMcpServerProfileRequestSeqRef.current = requestSeq;
-    setIsLoadingWorkspaceMcpServerProfiles(true);
-
-    try {
-      const result = await mcpServersApiClient.loadProfiles({
-        onAuthRequired: () => {
-          markAzureAuthRequired();
-          clearWorkspaceMcpServerProfilesState(
-            "Azure login is required. Open Settings and sign in to load MCP servers.",
-          );
+  function buildWorkspaceMcpServerProfileOperationDeps() {
+    return {
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+      nextWorkspaceMcpServerProfileRequestSeq: () => {
+        const requestSeq = workspaceMcpServerProfileRequestSeqRef.current + 1;
+        workspaceMcpServerProfileRequestSeqRef.current = requestSeq;
+        return requestSeq;
+      },
+      readWorkspaceMcpServerProfileRequestSeq: () =>
+        workspaceMcpServerProfileRequestSeqRef.current,
+      readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
+      writeWorkspaceMcpServerProfiles: (profiles: McpServerConfig[]) => {
+        workspaceMcpServerProfilesRef.current = profiles;
+        setWorkspaceMcpServerProfiles(profiles);
+      },
+      setWorkspaceMcpServerProfileError,
+      setIsLoadingWorkspaceMcpServerProfiles,
+      setEditingMcpServerId,
+      setIsDeletingWorkspaceMcpServerProfile,
+      markAzureAuthRequired,
+      loadProfiles: (options: { onAuthRequired?: () => void }) =>
+        mcpServersApiClient.loadProfiles(options),
+      saveProfile: (
+        server: McpServerConfig,
+        options: {
+          isUpdate?: boolean;
+          onAuthRequired?: () => void;
         },
-      });
-      if (requestSeq !== workspaceMcpServerProfileRequestSeqRef.current) {
-        return;
-      }
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return;
-      }
+      ) => mcpServersApiClient.saveProfile(server, options),
+      deleteProfile: (
+        serverId: string,
+        options: {
+          onAuthRequired?: () => void;
+        },
+      ) => mcpServersApiClient.deleteProfile(serverId, options),
+      logClientError,
+    };
+  }
 
-      const parsedServers = result.profiles;
-      applyWorkspaceMcpServerProfiles(parsedServers);
-      setWorkspaceMcpServerProfileError(null);
-    } catch (loadError) {
-      if (requestSeq !== workspaceMcpServerProfileRequestSeqRef.current) {
-        return;
-      }
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return;
-      }
-      if (
-        loadError instanceof ClientApiError &&
-        loadError.kind === "auth_required"
-      ) {
-        return;
-      }
-      logClientError("load_saved_mcp_servers_failed", loadError, {
-        action: "load_saved_mcp_servers",
-        statusCode: 500,
-      });
-      setWorkspaceMcpServerProfileError(
-        mapApiError(loadError, "Failed to load saved MCP servers."),
-      );
-    } finally {
-      if (
-        requestSeq === workspaceMcpServerProfileRequestSeqRef.current &&
-        expectedUserKey === activeWorkspaceUserKeyRef.current.trim()
-      ) {
-        setIsLoadingWorkspaceMcpServerProfiles(false);
-      }
-    }
+  function buildSkillCatalogOperationDeps() {
+    return {
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+      nextSkillsRequestSeq: () => {
+        const requestSeq = skillsRequestSeqRef.current + 1;
+        skillsRequestSeqRef.current = requestSeq;
+        return requestSeq;
+      },
+      readSkillsRequestSeq: () => skillsRequestSeqRef.current,
+      readLastManualReloadAt: () => lastManualSkillsReloadAtRef.current,
+      setLastManualReloadAt: (value: number) => {
+        lastManualSkillsReloadAtRef.current = value;
+      },
+      markAzureAuthRequired,
+      resolveAzureBackgroundSuccess,
+      setAvailableSkills,
+      setSkillRegistryCatalogs,
+      setSkillsError,
+      setSkillsWarning,
+      setSkillRegistryError,
+      setSkillRegistryWarning,
+      setSkillRegistrySuccess,
+      setIsLoadingSkills,
+      setIsMutatingSkillRegistries,
+      loadSkills: (options: {
+        forceRefresh?: boolean;
+        onAuthRequired?: () => void;
+      }) => skillsApiClient.loadSkills(options),
+      updateRegistrySkill: (options: {
+        action: "install_registry_skill" | "delete_registry_skill";
+        registryId: SkillRegistryId;
+        skillName: string;
+        onAuthRequired?: () => void;
+      }) => skillsApiClient.updateRegistrySkill(options),
+      logClientError,
+    };
+  }
+
+  async function loadWorkspaceMcpServerProfiles() {
+    await loadWorkspaceMcpServerProfilesOperation(
+      buildWorkspaceMcpServerProfileOperationDeps(),
+    );
   }
 
   async function loadAvailableSkills(
@@ -1299,88 +1334,13 @@ export function useWorkspace() {
       forceRefresh?: boolean;
     } = {},
   ): Promise<void> {
-    const expectedUserKey = activeWorkspaceUserKeyRef.current.trim();
-    const requestSeq = skillsRequestSeqRef.current + 1;
-    skillsRequestSeqRef.current = requestSeq;
-
-    if (options.clearStatus !== false) {
-      setSkillsError(null);
-      setSkillsWarning(null);
-      setSkillRegistryError(null);
-      setSkillRegistryWarning(null);
-      setSkillRegistrySuccess(null);
-    }
-    setIsLoadingSkills(true);
-
-    try {
-      const result = await skillsApiClient.loadSkills({
-        forceRefresh: options.forceRefresh,
-        onAuthRequired: () => {
-          markAzureAuthRequired();
-          setAvailableSkills([]);
-          setSkillRegistryCatalogs([]);
-          setSkillsError(
-            "Azure login is required. Open Settings and sign in to load Skills.",
-          );
-          setSkillRegistryError(
-            "Azure login is required. Open Settings and sign in to load Skills.",
-          );
-        },
-      });
-      if (requestSeq !== skillsRequestSeqRef.current) {
-        return;
-      }
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return;
-      }
-
-      resolveAzureBackgroundSuccess();
-      applySkillsCatalogSnapshot(result);
-      setSkillRegistrySuccess(null);
-    } catch (loadError) {
-      if (requestSeq !== skillsRequestSeqRef.current) {
-        return;
-      }
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return;
-      }
-      if (
-        loadError instanceof ClientApiError &&
-        loadError.kind === "auth_required"
-      ) {
-        return;
-      }
-
-      logClientError("load_skills_failed", loadError, {
-        action: "load_skills",
-      });
-      setAvailableSkills([]);
-      setSkillRegistryCatalogs([]);
-      setSkillsError(mapApiError(loadError, "Failed to load Skills."));
-      setSkillRegistryError(
-        mapApiError(loadError, "Failed to load Skill registries."),
-      );
-    } finally {
-      if (requestSeq === skillsRequestSeqRef.current) {
-        setIsLoadingSkills(false);
-      }
-    }
+    await loadAvailableSkillsOperation(buildSkillCatalogOperationDeps(), options);
   }
 
   function applySkillsCatalogSnapshot(snapshot: SkillsCatalogSnapshot) {
-    setAvailableSkills(snapshot.skills);
-    setSkillRegistryCatalogs(snapshot.skillRegistries);
-    setSkillsError(null);
-    setSkillRegistryError(null);
-    setSkillsWarning(
-      snapshot.skillWarnings.length > 0
-        ? snapshot.skillWarnings.slice(0, 2).join("\n")
-        : null,
-    );
-    setSkillRegistryWarning(
-      snapshot.registryWarnings.length > 0
-        ? snapshot.registryWarnings.slice(0, 2).join("\n")
-        : null,
+    applySkillsCatalogSnapshotOperation(
+      buildSkillCatalogOperationDeps(),
+      snapshot,
     );
   }
 
@@ -1389,56 +1349,26 @@ export function useWorkspace() {
     registryId: SkillRegistryId;
     skillName: string;
   }): Promise<void> {
-    setIsMutatingSkillRegistries(true);
-    setSkillRegistryError(null);
-    setSkillRegistrySuccess(null);
-
-    try {
-      const result = await skillsApiClient.updateRegistrySkill({
-        action: options.action,
-        registryId: options.registryId,
-        skillName: options.skillName,
-        onAuthRequired: () => {
-          markAzureAuthRequired();
-        },
-      });
-
-      resolveAzureBackgroundSuccess();
-      applySkillsCatalogSnapshot(result);
-      setSkillRegistrySuccess(result.message);
-    } catch (error) {
-      if (error instanceof ClientApiError && error.kind === "auth_required") {
-        setSkillRegistryError(error.message);
-        return;
-      }
-      logClientError("update_skill_registry_failed", error, {
-        action: options.action,
-        context: {
-          registryId: options.registryId,
-          skillName: options.skillName,
-        },
-      });
-      setSkillRegistryError(
-        mapApiError(error, "Failed to update Skill registry."),
-      );
-    } finally {
-      setIsMutatingSkillRegistries(false);
-    }
+    await updateSkillRegistrySkillOperation(
+      buildSkillCatalogOperationDeps(),
+      options,
+    );
   }
 
   function clearWorkspaceMcpServerProfilesState(
     nextError: string | null = null,
   ) {
-    setEditingMcpServerId("");
-    setIsDeletingWorkspaceMcpServerProfile(false);
-    applyWorkspaceMcpServerProfiles([]);
-    setWorkspaceMcpServerProfileError(nextError);
-    setIsLoadingWorkspaceMcpServerProfiles(false);
+    clearWorkspaceMcpServerProfilesStateOperation(
+      buildWorkspaceMcpServerProfileOperationDeps(),
+      nextError,
+    );
   }
 
   function applyWorkspaceMcpServerProfiles(profiles: McpServerConfig[]) {
-    workspaceMcpServerProfilesRef.current = profiles;
-    setWorkspaceMcpServerProfiles(profiles);
+    applyWorkspaceMcpServerProfilesOperation(
+      buildWorkspaceMcpServerProfileOperationDeps(),
+      profiles,
+    );
   }
 
   function resetMcpServerFormInputs() {
@@ -2453,51 +2383,20 @@ export function useWorkspace() {
     profile: McpServerConfig;
     warning: string | null;
   }> {
-    const isUpdate = options.isUpdate === true;
-    const endpoint = isUpdate
-      ? `/api/mcp/servers/${encodeURIComponent(server.id)}`
-      : "/api/mcp/servers";
-    const method = isUpdate ? "PUT" : "POST";
-
-    const result = await mcpServersApiClient.saveProfile(server, {
-      isUpdate,
-      onAuthRequired: () => {
-        markAzureAuthRequired();
-      },
-    });
-
-    const profile = result.profile;
-    if (!profile) {
-      throw new Error("Saved MCP server response is invalid.");
-    }
-
-    const profiles = result.profiles;
-    if (profiles.length > 0) {
-      applyWorkspaceMcpServerProfiles(profiles);
-    } else {
-      const nextWorkspaceMcpServerProfiles = upsertMcpServer(
-        workspaceMcpServerProfilesRef.current,
-        profile,
-      );
-      applyWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
-    }
-
-    return {
-      profile,
-      warning: result.warning,
-    };
+    return await saveMcpServerToConfigOperation(
+      buildWorkspaceMcpServerProfileOperationDeps(),
+      server,
+      options,
+    );
   }
 
   async function deleteWorkspaceMcpServerProfileFromConfig(
     serverId: string,
   ): Promise<McpServerConfig[]> {
-    const result = await mcpServersApiClient.deleteProfile(serverId, {
-      onAuthRequired: () => {
-        markAzureAuthRequired();
-      },
-    });
-
-    return result.profiles;
+    return await deleteWorkspaceMcpServerProfileFromConfigOperation(
+      buildWorkspaceMcpServerProfileOperationDeps(),
+      serverId,
+    );
   }
 
   function connectMcpServerToAgent(serverToConnect: McpServerConfig) {
@@ -2800,17 +2699,7 @@ export function useWorkspace() {
   }
 
   function handleReloadSkills() {
-    const now = Date.now();
-    if (
-      now - lastManualSkillsReloadAtRef.current <
-      CLIENT_SKILLS_RELOAD_MIN_INTERVAL_MS
-    ) {
-      return;
-    }
-    lastManualSkillsReloadAtRef.current = now;
-    void loadAvailableSkills({
-      forceRefresh: true,
-    });
+    handleReloadSkillsOperation(buildSkillCatalogOperationDeps());
   }
 
   const {
