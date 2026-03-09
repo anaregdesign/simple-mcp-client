@@ -5,6 +5,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import {
@@ -166,11 +167,9 @@ describe("resolveWorkspaceDatabaseUrl", () => {
     expect(databaseUrl.includes("%20")).toBe(false);
 
     const prisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: databaseUrl,
-        },
-      },
+      adapter: new PrismaBetterSqlite3({
+        url: databaseUrl,
+      }),
     });
 
     try {

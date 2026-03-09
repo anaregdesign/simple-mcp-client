@@ -5,6 +5,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaMssql } from "@prisma/adapter-mssql";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 const SQLITE_FILE_NAME = "local-playground.sqlite";
@@ -130,11 +134,7 @@ function buildPrismaSqliteDatabaseUrl(databasePath) {
 
 async function initializeSchema(databaseUrl) {
   const prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
+    adapter: createPrismaAdapter(databaseUrl),
   });
 
   try {
@@ -393,6 +393,26 @@ async function initializeSchema(databaseUrl) {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+function createPrismaAdapter(databaseUrl) {
+  if (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://")) {
+    return new PrismaPg({
+      connectionString: databaseUrl,
+    });
+  }
+
+  if (databaseUrl.startsWith("mysql://")) {
+    return new PrismaMariaDb(databaseUrl);
+  }
+
+  if (databaseUrl.startsWith("sqlserver://")) {
+    return new PrismaMssql(databaseUrl);
+  }
+
+  return new PrismaBetterSqlite3({
+    url: databaseUrl,
+  });
 }
 
 await main().catch((error) => {

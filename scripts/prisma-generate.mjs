@@ -16,6 +16,10 @@ const prismaCliPath = require.resolve("prisma/build/index.js");
 const normalizedProvider = readDatabaseProvider(
   process.env.LOCAL_PLAYGROUND_DATABASE_PROVIDER || process.env.DATABASE_PROVIDER,
 );
+process.env.DATABASE_PROVIDER = normalizedProvider;
+if (!readTrimmedString(process.env.DATABASE_URL)) {
+  process.env.DATABASE_URL = buildPlaceholderDatabaseUrl(normalizedProvider);
+}
 let temporarySchemaDirectory = "";
 let schemaPathForGeneration = schemaFilePath;
 let finalExitCode = 0;
@@ -94,4 +98,22 @@ function runCommand(command, args) {
 
     child.on("error", reject);
   });
+}
+
+function buildPlaceholderDatabaseUrl(provider) {
+  if (provider === "postgresql" || provider === "cockroachdb") {
+    return "postgresql://prisma:prisma@localhost:5432/local_playground";
+  }
+  if (provider === "mysql") {
+    return "mysql://prisma:prisma@localhost:3306/local_playground";
+  }
+  if (provider === "sqlserver") {
+    return "sqlserver://localhost:1433;database=local_playground;user=sa;password=Password123!;encrypt=true;trustServerCertificate=true";
+  }
+
+  return "file:./local-playground.sqlite";
+}
+
+function readTrimmedString(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
