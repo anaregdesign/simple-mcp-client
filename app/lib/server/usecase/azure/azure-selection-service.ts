@@ -12,8 +12,8 @@ import type {
 } from "~/lib/domain/repositories/azure-selection-preference-repository";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
-import type { ThemeMode } from "~/lib/domain/shared/theme-mode";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
 
 type AzureSelectionPreferencePayload = {

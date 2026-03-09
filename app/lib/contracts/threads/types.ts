@@ -5,7 +5,7 @@ import type { WorkspaceSkillProfileResource } from "~/lib/contracts/skills/works
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 export type ThreadInstructionResource = {
   id: number;

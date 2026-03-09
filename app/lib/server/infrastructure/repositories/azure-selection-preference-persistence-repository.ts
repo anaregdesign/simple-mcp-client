@@ -8,7 +8,7 @@ import type {
   AzureSelectionIdentity,
   AzureSelectionPreferenceRepository,
 } from "~/lib/domain/repositories/azure-selection-preference-repository";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { readThemeModeFromUnknown } from "~/lib/contracts/shared/theme-mode";
 import {
   ensurePersistenceDatabaseReady,

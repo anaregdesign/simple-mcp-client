@@ -18,7 +18,7 @@ import {
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { logServerRouteEvent } from "~/lib/server/observability/runtime-event-log";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
 

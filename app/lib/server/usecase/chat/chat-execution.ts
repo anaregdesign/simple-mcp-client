@@ -22,7 +22,7 @@ import {
   CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS,
 } from "~/lib/constants/chat";
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
   cloneThreadEnvironment,
   type ThreadEnvironment,

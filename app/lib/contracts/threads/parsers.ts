@@ -7,7 +7,7 @@ import {
 } from "~/lib/contracts/chat/operation-log";
 import { readMcpServerFromUnknown, type McpServerConfig } from "~/lib/contracts/mcp/profile";
 import { readThreadSkillActivationList } from "~/lib/contracts/skills/parsers";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
 import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/contracts/threads/instruction-context";
 import type { ThreadResource, ThreadState, ThreadSummary, ThreadWritePayload } from "~/lib/contracts/threads/types";

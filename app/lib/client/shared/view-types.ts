@@ -1,9 +1,9 @@
 /**
  * Client runtime support module.
  */
-import type { McpTransport } from "~/lib/domain/shared/mcp-transport";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
-import type { ThemeMode as DomainThemeMode } from "~/lib/domain/shared/theme-mode";
+import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ThemeMode as DomainThemeMode } from "~/lib/domain/value-objects/theme-mode";
 import type { ThreadInstructionContextToggleKey } from "~/lib/contracts/threads/instruction-context";
 
 export type MainViewTab = "settings" | "skills" | "mcp" | "threads";

@@ -16,7 +16,7 @@ import {
   buildThreadAutoTitleRequestMessage,
   normalizeThreadAutoTitle,
 } from "~/lib/contracts/threads/title";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

@@ -1,4 +1,4 @@
-import type { ThemeMode } from "~/lib/domain/shared/theme-mode";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 
 const themeModeValues = new Set<ThemeMode>(["light", "dark"]);
 

@@ -21,7 +21,7 @@ import {
   AGENT_SKILL_NAME_MAX_LENGTH,
   CHAT_MAX_ACTIVE_SKILLS,
 } from "~/lib/constants/skills";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   parseThreadEnvironmentFromUnknown,

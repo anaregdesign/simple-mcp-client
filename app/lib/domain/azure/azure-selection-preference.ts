@@ -1,5 +1,5 @@
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
-import type { ThemeMode } from "~/lib/domain/shared/theme-mode";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 import { DomainError } from "~/lib/domain/shared/domain-error";
 
 export type AzureSelectionTargetPreference = {

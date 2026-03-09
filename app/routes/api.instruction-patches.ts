@@ -35,7 +35,7 @@ import {
   PROMPT_MAX_FILE_NAME_LENGTH,
   PROMPT_MAX_FILE_STEM_LENGTH,
 } from "~/lib/constants/instruction";
-import type { ReasoningEffort } from "~/lib/domain/shared/reasoning-effort";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 const INSTRUCTION_PATCHES_ALLOWED_METHODS = ["POST"] as const;
