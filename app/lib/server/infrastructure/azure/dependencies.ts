@@ -62,6 +62,14 @@ export function createAzureDependencies(
       return existingCredential;
     }
 
+    if (normalizedTenantId) {
+      const defaultCredential = credentialsByTenant.get("default");
+      if (defaultCredential) {
+        credentialsByTenant.set(cacheKey, defaultCredential);
+        return defaultCredential;
+      }
+    }
+
     const createdCredential = createCredential(normalizedTenantId || undefined);
     credentialsByTenant.set(cacheKey, createdCredential);
     return createdCredential;
@@ -82,23 +90,27 @@ export function createAzureDependencies(
     const credentialRef = getCredentialForTenant(normalizedTenantId);
     await authenticateAzureCredential(credentialRef, normalizedScope, normalizedTenantId);
     clearAzureAccessTokenCache();
-    activeTenantId = normalizedTenantId;
-
-    const accessToken = await requestAzureAccessToken(
+    const accessToken = await requestAzureAccessTokenAfterAuthentication(
       credentialRef,
       normalizedScope,
       normalizedTenantId,
     );
+    const resolvedTenantId =
+      normalizedTenantId ||
+      (accessToken?.token ? readAzureAccessTokenTenantId(accessToken.token) : "");
+    if (resolvedTenantId) {
+      credentialsByTenant.set(resolvedTenantId, credentialRef);
+    }
+    activeTenantId = resolvedTenantId;
+
     if (!accessToken?.token) {
-      throw new Error(
-        `Azure credential failed to acquire Azure token (scope: ${normalizedScope}).`,
-      );
+      return;
     }
     if (shouldValidateAzureAccessTokenTenant(normalizedTenantId)) {
       assertAzureAccessTokenTenant(accessToken.token, normalizedTenantId, normalizedScope);
     }
     accessTokenByScope.set(
-      createAccessTokenCacheKey(normalizedScope, normalizedTenantId),
+      createAccessTokenCacheKey(normalizedScope, resolvedTenantId),
       mapCachedAzureAccessToken(accessToken),
     );
   };
@@ -253,6 +265,27 @@ async function authenticateAzureCredential(
   await credential.authenticate(scope);
 }
 
+async function requestAzureAccessTokenAfterAuthentication(
+  credential: AzureCredential,
+  scope: string,
+  tenantId: string,
+): Promise<AzureAccessToken | null> {
+  try {
+    const accessToken = await requestAzureAccessToken(credential, scope, tenantId);
+    if (!accessToken?.token) {
+      throw new Error(
+        `Azure credential failed to acquire Azure token (scope: ${scope}).`,
+      );
+    }
+    return accessToken;
+  } catch (error) {
+    if (isAzureAuthenticationRequiredError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function mapCachedAzureAccessToken(token: AzureAccessToken): CachedAzureAccessToken {
   const refreshAfterTimestamp =
     typeof token.refreshAfterTimestamp === "number" ? token.refreshAfterTimestamp : undefined;
@@ -316,4 +349,16 @@ function readAzureAccessTokenTenantId(accessToken: string): string {
   } catch {
     return "";
   }
+}
+
+function isAzureAuthenticationRequiredError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    error.name === "AuthenticationRequiredError" ||
+    message.includes("authenticationrequirederror") ||
+    message.includes("automatic authentication has been disabled")
+  );
 }

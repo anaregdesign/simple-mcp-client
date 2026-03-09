@@ -36,11 +36,9 @@ export async function action({ request }: Route.ActionArgs) {
     }
 
     const tenantId = tenantIdResult.tenantId;
-    let resolvedTenantId = "";
 
     try {
-      const session = await azureSessionService.startSession(tenantId);
-      resolvedTenantId = session.tenantId;
+      await azureSessionService.startSession(tenantId);
 
       return Response.json({
         message: "Azure login completed. Azure projects were refreshed.",
@@ -56,7 +54,6 @@ export async function action({ request }: Route.ActionArgs) {
         context: {
           scope: AZURE_ARM_SCOPE,
           requestedTenantId: tenantId || null,
-          resolvedTenantId: resolvedTenantId || null,
         },
       });
 
