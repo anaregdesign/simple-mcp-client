@@ -5,12 +5,11 @@ import {
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/contracts/skills/types";
+} from "~/lib/domain/entities/skill-catalog";
 import type {
-  WorkspaceSkillProfileResource,
   WorkspaceSkillProfilesData,
-  WorkspaceSkillRegistryProfileResource,
-} from "~/lib/contracts/skills/workspace-skill-profiles";
+  WorkspaceSkillRegistryProfile,
+} from "~/lib/domain/entities/workspace-skill-profile";
 import type {
   SyncWorkspaceSkillMastersResult,
   WorkspaceSkillProfileRepository,
@@ -240,7 +239,7 @@ function buildWorkspaceSkillRegistryProfileRecord(
   userId: number,
   registry: SkillRegistryCatalog,
   registryOption: NonNullable<ReturnType<typeof readSkillRegistryOptionById>>,
-): Omit<WorkspaceSkillRegistryProfileResource, "id"> {
+): Omit<WorkspaceSkillRegistryProfile, "id"> {
   return {
     userId,
     registryId: registry.registryId,

@@ -5,15 +5,15 @@ import {
   isSkillRegistryId,
   parseSkillRegistrySkillName,
   readSkillRegistrySkillNameValidationMessage,
-  type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/contracts/skills/types";
+} from "~/lib/domain/entities/skill-catalog";
 import type {
   WorkspaceSkillProfilesData,
-} from "~/lib/contracts/skills/workspace-skill-profiles";
+} from "~/lib/domain/entities/workspace-skill-profile";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry-id";
 import type {
   WorkspaceSkillDiscoveryGateway,
 } from "~/lib/domain/repositories/workspace-skill-discovery-gateway";

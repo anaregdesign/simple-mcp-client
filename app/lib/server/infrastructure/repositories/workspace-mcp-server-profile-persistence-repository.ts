@@ -1,4 +1,4 @@
-import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
+import type { WorkspaceMcpServerProfile } from "~/lib/domain/entities/workspace-mcp-server-profile";
 import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
 import {
   ensurePersistenceDatabaseReady,
@@ -8,7 +8,7 @@ import {
 export class WorkspaceMcpServerProfilePersistenceRepository
   implements WorkspaceMcpServerProfileRepository
 {
-  async listByUserId(userId: number): Promise<WorkspaceMcpServerProfileResource[]> {
+  async listByUserId(userId: number): Promise<WorkspaceMcpServerProfile[]> {
     await ensurePersistenceDatabaseReady();
     return prisma.workspaceMcpServerProfile.findMany({
       where: {
@@ -22,7 +22,7 @@ export class WorkspaceMcpServerProfilePersistenceRepository
 
   async replaceByUserId(
     userId: number,
-    profiles: WorkspaceMcpServerProfileResource[],
+    profiles: WorkspaceMcpServerProfile[],
   ): Promise<void> {
     await ensurePersistenceDatabaseReady();
     await prisma.$transaction(async (transaction) => {

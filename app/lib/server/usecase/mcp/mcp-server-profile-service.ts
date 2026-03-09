@@ -11,12 +11,12 @@ import {
   buildMcpServerKey,
   readMcpServerFromWorkspaceProfileResource,
   type McpServerConfig,
-  type WorkspaceMcpServerProfileResource,
 } from "~/lib/contracts/mcp/profile";
 import {
   parseIncomingMcpServer,
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
+import type { WorkspaceMcpServerProfile } from "~/lib/domain/entities/workspace-mcp-server-profile";
 import type { WorkspaceMcpServerProfileRepository } from "~/lib/domain/repositories/workspace-mcp-server-profile-repository";
 import {
   resolveDefaultFilesystemWorkingDirectory,
@@ -57,13 +57,13 @@ export class McpServerProfileService {
 
   async readWorkspaceMcpServerProfiles(
     userId: number,
-  ): Promise<WorkspaceMcpServerProfileResource[]> {
+  ): Promise<WorkspaceMcpServerProfile[]> {
     return readWorkspaceMcpServerProfiles(this.repository, userId);
   }
 
   async writeWorkspaceMcpServerProfiles(
     userId: number,
-    profiles: WorkspaceMcpServerProfileResource[],
+    profiles: WorkspaceMcpServerProfile[],
   ): Promise<void> {
     return writeWorkspaceMcpServerProfiles(this.repository, userId, profiles);
   }
@@ -73,28 +73,28 @@ export class McpServerProfileService {
   }
 
   mergeDefaultWorkspaceMcpServerProfiles(
-    currentProfiles: WorkspaceMcpServerProfileResource[],
+    currentProfiles: WorkspaceMcpServerProfile[],
     workspaceUserId: number,
-  ): WorkspaceMcpServerProfileResource[] {
+  ): WorkspaceMcpServerProfile[] {
     return mergeDefaultWorkspaceMcpServerProfiles(currentProfiles, workspaceUserId);
   }
 
   upsertWorkspaceMcpServerProfile(
     userId: number,
-    currentProfiles: WorkspaceMcpServerProfileResource[],
+    currentProfiles: WorkspaceMcpServerProfile[],
     incoming: IncomingMcpServerConfig,
   ): {
-    profile: WorkspaceMcpServerProfileResource;
-    profiles: WorkspaceMcpServerProfileResource[];
+    profile: WorkspaceMcpServerProfile;
+    profiles: WorkspaceMcpServerProfile[];
     warning: string | null;
   } {
     return upsertWorkspaceMcpServerProfile(userId, currentProfiles, incoming);
   }
 
   deleteWorkspaceMcpServerProfile(
-    currentProfiles: WorkspaceMcpServerProfileResource[],
+    currentProfiles: WorkspaceMcpServerProfile[],
     id: string,
-  ): { profiles: WorkspaceMcpServerProfileResource[]; deleted: boolean } {
+  ): { profiles: WorkspaceMcpServerProfile[]; deleted: boolean } {
     return deleteWorkspaceMcpServerProfile(currentProfiles, id);
   }
 }
@@ -108,10 +108,10 @@ export function createMcpServerProfileService(
 export async function readWorkspaceMcpServerProfiles(
   repository: WorkspaceMcpServerProfileRepository,
   userId: number,
-): Promise<WorkspaceMcpServerProfileResource[]> {
+): Promise<WorkspaceMcpServerProfile[]> {
   const records = await repository.listByUserId(userId);
 
-  const profiles: WorkspaceMcpServerProfileResource[] = [];
+  const profiles: WorkspaceMcpServerProfile[] = [];
   const keys = new Set<string>();
 
   for (const record of records) {
@@ -135,7 +135,7 @@ export async function readWorkspaceMcpServerProfiles(
 export async function writeWorkspaceMcpServerProfiles(
   repository: WorkspaceMcpServerProfileRepository,
   userId: number,
-  profiles: WorkspaceMcpServerProfileResource[],
+  profiles: WorkspaceMcpServerProfile[],
 ): Promise<void> {
   await repository.replaceByUserId(
     userId,
@@ -146,9 +146,9 @@ export async function writeWorkspaceMcpServerProfiles(
 }
 
 export function mergeDefaultWorkspaceMcpServerProfiles(
-  currentProfiles: WorkspaceMcpServerProfileResource[],
+  currentProfiles: WorkspaceMcpServerProfile[],
   workspaceUserId: number,
-): WorkspaceMcpServerProfileResource[] {
+): WorkspaceMcpServerProfile[] {
   const mergedProfiles = normalizeLegacyDefaultProfiles(
     currentProfiles,
     workspaceUserId,
@@ -202,12 +202,12 @@ export async function ensureDefaultMcpServersForUser(
 
 function buildDefaultMcpServerProfiles(
   workspaceUserId: number,
-): WorkspaceMcpServerProfileResource[] {
+): WorkspaceMcpServerProfile[] {
   const defaultStdioWorkingDirectory =
     resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
   return DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile, index) =>
     defaultProfile.transport === "stdio"
-      ? createWorkspaceMcpServerProfileResource({
+      ? createWorkspaceMcpServerProfile({
           id: createRandomId(),
           userId: workspaceUserId,
           profileOrder: index,
@@ -222,7 +222,7 @@ function buildDefaultMcpServerProfiles(
               : undefined,
           env: { ...defaultProfile.env },
         })
-      : createWorkspaceMcpServerProfileResource({
+      : createWorkspaceMcpServerProfile({
           id: createRandomId(),
           userId: workspaceUserId,
           profileOrder: index,
@@ -239,14 +239,14 @@ function buildDefaultMcpServerProfiles(
 }
 
 function normalizeLegacyDefaultProfiles(
-  currentProfiles: WorkspaceMcpServerProfileResource[],
+  currentProfiles: WorkspaceMcpServerProfile[],
   workspaceUserId: number,
-): WorkspaceMcpServerProfileResource[] {
+): WorkspaceMcpServerProfile[] {
   const defaultWorkingDirectory =
     resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
   const legacyDefaultWorkingDirectory =
     resolveLegacyFilesystemWorkingDirectory();
-  const normalizedProfiles: WorkspaceMcpServerProfileResource[] = [];
+  const normalizedProfiles: WorkspaceMcpServerProfile[] = [];
 
   for (const profile of currentProfiles) {
     const config = readMcpServerFromWorkspaceProfileResource(profile);
@@ -268,7 +268,7 @@ function normalizeLegacyDefaultProfiles(
 
     normalizedProfiles.push(
       config.transport === "stdio"
-        ? createWorkspaceMcpServerProfileResource({
+        ? createWorkspaceMcpServerProfile({
             ...config,
             userId: profile.userId,
             profileOrder: profile.profileOrder,
@@ -357,11 +357,11 @@ function normalizePathForComparison(value: string): string {
 
 export function upsertWorkspaceMcpServerProfile(
   userId: number,
-  currentProfiles: WorkspaceMcpServerProfileResource[],
+  currentProfiles: WorkspaceMcpServerProfile[],
   incoming: IncomingMcpServerConfig,
 ): {
-  profile: WorkspaceMcpServerProfileResource;
-  profiles: WorkspaceMcpServerProfileResource[];
+  profile: WorkspaceMcpServerProfile;
+  profiles: WorkspaceMcpServerProfile[];
   warning: string | null;
 } {
   const incomingKey = buildIncomingProfileKey(incoming);
@@ -371,7 +371,7 @@ export function upsertWorkspaceMcpServerProfile(
       config: readMcpServerFromWorkspaceProfileResource(profile),
     }))
     .filter(
-      (entry): entry is { profile: WorkspaceMcpServerProfileResource; config: McpServerConfig } =>
+      (entry): entry is { profile: WorkspaceMcpServerProfile; config: McpServerConfig } =>
         entry.config !== null,
     );
 
@@ -397,7 +397,7 @@ export function upsertWorkspaceMcpServerProfile(
     previousProfile?.connectOnThreadCreate ??
     false;
 
-  const profile = createWorkspaceMcpServerProfileResource(
+  const profile = createWorkspaceMcpServerProfile(
     incoming.transport === "stdio"
       ? {
           id: profileId,
@@ -451,9 +451,9 @@ export function upsertWorkspaceMcpServerProfile(
 }
 
 export function deleteWorkspaceMcpServerProfile(
-  currentProfiles: WorkspaceMcpServerProfileResource[],
+  currentProfiles: WorkspaceMcpServerProfile[],
   id: string,
-): { profiles: WorkspaceMcpServerProfileResource[]; deleted: boolean } {
+): { profiles: WorkspaceMcpServerProfile[]; deleted: boolean } {
   const nextProfiles = currentProfiles.filter((profile) => profile.id !== id);
   return {
     profiles: nextProfiles,
@@ -463,9 +463,9 @@ export function deleteWorkspaceMcpServerProfile(
 
 function mapProfileToDatabaseRecord(
   userId: number,
-  profile: WorkspaceMcpServerProfileResource,
+  profile: WorkspaceMcpServerProfile,
   profileOrder: number,
-): WorkspaceMcpServerProfileResource {
+): WorkspaceMcpServerProfile {
   const config = readMcpServerFromWorkspaceProfileResource(profile);
   if (!config) {
     return {
@@ -475,14 +475,14 @@ function mapProfileToDatabaseRecord(
     };
   }
 
-  return createWorkspaceMcpServerProfileResource({
+  return createWorkspaceMcpServerProfile({
     ...config,
     userId,
     profileOrder,
   });
 }
 
-function createWorkspaceMcpServerProfileResource(
+function createWorkspaceMcpServerProfile(
   profile:
     | (Extract<McpServerConfig, { transport: "stdio" }> & {
         userId: number;
@@ -492,7 +492,7 @@ function createWorkspaceMcpServerProfileResource(
         userId: number;
         profileOrder: number;
       }),
-): WorkspaceMcpServerProfileResource {
+): WorkspaceMcpServerProfile {
   const configKey = buildMcpServerKey(profile);
   if (profile.transport === "stdio") {
     return {
