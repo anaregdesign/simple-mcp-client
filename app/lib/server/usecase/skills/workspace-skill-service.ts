@@ -1,10 +1,6 @@
 /**
  * Workspace Skill application service module.
  */
-import type {
-  WorkspaceSkillProfile as WorkspaceSkillProfileResource,
-  WorkspaceSkillRegistryProfile as WorkspaceSkillRegistryProfileResource,
-} from "@prisma/client";
 import {
   isSkillRegistryId,
   parseSkillRegistrySkillName,
@@ -17,12 +13,16 @@ import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
 } from "~/lib/contracts/skills/types";
+import type {
+  WorkspaceSkillProfileResource,
+  WorkspaceSkillRegistryProfileResource,
+} from "~/lib/contracts/skills/workspace-skill-profiles";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
-} from "~/lib/server/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+} from "~/lib/server/infrastructure/persistence/prisma";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 import { discoverSkillCatalog } from "~/lib/server/skills/catalog";
 import { discoverSkillRegistries } from "~/lib/server/skills/registry";
 

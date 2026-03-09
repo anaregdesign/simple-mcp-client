@@ -1,7 +1,6 @@
 /**
  * Thread application service module.
  */
-import { Prisma } from "@prisma/client";
 import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/contracts/skills/registry";
@@ -11,8 +10,8 @@ import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
-} from "~/lib/server/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+} from "~/lib/server/infrastructure/persistence/prisma";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 import {
   buildThreadMessageSkillActivationRowId,
   buildThreadMcpServerRowId,
@@ -20,44 +19,42 @@ import {
   buildThreadSkillActivationRowId,
 } from "~/lib/server/shared/thread-row-ids";
 
-const threadResourceArgs = {
-  include: {
-    instruction: true,
-    messages: {
-      orderBy: {
-        conversationOrder: "asc",
-      },
-      include: {
-        skillActivations: {
-          orderBy: {
-            selectionOrder: "asc",
-          },
-          include: {
-            skillProfile: true,
-          },
+const threadResourceInclude = {
+  instruction: true,
+  messages: {
+    orderBy: {
+      conversationOrder: "asc",
+    },
+    include: {
+      skillActivations: {
+        orderBy: {
+          selectionOrder: "asc",
+        },
+        include: {
+          skillProfile: true,
         },
       },
     },
-    mcpServers: {
-      orderBy: {
-        selectionOrder: "asc",
-      },
-    },
-    mcpRpcLogs: {
-      orderBy: {
-        conversationOrder: "asc",
-      },
-    },
-    skillSelections: {
-      orderBy: {
-        selectionOrder: "asc",
-      },
-      include: {
-        skillProfile: true,
-      },
+  },
+  mcpServers: {
+    orderBy: {
+      selectionOrder: "asc",
     },
   },
-} satisfies Prisma.ThreadDefaultArgs;
+  mcpRpcLogs: {
+    orderBy: {
+      conversationOrder: "asc",
+    },
+  },
+  skillSelections: {
+    orderBy: {
+      selectionOrder: "asc",
+    },
+    include: {
+      skillProfile: true,
+    },
+  },
+} as const;
 
 export class ThreadQueryService {
   async readUserThreads(userId: number): Promise<ThreadResource[]> {
@@ -113,7 +110,7 @@ async function readUserThreads(userId: number): Promise<ThreadResource[]> {
         createdAt: "desc",
       },
     ],
-    ...threadResourceArgs,
+    include: threadResourceInclude,
   });
 }
 
@@ -128,7 +125,7 @@ async function readThreadById(
       id: threadId,
       userId,
     },
-    ...threadResourceArgs,
+    include: threadResourceInclude,
   });
 }
 
@@ -506,14 +503,20 @@ export async function saveThreadPayload(
 }
 
 function isThreadIdConflictError(error: unknown): boolean {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+  if (!error || typeof error !== "object") {
     return false;
   }
-  if (error.code !== "P2002") {
+  const candidate = error as {
+    code?: unknown;
+    meta?: {
+      target?: unknown;
+    };
+  };
+  if (candidate.code !== "P2002") {
     return false;
   }
 
-  const target = error.meta?.target;
+  const target = candidate.meta?.target;
   if (Array.isArray(target)) {
     return target.includes("id");
   }
@@ -619,7 +622,10 @@ export async function logicalRestoreThread(
 }
 
 async function upsertThreadSkillProfiles(options: {
-  transaction: Prisma.TransactionClient;
+  transaction: Pick<
+    typeof prisma,
+    "workspaceSkillRegistryProfile" | "workspaceSkillProfile"
+  >;
   userId: number;
   skillSelections: ThreadWritePayload["skillSelections"];
 }): Promise<Map<string, number>> {

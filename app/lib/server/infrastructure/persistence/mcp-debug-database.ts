@@ -1,7 +1,7 @@
 /**
  * Database debug metadata and read helpers for MCP tools.
  */
-import { prisma } from "~/lib/server/persistence/prisma";
+import { prisma } from "~/lib/server/infrastructure/persistence/prisma";
 import { databaseDebugTableDefinitions } from "./mcp-debug-database-metadata";
 import type {
   DatabaseDebugTableDefinition,

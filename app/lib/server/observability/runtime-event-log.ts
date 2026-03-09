@@ -1,7 +1,6 @@
 /**
  * Server runtime module.
  */
-import type { Prisma } from "@prisma/client";
 import {
   createRuntimeEventLogId,
   normalizeRuntimeEventLogLevel,
@@ -23,7 +22,7 @@ import {
 import {
   ensurePersistenceDatabaseReady,
   prisma,
-} from "~/lib/server/persistence/prisma";
+} from "~/lib/server/infrastructure/persistence/prisma";
 
 type ProcessWithUncaughtMonitor = NodeJS.Process & {
   on(event: "uncaughtExceptionMonitor", listener: (error: Error, origin: string) => void): NodeJS.Process;
@@ -187,7 +186,15 @@ export async function readRuntimeEventLogByIdForUser(options: {
     return null;
   }
 
-  const ownerFilters: Prisma.RuntimeEventLogWhereInput[] = [];
+  const ownerFilters: Array<
+    | {
+        tenantId: string;
+        principalId: string;
+      }
+    | {
+        userId: number;
+      }
+  > = [];
   const tenantId = options.tenantId.trim();
   const principalId = options.principalId.trim();
   if (tenantId && principalId) {

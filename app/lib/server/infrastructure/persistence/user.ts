@@ -1,7 +1,7 @@
 /**
  * Server runtime module.
  */
-import { ensurePersistenceDatabaseReady, prisma } from "~/lib/server/persistence/prisma";
+import { ensurePersistenceDatabaseReady, prisma } from "~/lib/server/infrastructure/persistence/prisma";
 
 export type UserIdentity = {
   tenantId: string;

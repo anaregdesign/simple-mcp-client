@@ -32,11 +32,11 @@ vi.mock("~/lib/server/auth/azure-user", () => ({
   readAzureArmUserContext,
 }));
 
-vi.mock("~/lib/server/persistence/user", () => ({
+vi.mock("~/lib/server/infrastructure/persistence/user", () => ({
   getOrCreateUserByIdentity,
 }));
 
-vi.mock("~/lib/server/persistence/prisma", () => ({
+vi.mock("~/lib/server/infrastructure/persistence/prisma", () => ({
   ensurePersistenceDatabaseReady: vi.fn(async () => undefined),
   prisma: {
     workspaceMcpServerProfile: {

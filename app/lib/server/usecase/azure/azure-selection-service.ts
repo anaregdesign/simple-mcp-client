@@ -4,7 +4,7 @@
 import {
   ensurePersistenceDatabaseReady,
   prisma,
-} from "~/lib/server/persistence/prisma";
+} from "~/lib/server/infrastructure/persistence/prisma";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";

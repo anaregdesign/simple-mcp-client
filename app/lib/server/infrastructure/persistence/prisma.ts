@@ -5,16 +5,16 @@ import { PrismaClient } from "@prisma/client";
 import {
   buildSqlDatabaseUrlWithPassword,
   resolvePersistenceDatabaseConfig,
-} from "~/lib/server/persistence/database-config";
-import { createPrismaAdapter } from "~/lib/server/persistence/prisma-adapter";
+} from "~/lib/server/infrastructure/persistence/database-config";
+import { createPrismaAdapter } from "~/lib/server/infrastructure/persistence/prisma-adapter";
 import {
   resolveSqlAzureIdentityDatabaseUrl,
   type SqlAzureIdentityTokenState,
-} from "~/lib/server/persistence/sql-azure-identity";
+} from "~/lib/server/infrastructure/persistence/sql-azure-identity";
 import {
   ensureSqliteDatabaseParentDirectoryExists,
   ensureSqliteDatabaseSchema,
-} from "~/lib/server/persistence/sqlite-schema";
+} from "~/lib/server/infrastructure/persistence/sqlite-schema";
 
 const resolvedDatabaseConfig = resolvePersistenceDatabaseConfig();
 const resolvedDatabaseProvider = resolvedDatabaseConfig.provider;

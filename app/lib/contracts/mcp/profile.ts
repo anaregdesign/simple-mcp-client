@@ -1,4 +1,3 @@
-import type { WorkspaceMcpServerProfile } from "@prisma/client";
 import {
   ENV_KEY_PATTERN,
   HTTP_HEADER_NAME_PATTERN,
@@ -11,7 +10,24 @@ import {
 } from "~/lib/constants/mcp";
 import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 
-export type WorkspaceMcpServerProfileResource = WorkspaceMcpServerProfile;
+export type WorkspaceMcpServerProfileResource = {
+  id: string;
+  userId: number;
+  profileOrder: number;
+  connectOnThreadCreate: boolean;
+  configKey: string;
+  name: string;
+  transport: string;
+  url: string | null;
+  headersJson: string | null;
+  useAzureAuth: boolean;
+  azureAuthScope: string | null;
+  timeoutSeconds: number | null;
+  command: string | null;
+  argsJson: string | null;
+  cwd: string | null;
+  envJson: string | null;
+};
 
 export type McpHttpServerConfig = {
   id: string;

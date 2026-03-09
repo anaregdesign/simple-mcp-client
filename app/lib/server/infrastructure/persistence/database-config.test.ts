@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSqlDatabaseUrlWithPassword,
   resolvePersistenceDatabaseConfig,
-} from "~/lib/server/persistence/database-config";
+} from "~/lib/server/infrastructure/persistence/database-config";
 
 describe("resolvePersistenceDatabaseConfig", () => {
   it("defaults to sqlite with the foundry database path", () => {

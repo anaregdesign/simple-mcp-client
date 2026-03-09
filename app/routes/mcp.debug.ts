@@ -27,8 +27,8 @@ import {
   normalizeDatabaseDebugReadOptions,
   readDatabaseDebugLatestThreadSnapshot,
   readDatabaseDebugTableRows,
-} from "~/lib/server/persistence/mcp-debug-database";
-import { ensurePersistenceDatabaseReady } from "~/lib/server/persistence/prisma";
+} from "~/lib/server/infrastructure/persistence/mcp-debug-database";
+import { ensurePersistenceDatabaseReady } from "~/lib/server/infrastructure/persistence/prisma";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

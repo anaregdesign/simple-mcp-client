@@ -3,7 +3,7 @@
  */
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 import { readRuntimeEventLogByIdForUser } from "~/lib/server/observability/runtime-event-log";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 
 export type RuntimeEventLogReadResult =
   | { status: "auth_required" }

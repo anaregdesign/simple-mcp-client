@@ -19,7 +19,7 @@ import {
   type SkillDiscoveryResult,
 } from "~/lib/server/usecase/skills/workspace-skill-service";
 import { threadQueryService } from "~/lib/server/usecase/threads/thread-service";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 

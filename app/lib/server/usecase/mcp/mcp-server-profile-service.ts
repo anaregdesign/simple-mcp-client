@@ -24,8 +24,8 @@ import {
 import {
   ensurePersistenceDatabaseReady,
   prisma,
-} from "~/lib/server/persistence/prisma";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+} from "~/lib/server/infrastructure/persistence/prisma";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 import { readAzureArmUserContext } from "~/lib/server/auth/azure-user";
 
 export { parseIncomingMcpServer };

@@ -1,12 +1,12 @@
 import type {
-  WorkspaceSkillProfile as WorkspaceSkillProfileResource,
-  WorkspaceSkillRegistryProfile as WorkspaceSkillRegistryProfileResource,
-} from "@prisma/client";
-import type {
   ApiErrorResponseBody,
   ApiSuccessResponseBody,
 } from "~/lib/contracts/api/response";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
+import type {
+  WorkspaceSkillProfileResource,
+  WorkspaceSkillRegistryProfileResource,
+} from "~/lib/contracts/skills/workspace-skill-profiles";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 
 export type WorkspaceBootstrapData = {

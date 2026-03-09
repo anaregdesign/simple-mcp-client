@@ -5,7 +5,7 @@ import { DefaultAzureCredential } from "@azure/identity";
 import {
   buildSqlDatabaseUrlWithPassword,
   type PersistenceDatabaseProvider,
-} from "~/lib/server/persistence/database-config";
+} from "~/lib/server/infrastructure/persistence/database-config";
 
 export type SqlAzureIdentityTokenState = {
   token: string;

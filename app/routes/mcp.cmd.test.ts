@@ -23,7 +23,7 @@ vi.mock("~/lib/server/auth/azure-user", () => ({
   readAzureArmUserContext: readAzureArmUserContextMock,
 }));
 
-vi.mock("~/lib/server/persistence/user", () => ({
+vi.mock("~/lib/server/infrastructure/persistence/user", () => ({
   getOrCreateUserByIdentity: getOrCreateUserByIdentityMock,
 }));
 

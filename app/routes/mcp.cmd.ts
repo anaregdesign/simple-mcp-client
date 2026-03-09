@@ -18,7 +18,7 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
-import { getOrCreateUserByIdentity } from "~/lib/server/persistence/user";
+import { getOrCreateUserByIdentity } from "~/lib/server/infrastructure/persistence/user";
 
 const MCP_CMD_ROUTE_PATH = "/mcp/cmd";
 const MCP_CMD_AUTH_REQUIRED_MESSAGE =

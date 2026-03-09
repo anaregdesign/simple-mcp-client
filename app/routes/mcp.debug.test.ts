@@ -13,7 +13,7 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/persistence/prisma", () => ({
+vi.mock("~/lib/server/infrastructure/persistence/prisma", () => ({
   ensurePersistenceDatabaseReady: ensurePersistenceDatabaseReadyMock,
 }));
 
