@@ -2,13 +2,13 @@
  * Test module verifying chat runtime stage helpers.
  */
 import { describe, expect, it, vi } from "vitest";
-import { cleanupChatRuntime } from "~/lib/server/infrastructure/gateways/chat/chat-runtime-cleanup";
+import { cleanupChatRuntime } from "~/lib/server/usecase/chat/chat-runtime-cleanup";
 import {
   prepareMcpRuntime,
   type RuntimeMcpLease,
-} from "~/lib/server/infrastructure/gateways/mcp/chat-mcp-runtime";
+} from "~/lib/server/usecase/chat/chat-mcp-runtime";
 import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-context";
-import { prepareSkillRuntime as prepareSkillRuntimeFromGateway } from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime-preparation";
+import { prepareSkillRuntime } from "~/lib/server/usecase/chat/chat-skill-runtime-preparation";
 
 type TestLease = RuntimeMcpLease & {
   id: string;
@@ -95,7 +95,7 @@ describe("prepareSkillRuntime", () => {
   it("creates execution context, emits activation logs, and returns warnings", async () => {
     const emitActivationLogs = vi.fn();
 
-    const result = await prepareSkillRuntimeFromGateway({
+    const result = await prepareSkillRuntime({
       loadRuntime: async () => ({ activeSkills: ["skill-a"] }),
       createExecutionContext: () => ({ env: { A: "1" } }),
       emitActivationLogs,

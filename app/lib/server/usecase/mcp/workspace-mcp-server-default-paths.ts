@@ -2,6 +2,7 @@ import nodeOs from "node:os";
 import path from "node:path";
 import {
   LEGACY_WORKSPACE_STORAGE_DIRECTORY_NAME,
+  WORKSPACE_THREADS_DIRECTORY_NAME,
   WORKSPACE_USERS_DIRECTORY_NAME,
   WINDOWS_WORKSPACE_STORAGE_DIRECTORY_NAME,
 } from "~/lib/constants/persistence";
@@ -15,6 +16,11 @@ type ResolveWorkspaceStorageDirectoryOptions = {
 type ResolveWorkspaceUserDirectoryOptions =
   ResolveWorkspaceStorageDirectoryOptions & {
     workspaceUserId: number;
+  };
+
+type ResolveWorkspaceThreadDirectoryOptions =
+  ResolveWorkspaceUserDirectoryOptions & {
+    threadId: string;
   };
 
 export function resolveDefaultFilesystemWorkingDirectory(
@@ -35,6 +41,21 @@ export function resolveLegacyFilesystemWorkingDirectory(
   return resolveWorkspaceStorageDirectory(options);
 }
 
+export function resolveThreadFilesystemWorkingDirectory(
+  workspaceUserId: number,
+  threadId: string,
+  options: ResolveWorkspaceThreadDirectoryOptions = {
+    workspaceUserId,
+    threadId,
+  },
+): string {
+  return resolveWorkspaceThreadDirectory({
+    ...options,
+    workspaceUserId,
+    threadId,
+  });
+}
+
 function resolveWorkspaceUserDirectory(
   options: ResolveWorkspaceUserDirectoryOptions,
 ): string {
@@ -43,6 +64,17 @@ function resolveWorkspaceUserDirectory(
     workspaceStorageDirectory,
     WORKSPACE_USERS_DIRECTORY_NAME,
     readWorkspaceUserDirectoryName(options.workspaceUserId),
+  );
+}
+
+function resolveWorkspaceThreadDirectory(
+  options: ResolveWorkspaceThreadDirectoryOptions,
+): string {
+  const workspaceUserDirectory = resolveWorkspaceUserDirectory(options);
+  return readPathModule(options.platform).join(
+    workspaceUserDirectory,
+    WORKSPACE_THREADS_DIRECTORY_NAME,
+    readWorkspaceThreadDirectoryName(options.threadId),
   );
 }
 
@@ -83,6 +115,19 @@ function readWorkspaceUserDirectoryName(workspaceUserId: number): string {
   }
 
   return String(workspaceUserId);
+}
+
+function readWorkspaceThreadDirectoryName(threadId: string): string {
+  const normalizedThreadId = threadId.trim();
+  if (!normalizedThreadId) {
+    throw new Error("`threadId` must be a non-empty string.");
+  }
+
+  if (normalizedThreadId.includes("/") || normalizedThreadId.includes("\\")) {
+    throw new Error("`threadId` must not contain path separators.");
+  }
+
+  return normalizedThreadId;
 }
 
 function readPathModule(platform: NodeJS.Platform | undefined) {

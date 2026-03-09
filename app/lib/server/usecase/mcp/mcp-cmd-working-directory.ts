@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveWorkspaceThreadDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import { resolveThreadFilesystemWorkingDirectory } from "./workspace-mcp-server-default-paths";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -85,10 +85,7 @@ function ensureThreadWorkingDirectory(
 ): ParseResult<string> {
   let resolved: string;
   try {
-    resolved = resolveWorkspaceThreadDirectory({
-      workspaceUserId: userId,
-      threadId,
-    });
+    resolved = resolveThreadFilesystemWorkingDirectory(userId, threadId);
   } catch (error) {
     return {
       ok: false,

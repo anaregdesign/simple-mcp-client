@@ -83,8 +83,8 @@ import {
   type SkillResourceKind,
 } from "~/lib/server/infrastructure/gateways/skills/skill-runtime";
 import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
-import { cleanupChatRuntime } from "~/lib/server/infrastructure/gateways/chat/chat-runtime-cleanup";
-import { prepareMcpRuntime } from "~/lib/server/infrastructure/gateways/mcp/chat-mcp-runtime";
+import { cleanupChatRuntime } from "~/lib/server/usecase/chat/chat-runtime-cleanup";
+import { prepareMcpRuntime } from "~/lib/server/usecase/chat/chat-mcp-runtime";
 import {
   buildMcpConnectParams,
   buildMcpConnectSuccessResponse,
@@ -125,7 +125,7 @@ import {
   type ActiveSkillRuntimeEntry,
   type SkillRuntimeContext,
 } from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime";
-import { prepareSkillRuntime } from "~/lib/server/infrastructure/gateways/skills/chat-skill-runtime-preparation";
+import { prepareSkillRuntime } from "~/lib/server/usecase/chat/chat-skill-runtime-preparation";
 import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,

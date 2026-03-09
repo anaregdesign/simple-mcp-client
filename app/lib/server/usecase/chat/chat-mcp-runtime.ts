@@ -50,7 +50,8 @@ export async function prepareMcpRuntime<TServerConfig, TServer, TLease extends R
     options.serverConfigs.map((serverConfig) => options.connectServer(serverConfig)),
   );
 
-  const successfulResults: Array<{ lease: TLease; server: TServer; connectDurationMs: number }> = [];
+  const successfulResults: Array<{ lease: TLease; server: TServer; connectDurationMs: number }> =
+    [];
   let firstError: Error | null = null;
 
   for (const result of connectResults) {

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import nodeOs from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveWorkspaceThreadDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import { resolveThreadFilesystemWorkingDirectory } from "./workspace-mcp-server-default-paths";
 import { resolveWorkingDirectory } from "./mcp-cmd-working-directory";
 
 const createdPaths = new Set<string>();
@@ -17,10 +17,7 @@ afterEach(() => {
 describe("resolveWorkingDirectory", () => {
   it("uses the workspace thread directory by default", () => {
     const threadId = "working-dir-default";
-    const expectedThreadDirectory = resolveWorkspaceThreadDirectory({
-      workspaceUserId: 42,
-      threadId,
-    });
+    const expectedThreadDirectory = resolveThreadFilesystemWorkingDirectory(42, threadId);
     createdPaths.add(expectedThreadDirectory);
 
     expect(resolveWorkingDirectory(42, threadId, null)).toEqual({
