@@ -105,10 +105,6 @@ import type {
   ThreadSummary,
 } from "~/lib/contracts/threads/types";
 import {
-  readSkillCatalogList,
-  readSkillRegistryCatalogList,
-} from "~/lib/contracts/skills/parsers";
-import {
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
 import type {
@@ -117,7 +113,6 @@ import type {
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
 import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
-import { readStringList } from "~/lib/client/usecase/workspace/collections";
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
@@ -165,7 +160,10 @@ import {
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
-import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
+import {
+  skillsApiClient,
+  type SkillsCatalogSnapshot,
+} from "~/lib/client/infrastructure/api/skills-api-client";
 import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
@@ -211,7 +209,6 @@ import {
 } from "~/lib/client/usecase/workspace/skill-selection-handlers";
 import {
   type InstructionEnhanceComparison,
-  type SkillsApiResponse,
   type ThreadRequestState,
 } from "~/lib/client/usecase/workspace/types";
 
@@ -1338,7 +1335,7 @@ export function useWorkspace() {
       }
 
       resolveAzureBackgroundSuccess();
-      applySkillsApiPayload(result.payload);
+      applySkillsCatalogSnapshot(result);
       setSkillRegistrySuccess(null);
     } catch (loadError) {
       if (requestSeq !== skillsRequestSeqRef.current) {
@@ -1370,24 +1367,19 @@ export function useWorkspace() {
     }
   }
 
-  function applySkillsApiPayload(payload: SkillsApiResponse) {
-    const parsedSkills = readSkillCatalogList(payload.skills);
-    const parsedRegistryCatalogs = readSkillRegistryCatalogList(
-      payload.registries,
-    );
-    const skillWarnings = readStringList(payload.skillWarnings);
-    const registryWarnings = readStringList(payload.registryWarnings);
-
-    setAvailableSkills(parsedSkills);
-    setSkillRegistryCatalogs(parsedRegistryCatalogs);
+  function applySkillsCatalogSnapshot(snapshot: SkillsCatalogSnapshot) {
+    setAvailableSkills(snapshot.skills);
+    setSkillRegistryCatalogs(snapshot.skillRegistries);
     setSkillsError(null);
     setSkillRegistryError(null);
     setSkillsWarning(
-      skillWarnings.length > 0 ? skillWarnings.slice(0, 2).join("\n") : null,
+      snapshot.skillWarnings.length > 0
+        ? snapshot.skillWarnings.slice(0, 2).join("\n")
+        : null,
     );
     setSkillRegistryWarning(
-      registryWarnings.length > 0
-        ? registryWarnings.slice(0, 2).join("\n")
+      snapshot.registryWarnings.length > 0
+        ? snapshot.registryWarnings.slice(0, 2).join("\n")
         : null,
     );
   }
@@ -1412,7 +1404,7 @@ export function useWorkspace() {
       });
 
       resolveAzureBackgroundSuccess();
-      applySkillsApiPayload(result.payload);
+      applySkillsCatalogSnapshot(result);
       setSkillRegistrySuccess(result.message);
     } catch (error) {
       if (error instanceof ClientApiError && error.kind === "auth_required") {

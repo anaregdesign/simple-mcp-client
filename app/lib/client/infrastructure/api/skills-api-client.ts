@@ -3,7 +3,6 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
-import type { SkillsApiResponse } from "~/lib/client/usecase/workspace/types";
 import {
   readSkillCatalogList,
   readSkillRegistryCatalogList,
@@ -13,6 +12,17 @@ import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
 } from "~/lib/contracts/skills/types";
+
+type SkillsApiResponse = {
+  skills?: unknown;
+  registries?: unknown;
+  skillWarnings?: unknown;
+  registryWarnings?: unknown;
+  warnings?: unknown;
+  message?: string;
+  authRequired?: boolean;
+  error?: string;
+};
 
 export type SkillsCatalogSnapshot = {
   skills: SkillCatalogEntry[];

@@ -3,7 +3,6 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
-import type { McpServersApiResponse } from "~/lib/client/usecase/workspace/types";
 import {
   readMcpServerFromWorkspaceProfileResource,
   readWorkspaceMcpServerProfileResourceList,
@@ -12,6 +11,14 @@ import {
   type WorkspaceMcpServerProfileResource,
 } from "~/lib/contracts/mcp/profile";
 import { isMcpServersAuthRequired } from "~/lib/client/infrastructure/api/mcp-servers-auth-state";
+
+type McpServersApiResponse = {
+  profile?: WorkspaceMcpServerProfileResource;
+  profiles?: WorkspaceMcpServerProfileResource[];
+  warning?: string;
+  authRequired?: boolean;
+  error?: string;
+};
 
 export type McpServersSnapshot = {
   profileResource: WorkspaceMcpServerProfileResource | null;
