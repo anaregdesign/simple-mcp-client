@@ -7,7 +7,7 @@ import {
   buildChatRequestPayload,
   consumeChatResponseStream,
   validateSendPreconditions,
-} from "~/lib/client/controller/send-message-usecase";
+} from "~/lib/client/usecase/workspace/send-message-usecase";
 
 describe("validateSendPreconditions", () => {
   const baseInput = {

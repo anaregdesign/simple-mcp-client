@@ -2,12 +2,12 @@
  * Client controller send-message use-case helpers.
  */
 import type { ChatApiResponse, ThreadOperationLogEntry } from "~/lib/client/chat/stream";
-import type { ThreadRequestState } from "~/lib/client/controller/types";
+import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ReasoningEffort } from "~/lib/client/shared/view-types";
-import type { ChatRequestMcpServer } from "~/lib/client/controller/mcp-runtime";
+import type { ChatRequestMcpServer } from "~/lib/client/usecase/workspace/mcp-runtime";
 
 export type ClientApiChatAttachment = {
   name: string;

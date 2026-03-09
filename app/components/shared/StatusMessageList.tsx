@@ -4,7 +4,7 @@
 import type { ComponentProps } from "react";
 import { CopyIconButton } from "~/components/shared/CopyIconButton";
 import { FluentUI } from "~/components/shared/fluent";
-import { copyTextToClipboard } from "~/lib/client/shared/clipboard";
+import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
 
 const { MessageBar, MessageBarBody, MessageBarTitle } = FluentUI;
 

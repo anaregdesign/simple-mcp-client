@@ -1,9 +1,9 @@
 import {
   requestClientApi,
   resolveAuthRequired,
-} from "~/lib/client/controller/api-client";
-import { readJsonPayload } from "~/lib/client/controller/http";
-import type { SkillsApiResponse } from "~/lib/client/controller/types";
+} from "~/lib/client/infrastructure/api/api-client";
+import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import type { SkillsApiResponse } from "~/lib/client/usecase/workspace/types";
 import { readStringList } from "~/lib/client/shared/collections";
 import {
   readSkillCatalogList,

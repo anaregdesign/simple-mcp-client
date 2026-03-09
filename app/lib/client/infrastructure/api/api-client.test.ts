@@ -7,7 +7,7 @@ import {
   mapApiError,
   requestClientApi,
   resolveAuthRequired,
-} from "~/lib/client/controller/api-client";
+} from "~/lib/client/infrastructure/api/api-client";
 
 describe("resolveAuthRequired", () => {
   it("returns true for status 401 or authRequired payload", () => {

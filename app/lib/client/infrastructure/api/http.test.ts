@@ -2,7 +2,7 @@
  * Test module verifying http behavior.
  */
 import { describe, expect, it } from "vitest";
-import { readJsonPayload } from "~/lib/client/controller/http";
+import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
 
 describe("readJsonPayload", () => {
   it("parses valid JSON payloads", async () => {

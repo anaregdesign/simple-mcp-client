@@ -8,7 +8,7 @@ import {
   completeThreadOperationPhase,
   isThreadOperationPhaseBusy,
   transitionThreadOperation,
-} from "~/lib/client/controller/thread-operation-phase";
+} from "~/lib/client/usecase/workspace/thread-operation-phase";
 
 describe("isThreadOperationPhaseBusy", () => {
   it("returns false only for idle phase", () => {

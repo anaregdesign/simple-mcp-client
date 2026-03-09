@@ -1,5 +1,5 @@
 /**
- * Client controller runtime module.
+ * Workspace client usecase module.
  */
 import {
   useEffect,
@@ -181,7 +181,7 @@ import type {
   SkillRegistryCatalog,
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
-import { copyTextToClipboard } from "~/lib/client/shared/clipboard";
+import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
 import { readStringList } from "~/lib/client/shared/collections";
 import { getFileExtension } from "~/lib/client/shared/files";
 import { createId } from "~/lib/client/shared/ids";
@@ -191,7 +191,7 @@ import {
   readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
   resolveDesktopUpdaterActionState,
-} from "~/lib/client/controller/desktop-updater";
+} from "~/lib/client/usecase/workspace/desktop-updater";
 import {
   buildAzureProjectsLoadResult,
   isAzureProjectsLoadReady,
@@ -200,41 +200,41 @@ import {
   resolveInitialAzureProjectId,
   shouldUseCachedAzureProjectCatalog,
   type AzureProjectsLoadResult,
-} from "~/lib/client/controller/azure-runtime";
-import { serializeMcpServersForChatRequest } from "~/lib/client/controller/mcp-runtime";
-import { deriveInstructionRuntimeUiState } from "~/lib/client/controller/instruction-runtime";
+} from "~/lib/client/usecase/workspace/azure-runtime";
+import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
+import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
   canStartThreadOperation,
   transitionThreadOperation,
   type ThreadOperationPhase,
-} from "~/lib/client/controller/thread-operation-phase";
+} from "~/lib/client/usecase/workspace/thread-operation-phase";
 import {
   canSendMessageByGuard,
   isThreadPhaseBlockingSend,
   selectThreadOperationPhaseFlags,
   shouldBlockThreadPersistence,
-} from "~/lib/client/controller/thread-guards";
+} from "~/lib/client/usecase/workspace/thread-guards";
 import {
   buildThreadListOptions,
   findThreadStateById,
   mergeSkillSelections,
-} from "~/lib/client/controller/thread-runtime";
+} from "~/lib/client/usecase/workspace/thread-runtime";
 import {
   applySendResult,
   buildChatRequestPayload,
   consumeChatResponseStream,
   validateSendPreconditions,
-} from "~/lib/client/controller/send-message-usecase";
+} from "~/lib/client/usecase/workspace/send-message-usecase";
 import {
   ClientApiError,
   mapApiError,
   requestClientApi,
   resolveAuthRequired,
-} from "~/lib/client/controller/api-client";
-import { mcpServersApiClient } from "~/lib/client/api/mcp-servers-api-client";
-import { skillsApiClient } from "~/lib/client/api/skills-api-client";
-import { readJsonPayload } from "~/lib/client/controller/http";
+} from "~/lib/client/infrastructure/api/api-client";
+import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
+import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
+import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
 import {
   type AzureActionApiResponse,
   type AzureProjectsApiResponse,
@@ -244,7 +244,7 @@ import {
   type ThreadRequestState,
   type ThreadTitleApiResponse,
   type ThreadsApiResponse,
-} from "~/lib/client/controller/types";
+} from "~/lib/client/usecase/workspace/types";
 
 type ChatCommandSuggestion = {
   id: string;
@@ -297,7 +297,7 @@ type LoadAzureProjectsResult = AzureProjectsLoadResult;
  * This hook intentionally keeps state ownership centralized while delegating pure transforms
  * to modules under `~/lib/client/*`.
  */
-export function useWorkspaceClientController() {
+export function useWorkspace() {
   // Primary runtime state for Client.
   const [azureConnections, setAzureConnections] = useState<
     AzureProjectOption[]

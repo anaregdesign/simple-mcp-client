@@ -10,7 +10,7 @@ import {
   renderTurnOperationLog,
 } from "~/components/playground/PlaygroundRenderers";
 import { FluentUI } from "~/components/shared/fluent";
-import { useWorkspaceClientController } from "~/lib/client/controller/use-workspace-client-controller";
+import { useWorkspace } from "~/lib/client/usecase/workspace/use-workspace";
 import type { Route } from "./+types/_index";
 
 const { FluentProvider, webDarkTheme, webLightTheme } = FluentUI;
@@ -33,7 +33,7 @@ export default function Home() {
     unauthenticatedPanelProps,
     configPanelProps,
     playgroundPanelProps,
-  } = useWorkspaceClientController();
+  } = useWorkspace();
 
   const fluentTheme = theme === "dark" ? webDarkTheme : webLightTheme;
 
