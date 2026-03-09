@@ -4,6 +4,7 @@
 import { InteractiveBrowserCredential } from "@azure/identity";
 import OpenAI from "openai";
 import { AZURE_ACCESS_TOKEN_REFRESH_BUFFER_MS, AZURE_ARM_SCOPE, AZURE_COGNITIVE_SERVICES_SCOPE } from "~/lib/constants/azure";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
 
 type AzureCredential = {
   getToken: InteractiveBrowserCredential["getToken"];
@@ -210,19 +211,7 @@ export function getAzureDependencies(): AzureDependencies {
 export function resetAzureDependencies(): void {
   singletonAzureDependencies = null;
 }
-
-export function normalizeAzureOpenAIBaseURL(rawValue: string): string {
-  const trimmed = rawValue.trim().replace(/\/+$/, "");
-  if (!trimmed) {
-    return "";
-  }
-
-  if (/\/openai\/v1$/i.test(trimmed)) {
-    return `${trimmed}/`;
-  }
-
-  return `${trimmed}/openai/v1/`;
-}
+export { normalizeAzureOpenAIBaseURL };
 
 function normalizeAzureScope(rawValue: string): string {
   return rawValue.trim();

@@ -1,7 +1,7 @@
 /**
  * Server chat request parser module.
  */
-import { normalizeAzureOpenAIBaseURL } from "~/lib/server/infrastructure/azure/dependencies";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_FILES,

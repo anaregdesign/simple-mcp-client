@@ -5,8 +5,8 @@ import type { Route } from "./+types/api.instruction-patches";
 import { Agent, run, user } from "@openai/agents";
 import {
   createAzureResponsesModel,
-  normalizeAzureOpenAIBaseURL,
-} from "~/lib/server/usecase/azure/azure-openai-service";
+} from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

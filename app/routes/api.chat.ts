@@ -134,7 +134,7 @@ import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-contex
 import {
   createAzureOpenAIClient,
   getAzureBearerTokenForScope,
-} from "~/lib/server/usecase/azure/azure-openai-service";
+} from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
 import {
   type ChatExecutionOptions,
   RequestCanceledError as ChatExecutionRequestCanceledError,

@@ -2,7 +2,7 @@
  * API route module for /api/azure/projects.
  */
 import {
-  azureProjectQueryService,
+  createAzureProjectQueryService,
   isLikelyAzureAuthError,
   parseReasoningEffortOptionsFromString,
   readErrorMessage,
@@ -33,6 +33,10 @@ export {
 const AZURE_PROJECTS_ALLOWED_METHODS = ["GET"] as const;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
 
+function getAzureProjectQueryService() {
+  return createAzureProjectQueryService(logServerRouteEvent);
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
 
@@ -50,8 +54,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const [projects, tenants] = await Promise.all([
-      azureProjectQueryService.loadAzureProjectsWithFallback(request, tokenResult.token),
-      azureProjectQueryService.loadAzureTenantsWithFallback(
+      getAzureProjectQueryService().loadAzureProjectsWithFallback(request, tokenResult.token),
+      getAzureProjectQueryService().loadAzureTenantsWithFallback(
         request,
         tokenResult.token,
         tokenResult.tenantId,

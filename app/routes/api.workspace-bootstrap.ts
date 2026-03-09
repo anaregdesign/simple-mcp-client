@@ -22,7 +22,7 @@ import {
   createAzureSelectionPreferencePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/azure-selection-preference-persistence-repository";
 import {
-  azureProjectQueryService,
+  createAzureProjectQueryService,
 } from "~/lib/server/usecase/azure/azure-project-service";
 import {
   createWorkspaceMcpServerProfilePersistenceRepository,
@@ -47,7 +47,7 @@ const WORKSPACE_BOOTSTRAP_ALLOWED_METHODS = ["GET"] as const;
 function getWorkspaceBootstrapService() {
   return createWorkspaceBootstrapService({
     azureArmAccessGateway: createAzureArmAccessGateway(),
-    azureProjectQueryService,
+    azureProjectQueryService: createAzureProjectQueryService(logServerRouteEvent),
     azureSelectionService: createAzureSelectionService(
       createAzureSelectionPreferencePersistenceRepository(),
     ),

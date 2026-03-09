@@ -12,7 +12,7 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
-  azureProjectQueryService,
+  createAzureProjectQueryService,
   isLikelyAzureAuthError,
   parseProjectId,
   readErrorMessage,
@@ -24,6 +24,10 @@ import {
 import type { Route } from "./+types/api.azure.projects.$projectId.deployments";
 
 const AZURE_PROJECT_DEPLOYMENTS_ALLOWED_METHODS = ["GET"] as const;
+
+function getAzureProjectQueryService() {
+  return createAzureProjectQueryService(logServerRouteEvent);
+}
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -59,7 +63,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const principal = await resolveAzurePrincipalProfile(tokenResult);
 
   try {
-    const deployments = await azureProjectQueryService.listProjectDeployments(
+    const deployments = await getAzureProjectQueryService().listProjectDeployments(
       tokenResult.token,
       projectRef,
     );

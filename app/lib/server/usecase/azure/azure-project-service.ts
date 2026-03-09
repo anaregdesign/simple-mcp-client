@@ -3,7 +3,7 @@
  */
 import {
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/server/infrastructure/azure/dependencies";
+} from "~/lib/server/usecase/azure/azure-openai-url";
 import {
   AZURE_COGNITIVE_API_VERSION,
   AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
@@ -16,11 +16,21 @@ import {
   AZURE_TENANTS_API_VERSION,
 } from "~/lib/constants/azure";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
-import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
-import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
+
+type AzureProjectEventLogger = (input: {
+  request?: Request;
+  route: string;
+  eventName: string;
+  action: string;
+  level?: "info" | "warning" | "error";
+  statusCode?: number;
+  message?: string;
+  error?: unknown;
+  context?: unknown;
+}) => Promise<void>;
 
 export type AzureProject = {
   id: string;
@@ -97,11 +107,15 @@ type ModelCapabilities = {
 };
 
 export class AzureProjectQueryService {
+  constructor(
+    private readonly logEvent: AzureProjectEventLogger,
+  ) {}
+
   async loadAzureProjectsWithFallback(
     request: Request,
     accessToken: string,
   ): Promise<AzureProject[]> {
-    return loadAzureProjectsWithFallback(request, accessToken);
+    return loadAzureProjectsWithFallback(request, accessToken, this.logEvent);
   }
 
   async loadAzureTenantsWithFallback(
@@ -109,27 +123,37 @@ export class AzureProjectQueryService {
     accessToken: string,
     activeTenantId: string,
   ): Promise<AzureTenant[]> {
-    return loadAzureTenantsWithFallback(request, accessToken, activeTenantId);
+    return loadAzureTenantsWithFallback(
+      request,
+      accessToken,
+      activeTenantId,
+      this.logEvent,
+    );
   }
 
   async listProjectDeployments(
     accessToken: string,
     projectRef: AzureProjectRef,
   ): Promise<AzureDeployment[]> {
-    return listProjectDeployments(accessToken, projectRef);
+    return listProjectDeployments(accessToken, projectRef, this.logEvent);
   }
 }
 
-export const azureProjectQueryService = new AzureProjectQueryService();
+export function createAzureProjectQueryService(
+  logEvent: AzureProjectEventLogger,
+): AzureProjectQueryService {
+  return new AzureProjectQueryService(logEvent);
+}
 
 async function loadAzureProjectsWithFallback(
   request: Request,
   accessToken: string,
+  logEvent: AzureProjectEventLogger,
 ): Promise<AzureProject[]> {
   try {
-    return await listAzureProjects(accessToken);
+    return await listAzureProjects(accessToken, logEvent);
   } catch (error) {
-    await logServerRouteEvent({
+    await logEvent({
       request,
       route: AZURE_PROJECTS_ROUTE,
       eventName: "load_azure_projects_partial_failed",
@@ -148,11 +172,12 @@ async function loadAzureTenantsWithFallback(
   request: Request,
   accessToken: string,
   activeTenantId: string,
+  logEvent: AzureProjectEventLogger,
 ): Promise<AzureTenant[]> {
   try {
-    return await listAzureTenants(accessToken, activeTenantId);
+    return await listAzureTenants(accessToken, activeTenantId, logEvent);
   } catch (error) {
-    await logServerRouteEvent({
+    await logEvent({
       request,
       route: AZURE_PROJECTS_ROUTE,
       eventName: "load_azure_tenants_failed",
@@ -178,11 +203,13 @@ async function loadAzureTenantsWithFallback(
 
 export async function listAzureProjects(
   accessToken: string,
+  logEvent: AzureProjectEventLogger,
 ): Promise<AzureProject[]> {
   const subscriptions = await fetchArmPaged<ArmSubscription>(
     `https://management.azure.com/subscriptions?api-version=${AZURE_SUBSCRIPTIONS_API_VERSION}`,
     accessToken,
     AZURE_MAX_SUBSCRIPTIONS,
+    logEvent,
   );
 
   const enabledSubscriptionIds = subscriptions
@@ -219,9 +246,10 @@ export async function listAzureProjects(
             `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/providers/Microsoft.CognitiveServices/accounts?api-version=${AZURE_COGNITIVE_API_VERSION}`,
             accessToken,
             AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
+            logEvent,
           );
         } catch (error) {
-          await logServerRouteEvent({
+          await logEvent({
             route: AZURE_PROJECTS_ROUTE,
             eventName: "list_accounts_failed",
             action: "list_subscription_accounts",
@@ -317,12 +345,14 @@ export async function listAzureProjects(
 export async function listAzureTenants(
   accessToken: string,
   activeTenantId: string,
+  logEvent: AzureProjectEventLogger,
   abortSignal?: AbortSignal,
 ): Promise<AzureTenant[]> {
   const discovered = await fetchArmPaged<ArmTenant>(
     `https://management.azure.com/tenants?api-version=${AZURE_TENANTS_API_VERSION}`,
     accessToken,
     AZURE_MAX_TENANTS,
+    logEvent,
     abortSignal,
   );
 
@@ -383,15 +413,17 @@ export async function listAzureTenants(
 export async function listProjectDeployments(
   accessToken: string,
   projectRef: AzureProjectRef,
+  logEvent: AzureProjectEventLogger,
 ): Promise<AzureDeployment[]> {
   const { subscriptionId, resourceGroup, accountName } = projectRef;
   const deployments = await fetchArmPaged<ArmCognitiveDeployment>(
     `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/deployments?api-version=${AZURE_COGNITIVE_API_VERSION}`,
     accessToken,
     AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT,
+    logEvent,
   );
 
-  const accountModels = await listAccountModels(accessToken, projectRef);
+  const accountModels = await listAccountModels(accessToken, projectRef, logEvent);
   const modelCapabilities = buildModelCapabilitiesMap(accountModels);
 
   const deploymentsByName = new Map<string, AzureDeployment>();
@@ -450,6 +482,7 @@ export async function listProjectDeployments(
 async function listAccountModels(
   accessToken: string,
   projectRef: AzureProjectRef,
+  logEvent: AzureProjectEventLogger,
 ): Promise<ArmAccountModel[]> {
   const { subscriptionId, resourceGroup, accountName } = projectRef;
   try {
@@ -457,9 +490,10 @@ async function listAccountModels(
       `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/models?api-version=${AZURE_COGNITIVE_API_VERSION}`,
       accessToken,
       AZURE_MAX_MODELS_PER_ACCOUNT,
+      logEvent,
     );
   } catch (error) {
-    await logServerRouteEvent({
+    await logEvent({
       route: AZURE_PROJECTS_ROUTE,
       eventName: "list_account_models_failed",
       action: "list_account_models",
@@ -895,6 +929,7 @@ async function fetchArmPaged<T>(
   url: string,
   accessToken: string,
   maxItems: number,
+  logEvent: AzureProjectEventLogger,
   abortSignal?: AbortSignal,
 ): Promise<T[]> {
   const items: T[] = [];
@@ -915,7 +950,7 @@ async function fetchArmPaged<T>(
         signal: abortSignal,
       });
     } catch (error) {
-      await logServerRouteEvent({
+      await logEvent({
         route: AZURE_PROJECTS_ROUTE,
         eventName: "azure_arm_api_call_failed",
         action: "fetch_arm_page",
@@ -936,7 +971,7 @@ async function fetchArmPaged<T>(
       .catch(() => null)) as ArmPagedResponse<T> | null;
     const requestDurationMs = Date.now() - requestStartedAtMs;
     if (!response.ok) {
-      await logServerRouteEvent({
+      await logEvent({
         route: AZURE_PROJECTS_ROUTE,
         eventName: "azure_arm_api_call_failed",
         action: "fetch_arm_page",
@@ -962,7 +997,7 @@ async function fetchArmPaged<T>(
     const hasNextLink =
       typeof payload?.nextLink === "string" && payload.nextLink.length > 0;
 
-    await logServerRouteEvent({
+    await logEvent({
       route: AZURE_PROJECTS_ROUTE,
       eventName: "azure_arm_api_call_succeeded",
       action: "fetch_arm_page",
