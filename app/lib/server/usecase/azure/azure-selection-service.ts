@@ -29,18 +29,14 @@ export class AzureSelectionService {
     private readonly repository: AzureSelectionPreferenceRepository,
   ) {}
 
-  async readStoredSelection(identity: {
-    tenantId: string;
-    principalId: string;
-  }): Promise<AzureSelectionPreference | null> {
+  async readStoredSelection(
+    identity: AzureSelectionIdentity,
+  ): Promise<AzureSelectionPreference | null> {
     return this.repository.findByIdentity(identity);
   }
 
   async saveStoredSelection(
-    identity: {
-      tenantId: string;
-      principalId: string;
-    },
+    identity: AzureSelectionIdentity,
     preference: AzureSelectionPreferencePayload,
   ): Promise<{ selection: AzureSelectionPreference; created: boolean }> {
     const existing = await this.repository.findByIdentity(identity);
@@ -56,15 +52,11 @@ export class AzureSelectionService {
     };
   }
 
-  async deleteStoredSelection(identity: {
-    tenantId: string;
-    principalId: string;
-  }): Promise<boolean> {
+  async deleteStoredSelection(identity: AzureSelectionIdentity): Promise<boolean> {
     return this.repository.deleteByIdentity(identity);
   }
 }
 
-export { AzureSelectionPreference };
 export function createAzureSelectionService(
   repository: AzureSelectionPreferenceRepository,
 ): AzureSelectionService {

@@ -2,6 +2,7 @@ import {
   type AzureArmAccessGateway,
   type AzurePrincipalProfile,
 } from "~/lib/domain/repositories/azure-arm-access-gateway";
+import type { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
 import {
   parseProjectId,
   type AzureProjectQueryService,
@@ -11,7 +12,6 @@ import {
 } from "~/lib/server/usecase/azure/azure-project-service";
 import {
   type AzureSelectionService,
-  type AzureSelectionPreference,
 } from "~/lib/server/usecase/azure/azure-selection-service";
 import {
   type McpServerProfileService,
