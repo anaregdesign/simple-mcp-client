@@ -11,7 +11,7 @@ import {
   resolveInstructionFormatExtension,
   resolveInstructionSourceFileName,
   validateEnhancedInstructionFormat,
-} from "./helpers";
+} from "./instruction-document";
 
 describe("instruction enhance helpers", () => {
   it("resolves source file name from loaded file", () => {

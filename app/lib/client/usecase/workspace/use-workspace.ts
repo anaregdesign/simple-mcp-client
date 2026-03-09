@@ -102,7 +102,7 @@ import {
   resolveInstructionSourceFileName,
   saveInstructionToClientFile,
   validateEnhancedInstructionFormat,
-} from "~/lib/client/instruction/helpers";
+} from "~/lib/client/usecase/workspace/instruction-document";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/layout/main-splitter";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import { buildMcpServerKey, upsertMcpServer } from "~/lib/contracts/mcp/profile";

@@ -1,17 +1,20 @@
 /**
  * Client runtime support module.
  */
-export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
+import type { InstructionLanguage } from "~/lib/client/shared/view-types";
+import {
+  INSTRUCTION_ALLOWED_EXTENSIONS,
+  INSTRUCTION_DEFAULT_EXTENSION,
+  INSTRUCTION_SAVE_FILE_TYPES,
+} from "~/lib/constants/instruction";
+import type { InstructionSaveFileType } from "~/lib/constants/instruction";
 
-export type InstructionLanguage = "japanese" | "english" | "mixed" | "unknown";
+export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export type SaveInstructionToClientFileResult = {
   fileName: string;
   mode: "picker" | "download";
 };
-
-import { INSTRUCTION_ALLOWED_EXTENSIONS, INSTRUCTION_DEFAULT_EXTENSION, INSTRUCTION_SAVE_FILE_TYPES } from "~/lib/constants/instruction";
-import type { InstructionSaveFileType } from "~/lib/constants/instruction";
 
 type SaveFilePickerOptionsCompat = {
   suggestedName?: string;
