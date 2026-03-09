@@ -2,7 +2,7 @@ import type {
   AzurePrincipalProfile,
   AzureProjectOption,
   AzureTenantOption,
-} from "~/lib/client/azure/parsers";
+} from "~/lib/client/usecase/workspace/azure-parsers";
 import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
 import type { ThreadMessage } from "~/lib/client/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";

@@ -1,7 +1,7 @@
 /**
  * Client controller Azure runtime helpers.
  */
-import type { AzureTenantOption } from "~/lib/client/azure/parsers";
+import type { AzureTenantOption } from "~/lib/client/usecase/workspace/azure-parsers";
 
 export type AzureAuthStateUpdateSource =
   | "background_success"

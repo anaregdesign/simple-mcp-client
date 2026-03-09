@@ -59,7 +59,7 @@ import type {
   AzurePrincipalProfile,
   AzureSelectionPreference,
   AzureTenantOption,
-} from "~/lib/client/azure/parsers";
+} from "~/lib/client/usecase/workspace/azure-parsers";
 import {
   readAzureDeploymentList,
   readAzurePrincipalProfileFromUnknown,
@@ -68,8 +68,8 @@ import {
   readAzureSelectionFromUnknown,
   readAzureTenantList,
   readTenantIdFromUnknown,
-} from "~/lib/client/azure/parsers";
-import { isLikelyChatAzureAuthError } from "~/lib/client/azure/errors";
+} from "~/lib/client/usecase/workspace/azure-parsers";
+import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
 import { buildThreadOperationLogsByTurnId } from "~/lib/client/chat/history";
 import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
 import {

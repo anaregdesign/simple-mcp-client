@@ -10,7 +10,7 @@ import {
   readAzureTenantList,
   readPrincipalIdFromUnknown,
   readTenantIdFromUnknown,
-} from "./parsers";
+} from "./azure-parsers";
 
 describe("readTenantIdFromUnknown", () => {
   it("returns trimmed tenantId for string values", () => {
