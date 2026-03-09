@@ -161,15 +161,13 @@ import {
 import {
   ClientApiError,
   mapApiError,
-  requestClientApi,
-  resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
 import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
-import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   filterReasoningEffortOptionsForDeploymentCompatibility,
   filterReasoningEffortOptionsForWebSearch,
@@ -215,7 +213,6 @@ import {
   type InstructionEnhanceComparison,
   type SkillsApiResponse,
   type ThreadRequestState,
-  type ThreadsApiResponse,
 } from "~/lib/client/usecase/workspace/types";
 
 /**
@@ -1989,9 +1986,6 @@ export function useWorkspace() {
     const expectedThreadId = thread.id;
     const hasPersistedSignature =
       threadSaveSignatureByIdRef.current.has(expectedThreadId);
-    const endpoint = hasPersistedSignature
-      ? `/api/threads/${encodeURIComponent(expectedThreadId)}`
-      : "/api/threads";
     const method = hasPersistedSignature ? "PUT" : "POST";
     const requestSeq = threadSaveRequestSeqRef.current + 1;
     threadSaveRequestSeqRef.current = requestSeq;
@@ -2000,35 +1994,20 @@ export function useWorkspace() {
     }
 
     try {
-      const { payload } = await requestClientApi<ThreadsApiResponse>({
-        url: endpoint,
-        init: {
-          method,
-          headers: {
-            "Content-Type": "application/json",
+      const payload = await threadsApiClient.saveThread(
+        convertThreadStateToWritePayload(thread),
+        {
+          isUpdate: hasPersistedSignature,
+          onAuthRequired: () => {
+            markAzureAuthRequired();
+            if (reportError) {
+              setThreadError(
+                "Azure login is required. Open Settings and sign in to continue.",
+              );
+            }
           },
-          body: JSON.stringify(convertThreadStateToWritePayload(thread)),
         },
-        readPayload: (response) =>
-          readJsonPayload<ThreadsApiResponse>(response, "Threads"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string"
-            ? responsePayload.error
-            : null,
-        fallbackErrorMessage: "Failed to save thread.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to continue.",
-        onAuthRequired: () => {
-          markAzureAuthRequired();
-          if (reportError) {
-            setThreadError(
-              "Azure login is required. Open Settings and sign in to continue.",
-            );
-          }
-        },
-      });
+      );
 
       const savedThreadResource = readThreadResourceFromUnknown(payload.thread);
       if (!savedThreadResource) {
@@ -2341,22 +2320,7 @@ export function useWorkspace() {
     setThreadError(null);
 
     try {
-      const { payload } = await requestClientApi<ThreadsApiResponse>({
-        url: "/api/threads",
-        init: {
-          method: "GET",
-        },
-        readPayload: async (response) =>
-          (await response.json()) as ThreadsApiResponse,
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string"
-            ? responsePayload.error
-            : null,
-        fallbackErrorMessage: "Failed to load threads.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to load threads.",
+      const payload = await threadsApiClient.loadThreads({
         onAuthRequired: () => {
           markAzureAuthRequired();
           clearThreadsState(

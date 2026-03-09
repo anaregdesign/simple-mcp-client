@@ -15,16 +15,14 @@ import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   ClientApiError,
   mapApiError,
-  requestClientApi,
-  resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
-import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   canStartThreadOperation,
   type ThreadOperationPhase,
 } from "~/lib/client/usecase/workspace/thread-operation-phase";
 import { findThreadStateById } from "~/lib/client/usecase/workspace/thread-runtime";
-import type { ThreadRequestState, ThreadsApiResponse } from "~/lib/client/usecase/workspace/types";
+import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 
 type ThreadLifecycleHandlerDependencies = {
   isSending: boolean;
@@ -417,22 +415,7 @@ export function createThreadLifecycleHandlers(
           }
         }
 
-        const { payload } = await requestClientApi<ThreadsApiResponse>({
-          url: `/api/threads/${encodeURIComponent(threadId)}`,
-          init: {
-            method: "DELETE",
-          },
-          readPayload: (response) =>
-            readJsonPayload<ThreadsApiResponse>(response, "Threads"),
-          resolveAuthRequired: (status, responsePayload) =>
-            resolveAuthRequired(status, responsePayload),
-          readErrorMessage: (responsePayload) =>
-            typeof responsePayload.error === "string"
-              ? responsePayload.error
-              : null,
-          fallbackErrorMessage: "Failed to delete thread.",
-          authRequiredMessage:
-            "Azure login is required. Open Settings and sign in to continue.",
+        const payload = await threadsApiClient.deleteThread(threadId, {
           onAuthRequired: () => {
             deps.markAzureAuthRequired();
           },
@@ -513,28 +496,7 @@ export function createThreadLifecycleHandlers(
           }
         }
 
-        const { payload } = await requestClientApi<ThreadsApiResponse>({
-          url: `/api/threads/${encodeURIComponent(threadId)}`,
-          init: {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              archived: false,
-            }),
-          },
-          readPayload: (response) =>
-            readJsonPayload<ThreadsApiResponse>(response, "Threads"),
-          resolveAuthRequired: (status, responsePayload) =>
-            resolveAuthRequired(status, responsePayload),
-          readErrorMessage: (responsePayload) =>
-            typeof responsePayload.error === "string"
-              ? responsePayload.error
-              : null,
-          fallbackErrorMessage: "Failed to restore thread.",
-          authRequiredMessage:
-            "Azure login is required. Open Settings and sign in to continue.",
+        const payload = await threadsApiClient.restoreThread(threadId, {
           onAuthRequired: () => {
             deps.markAzureAuthRequired();
           },

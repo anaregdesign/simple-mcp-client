@@ -3,7 +3,6 @@
  */
 import type { InstructionLanguage } from "~/lib/client/usecase/workspace/view-types";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
-import type { ThreadResource } from "~/lib/contracts/threads/types";
 
 /**
  * Diff-review payload for instruction enhancement.
@@ -24,16 +23,6 @@ export type McpServersApiResponse = {
   profile?: WorkspaceMcpServerProfileResource;
   profiles?: WorkspaceMcpServerProfileResource[];
   warning?: string;
-  authRequired?: boolean;
-  error?: string;
-};
-
-/**
- * Response shape returned by `/api/threads` and `/api/threads/:threadId`.
- */
-export type ThreadsApiResponse = {
-  threads?: ThreadResource[];
-  thread?: ThreadResource;
   authRequired?: boolean;
   error?: string;
 };
