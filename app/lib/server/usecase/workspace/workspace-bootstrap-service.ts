@@ -2,9 +2,9 @@ import {
   type AzureArmAccessGateway,
   type AzurePrincipalProfile,
 } from "~/lib/domain/repositories/azure-arm-access-gateway";
+import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from "~/lib/contracts/mcp/profile";
 import type { AzureSelectionPreference } from "~/lib/domain/entities/azure-selection-preference";
 import type { ThreadRecord } from "~/lib/domain/entities/thread-record";
-import type { WorkspaceMcpServerProfile } from "~/lib/domain/entities/workspace-mcp-server-profile";
 import {
   parseProjectId,
   type AzureProjectQueryService,

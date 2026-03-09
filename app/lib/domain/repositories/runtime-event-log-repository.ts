@@ -1,7 +1,7 @@
 import type {
   RuntimeEventLogInput,
   RuntimeEventLogReadRecord,
-} from "~/lib/domain/entities/runtime-event-log";
+} from "~/lib/contracts/shared/runtime-event-log";
 
 export type RuntimeEventLogOwner = {
   tenantId: string;

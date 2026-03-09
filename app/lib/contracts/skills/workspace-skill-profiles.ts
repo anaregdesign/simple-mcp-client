@@ -2,6 +2,10 @@ import type {
   ApiErrorResponseBody,
   ApiSuccessResponseBody,
 } from "~/lib/contracts/api/response";
+import type {
+  SkillCatalogEntry,
+  SkillRegistryCatalog,
+} from "~/lib/contracts/skills/types";
 
 export type WorkspaceSkillRegistryProfileResource = {
   id: number;
@@ -39,8 +43,8 @@ export type WorkspaceSkillProfilesResponseBody =
 
 export type ReconcileWorkspaceSkillProfilesData = {
   message: string;
-  skills: unknown;
-  skillRegistries: unknown;
+  skills: SkillCatalogEntry[];
+  skillRegistries: SkillRegistryCatalog[];
   skillWarnings: string[];
   registryWarnings: string[];
   warnings: string[];

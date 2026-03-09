@@ -1,4 +1,4 @@
-import type { WorkspaceMcpServerProfile } from "~/lib/domain/entities/workspace-mcp-server-profile";
+import type { WorkspaceMcpServerProfileResource as WorkspaceMcpServerProfile } from "~/lib/contracts/mcp/profile";
 
 export interface WorkspaceMcpServerProfileRepository {
   listByUserId(userId: number): Promise<WorkspaceMcpServerProfile[]>;

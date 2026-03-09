@@ -1,15 +1,15 @@
 import {
   readSkillRegistryOptionById,
   SKILL_REGISTRY_OPTIONS,
-} from "~/lib/domain/value-objects/skill-registry";
+} from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/domain/entities/skill-catalog";
+} from "~/lib/contracts/skills/types";
 import type {
   WorkspaceSkillProfilesData,
-  WorkspaceSkillRegistryProfile,
-} from "~/lib/domain/entities/workspace-skill-profile";
+  WorkspaceSkillRegistryProfileResource as WorkspaceSkillRegistryProfile,
+} from "~/lib/contracts/skills/workspace-skill-profiles";
 import type {
   SyncWorkspaceSkillMastersResult,
   WorkspaceSkillProfileRepository,

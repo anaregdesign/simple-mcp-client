@@ -1,10 +1,10 @@
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
-} from "~/lib/domain/entities/skill-catalog";
+} from "~/lib/contracts/skills/types";
 import type {
   WorkspaceSkillProfilesData,
-} from "~/lib/domain/entities/workspace-skill-profile";
+} from "~/lib/contracts/skills/workspace-skill-profiles";
 
 export type SyncWorkspaceSkillMastersResult = {
   workspaceSkillProfileCount: number;
