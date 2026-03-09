@@ -6,11 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   parseSkillRegistryMutationPath,
   readAuthenticatedUser,
+  createWorkspaceSkillRegistryMutationService,
   createWorkspaceSkillService,
-  discoverWorkspaceSkills,
-  syncWorkspaceSkillMasters,
-  installSkillFromRegistry,
-  deleteInstalledSkillFromRegistry,
+  installSkill,
+  deleteSkill,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   parseSkillRegistryMutationPath: vi.fn(() => ({
@@ -21,24 +20,29 @@ const {
     },
   })),
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
+  createWorkspaceSkillRegistryMutationService: vi.fn(),
   createWorkspaceSkillService: vi.fn(),
-  discoverWorkspaceSkills: vi.fn(async () => ({
-    skills: [],
-    registries: [],
-    skillWarnings: [],
-    registryWarnings: [],
-    warnings: [],
-  })),
-  syncWorkspaceSkillMasters: vi.fn(async () => undefined),
-  installSkillFromRegistry: vi.fn(async () => ({
-    skillName: "gh-fix-ci",
-    installLocation: "/tmp/gh-fix-ci/SKILL.md",
+  installSkill: vi.fn(async () => ({
     operation: "installed" as "installed" | "updated" | "unchanged",
-  })),
-  deleteInstalledSkillFromRegistry: vi.fn(async () => ({
     skillName: "gh-fix-ci",
-    installLocation: "/tmp/gh-fix-ci/SKILL.md",
-    removed: true,
+    discoveryResult: {
+      skills: [],
+      registries: [],
+      skillWarnings: [],
+      registryWarnings: [],
+      warnings: [],
+    },
+  })),
+  deleteSkill: vi.fn(async () => ({
+    operation: "removed" as "removed" | "missing",
+    skillName: "gh-fix-ci",
+    discoveryResult: {
+      skills: [],
+      registries: [],
+      skillWarnings: [],
+      registryWarnings: [],
+      warnings: [],
+    },
   })),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
@@ -49,15 +53,18 @@ vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
 
 vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
   createWorkspaceSkillService: createWorkspaceSkillService.mockReturnValue({
-    discoverWorkspaceSkills,
-    syncWorkspaceSkillMasters,
+    discoverWorkspaceSkills: vi.fn(),
+    syncWorkspaceSkillMasters: vi.fn(),
   }),
   parseSkillRegistryMutationPath,
 }));
 
-vi.mock("~/lib/server/infrastructure/gateways/skills/skill-registry-gateway", () => ({
-  installSkillFromRegistry,
-  deleteInstalledSkillFromRegistry,
+vi.mock("~/lib/server/usecase/skills/workspace-skill-registry-mutation-service", () => ({
+  createWorkspaceSkillRegistryMutationService:
+    createWorkspaceSkillRegistryMutationService.mockReturnValue({
+      installSkill,
+      deleteSkill,
+    }),
 }));
 
 vi.mock("~/lib/server/observability/runtime-event-log", () => ({
@@ -79,28 +86,31 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
     });
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
+    createWorkspaceSkillRegistryMutationService.mockClear();
     createWorkspaceSkillService.mockClear();
-    discoverWorkspaceSkills.mockReset();
-    discoverWorkspaceSkills.mockResolvedValue({
-      skills: [],
-      registries: [],
-      skillWarnings: [],
-      registryWarnings: [],
-      warnings: [],
-    });
-    syncWorkspaceSkillMasters.mockReset();
-    syncWorkspaceSkillMasters.mockResolvedValue(undefined);
-    installSkillFromRegistry.mockReset();
-    installSkillFromRegistry.mockResolvedValue({
+    installSkill.mockReset();
+    installSkill.mockResolvedValue({
+      operation: "installed",
       skillName: "gh-fix-ci",
-      installLocation: "/tmp/gh-fix-ci/SKILL.md",
-      operation: "installed" as "installed" | "updated" | "unchanged",
+      discoveryResult: {
+        skills: [],
+        registries: [],
+        skillWarnings: [],
+        registryWarnings: [],
+        warnings: [],
+      },
     });
-    deleteInstalledSkillFromRegistry.mockReset();
-    deleteInstalledSkillFromRegistry.mockResolvedValue({
+    deleteSkill.mockReset();
+    deleteSkill.mockResolvedValue({
+      operation: "removed",
       skillName: "gh-fix-ci",
-      installLocation: "/tmp/gh-fix-ci/SKILL.md",
-      removed: true,
+      discoveryResult: {
+        skills: [],
+        registries: [],
+        skillWarnings: [],
+        registryWarnings: [],
+        warnings: [],
+      },
     });
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
@@ -145,10 +155,16 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
   });
 
   it("returns 200 without Location when installed skill is updated", async () => {
-    installSkillFromRegistry.mockResolvedValueOnce({
-      skillName: "gh-fix-ci",
-      installLocation: "/tmp/gh-fix-ci/SKILL.md",
+    installSkill.mockResolvedValueOnce({
       operation: "updated",
+      skillName: "gh-fix-ci",
+      discoveryResult: {
+        skills: [],
+        registries: [],
+        skillWarnings: [],
+        registryWarnings: [],
+        warnings: [],
+      },
     });
 
     const response = await action({
@@ -168,10 +184,16 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
   });
 
   it("returns 200 when installed skill is already up-to-date", async () => {
-    installSkillFromRegistry.mockResolvedValueOnce({
-      skillName: "gh-fix-ci",
-      installLocation: "/tmp/gh-fix-ci/SKILL.md",
+    installSkill.mockResolvedValueOnce({
       operation: "unchanged",
+      skillName: "gh-fix-ci",
+      discoveryResult: {
+        skills: [],
+        registries: [],
+        skillWarnings: [],
+        registryWarnings: [],
+        warnings: [],
+      },
     });
 
     const response = await action({
@@ -187,5 +209,22 @@ describe("/api/skills/registries/:registryId/skills/*", () => {
 
     expect(response.status).toBe(200);
     expect(payload.message).toBe('Skill "gh-fix-ci" is already up-to-date.');
+  });
+
+  it("returns 200 when removing an installed skill", async () => {
+    const response = await action({
+      request: new Request("http://localhost/api/skills/registries/openai_curated/skills/gh-fix-ci", {
+        method: "DELETE",
+      }),
+      params: {
+        registryId: "openai_curated",
+        "*": "gh-fix-ci",
+      },
+    } as never);
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(payload.message).toBe('Removed Skill "gh-fix-ci".');
   });
 });

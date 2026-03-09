@@ -29,6 +29,9 @@ import {
   type SkillRegistryOption,
 } from "~/lib/contracts/skills/registry";
 import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
+import type {
+  WorkspaceSkillRegistryMutationGateway,
+} from "~/lib/domain/repositories/workspace-skill-registry-mutation-gateway";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
@@ -304,6 +307,13 @@ export async function deleteInstalledSkillFromRegistry(
     skillName: registrySkillName,
     installLocation,
     removed: true,
+  };
+}
+
+export function createWorkspaceSkillRegistryMutationGateway(): WorkspaceSkillRegistryMutationGateway {
+  return {
+    installSkill: installSkillFromRegistry,
+    deleteSkill: deleteInstalledSkillFromRegistry,
   };
 }
 

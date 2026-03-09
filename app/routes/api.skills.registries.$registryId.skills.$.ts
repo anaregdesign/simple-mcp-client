@@ -13,8 +13,7 @@ import {
   logServerRouteEvent,
 } from "~/lib/server/observability/runtime-event-log";
 import {
-  deleteInstalledSkillFromRegistry,
-  installSkillFromRegistry,
+  createWorkspaceSkillRegistryMutationGateway,
 } from "~/lib/server/infrastructure/gateways/skills/skill-registry-gateway";
 import {
   createWorkspaceSkillDiscoveryGateway,
@@ -27,6 +26,10 @@ import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-aut
 import {
   createWorkspaceSkillProfilePersistenceRepository,
 } from "~/lib/server/infrastructure/repositories/workspace-skill-profile-persistence-repository";
+import {
+  createWorkspaceSkillRegistryMutationService,
+  type WorkspaceSkillRegistryMutationResult,
+} from "~/lib/server/usecase/skills/workspace-skill-registry-mutation-service";
 import type { Route } from "./+types/api.skills.registries.$registryId.skills.$";
 
 const SKILL_REGISTRY_SKILL_ALLOWED_METHODS = ["PUT", "DELETE"] as const;
@@ -35,6 +38,13 @@ function getWorkspaceSkillService() {
   return createWorkspaceSkillService({
     repository: createWorkspaceSkillProfilePersistenceRepository(),
     discoveryGateway: createWorkspaceSkillDiscoveryGateway(),
+  });
+}
+
+function getWorkspaceSkillRegistryMutationService() {
+  return createWorkspaceSkillRegistryMutationService({
+    registryGateway: createWorkspaceSkillRegistryMutationGateway(),
+    workspaceSkillService: getWorkspaceSkillService(),
   });
 }
 
@@ -78,60 +88,32 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   try {
-    let message = "";
-    let status = 200;
-
-    if (request.method === "PUT") {
-      const installResult = await installSkillFromRegistry({
-        registryId: parsedMutation.value.registryId,
-        skillName: parsedMutation.value.skillName,
-        workspaceUserId: user.id,
-      });
-      if (installResult.operation === "installed") {
-        message = `Installed Skill "${installResult.skillName}".`;
-        status = 201;
-      } else if (installResult.operation === "updated") {
-        message = `Updated Skill "${installResult.skillName}".`;
-        status = 200;
-      } else {
-        message = `Skill "${installResult.skillName}" is already up-to-date.`;
-        status = 200;
-      }
-    } else {
-      const deleteResult = await deleteInstalledSkillFromRegistry({
-        registryId: parsedMutation.value.registryId,
-        skillName: parsedMutation.value.skillName,
-        workspaceUserId: user.id,
-      });
-      message = deleteResult.removed
-        ? `Removed Skill "${deleteResult.skillName}".`
-        : `Skill "${deleteResult.skillName}" was not installed.`;
-    }
-
-    const workspaceSkillService = getWorkspaceSkillService();
-    const discoveryResult = await workspaceSkillService.discoverWorkspaceSkills({
-      userId: user.id,
-      forceRefresh: true,
-    });
-    await workspaceSkillService.syncWorkspaceSkillMasters({
-      userId: user.id,
-      skills: discoveryResult.skills,
-      registries: discoveryResult.registries,
-    });
+    const mutationResult = request.method === "PUT"
+      ? await getWorkspaceSkillRegistryMutationService().installSkill({
+          userId: user.id,
+          registryId: parsedMutation.value.registryId,
+          skillName: parsedMutation.value.skillName,
+        })
+      : await getWorkspaceSkillRegistryMutationService().deleteSkill({
+          userId: user.id,
+          registryId: parsedMutation.value.registryId,
+          skillName: parsedMutation.value.skillName,
+        });
+    const responsePayload = readSkillRegistryMutationResponse(mutationResult);
 
     return Response.json(
       {
-        message,
-        skills: discoveryResult.skills,
-        registries: discoveryResult.registries,
-        skillWarnings: discoveryResult.skillWarnings,
-        registryWarnings: discoveryResult.registryWarnings,
-        warnings: discoveryResult.warnings,
+        message: responsePayload.message,
+        skills: mutationResult.discoveryResult.skills,
+        registries: mutationResult.discoveryResult.registries,
+        skillWarnings: mutationResult.discoveryResult.skillWarnings,
+        registryWarnings: mutationResult.discoveryResult.registryWarnings,
+        warnings: mutationResult.discoveryResult.warnings,
       },
       {
-        status,
+        status: responsePayload.status,
         headers:
-          request.method === "PUT" && status === 201
+          request.method === "PUT" && responsePayload.status === 201
             ? {
                 Location: buildSkillResourcePath(
                   parsedMutation.value.registryId,
@@ -167,4 +149,39 @@ export async function action({ request, params }: Route.ActionArgs) {
 function buildSkillResourcePath(registryId: string, skillName: string): string {
   const encodedSkillPath = skillName.split("/").map((segment) => encodeURIComponent(segment)).join("/");
   return `/api/skills/registries/${encodeURIComponent(registryId)}/skills/${encodedSkillPath}`;
+}
+
+function readSkillRegistryMutationResponse(
+  result: WorkspaceSkillRegistryMutationResult,
+): {
+  status: number;
+  message: string;
+} {
+  switch (result.operation) {
+    case "installed":
+      return {
+        status: 201,
+        message: `Installed Skill "${result.skillName}".`,
+      };
+    case "updated":
+      return {
+        status: 200,
+        message: `Updated Skill "${result.skillName}".`,
+      };
+    case "unchanged":
+      return {
+        status: 200,
+        message: `Skill "${result.skillName}" is already up-to-date.`,
+      };
+    case "removed":
+      return {
+        status: 200,
+        message: `Removed Skill "${result.skillName}".`,
+      };
+    case "missing":
+      return {
+        status: 200,
+        message: `Skill "${result.skillName}" was not installed.`,
+      };
+  }
 }
