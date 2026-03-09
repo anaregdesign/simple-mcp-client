@@ -14,12 +14,6 @@ export type InstructionPatchAzureConfig = {
   deploymentName: string;
 };
 
-export type UpstreamErrorPayload = {
-  code: string;
-  error: string;
-  errorCode?: "azure_login_required";
-};
-
 export type InstructionEnhanceOptions = {
   message: string;
   enhanceAgentInstruction: string;
@@ -85,32 +79,6 @@ export function extractInstructionDiffPatch(finalOutput: unknown): string {
   throw new Error(
     "Enhancement response does not match the required patch schema.",
   );
-}
-
-export function buildUpstreamErrorPayload(
-  error: unknown,
-  deploymentName: string,
-): {
-  payload: UpstreamErrorPayload;
-  status: number;
-} {
-  if (isAzureCredentialError(error)) {
-    return {
-      payload: {
-        code: "auth_required",
-        error:
-          'Azure authentication failed. Click "Azure Login", complete sign-in, and try again.',
-        errorCode: "azure_login_required",
-      },
-      status: 401,
-    };
-  }
-
-  const message = buildUpstreamErrorMessage(error, deploymentName);
-  return {
-    payload: { code: "upstream_service_error", error: message },
-    status: 502,
-  };
 }
 
 function buildInstructionDiffPatchText(
@@ -246,48 +214,6 @@ function readInstructionDiffPatchOutput(
     fileName: value.fileName,
     hunks,
   };
-}
-
-function buildUpstreamErrorMessage(
-  error: unknown,
-  deploymentName: string,
-): string {
-  if (!(error instanceof Error)) {
-    return "Could not connect to Azure OpenAI.";
-  }
-
-  if (error.message.includes("Resource not found")) {
-    return `${error.message} Check Azure base URL and deployment name (${deploymentName}).`;
-  }
-  if (error.message.includes("Unavailable model")) {
-    return `${error.message} Check the selected deployment name (${deploymentName}).`;
-  }
-  if (error.message.includes("Model behavior error")) {
-    return `${error.message} Verify your model/deployment supports instruction enhancement.`;
-  }
-
-  return error.message;
-}
-
-function isAzureCredentialError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const message = error.message.toLowerCase();
-  return [
-    "defaultazurecredential",
-    "interactivebrowsercredential",
-    "authenticationrequirederror",
-    "automatic authentication has been disabled",
-    "chainedtokencredential",
-    "credentialunavailableerror",
-    "managedidentitycredential",
-    "azure credential failed",
-    "azure credential returned tenant",
-    "requested tenant",
-    "token without tid claim",
-  ].some((pattern) => message.includes(pattern));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

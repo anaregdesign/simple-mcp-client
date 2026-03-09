@@ -42,12 +42,6 @@ const chatTransientTerminationRetryDelayMs = 250;
 const WEB_SEARCH_PREVIEW_TOOL_NAME = "web_search_preview";
 const WEB_SEARCH_PREVIEW_CONTEXT_SIZE = "medium";
 
-export type UpstreamErrorPayload = {
-  code: string;
-  error: string;
-  errorCode?: "azure_login_required";
-};
-
 type ThreadMessageRole = "user" | "assistant";
 
 export type ClientAttachment = {
@@ -1205,42 +1199,6 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
   }
 
   throw new ChatCanceledError();
-}
-
-export function buildUpstreamErrorPayload(
-  error: unknown,
-  deploymentName: string,
-): {
-  payload: UpstreamErrorPayload;
-  status: number;
-} {
-  if (isChatCanceledError(error)) {
-    return {
-      payload: {
-        code: "request_canceled",
-        error: "Chat execution was canceled by client disconnect.",
-      },
-      status: 499,
-    };
-  }
-
-  if (isAzureCredentialError(error)) {
-    return {
-      payload: {
-        code: "auth_required",
-        error:
-          'Azure authentication failed. Click "Azure Login", complete sign-in, and try again.',
-        errorCode: "azure_login_required",
-      },
-      status: 401,
-    };
-  }
-
-  const message = buildUpstreamErrorMessage(error, deploymentName);
-  return {
-    payload: { code: "upstream_service_error", error: message },
-    status: 502,
-  };
 }
 
 export function isChatCanceledError(error: unknown): boolean {

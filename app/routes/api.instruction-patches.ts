@@ -17,6 +17,7 @@ import {
   readMessage,
   readSupportsReasoningEffort,
 } from "~/lib/server/http/instruction-patches/instruction-patches-request";
+import { buildInstructionPatchUpstreamErrorPayload } from "~/lib/server/http/instruction-patches/instruction-patches-error";
 import {
   errorResponse,
   invalidJsonResponse,
@@ -25,7 +26,6 @@ import {
 } from "~/lib/server/http";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
-  buildUpstreamErrorPayload,
   enhanceInstruction,
 } from "~/lib/server/usecase/instruction-patches/instruction-patch-service";
 
@@ -155,7 +155,7 @@ export async function action({ request }: Route.ActionArgs) {
     });
     return Response.json({ message: patch });
   } catch (error) {
-    const upstreamError = buildUpstreamErrorPayload(
+    const upstreamError = buildInstructionPatchUpstreamErrorPayload(
       error,
       azureConfig.deploymentName,
     );

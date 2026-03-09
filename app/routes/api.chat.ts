@@ -86,6 +86,7 @@ import {
   readProgressEventFromRunStreamEvent,
   type RunStreamProgressEvent,
 } from "~/lib/server/infrastructure/gateways/chat/run-stream-progress";
+import { buildChatUpstreamErrorPayload } from "~/lib/server/http/chat/chat-upstream-error";
 import {
   describeMcpServer,
   getAzureMcpAuthorizationToken,
@@ -121,7 +122,6 @@ import {
 } from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
 import {
   type ChatExecutionOptions,
-  buildUpstreamErrorPayload,
   isChatCanceledError,
   executeChat as executeChatUsecase,
   executeChatWithTransientRetry as executeChatWithTransientRetryUsecase,
@@ -321,7 +321,7 @@ export async function action({ request }: Route.ActionArgs) {
       threadEnvironment: result.threadEnvironment,
     });
   } catch (error) {
-    const upstreamError = buildUpstreamErrorPayload(
+    const upstreamError = buildChatUpstreamErrorPayload(
       error,
       azureConfig.deploymentName,
     );
@@ -440,7 +440,7 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         return;
       }
 
-      const upstreamError = buildUpstreamErrorPayload(
+      const upstreamError = buildChatUpstreamErrorPayload(
         error,
         options.azureConfig.deploymentName,
       );

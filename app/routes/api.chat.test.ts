@@ -11,8 +11,6 @@ import {
   buildChatExecutionSuccessLogContext,
 } from "~/lib/server/usecase/chat/chat-execution-log-context";
 import {
-  buildUpstreamErrorMessage,
-  buildUpstreamErrorPayload,
   ChatCanceledError,
   createInitialChatMcpRuntimeMetrics,
   hasNonPdfAttachments,
@@ -21,6 +19,12 @@ import {
   runAgentWithTimeout,
   shouldRetryChatExecution,
   throwIfAborted,
+} from "~/lib/server/usecase/chat/chat-execution";
+import {
+  buildChatUpstreamErrorPayload,
+} from "~/lib/server/http/chat/chat-upstream-error";
+import {
+  buildUpstreamErrorMessage,
 } from "~/lib/server/usecase/chat/chat-execution";
 import {
   applyDefaultThreadDirectoryToStdioServers,
@@ -561,7 +565,7 @@ describe("stream cancellation classification", () => {
     const canceledError = new ChatCanceledError();
     expect(isChatCanceledError(canceledError)).toBe(true);
     expect(
-      buildUpstreamErrorPayload(canceledError, "gpt-5.2"),
+      buildChatUpstreamErrorPayload(canceledError, "gpt-5.2"),
     ).toEqual({
       payload: {
         code: "request_canceled",

@@ -18,8 +18,8 @@ import {
 import {
   readThreadTitleSuggestionRequest,
 } from "~/lib/server/http/threads/thread-title-suggestion-request";
+import { buildThreadTitleUpstreamError } from "~/lib/server/http/threads/thread-title-upstream-error";
 import {
-  buildThreadTitleUpstreamError,
   createThreadTitleSuggestionService,
 } from "~/lib/server/usecase/threads/thread-title-suggestion-service";
 

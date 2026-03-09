@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadTitleGenerationGateway } from "~/lib/domain/repositories/thread-title-generation-gateway";
 import {
-  buildThreadTitleUpstreamError,
   createThreadTitleSuggestionService,
   extractThreadAutoTitle,
 } from "./thread-title-suggestion-service";
+import { buildThreadTitleUpstreamError } from "~/lib/server/http/threads/thread-title-upstream-error";
 
 describe("extractThreadAutoTitle", () => {
   it("normalizes plain text title output", () => {
