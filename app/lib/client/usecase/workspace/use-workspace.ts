@@ -171,9 +171,6 @@ import {
   readSkillRegistryCatalogList,
 } from "~/lib/contracts/skills/parsers";
 import {
-  readSkillRegistryOptionById,
-  readSkillRegistryLabelFromSkillLocation,
-  SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
 import type {
@@ -236,6 +233,13 @@ import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
 import {
+  buildMessageSkillActivationOptions,
+  buildSkillRegistryGroups,
+  buildThreadSkillOptions,
+  readSkillCommandSuggestions,
+  type ChatCommandSuggestion,
+} from "~/lib/client/usecase/workspace/selectors";
+import {
   type AzureActionApiResponse,
   type AzureProjectsApiResponse,
   type AzureSelectionApiResponse,
@@ -245,15 +249,6 @@ import {
   type ThreadTitleApiResponse,
   type ThreadsApiResponse,
 } from "~/lib/client/usecase/workspace/types";
-
-type ChatCommandSuggestion = {
-  id: string;
-  label: string;
-  description: string;
-  detail: string;
-  isSelected: boolean;
-  isAvailable: boolean;
-};
 
 type ChatCommandProvider = {
   keyword: string;
@@ -738,83 +733,17 @@ export function useWorkspace() {
     [availableSkills],
   );
   const threadSkillOptions = useMemo(() => {
-    const selectedThreadSkillLocationSet = new Set(
-      selectedThreadSkills.map((selection) => selection.location),
-    );
-    return [
-      ...availableSkills.map((skill) => ({
-        name: skill.name,
-        description: skill.description,
-        location: skill.location,
-        source: skill.source,
-        badge: resolveSkillBadgeLabel(skill.source, skill.location),
-        isSelected: selectedThreadSkillLocationSet.has(skill.location),
-        isAvailable: true,
-      })),
-      ...selectedThreadSkills
-        .filter(
-          (selection) => !availableSkillByLocation.has(selection.location),
-        )
-        .map((selection) => ({
-          name: selection.name,
-          description:
-            "Saved for this thread, but the SKILL.md file is currently unavailable.",
-          location: selection.location,
-          source: "app_data" as const,
-          badge: resolveSkillBadgeLabel("app_data", selection.location),
-          isSelected: true,
-          isAvailable: false,
-        })),
-    ].sort((left, right) => {
-      if (left.isSelected !== right.isSelected) {
-        return left.isSelected ? -1 : 1;
-      }
-
-      return left.name.localeCompare(right.name);
+    return buildThreadSkillOptions({
+      availableSkills,
+      selectedThreadSkills,
     });
-  }, [availableSkillByLocation, availableSkills, selectedThreadSkills]);
+  }, [availableSkills, selectedThreadSkills]);
   const messageSkillActivationOptions = useMemo(() => {
-    const selectedMessageSkillActivationLocationSet = new Set(
-      selectedMessageSkillActivations.map((selection) => selection.location),
-    );
-    return [
-      ...availableSkills.map((skill) => ({
-        name: skill.name,
-        description: skill.description,
-        location: skill.location,
-        source: skill.source,
-        badge: resolveSkillBadgeLabel(skill.source, skill.location),
-        isSelected: selectedMessageSkillActivationLocationSet.has(
-          skill.location,
-        ),
-        isAvailable: true,
-      })),
-      ...selectedMessageSkillActivations
-        .filter(
-          (selection) => !availableSkillByLocation.has(selection.location),
-        )
-        .map((selection) => ({
-          name: selection.name,
-          description:
-            "Added for this message, but the SKILL.md file is currently unavailable.",
-          location: selection.location,
-          source: "app_data" as const,
-          badge: resolveSkillBadgeLabel("app_data", selection.location),
-          isSelected: true,
-          isAvailable: false,
-        })),
-    ].sort((left, right) => {
-      if (left.isSelected !== right.isSelected) {
-        return left.isSelected ? -1 : 1;
-      }
-
-      return left.name.localeCompare(right.name);
+    return buildMessageSkillActivationOptions({
+      availableSkills,
+      selectedMessageSkillActivations,
     });
-  }, [
-    availableSkillByLocation,
-    availableSkills,
-    selectedMessageSkillActivations,
-  ]);
+  }, [availableSkills, selectedMessageSkillActivations]);
   const chatCommandProviders: ChatCommandProvider[] = [
     {
       keyword: "$",
@@ -867,56 +796,10 @@ export function useWorkspace() {
           suggestions: activeChatCommandSuggestions,
         }
       : null;
-  const skillRegistryGroups = useMemo(() => {
-    if (skillRegistryCatalogs.length > 0) {
-      return skillRegistryCatalogs.map((registry) => ({
-        registryUrl:
-          readSkillRegistryOptionById(registry.registryId)?.sourceUrl ??
-          registry.repositoryUrl,
-        registryId: registry.registryId,
-        label: registry.registryLabel,
-        description: registry.registryDescription,
-        skillCount: registry.skills.length,
-        installedCount: registry.skills.filter((skill) => skill.isInstalled)
-          .length,
-        skills: [...registry.skills]
-          .sort((left, right) => {
-            if (left.isInstalled !== right.isInstalled) {
-              return left.isInstalled ? -1 : 1;
-            }
-
-            const byTag = (left.tag ?? "").localeCompare(right.tag ?? "");
-            if (byTag !== 0) {
-              return byTag;
-            }
-
-            return left.name.localeCompare(right.name);
-          })
-          .map((skill) => ({
-            id: skill.id,
-            name: skill.name,
-            description: skill.description,
-            detail: skill.isInstalled
-              ? `${skill.tag ? `Tag: ${skill.tag} · ` : ""}${
-                  skill.isUpdateAvailable ? "Update available · " : ""
-                }Installed: ${skill.installLocation}`
-              : `${skill.tag ? `Tag: ${skill.tag} · ` : ""}Source: ${skill.remotePath}`,
-            isInstalled: skill.isInstalled,
-            isUpdateAvailable: skill.isUpdateAvailable,
-          })),
-      }));
-    }
-
-    return SKILL_REGISTRY_OPTIONS.map((registry) => ({
-      registryUrl: registry.sourceUrl,
-      registryId: registry.id,
-      label: registry.label,
-      description: registry.description,
-      skillCount: 0,
-      installedCount: 0,
-      skills: [],
-    }));
-  }, [skillRegistryCatalogs]);
+  const skillRegistryGroups = useMemo(
+    () => buildSkillRegistryGroups(skillRegistryCatalogs),
+    [skillRegistryCatalogs],
+  );
   const canSendMessage = canSendMessageByGuard({
     threadOperationPhase,
     isSending,
@@ -6920,61 +6803,4 @@ export function useWorkspace() {
     },
     playgroundPanelProps,
   };
-}
-
-function resolveSkillBadgeLabel(
-  source: "workspace" | "codex_home" | "app_data",
-  location: string,
-): string {
-  if (source === "workspace") {
-    return "Workspace";
-  }
-
-  if (source === "codex_home") {
-    return "CODEX_HOME";
-  }
-
-  const registryLabel = readSkillRegistryLabelFromSkillLocation(location);
-  return registryLabel ?? "App Data";
-}
-
-function readSkillCommandSuggestions(
-  skillOptions: Array<{
-    name: string;
-    description: string;
-    location: string;
-    badge: string;
-    isSelected: boolean;
-    isAvailable: boolean;
-  }>,
-  queryRaw: string,
-): ChatCommandSuggestion[] {
-  const query = queryRaw.trim().toLowerCase();
-  const maxSuggestions = 12;
-
-  return skillOptions
-    .filter((skill) => {
-      if (!skill.isAvailable) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      return (
-        skill.name.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query) ||
-        skill.location.toLowerCase().includes(query)
-      );
-    })
-    .slice(0, maxSuggestions)
-    .map((skill) => ({
-      id: skill.location,
-      label: skill.name,
-      description: skill.description,
-      detail: `${skill.badge} · ${skill.location}`,
-      isSelected: skill.isSelected,
-      isAvailable: skill.isAvailable,
-    }));
 }
