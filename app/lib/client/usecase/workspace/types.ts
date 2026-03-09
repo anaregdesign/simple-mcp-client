@@ -54,15 +54,6 @@ export type SkillsApiResponse = {
 };
 
 /**
- * Response shape returned by `/api/threads/title-suggestions`.
- */
-export type ThreadTitleApiResponse = {
-  title?: string;
-  error?: string;
-  errorCode?: "azure_login_required";
-};
-
-/**
  * Per-thread request lifecycle state for chat streaming UI.
  */
 export type ThreadRequestState = {

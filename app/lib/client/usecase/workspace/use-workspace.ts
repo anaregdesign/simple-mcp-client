@@ -170,6 +170,7 @@ import {
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
+import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
 import {
   filterReasoningEffortOptionsForDeploymentCompatibility,
@@ -216,7 +217,6 @@ import {
   type InstructionEnhanceComparison,
   type SkillsApiResponse,
   type ThreadRequestState,
-  type ThreadTitleApiResponse,
   type ThreadsApiResponse,
 } from "~/lib/client/usecase/workspace/types";
 
@@ -2252,42 +2252,21 @@ export function useWorkspace() {
           : baseThread.agentInstruction;
 
     try {
-      const response = await fetch("/api/threads/title-suggestions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      const payload = await threadTitleApiClient.generateTitle({
+        playgroundContent,
+        instruction,
+        azureConfig: {
+          tenantId: activeAzureTenantIdRef.current,
+          projectName: utilityConnection.projectName,
+          baseUrl: utilityConnection.baseUrl,
+          apiVersion: utilityConnection.apiVersion,
+          deploymentName,
         },
-        body: JSON.stringify({
-          playgroundContent,
-          instruction,
-          azureConfig: {
-            tenantId: activeAzureTenantIdRef.current,
-            projectName: utilityConnection.projectName,
-            baseUrl: utilityConnection.baseUrl,
-            apiVersion: utilityConnection.apiVersion,
-            deploymentName,
-          },
-          supportsReasoningEffort: isUtilityReasoningEffortSupported,
-          ...(isUtilityReasoningEffortSupported
-            ? { reasoningEffort: effectiveUtilityReasoningEffort }
-            : {}),
-        }),
+        supportsReasoningEffort: isUtilityReasoningEffortSupported,
+        ...(isUtilityReasoningEffortSupported
+          ? { reasoningEffort: effectiveUtilityReasoningEffort }
+          : {}),
       });
-
-      const payload = (await response.json()) as ThreadTitleApiResponse;
-      if (!response.ok || payload.error) {
-        if (payload.errorCode === "azure_login_required") {
-          if (
-            options.reason === "utility_deployment_update" &&
-            isSwitchingAzureTenant
-          ) {
-            reportAzureTenantSwitchPending();
-          }
-          return;
-        }
-        throw new Error(payload.error || "Failed to generate thread title.");
-      }
 
       const nextTitle = normalizeThreadAutoTitle(
         typeof payload.title === "string" ? payload.title : "",
@@ -2328,6 +2307,18 @@ export function useWorkspace() {
 
       await saveActiveThreadNameInBackground(normalizedThreadId, nextTitle);
     } catch (threadTitleError) {
+      if (
+        threadTitleError instanceof ClientApiError &&
+        threadTitleError.kind === "auth_required"
+      ) {
+        if (
+          options.reason === "utility_deployment_update" &&
+          isSwitchingAzureTenant
+        ) {
+          reportAzureTenantSwitchPending();
+        }
+        return;
+      }
       logClientError("generate_thread_title_failed", threadTitleError, {
         action: "generate_thread_title",
         context: {
