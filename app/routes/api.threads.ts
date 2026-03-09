@@ -1,11 +1,9 @@
 /**
  * API route module for /api/threads.
  */
-import type { ThreadWritePayload } from "~/lib/domain/entities/thread-record";
 import {
   createThreadApplicationService,
   createThreadQueryService,
-  type CreateThreadResult,
 } from "~/lib/server/usecase/threads/thread-service";
 import {
   createThreadPersistenceRepository,
@@ -41,14 +39,6 @@ function getThreadServices() {
     threadQueryService: createThreadQueryService(repository),
   };
 }
-
-export const threadCollectionActionHandlers = {
-  createThread: (
-    userId: number,
-    payload: ThreadWritePayload,
-  ): Promise<CreateThreadResult> =>
-    getThreadServices().threadApplicationService.createThread(userId, payload),
-};
 
 export async function loader({ request }: Route.LoaderArgs) {
   installGlobalServerErrorLogging();
@@ -144,7 +134,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    const created = await threadCollectionActionHandlers.createThread(
+    const created = await getThreadServices().threadApplicationService.createThread(
       user.id,
       thread.value,
     );

@@ -6,17 +6,26 @@ import type {
   ThreadRecordSnapshot,
   ThreadWritePayload,
 } from "~/lib/domain/entities/thread-record";
+import type { CreateThreadResult } from "~/lib/server/usecase/threads/thread-service";
 
 const {
   readAuthenticatedUserMock,
   readThreadWritePayloadFromUnknownMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
+  createThreadApplicationServiceMock,
+  createThreadQueryServiceMock,
+  createThreadMock,
+  createThreadPersistenceRepositoryMock,
 } = vi.hoisted(() => ({
   readAuthenticatedUserMock: vi.fn(),
   readThreadWritePayloadFromUnknownMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
+  createThreadApplicationServiceMock: vi.fn(),
+  createThreadQueryServiceMock: vi.fn(),
+  createThreadMock: vi.fn<any>(),
+  createThreadPersistenceRepositoryMock: vi.fn(() => ({})),
 }));
 
 vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
@@ -32,8 +41,29 @@ vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-ga
   logServerRouteEvent: logServerRouteEventMock,
 }));
 
-import { action, threadCollectionActionHandlers } from "./api.threads";
-const createThreadSpy = vi.spyOn(threadCollectionActionHandlers, "createThread");
+vi.mock("~/lib/server/infrastructure/repositories/thread-persistence-repository", () => ({
+  createThreadPersistenceRepository: createThreadPersistenceRepositoryMock,
+}));
+
+vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/lib/server/usecase/threads/thread-service")
+  >("~/lib/server/usecase/threads/thread-service");
+
+  return {
+    ...actual,
+    createThreadApplicationService:
+      createThreadApplicationServiceMock.mockImplementation(() => ({
+        createThread: createThreadMock,
+      })),
+    createThreadQueryService:
+      createThreadQueryServiceMock.mockImplementation(() => ({
+        readUserThreads: vi.fn(),
+      })),
+  };
+});
+
+import { action } from "./api.threads";
 
 function createThreadResource(): ThreadRecordSnapshot {
   return {
@@ -84,11 +114,11 @@ describe("POST /api/threads", () => {
     readAuthenticatedUserMock.mockResolvedValue({ id: 10 });
     readThreadWritePayloadFromUnknownMock.mockReturnValue(thread);
     logServerRouteEventMock.mockResolvedValue(undefined);
-    createThreadSpy.mockReset();
-    createThreadSpy.mockResolvedValue({
+    createThreadMock.mockReset();
+    createThreadMock.mockResolvedValue({
       status: "created",
       thread: createThreadResource(),
-    });
+    } satisfies CreateThreadResult);
   });
 
   it("returns 201 with Location when thread is created", async () => {
@@ -109,9 +139,9 @@ describe("POST /api/threads", () => {
   });
 
   it("returns 409 when thread id already exists", async () => {
-    createThreadSpy.mockResolvedValueOnce({
+    createThreadMock.mockResolvedValueOnce({
       status: "conflict",
-    });
+    } satisfies CreateThreadResult);
 
     const response = await action({
       request: new Request("http://localhost/api/threads", {
