@@ -1,8 +1,6 @@
 import { DEFAULT_THEME_MODE } from "~/lib/constants/client";
 import {
   AzureSelectionPreference,
-  type AzureSelectionTargetPreference,
-  type AzureUtilitySelectionTargetPreference,
 } from "~/lib/domain/entities/azure-selection-preference";
 import type {
   AzureSelectionIdentity,
@@ -135,50 +133,16 @@ function mapSelectionRecord(
     tenantId: user.tenantId,
     principalId: user.principalId,
     theme: readThemeModeFromUnknown(selection.theme) ?? DEFAULT_THEME_MODE,
-    playground: mapSelectionTarget(
+    playground: AzureSelectionPreference.createTargetPreference(
       selection.projectId,
       selection.deploymentName,
     ),
-    utility: mapUtilitySelectionTarget(
+    utility: AzureSelectionPreference.createUtilityTargetPreference(
       selection.utilityProjectId,
       selection.utilityDeploymentName,
-      selection.utilityReasoningEffort,
+      readReasoningEffortFromUnknown(selection.utilityReasoningEffort),
     ),
   });
-}
-
-function mapSelectionTarget(
-  projectId: string,
-  deploymentName: string,
-): AzureSelectionTargetPreference | null {
-  const normalizedProjectId = projectId.trim();
-  const normalizedDeploymentName = deploymentName.trim();
-  if (!normalizedProjectId || !normalizedDeploymentName) {
-    return null;
-  }
-
-  return {
-    projectId: normalizedProjectId,
-    deploymentName: normalizedDeploymentName,
-  };
-}
-
-function mapUtilitySelectionTarget(
-  projectId: string,
-  deploymentName: string,
-  reasoningEffort: string,
-): AzureUtilitySelectionTargetPreference | null {
-  const base = mapSelectionTarget(projectId, deploymentName);
-  if (!base) {
-    return null;
-  }
-
-  const normalizedReasoningEffort =
-    readReasoningEffortFromUnknown(reasoningEffort) ?? "high";
-  return {
-    ...base,
-    reasoningEffort: normalizedReasoningEffort,
-  };
 }
 
 function readReasoningEffortFromUnknown(

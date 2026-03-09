@@ -3,8 +3,6 @@
  */
 import {
   AzureSelectionPreference,
-  type AzureSelectionTargetPreference,
-  type AzureUtilitySelectionTargetPreference,
 } from "~/lib/domain/entities/azure-selection-preference";
 import type {
   AzureSelectionIdentity,
@@ -132,58 +130,34 @@ function buildAzureSelectionPreference(
   preference: AzureSelectionPreferencePayload,
   existing: AzureSelectionPreference | null,
 ): AzureSelectionPreference {
-  return new AzureSelectionPreference({
-    tenantId: identity.tenantId,
-    principalId: identity.principalId,
+  const base =
+    existing ??
+    new AzureSelectionPreference({
+      tenantId: identity.tenantId,
+      principalId: identity.principalId,
+      theme: preference.theme ?? DEFAULT_THEME_MODE,
+      playground: null,
+      utility: null,
+    });
+
+  return base.withChanges({
     theme: preference.theme ?? existing?.theme ?? DEFAULT_THEME_MODE,
     playground:
       preference.target === "playground"
-        ? mapSelectionTarget(
+        ? AzureSelectionPreference.createTargetPreference(
             preference.projectId,
             preference.deploymentName,
           )
-        : existing?.playground ?? null,
+        : undefined,
     utility:
       preference.target === "utility"
-        ? mapUtilitySelectionTarget(
+        ? AzureSelectionPreference.createUtilityTargetPreference(
             preference.projectId,
             preference.deploymentName,
             preference.reasoningEffort,
           )
-        : existing?.utility ?? null,
+        : undefined,
   });
-}
-
-function mapSelectionTarget(
-  projectId: string,
-  deploymentName: string,
-): AzureSelectionTargetPreference | null {
-  const normalizedProjectId = projectId.trim();
-  const normalizedDeploymentName = deploymentName.trim();
-  if (!normalizedProjectId || !normalizedDeploymentName) {
-    return null;
-  }
-
-  return {
-    projectId: normalizedProjectId,
-    deploymentName: normalizedDeploymentName,
-  };
-}
-
-function mapUtilitySelectionTarget(
-  projectId: string,
-  deploymentName: string,
-  reasoningEffort: ReasoningEffort | null,
-): AzureUtilitySelectionTargetPreference | null {
-  const base = mapSelectionTarget(projectId, deploymentName);
-  if (!base) {
-    return null;
-  }
-
-  return {
-    ...base,
-    reasoningEffort: reasoningEffort ?? "high",
-  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

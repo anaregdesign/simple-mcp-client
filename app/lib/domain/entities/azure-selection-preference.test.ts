@@ -39,4 +39,57 @@ describe("AzureSelectionPreference", () => {
         }),
     ).toThrow("AzureSelectionPreference tenantId is required.");
   });
+
+  it("normalizes target preferences and fills default reasoning effort", () => {
+    expect(
+      AzureSelectionPreference.createTargetPreference(" project-a ", " deploy-a "),
+    ).toEqual({
+      projectId: "project-a",
+      deploymentName: "deploy-a",
+    });
+
+    expect(
+      AzureSelectionPreference.createUtilityTargetPreference(
+        " project-b ",
+        " deploy-b ",
+        null,
+      ),
+    ).toEqual({
+      projectId: "project-b",
+      deploymentName: "deploy-b",
+      reasoningEffort: "high",
+    });
+  });
+
+  it("preserves untouched selections when applying changes", () => {
+    const preference = new AzureSelectionPreference({
+      tenantId: "tenant-1",
+      principalId: "principal-1",
+      theme: "light",
+      playground: {
+        projectId: "project-a",
+        deploymentName: "deploy-a",
+      },
+      utility: null,
+    });
+
+    const updated = preference.withChanges({
+      utility: AzureSelectionPreference.createUtilityTargetPreference(
+        "project-b",
+        "deploy-b",
+        "medium",
+      ),
+    });
+
+    expect(updated.theme).toBe("light");
+    expect(updated.playground).toEqual({
+      projectId: "project-a",
+      deploymentName: "deploy-a",
+    });
+    expect(updated.utility).toEqual({
+      projectId: "project-b",
+      deploymentName: "deploy-b",
+      reasoningEffort: "medium",
+    });
+  });
 });
