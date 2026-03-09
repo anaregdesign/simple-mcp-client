@@ -4,6 +4,7 @@
 import {
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -34,7 +35,6 @@ import {
   CLIENT_CHAT_INPUT_MAX_HEIGHT_PX,
   CLIENT_CHAT_INPUT_MIN_HEIGHT_PX,
   DEFAULT_THEME_MODE,
-  DEFAULT_THREAD_REQUEST_STATE,
   INITIAL_THREAD_MESSAGES,
   CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
   THREAD_NAME_MAX_LENGTH,
@@ -217,6 +217,13 @@ import {
   findThreadStateById,
   mergeSkillSelections,
 } from "~/lib/client/usecase/workspace/thread-runtime";
+import {
+  readThreadRequestStateById,
+  workspaceInteractionReducer,
+} from "~/lib/client/usecase/workspace/reducer";
+import {
+  createInitialWorkspaceInteractionState,
+} from "~/lib/client/usecase/workspace/state";
 import {
   applySendResult,
   buildChatRequestPayload,
@@ -439,9 +446,12 @@ export function useWorkspace() {
     isDeletingWorkspaceMcpServerProfile,
     setIsDeletingWorkspaceMcpServerProfile,
   ] = useState(false);
-  const [threadRequestStateById, setThreadRequestStateById] = useState<
-    Record<string, ThreadRequestState>
-  >({});
+  const [workspaceInteractionState, dispatchWorkspaceInteraction] = useReducer(
+    workspaceInteractionReducer,
+    undefined,
+    createInitialWorkspaceInteractionState,
+  );
+  const threadRequestStateById = workspaceInteractionState.threadRequestStateById;
   const [isComposing, setIsComposing] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [systemNotice, setSystemNotice] = useState<string | null>(null);
@@ -631,8 +641,10 @@ export function useWorkspace() {
     !webSearchEnabled ||
     !isPlaygroundReasoningEffortSupported ||
     isWebSearchCompatibleReasoningEffort(reasoningEffort);
-  const activeThreadRequestState =
-    threadRequestStateById[activeThreadId] ?? DEFAULT_THREAD_REQUEST_STATE;
+  const activeThreadRequestState = readThreadRequestStateById(
+    workspaceInteractionState,
+    activeThreadId,
+  );
   const isSending = activeThreadRequestState.isSending;
   const sendProgressMessages = activeThreadRequestState.sendProgressMessages;
   const activeTurnId = activeThreadRequestState.activeTurnId;
@@ -1937,7 +1949,9 @@ export function useWorkspace() {
     setChatAttachmentError(null);
     setUiError(null);
     setSystemNotice(null);
-    setThreadRequestStateById({});
+    dispatchWorkspaceInteraction({
+      type: "thread_request_state/reset_all",
+    });
     setIsComposing(false);
   }
 
@@ -1986,13 +2000,11 @@ export function useWorkspace() {
 
   // Thread request-state helpers.
   function readThreadRequestState(threadId: string): ThreadRequestState {
-    if (!threadId) {
-      return DEFAULT_THREAD_REQUEST_STATE;
-    }
-
-    return (
-      threadRequestStateByIdRef.current[threadId] ??
-      DEFAULT_THREAD_REQUEST_STATE
+    return readThreadRequestStateById(
+      {
+        threadRequestStateById: threadRequestStateByIdRef.current,
+      },
+      threadId,
     );
   }
 
@@ -2004,13 +2016,10 @@ export function useWorkspace() {
       return;
     }
 
-    setThreadRequestStateById((current) => {
-      const base = current[threadId] ?? DEFAULT_THREAD_REQUEST_STATE;
-      const next = updater(base);
-      return {
-        ...current,
-        [threadId]: next,
-      };
+    dispatchWorkspaceInteraction({
+      type: "thread_request_state/set",
+      threadId,
+      nextState: updater(readThreadRequestState(threadId)),
     });
   }
 
@@ -2309,7 +2318,9 @@ export function useWorkspace() {
     const localThread = createLocalThreadState();
     isThreadsReadyRef.current = true;
     setThreadsState([localThread]);
-    setThreadRequestStateById({});
+    dispatchWorkspaceInteraction({
+      type: "thread_request_state/reset_all",
+    });
     applyThreadState(localThread);
     setThreadError(null);
     beginThreadOperation("loading");
@@ -2742,15 +2753,9 @@ export function useWorkspace() {
 
       setThreadSaveSignatures(parsedThreads);
       setThreadsState(nextThreads);
-      setThreadRequestStateById((current) => {
-        const next: Record<string, ThreadRequestState> = {};
-        const validIds = new Set(nextThreads.map((thread) => thread.id));
-        for (const [threadId, state] of Object.entries(current)) {
-          if (validIds.has(threadId)) {
-            next[threadId] = state;
-          }
-        }
-        return next;
+      dispatchWorkspaceInteraction({
+        type: "thread_request_state/prune",
+        validThreadIds: nextThreads.map((thread) => thread.id),
       });
       isThreadsReadyRef.current = true;
       setThreadError(null);
@@ -3045,10 +3050,9 @@ export function useWorkspace() {
         upsertThreadState(current, targetThreadForSave),
       );
 
-      setThreadRequestStateById((current) => {
-        const next = { ...current };
-        delete next[threadId];
-        return next;
+      dispatchWorkspaceInteraction({
+        type: "thread_request_state/remove",
+        threadId,
       });
 
       if (threadId === activeThreadIdRef.current.trim()) {
@@ -3164,10 +3168,9 @@ export function useWorkspace() {
         throw new Error("Deleted thread payload is invalid.");
       }
 
-      setThreadRequestStateById((current) => {
-        const next = { ...current };
-        delete next[threadId];
-        return next;
+      dispatchWorkspaceInteraction({
+        type: "thread_request_state/remove",
+        threadId,
       });
       await loadThreads();
       logClientInfo("delete_thread_succeeded", "Thread archived.", {

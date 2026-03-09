@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import {
+  readThreadRequestStateById,
+  workspaceInteractionReducer,
+} from "~/lib/client/usecase/workspace/reducer";
+import { createInitialWorkspaceInteractionState } from "~/lib/client/usecase/workspace/state";
+
+describe("workspaceInteractionReducer", () => {
+  it("sets and reads thread request state by trimmed thread id", () => {
+    const nextState = workspaceInteractionReducer(
+      createInitialWorkspaceInteractionState(),
+      {
+        type: "thread_request_state/set",
+        threadId: " thread-1 ",
+        nextState: {
+          isSending: true,
+          sendProgressMessages: ["Sending..."],
+          activeTurnId: "turn-1",
+          lastErrorTurnId: null,
+          error: null,
+        },
+      },
+    );
+
+    expect(readThreadRequestStateById(nextState, "thread-1")).toEqual({
+      isSending: true,
+      sendProgressMessages: ["Sending..."],
+      activeTurnId: "turn-1",
+      lastErrorTurnId: null,
+      error: null,
+    });
+  });
+
+  it("removes and resets thread request state", () => {
+    const populatedState = workspaceInteractionReducer(
+      createInitialWorkspaceInteractionState(),
+      {
+        type: "thread_request_state/set",
+        threadId: "thread-1",
+        nextState: {
+          isSending: true,
+          sendProgressMessages: [],
+          activeTurnId: null,
+          lastErrorTurnId: null,
+          error: null,
+        },
+      },
+    );
+
+    const removedState = workspaceInteractionReducer(populatedState, {
+      type: "thread_request_state/remove",
+      threadId: "thread-1",
+    });
+    expect(removedState.threadRequestStateById).toEqual({});
+
+    const resetState = workspaceInteractionReducer(populatedState, {
+      type: "thread_request_state/reset_all",
+    });
+    expect(resetState).toEqual(createInitialWorkspaceInteractionState());
+  });
+
+  it("prunes request state for removed threads", () => {
+    const initialState = {
+      threadRequestStateById: {
+        "thread-1": {
+          isSending: true,
+          sendProgressMessages: [],
+          activeTurnId: null,
+          lastErrorTurnId: null,
+          error: null,
+        },
+        "thread-2": {
+          isSending: false,
+          sendProgressMessages: [],
+          activeTurnId: null,
+          lastErrorTurnId: "turn-2",
+          error: "boom",
+        },
+      },
+    };
+
+    const nextState = workspaceInteractionReducer(initialState, {
+      type: "thread_request_state/prune",
+      validThreadIds: ["thread-2"],
+    });
+
+    expect(nextState.threadRequestStateById).toEqual({
+      "thread-2": initialState.threadRequestStateById["thread-2"],
+    });
+  });
+});
