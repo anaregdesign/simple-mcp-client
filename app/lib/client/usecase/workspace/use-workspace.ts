@@ -68,7 +68,6 @@ import {
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
   buildThreadSummary,
-  readThreadStateListFromResources,
 } from "~/lib/contracts/threads/parsers";
 import {
   cloneThreadEnvironment,
@@ -84,7 +83,6 @@ import {
   isThreadArchived,
   readThreadRuntimeStateById,
   updateThreadStateCollectionById,
-  upsertThreadState,
 } from "~/lib/contracts/threads/state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
 import {
@@ -143,8 +141,6 @@ import {
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
 import {
-  ClientApiError,
-  mapApiError,
 } from "~/lib/client/infrastructure/api/api-client";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
@@ -215,6 +211,9 @@ import {
   saveThreadStateSilentlyIfNeeded as saveThreadStateSilentlyIfNeededOperation,
   saveThreadStateToDatabase as saveThreadStateToDatabaseOperation,
 } from "~/lib/client/usecase/workspace/thread-persistence-operations";
+import {
+  loadThreads as loadThreadsOperation,
+} from "~/lib/client/usecase/workspace/thread-loading-operations";
 import {
   refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
 } from "~/lib/client/usecase/workspace/thread-title-operations";
@@ -1856,6 +1855,40 @@ export function useWorkspace() {
     };
   }
 
+  function buildThreadLoadingOperationDeps() {
+    return {
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+      clearThreadsState,
+      nextThreadLoadRequestSeq: () => {
+        threadLoadRequestSeqRef.current += 1;
+        return threadLoadRequestSeqRef.current;
+      },
+      readThreadLoadRequestSeq: () => threadLoadRequestSeqRef.current,
+      beginThreadOperation: () => beginThreadOperation("loading"),
+      endThreadOperation: () => endThreadOperation("loading"),
+      setThreadError,
+      loadThreads: (options: { onAuthRequired?: () => void }) =>
+        threadsApiClient.loadThreads(options),
+      markAzureAuthRequired,
+      setThreadSaveSignatures,
+      setThreadsState,
+      pruneThreadRequestState: (validThreadIds: string[]) => {
+        dispatchWorkspaceInteraction({
+          type: "thread_request_state/prune",
+          validThreadIds,
+        });
+      },
+      setThreadsReady: () => {
+        isThreadsReadyRef.current = true;
+      },
+      readPreferredThreadId: () => activeThreadIdRef.current,
+      applyThreadState,
+      createLocalThreadState: () => createLocalThreadState(),
+      logClientInfo,
+      logClientError,
+    };
+  }
+
   function updateThreadStateById(
     threadId: string,
     updater: (current: ThreadState) => ThreadState,
@@ -2020,96 +2053,7 @@ export function useWorkspace() {
 
   // Thread lifecycle actions (load/create/rename/archive/switch).
   async function loadThreads(): Promise<void> {
-    const expectedUserKey = activeWorkspaceUserKeyRef.current.trim();
-    if (!expectedUserKey) {
-      clearThreadsState();
-      return;
-    }
-
-    const requestSeq = threadLoadRequestSeqRef.current + 1;
-    threadLoadRequestSeqRef.current = requestSeq;
-    beginThreadOperation("loading");
-    setThreadError(null);
-
-    try {
-      const payload = await threadsApiClient.loadThreads({
-        onAuthRequired: () => {
-          markAzureAuthRequired();
-          clearThreadsState(
-            "Azure login is required. Open Settings and sign in to load threads.",
-          );
-        },
-      });
-
-      if (requestSeq !== threadLoadRequestSeqRef.current) {
-        return;
-      }
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return;
-      }
-
-      const parsedThreads = readThreadStateListFromResources(payload.threads, {
-        fallbackInstruction: DEFAULT_AGENT_INSTRUCTION,
-      });
-      const nextThreads = parsedThreads.some(
-        (thread) => thread.deletedAt === null,
-      )
-        ? parsedThreads
-        : upsertThreadState(parsedThreads, createLocalThreadState());
-
-      setThreadSaveSignatures(parsedThreads);
-      setThreadsState(nextThreads);
-      dispatchWorkspaceInteraction({
-        type: "thread_request_state/prune",
-        validThreadIds: nextThreads.map((thread) => thread.id),
-      });
-      isThreadsReadyRef.current = true;
-      setThreadError(null);
-
-      const preferredThreadId = activeThreadIdRef.current.trim();
-      const nextThread =
-        nextThreads.find((thread) => thread.id === preferredThreadId) ??
-        nextThreads.find((thread) => thread.deletedAt === null) ??
-        nextThreads[0];
-      if (!nextThread) {
-        throw new Error("No thread is available.");
-      }
-
-      applyThreadState(nextThread);
-      logClientInfo("load_threads_succeeded", "Threads loaded.", {
-        action: "load_threads",
-        context: {
-          threadCount: nextThreads.length,
-          archivedThreadCount: nextThreads.filter(
-            (thread) => thread.deletedAt !== null,
-          ).length,
-          activeThreadId: nextThread.id,
-        },
-      });
-    } catch (loadError) {
-      if (requestSeq !== threadLoadRequestSeqRef.current) {
-        return;
-      }
-      if (expectedUserKey !== activeWorkspaceUserKeyRef.current.trim()) {
-        return;
-      }
-      if (
-        loadError instanceof ClientApiError &&
-        loadError.kind === "auth_required"
-      ) {
-        return;
-      }
-
-      logClientError("load_threads_failed", loadError, {
-        action: "load_threads",
-        statusCode: 500,
-      });
-      setThreadError(mapApiError(loadError, "Failed to load threads."));
-    } finally {
-      if (requestSeq === threadLoadRequestSeqRef.current) {
-        endThreadOperation("loading");
-      }
-    }
+    await loadThreadsOperation(buildThreadLoadingOperationDeps());
   }
 
   const {
