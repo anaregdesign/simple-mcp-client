@@ -6,7 +6,6 @@ import {
   Agent,
   tool,
 } from "@openai/agents";
-import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
 import {
   acquireThreadMcpServerSession,
 } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
@@ -168,6 +167,10 @@ import {
   updateSkillOperationErrorLoopState,
   updateSkillOperationLoopState,
 } from "~/lib/server/usecase/chat/skill-operation-loop";
+import {
+  applyDefaultThreadDirectoryToStdioServers,
+  buildMcpServerSessionConfigKey,
+} from "~/lib/server/usecase/chat/mcp-server-config-normalization";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 type ChatMcpRuntimeMetrics = {
@@ -569,50 +572,6 @@ function buildChatExecutionSuccessLogContext(
 
 function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
   return createInitialChatMcpRuntimeMetricsUsecase();
-}
-
-function applyDefaultThreadDirectoryToStdioServers(
-  mcpServers: ClientMcpServerConfig[],
-  threadDirectoryPath: string | null,
-  userDirectoryPath: string | null,
-): ClientMcpServerConfig[] {
-  if (!threadDirectoryPath) {
-    return mcpServers;
-  }
-
-  const normalizedUserDirectoryPath =
-    normalizePathForComparison(userDirectoryPath);
-  const dedupeKeys = new Set<string>();
-  const normalized: ClientMcpServerConfig[] = [];
-  for (const server of mcpServers) {
-    let nextServer: ClientMcpServerConfig = server;
-    if (server.transport === "stdio") {
-      const hasExplicitCwd =
-        typeof server.cwd === "string" && server.cwd.trim().length > 0;
-      const isLegacyWorkspaceRootCwd =
-        hasExplicitCwd &&
-        normalizePathForComparison(server.cwd) === normalizedUserDirectoryPath;
-      if (!hasExplicitCwd || isLegacyWorkspaceRootCwd) {
-        nextServer = {
-          ...server,
-          cwd: threadDirectoryPath,
-        };
-      }
-    }
-    const dedupeKey = buildMcpServerSessionConfigKey(nextServer);
-    if (dedupeKeys.has(dedupeKey)) {
-      continue;
-    }
-
-    dedupeKeys.add(dedupeKey);
-    normalized.push(nextServer);
-  }
-
-  return normalized;
-}
-
-function buildMcpServerSessionConfigKey(config: ClientMcpServerConfig): string {
-  return buildMcpServerConfigKey(config);
 }
 
 function toSerializableValue(value: unknown): unknown {
@@ -1801,14 +1760,6 @@ function buildSkillEnvironmentSnapshotOperationRecord(options: {
     },
     isError: false,
   };
-}
-
-function normalizePathForComparison(value: string | null | undefined): string {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim().replaceAll("\\", "/").toLowerCase();
 }
 
 function buildSkillResourcePreview(
