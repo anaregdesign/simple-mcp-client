@@ -28,17 +28,7 @@ import {
   type ThreadEnvironment,
 } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
-import type {
-  ClientAttachment,
-  ClientMcpServerConfig,
-  ClientMessage,
-  ClientSkillSelection,
-  ResolvedAzureConfig,
-} from "~/lib/server/chat/request-parser";
-import type { WebSearchPreviewUserLocation } from "~/lib/server/chat/request-metadata";
-import type {
-  SkillResourceFileEntry,
-} from "~/lib/server/skills/runtime";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -52,6 +42,66 @@ export type UpstreamErrorPayload = {
   code: string;
   error: string;
   errorCode?: "azure_login_required";
+};
+
+type ThreadMessageRole = "user" | "assistant";
+
+export type ClientAttachment = {
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  dataUrl: string;
+};
+
+export type ClientMessage = {
+  role: ThreadMessageRole;
+  content: string;
+  attachments: ClientAttachment[];
+};
+
+type ClientMcpHttpServerConfig = {
+  name: string;
+  transport: "streamable_http" | "sse";
+  url: string;
+  headers: Record<string, string>;
+  useAzureAuth: boolean;
+  azureAuthScope: string;
+  timeoutSeconds: number;
+};
+
+type ClientMcpStdioServerConfig = {
+  name: string;
+  transport: "stdio";
+  command: string;
+  args: string[];
+  cwd?: string;
+  env: Record<string, string>;
+};
+
+export type ClientMcpServerConfig =
+  | ClientMcpHttpServerConfig
+  | ClientMcpStdioServerConfig;
+
+export type ClientSkillSelection = ThreadSkillActivation;
+
+export type ResolvedAzureConfig = {
+  tenantId: string;
+  projectName: string;
+  baseUrl: string;
+  apiVersion: string;
+  deploymentName: string;
+};
+
+export type WebSearchPreviewUserLocation = {
+  city?: string;
+  country?: string;
+  region?: string;
+  timezone?: string;
+};
+
+export type SkillResourceFileEntry = {
+  path: string;
+  sizeBytes: number;
 };
 
 export type ChatExecutionOptions = {
