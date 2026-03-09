@@ -112,7 +112,7 @@ type ThreadLifecycleHandlerDependencies = {
   setSystemNotice: (message: string | null) => void;
   setActiveMainTab: (tab: MainViewTab) => void;
   setActiveThreadNameInput: (name: string) => void;
-  setIsAzureAuthRequired: (next: boolean) => void;
+  markAzureAuthRequired: () => void;
   logClientInfo: (
     eventName: string,
     message: string,
@@ -609,7 +609,7 @@ export function createThreadLifecycleHandlers(
           authRequiredMessage:
             "Azure login is required. Open Settings and sign in to continue.",
           onAuthRequired: () => {
-            deps.setIsAzureAuthRequired(true);
+            deps.markAzureAuthRequired();
           },
         });
 
@@ -711,7 +711,7 @@ export function createThreadLifecycleHandlers(
           authRequiredMessage:
             "Azure login is required. Open Settings and sign in to continue.",
           onAuthRequired: () => {
-            deps.setIsAzureAuthRequired(true);
+            deps.markAzureAuthRequired();
           },
         });
 

@@ -26,9 +26,7 @@ import {
   CHAT_ATTACHMENT_MAX_TOTAL_SIZE_BYTES,
   DEFAULT_AGENT_INSTRUCTION,
   DEFAULT_REASONING_EFFORT,
-  DEFAULT_UTILITY_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
-  REASONING_EFFORT_OPTIONS,
   THREAD_DEFAULT_NAME,
 } from "~/lib/constants/chat";
 import {
@@ -53,22 +51,6 @@ import {
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
 import { CLIENT_SKILLS_RELOAD_MIN_INTERVAL_MS } from "~/lib/constants/skills";
-import type {
-  AzureDeploymentOption,
-  AzureProjectOption,
-  AzurePrincipalProfile,
-  AzureSelectionPreference,
-  AzureTenantOption,
-} from "~/lib/client/usecase/workspace/azure-parsers";
-import {
-  readAzureDeploymentList,
-  readAzurePrincipalProfileFromUnknown,
-  readPrincipalIdFromUnknown,
-  readAzureProjectList,
-  readAzureSelectionFromUnknown,
-  readAzureTenantList,
-  readTenantIdFromUnknown,
-} from "~/lib/client/usecase/workspace/azure-parsers";
 import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
 import { buildThreadOperationLogsByTurnId } from "~/lib/client/chat/history";
 import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
@@ -109,7 +91,6 @@ import { buildMcpServerKey, upsertMcpServer } from "~/lib/contracts/mcp/profile"
 import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
-  shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
 import {
   installGlobalClientErrorLogging,
@@ -177,15 +158,6 @@ import {
   readDesktopUpdaterStatusFromUnknown,
   resolveDesktopUpdaterActionState,
 } from "~/lib/client/usecase/workspace/desktop-updater";
-import {
-  buildAzureProjectsLoadResult,
-  isAzureProjectsLoadReady,
-  resolveAzureAuthRequiredState,
-  resolveAzureTenantOptions,
-  resolveInitialAzureProjectId,
-  shouldUseCachedAzureProjectCatalog,
-  type AzureProjectsLoadResult,
-} from "~/lib/client/usecase/workspace/azure-runtime";
 import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
@@ -224,12 +196,18 @@ import {
   requestClientApi,
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
-import { azureProjectsApiClient } from "~/lib/client/infrastructure/api/azure-projects-api-client";
-import { azureSelectionApiClient } from "~/lib/client/infrastructure/api/azure-selection-api-client";
-import { azureSessionApiClient } from "~/lib/client/infrastructure/api/azure-session-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
+import {
+  filterReasoningEffortOptionsForDeploymentCompatibility,
+  filterReasoningEffortOptionsForWebSearch,
+  includesAzureDeploymentName,
+  isWebSearchCompatibleReasoningEffort,
+  resolveEffectiveReasoningEffort,
+  resolveSupportedReasoningEffortOptions,
+} from "~/lib/client/usecase/workspace/azure-settings/selectors";
+import { useAzureSettings } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
   buildMcpServersTabProps,
   buildPlaygroundPanelProps,
@@ -264,35 +242,6 @@ type ChatCommandProvider = {
   applySuggestion: (suggestion: ChatCommandSuggestion) => void;
 };
 
-type AzureProjectCatalogCacheEntry = {
-  tenantId: string;
-  principalId: string;
-  principal: AzurePrincipalProfile | null;
-  tenants: AzureTenantOption[];
-  projects: AzureProjectOption[];
-};
-
-type AzureProjectCatalogCacheByTenantId = Record<
-  string,
-  AzureProjectCatalogCacheEntry
->;
-type AzureDeploymentCatalogCacheByTenantProjectKey = Record<
-  string,
-  AzureDeploymentOption[]
->;
-
-type LoadAzureProjectsOptions = {
-  force?: boolean;
-  preferredTenantId?: string;
-  waitForWorkspaceStateReload?: boolean;
-};
-
-type LoadAzureDeploymentsOptions = {
-  force?: boolean;
-};
-
-type LoadAzureProjectsResult = AzureProjectsLoadResult;
-
 /**
  * Client runtime controller.
  * Owns interactive state for Playground/Threads/MCP/Settings and orchestrates server API calls.
@@ -301,18 +250,6 @@ type LoadAzureProjectsResult = AzureProjectsLoadResult;
  */
 export function useWorkspace() {
   // Primary runtime state for Client.
-  const [azureConnections, setAzureConnections] = useState<
-    AzureProjectOption[]
-  >([]);
-  const [azureTenants, setAzureTenants] = useState<AzureTenantOption[]>([]);
-  const [playgroundAzureDeployments, setPlaygroundAzureDeployments] = useState<
-    AzureDeploymentOption[]
-  >([]);
-  const [utilityAzureDeployments, setUtilityAzureDeployments] = useState<
-    AzureDeploymentOption[]
-  >([]);
-  const [activeAzurePrincipal, setActiveAzurePrincipal] =
-    useState<AzurePrincipalProfile | null>(null);
   const [draft, setDraft] = useState("");
   const [chatComposerCursorIndex, setChatComposerCursorIndex] = useState(0);
   const [chatCommandHighlightedIndex, setChatCommandHighlightedIndex] =
@@ -324,57 +261,12 @@ export function useWorkspace() {
     null,
   );
   const [activeMainTab, setActiveMainTab] = useState<MainViewTab>("threads");
-  const [theme, setTheme] = useState<ThemeMode>(DEFAULT_THEME_MODE);
-  const [
-    selectedPlaygroundAzureConnectionId,
-    setSelectedPlaygroundAzureConnectionId,
-  ] = useState("");
-  const [
-    selectedPlaygroundAzureDeploymentName,
-    setSelectedPlaygroundAzureDeploymentName,
-  ] = useState("");
-  const [
-    selectedUtilityAzureConnectionId,
-    setSelectedUtilityAzureConnectionId,
-  ] = useState("");
-  const [
-    selectedUtilityAzureDeploymentName,
-    setSelectedUtilityAzureDeploymentName,
-  ] = useState("");
-  const [isLoadingAzureConnections, setIsLoadingAzureConnections] =
-    useState(false);
-  const [
-    isLoadingPlaygroundAzureDeployments,
-    setIsLoadingPlaygroundAzureDeployments,
-  ] = useState(false);
-  const [
-    isLoadingUtilityAzureDeployments,
-    setIsLoadingUtilityAzureDeployments,
-  ] = useState(false);
-  const [
-    azureProjectCatalogCacheByTenantId,
-    setAzureProjectCatalogCacheByTenantId,
-  ] = useState<AzureProjectCatalogCacheByTenantId>({});
-  const [
-    azureDeploymentCatalogCacheByTenantProjectKey,
-    setAzureDeploymentCatalogCacheByTenantProjectKey,
-  ] = useState<AzureDeploymentCatalogCacheByTenantProjectKey>({});
-  const [azureConnectionError, setAzureConnectionError] = useState<
-    string | null
-  >(null);
-  const [playgroundAzureDeploymentError, setPlaygroundAzureDeploymentError] =
-    useState<string | null>(null);
-  const [utilityAzureDeploymentError, setUtilityAzureDeploymentError] =
-    useState<string | null>(null);
-  const [isAzureAuthRequired, setIsAzureAuthRequired] = useState(false);
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(
     DEFAULT_REASONING_EFFORT,
   );
   const [webSearchEnabled, setWebSearchEnabled] = useState(
     DEFAULT_WEB_SEARCH_ENABLED,
   );
-  const [utilityReasoningEffort, setUtilityReasoningEffort] =
-    useState<ReasoningEffort>(DEFAULT_UTILITY_REASONING_EFFORT);
   const [agentInstruction, setAgentInstruction] = useState(
     DEFAULT_AGENT_INSTRUCTION,
   );
@@ -449,15 +341,6 @@ export function useWorkspace() {
   const [isComposing, setIsComposing] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [systemNotice, setSystemNotice] = useState<string | null>(null);
-  const [isStartingAzureLogin, setIsStartingAzureLogin] = useState(false);
-  const [isSwitchingAzureTenant, setIsSwitchingAzureTenant] = useState(false);
-  const [isStartingAzureLogout, setIsStartingAzureLogout] = useState(false);
-  const [isReloadingAzureCatalog, setIsReloadingAzureCatalog] = useState(false);
-  const [azureLoginError, setAzureLoginError] = useState<string | null>(null);
-  const [azureTenantSwitchError, setAzureTenantSwitchError] = useState<
-    string | null
-  >(null);
-  const [azureLogoutError, setAzureLogoutError] = useState<string | null>(null);
   const [threads, setThreads] = useState<ThreadState[]>([]);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [activeThreadNameInput, setActiveThreadNameInput] = useState("");
@@ -512,23 +395,13 @@ export function useWorkspace() {
   const chatAttachmentInputRef = useRef<HTMLInputElement | null>(null);
   const instructionFileInputRef = useRef<HTMLInputElement | null>(null);
   const layoutRef = useRef<HTMLDivElement | null>(null);
-  const azureConnectionsRequestSeqRef = useRef(0);
-  const playgroundAzureDeploymentRequestSeqRef = useRef(0);
-  const utilityAzureDeploymentRequestSeqRef = useRef(0);
   const activeAzureTenantIdRef = useRef("");
   const activeAzurePrincipalIdRef = useRef("");
   const activeWorkspaceUserKeyRef = useRef("");
-  const workspaceMcpServerProfileLoginRetryTimeoutRef = useRef<number | null>(
-    null,
-  );
   const workspaceMcpServerProfileRequestSeqRef = useRef(0);
   const skillsRequestSeqRef = useRef(0);
   const lastManualSkillsReloadAtRef = useRef(0);
-  const previousIsAzureAuthRequiredRef = useRef(isAzureAuthRequired);
   const lastLoadedSkillsUserKeyRef = useRef("");
-  const preferredAzureSelectionRef = useRef<AzureSelectionPreference | null>(
-    null,
-  );
   const activeThreadIdRef = useRef("");
   const activeMainTabRef = useRef<MainViewTab>("threads");
   const selectedPlaygroundAzureConnectionIdRef = useRef("");
@@ -554,19 +427,81 @@ export function useWorkspace() {
   const threadsRef = useRef<ThreadState[]>([]);
 
   // Derived UI state and view models consumed by panel props.
+  const activeThreadRequestState = readThreadRequestStateById(
+    workspaceInteractionState,
+    activeThreadId,
+  );
+  const isSending = activeThreadRequestState.isSending;
+  const {
+    theme,
+    azureConnections,
+    azureTenants,
+    playgroundAzureDeployments,
+    utilityAzureDeployments,
+    playgroundAzureDeploymentNames,
+    utilityAzureDeploymentNames,
+    activeAzurePrincipal,
+    activePlaygroundAzureConnection,
+    activeUtilityAzureConnection,
+    selectedPlaygroundAzureConnectionId,
+    selectedPlaygroundAzureDeploymentName,
+    selectedUtilityAzureConnectionId,
+    selectedUtilityAzureDeploymentName,
+    isLoadingAzureConnections,
+    isLoadingPlaygroundAzureDeployments,
+    isLoadingUtilityAzureDeployments,
+    azureConnectionError,
+    playgroundAzureDeploymentError,
+    utilityAzureDeploymentError,
+    isAzureAuthRequired,
+    utilityReasoningEffort,
+    isStartingAzureLogin,
+    isSwitchingAzureTenant,
+    isStartingAzureLogout,
+    isReloadingAzureCatalog,
+    azureLoginError,
+    azureTenantSwitchError,
+    azureLogoutError,
+    effectiveUtilityReasoningEffortOptions,
+    effectiveUtilityReasoningEffort,
+    isUtilityReasoningEffortSupported,
+    clearAzureSessionStatus,
+    markAzureAuthRequired,
+    resolveAzureBackgroundSuccess,
+    reportAzureTenantSwitchPending,
+    handleThemeChange,
+    handleAzureLogin,
+    handleAzureTenantChange,
+    handleAzureLogout,
+    handleReloadAzureCatalog,
+    handleSelectPlaygroundProject,
+    handleSelectPlaygroundDeployment,
+    handleSelectUtilityProject,
+    handleSelectUtilityDeployment,
+    handleUtilityReasoningEffortChange: handleAzureUtilityReasoningEffortChange,
+    loadAzureProjects,
+  } = useAzureSettings({
+    isSending,
+    readIsThreadsReady: () => isThreadsReadyRef.current,
+    readIsLoadingThreads: () => isLoadingThreads,
+    setSystemNotice,
+    activeAzureTenantIdRef,
+    activeAzurePrincipalIdRef,
+    activeWorkspaceUserKeyRef,
+    selectedPlaygroundAzureConnectionIdRef,
+    selectedPlaygroundAzureDeploymentNameRef,
+    selectedUtilityAzureConnectionIdRef,
+    selectedUtilityAzureDeploymentNameRef,
+    clearWorkspaceMcpServerProfilesState,
+    loadWorkspaceMcpServerProfiles,
+    clearThreadsState,
+    showThreadReloadPlaceholder,
+    loadThreads,
+    logClientError,
+    logClientWarning,
+  });
+  const previousIsAzureAuthRequiredRef = useRef(isAzureAuthRequired);
   const isChatLocked = isAzureAuthRequired;
-  const activePlaygroundAzureConnection =
-    azureConnections.find(
-      (connection) => connection.id === selectedPlaygroundAzureConnectionId,
-    ) ??
-    azureConnections[0] ??
-    null;
-  const activeUtilityAzureConnection =
-    azureConnections.find(
-      (connection) => connection.id === selectedUtilityAzureConnectionId,
-    ) ??
-    azureConnections[0] ??
-    null;
   const instructionRuntimeUiState = deriveInstructionRuntimeUiState({
     agentInstruction,
     loadedInstructionFileName,
@@ -578,12 +513,6 @@ export function useWorkspace() {
     instructionRuntimeUiState.canSaveAgentInstructionPrompt;
   const canEnhanceAgentInstruction =
     instructionRuntimeUiState.canEnhanceAgentInstruction;
-  const playgroundAzureDeploymentNames = playgroundAzureDeployments.map(
-    (deployment) => deployment.name,
-  );
-  const utilityAzureDeploymentNames = utilityAzureDeployments.map(
-    (deployment) => deployment.name,
-  );
   const selectedPlaygroundAzureDeployment = playgroundAzureDeployments.find(
     (deployment) => deployment.name === selectedPlaygroundAzureDeploymentName,
   );
@@ -594,24 +523,13 @@ export function useWorkspace() {
     resolveSupportedReasoningEffortOptions(
       selectedPlaygroundAzureDeployment?.reasoningEffortOptions ?? [],
     );
-  const selectedUtilityDeploymentReasoningEffortOptions =
-    resolveSupportedReasoningEffortOptions(
-      selectedUtilityAzureDeployment?.reasoningEffortOptions ?? [],
-    );
   const selectedPlaygroundDeploymentCompatibleReasoningEffortOptions =
     filterReasoningEffortOptionsForDeploymentCompatibility(
       selectedPlaygroundDeploymentReasoningEffortOptions,
       selectedPlaygroundAzureDeploymentName,
     );
-  const selectedUtilityDeploymentCompatibleReasoningEffortOptions =
-    filterReasoningEffortOptionsForDeploymentCompatibility(
-      selectedUtilityDeploymentReasoningEffortOptions,
-      selectedUtilityAzureDeploymentName,
-    );
   const isPlaygroundReasoningEffortSupported =
     selectedPlaygroundDeploymentCompatibleReasoningEffortOptions.length > 0;
-  const isUtilityReasoningEffortSupported =
-    selectedUtilityDeploymentCompatibleReasoningEffortOptions.length > 0;
   const effectivePlaygroundReasoningEffortOptions: ReasoningEffort[] =
     isPlaygroundReasoningEffortSupported
       ? filterReasoningEffortOptionsForWebSearch(
@@ -619,15 +537,6 @@ export function useWorkspace() {
           webSearchEnabled,
         )
       : [DEFAULT_REASONING_EFFORT];
-  const effectiveUtilityReasoningEffortOptions: ReasoningEffort[] =
-    isUtilityReasoningEffortSupported
-      ? selectedUtilityDeploymentCompatibleReasoningEffortOptions
-      : [DEFAULT_REASONING_EFFORT];
-  const effectiveUtilityReasoningEffort = resolveEffectiveReasoningEffort(
-    utilityReasoningEffort,
-    effectiveUtilityReasoningEffortOptions,
-    DEFAULT_UTILITY_REASONING_EFFORT,
-  );
   const isSelectedPlaygroundReasoningEffortOptionAvailable =
     !isPlaygroundReasoningEffortSupported ||
     effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort);
@@ -635,11 +544,6 @@ export function useWorkspace() {
     !webSearchEnabled ||
     !isPlaygroundReasoningEffortSupported ||
     isWebSearchCompatibleReasoningEffort(reasoningEffort);
-  const activeThreadRequestState = readThreadRequestStateById(
-    workspaceInteractionState,
-    activeThreadId,
-  );
-  const isSending = activeThreadRequestState.isSending;
   const sendProgressMessages = activeThreadRequestState.sendProgressMessages;
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
@@ -917,34 +821,8 @@ export function useWorkspace() {
 
   // Keep refs synchronized with state to avoid stale closures in async handlers.
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.theme = theme;
-    }
-  }, [theme]);
-
-  useEffect(() => {
     activeMainTabRef.current = activeMainTab;
   }, [activeMainTab]);
-
-  useEffect(() => {
-    selectedPlaygroundAzureConnectionIdRef.current =
-      selectedPlaygroundAzureConnectionId;
-  }, [selectedPlaygroundAzureConnectionId]);
-
-  useEffect(() => {
-    selectedPlaygroundAzureDeploymentNameRef.current =
-      selectedPlaygroundAzureDeploymentName;
-  }, [selectedPlaygroundAzureDeploymentName]);
-
-  useEffect(() => {
-    selectedUtilityAzureConnectionIdRef.current =
-      selectedUtilityAzureConnectionId;
-  }, [selectedUtilityAzureConnectionId]);
-
-  useEffect(() => {
-    selectedUtilityAzureDeploymentNameRef.current =
-      selectedUtilityAzureDeploymentName;
-  }, [selectedUtilityAzureDeploymentName]);
 
   useEffect(() => {
     return installGlobalClientErrorLogging(() =>
@@ -1049,45 +927,8 @@ export function useWorkspace() {
   }, [activeChatCommandSuggestions.length]);
 
   useEffect(() => {
-    void loadAzureProjects();
-  }, []);
-
-  useEffect(() => {
     void loadAvailableSkills();
   }, []);
-
-  useEffect(() => {
-    if (!isAzureAuthRequired) {
-      return;
-    }
-
-    const refreshConnections = () => {
-      if (
-        typeof document !== "undefined" &&
-        document.visibilityState !== "visible"
-      ) {
-        return;
-      }
-
-      void (async () => {
-        const loadResult = await loadAzureProjects();
-        if (isAzureProjectsLoadReady(loadResult)) {
-          setAzureLoginError(null);
-          setUiError(null);
-        }
-      })();
-    };
-
-    const intervalId = window.setInterval(refreshConnections, 4000);
-    window.addEventListener("focus", refreshConnections);
-    document.addEventListener("visibilitychange", refreshConnections);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", refreshConnections);
-      document.removeEventListener("visibilitychange", refreshConnections);
-    };
-  }, [isAzureAuthRequired]);
 
   useEffect(() => {
     const wasAzureAuthRequired = previousIsAzureAuthRequiredRef.current;
@@ -1128,136 +969,6 @@ export function useWorkspace() {
     isAzureAuthRequired,
     skillRegistryError,
     skillsError,
-  ]);
-
-  useEffect(() => {
-    if (!activePlaygroundAzureConnection) {
-      cancelAzureDeploymentLoad("playground");
-      setPlaygroundAzureDeployments([]);
-      setSelectedPlaygroundAzureDeploymentName("");
-      setPlaygroundAzureDeploymentError(null);
-      return;
-    }
-
-    void loadAzureDeployments(
-      activePlaygroundAzureConnection.id,
-      "playground",
-      { force: true },
-    );
-  }, [activePlaygroundAzureConnection]);
-
-  useEffect(() => {
-    if (!activeUtilityAzureConnection) {
-      cancelAzureDeploymentLoad("utility");
-      setUtilityAzureDeployments([]);
-      setSelectedUtilityAzureDeploymentName("");
-      setUtilityAzureDeploymentError(null);
-      return;
-    }
-
-    void loadAzureDeployments(activeUtilityAzureConnection.id, "utility", {
-      force: true,
-    });
-  }, [activeUtilityAzureConnection]);
-
-  useEffect(() => {
-    if (isAzureAuthRequired) {
-      return;
-    }
-
-    const tenantId = activeAzureTenantIdRef.current.trim();
-    const principalId = activeAzurePrincipalIdRef.current.trim();
-    const projectId = selectedPlaygroundAzureConnectionId.trim();
-    const deploymentName = selectedPlaygroundAzureDeploymentName.trim();
-    if (!tenantId || !principalId || !projectId || !deploymentName) {
-      return;
-    }
-
-    if (!azureConnections.some((connection) => connection.id === projectId)) {
-      return;
-    }
-
-    if (
-      !includesAzureDeploymentName(playgroundAzureDeployments, deploymentName)
-    ) {
-      return;
-    }
-
-    const preferred = preferredAzureSelectionRef.current;
-    if (
-      preferred &&
-      preferred.tenantId === tenantId &&
-      preferred.principalId === principalId &&
-      preferred.playground?.projectId === projectId &&
-      preferred.playground?.deploymentName === deploymentName
-    ) {
-      return;
-    }
-
-    void saveAzureSelectionPreference({
-      target: "playground",
-      tenantId,
-      principalId,
-      projectId,
-      deploymentName,
-    });
-  }, [
-    azureConnections,
-    playgroundAzureDeployments,
-    isAzureAuthRequired,
-    selectedPlaygroundAzureConnectionId,
-    selectedPlaygroundAzureDeploymentName,
-  ]);
-
-  useEffect(() => {
-    if (isAzureAuthRequired) {
-      return;
-    }
-
-    const tenantId = activeAzureTenantIdRef.current.trim();
-    const principalId = activeAzurePrincipalIdRef.current.trim();
-    const projectId = selectedUtilityAzureConnectionId.trim();
-    const deploymentName = selectedUtilityAzureDeploymentName.trim();
-    const nextUtilityReasoningEffort = effectiveUtilityReasoningEffort;
-    if (!tenantId || !principalId || !projectId || !deploymentName) {
-      return;
-    }
-
-    if (!azureConnections.some((connection) => connection.id === projectId)) {
-      return;
-    }
-
-    if (!includesAzureDeploymentName(utilityAzureDeployments, deploymentName)) {
-      return;
-    }
-
-    const preferred = preferredAzureSelectionRef.current;
-    if (
-      preferred &&
-      preferred.tenantId === tenantId &&
-      preferred.principalId === principalId &&
-      preferred.utility?.projectId === projectId &&
-      preferred.utility?.deploymentName === deploymentName &&
-      preferred.utility?.reasoningEffort === nextUtilityReasoningEffort
-    ) {
-      return;
-    }
-
-    void saveAzureSelectionPreference({
-      target: "utility",
-      tenantId,
-      principalId,
-      projectId,
-      deploymentName,
-      reasoningEffort: nextUtilityReasoningEffort,
-    });
-  }, [
-    azureConnections,
-    utilityAzureDeployments,
-    isAzureAuthRequired,
-    selectedUtilityAzureConnectionId,
-    selectedUtilityAzureDeploymentName,
-    effectiveUtilityReasoningEffort,
   ]);
 
   useEffect(() => {
@@ -1302,12 +1013,6 @@ export function useWorkspace() {
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearWorkspaceMcpServerProfileLoginRetryTimeout();
     };
   }, []);
 
@@ -1572,7 +1277,7 @@ export function useWorkspace() {
     try {
       const result = await mcpServersApiClient.loadProfiles({
         onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
           clearWorkspaceMcpServerProfilesState(
             "Azure login is required. Open Settings and sign in to load MCP servers.",
           );
@@ -1641,7 +1346,7 @@ export function useWorkspace() {
       const result = await skillsApiClient.loadSkills({
         forceRefresh: options.forceRefresh,
         onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
           setAvailableSkills([]);
           setSkillRegistryCatalogs([]);
           setSkillsError(
@@ -1659,13 +1364,7 @@ export function useWorkspace() {
         return;
       }
 
-      setIsAzureAuthRequired((currentAuthRequired) =>
-        resolveAzureAuthRequiredState({
-          currentAuthRequired,
-          nextAuthRequired: false,
-          source: "background_success",
-        }),
-      );
+      resolveAzureBackgroundSuccess();
       applySkillsApiPayload(result.payload);
       setSkillRegistrySuccess(null);
     } catch (loadError) {
@@ -1735,17 +1434,11 @@ export function useWorkspace() {
         registryId: options.registryId,
         skillName: options.skillName,
         onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
         },
       });
 
-      setIsAzureAuthRequired((currentAuthRequired) =>
-        resolveAzureAuthRequiredState({
-          currentAuthRequired,
-          nextAuthRequired: false,
-          source: "background_success",
-        }),
-      );
+      resolveAzureBackgroundSuccess();
       applySkillsApiPayload(result.payload);
       setSkillRegistrySuccess(result.message);
     } catch (error) {
@@ -1768,34 +1461,9 @@ export function useWorkspace() {
     }
   }
 
-  // Timer and reset helpers.
-  function clearWorkspaceMcpServerProfileLoginRetryTimeout() {
-    const timeoutId = workspaceMcpServerProfileLoginRetryTimeoutRef.current;
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      workspaceMcpServerProfileLoginRetryTimeoutRef.current = null;
-    }
-  }
-
-  function scheduleWorkspaceMcpServerProfileLoginRetry(
-    expectedUserKey: string,
-  ) {
-    clearWorkspaceMcpServerProfileLoginRetryTimeout();
-    workspaceMcpServerProfileLoginRetryTimeoutRef.current = window.setTimeout(
-      () => {
-        workspaceMcpServerProfileLoginRetryTimeoutRef.current = null;
-        if (activeWorkspaceUserKeyRef.current === expectedUserKey) {
-          void loadWorkspaceMcpServerProfiles();
-        }
-      },
-      1200,
-    );
-  }
-
   function clearWorkspaceMcpServerProfilesState(
     nextError: string | null = null,
   ) {
-    clearWorkspaceMcpServerProfileLoginRetryTimeout();
     setEditingMcpServerId("");
     setIsDeletingWorkspaceMcpServerProfile(false);
     applyWorkspaceMcpServerProfiles([]);
@@ -2377,7 +2045,7 @@ export function useWorkspace() {
         authRequiredMessage:
           "Azure login is required. Open Settings and sign in to continue.",
         onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
           if (reportError) {
             setThreadError(
               "Azure login is required. Open Settings and sign in to continue.",
@@ -2636,9 +2304,7 @@ export function useWorkspace() {
             options.reason === "utility_deployment_update" &&
             isSwitchingAzureTenant
           ) {
-            setAzureTenantSwitchError(
-              "Azure tenant switch is still applying. Retry Azure Login if this persists.",
-            );
+            reportAzureTenantSwitchPending();
           }
           return;
         }
@@ -2725,7 +2391,7 @@ export function useWorkspace() {
         authRequiredMessage:
           "Azure login is required. Open Settings and sign in to load threads.",
         onAuthRequired: () => {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
           clearThreadsState(
             "Azure login is required. Open Settings and sign in to load threads.",
           );
@@ -2849,969 +2515,10 @@ export function useWorkspace() {
     setSystemNotice,
     setActiveMainTab,
     setActiveThreadNameInput,
-    setIsAzureAuthRequired,
+    markAzureAuthRequired,
     logClientInfo,
     logClientError,
   });
-
-  // Azure identity, selection, and deployment discovery.
-  async function loadAzureSelectionPreference(
-    tenantId: string,
-    principalId: string,
-  ): Promise<AzureSelectionPreference | null> {
-    const normalizedTenantId = tenantId.trim();
-    const normalizedPrincipalId = principalId.trim();
-    if (!normalizedTenantId || !normalizedPrincipalId) {
-      return null;
-    }
-
-    try {
-      const payload = await azureSelectionApiClient.loadSelection();
-      return readAzureSelectionFromUnknown(
-        payload.selection,
-        normalizedTenantId,
-        normalizedPrincipalId,
-      );
-    } catch (selectionError) {
-      logClientError("load_azure_selection_failed", selectionError, {
-        action: "load_azure_selection",
-      });
-      return null;
-    }
-  }
-
-  async function saveAzureSelectionPreference(
-    selection:
-      | {
-          target: "playground";
-          tenantId: string;
-          principalId: string;
-          projectId: string;
-          deploymentName: string;
-        }
-      | {
-          target: "utility";
-          tenantId: string;
-          principalId: string;
-          projectId: string;
-          deploymentName: string;
-          reasoningEffort: ReasoningEffort;
-        },
-  ): Promise<void> {
-    const currentPreferredSelection = preferredAzureSelectionRef.current;
-    const hasIdentityScopedPreferredSelection =
-      currentPreferredSelection !== null &&
-      currentPreferredSelection.tenantId === selection.tenantId &&
-      currentPreferredSelection.principalId === selection.principalId;
-    const nextPreferredSelection: AzureSelectionPreference =
-      hasIdentityScopedPreferredSelection
-        ? {
-            ...currentPreferredSelection,
-            theme: currentPreferredSelection.theme,
-            playground: currentPreferredSelection.playground
-              ? { ...currentPreferredSelection.playground }
-              : null,
-            utility: currentPreferredSelection.utility
-              ? { ...currentPreferredSelection.utility }
-              : null,
-          }
-        : {
-            tenantId: selection.tenantId,
-            principalId: selection.principalId,
-            theme,
-            playground: null,
-            utility: null,
-          };
-
-    const targetSelection = {
-      projectId: selection.projectId,
-      deploymentName: selection.deploymentName,
-    };
-    if (selection.target === "playground") {
-      nextPreferredSelection.playground = targetSelection;
-    } else {
-      nextPreferredSelection.utility = {
-        ...targetSelection,
-        reasoningEffort: selection.reasoningEffort,
-      };
-    }
-    preferredAzureSelectionRef.current = nextPreferredSelection;
-    const persistedThemeMode = hasIdentityScopedPreferredSelection
-      ? currentPreferredSelection.theme
-      : null;
-
-    try {
-      if (selection.target === "utility") {
-        await azureSelectionApiClient.saveSelection({
-          target: "utility",
-          projectId: selection.projectId,
-          deploymentName: selection.deploymentName,
-          reasoningEffort: selection.reasoningEffort,
-          theme: persistedThemeMode,
-        });
-      } else {
-        await azureSelectionApiClient.saveSelection({
-          target: "playground",
-          projectId: selection.projectId,
-          deploymentName: selection.deploymentName,
-          theme: persistedThemeMode,
-        });
-      }
-    } catch (selectionSaveError) {
-      logClientError("save_azure_selection_failed", selectionSaveError, {
-        action: "save_azure_selection",
-      });
-      // Ignore persistence failures and continue normal UI flow.
-    }
-  }
-
-  async function saveThemePreference(nextThemeMode: ThemeMode): Promise<void> {
-    const tenantId = activeAzureTenantIdRef.current.trim();
-    const principalId = activeAzurePrincipalIdRef.current.trim();
-    if (!tenantId || !principalId) {
-      return;
-    }
-
-    const currentPreferredSelection = preferredAzureSelectionRef.current;
-    const nextPreferredSelection: AzureSelectionPreference =
-      currentPreferredSelection &&
-      currentPreferredSelection.tenantId === tenantId &&
-      currentPreferredSelection.principalId === principalId
-        ? {
-            ...currentPreferredSelection,
-            theme: nextThemeMode,
-            playground: currentPreferredSelection.playground
-              ? { ...currentPreferredSelection.playground }
-              : null,
-            utility: currentPreferredSelection.utility
-              ? { ...currentPreferredSelection.utility }
-              : null,
-          }
-        : {
-            tenantId,
-            principalId,
-            theme: nextThemeMode,
-            playground: null,
-            utility: null,
-          };
-    preferredAzureSelectionRef.current = nextPreferredSelection;
-
-    try {
-      await azureSelectionApiClient.saveSelection({
-        theme: nextThemeMode,
-      });
-    } catch (selectionSaveError) {
-      logClientError("save_theme_failed", selectionSaveError, {
-        action: "save_theme",
-      });
-      // Ignore persistence failures and continue normal UI flow.
-    }
-  }
-
-  function readAzureTenantCacheKey(tenantIdRaw: string): string {
-    return tenantIdRaw.trim().toLowerCase();
-  }
-
-  function readAzureDeploymentCacheKey(
-    tenantIdRaw: string,
-    projectIdRaw: string,
-  ): string {
-    const tenantKey = readAzureTenantCacheKey(tenantIdRaw);
-    const projectId = projectIdRaw.trim();
-    if (!tenantKey || !projectId) {
-      return "";
-    }
-    return `${tenantKey}::${projectId}`;
-  }
-
-  function includesAzureDeploymentName(
-    deployments: AzureDeploymentOption[],
-    deploymentNameRaw: string,
-  ): boolean {
-    const deploymentName = deploymentNameRaw.trim();
-    if (!deploymentName) {
-      return false;
-    }
-
-    return deployments.some((deployment) => deployment.name === deploymentName);
-  }
-
-  function cloneAzureDeploymentOption(
-    deployment: AzureDeploymentOption,
-  ): AzureDeploymentOption {
-    return {
-      ...deployment,
-      reasoningEffortOptions: [...deployment.reasoningEffortOptions],
-    };
-  }
-
-  function resolveSupportedReasoningEffortOptions(
-    options: ReasoningEffort[],
-  ): ReasoningEffort[] {
-    const optionSet = new Set(options);
-    return REASONING_EFFORT_OPTIONS.filter((effort) => optionSet.has(effort));
-  }
-
-  function isWebSearchCompatibleReasoningEffort(
-    value: ReasoningEffort,
-  ): boolean {
-    return value !== "minimal";
-  }
-
-  function isReasoningEffortCompatibleWithDeployment(
-    deploymentNameRaw: string,
-    value: ReasoningEffort,
-  ): boolean {
-    const deploymentName = deploymentNameRaw.trim().toLowerCase();
-    if (deploymentName.startsWith("gpt-5.4")) {
-      return value !== "minimal";
-    }
-
-    return true;
-  }
-
-  function filterReasoningEffortOptionsForDeploymentCompatibility(
-    options: ReasoningEffort[],
-    deploymentNameRaw: string,
-  ): ReasoningEffort[] {
-    return options.filter((value) =>
-      isReasoningEffortCompatibleWithDeployment(deploymentNameRaw, value),
-    );
-  }
-
-  function filterReasoningEffortOptionsForWebSearch(
-    options: ReasoningEffort[],
-    webSearchEnabledValue: boolean,
-  ): ReasoningEffort[] {
-    if (!webSearchEnabledValue) {
-      return options;
-    }
-
-    return options.filter(isWebSearchCompatibleReasoningEffort);
-  }
-
-  function resolveEffectiveReasoningEffort(
-    current: ReasoningEffort,
-    options: ReasoningEffort[],
-    fallback: ReasoningEffort,
-  ): ReasoningEffort {
-    if (options.includes(current)) {
-      return current;
-    }
-
-    if (options.includes(fallback)) {
-      return fallback;
-    }
-
-    return options[0] ?? DEFAULT_REASONING_EFFORT;
-  }
-
-  function readCachedAzureProjectCatalog(
-    tenantIdRaw: string,
-  ): AzureProjectCatalogCacheEntry | null {
-    const tenantKey = readAzureTenantCacheKey(tenantIdRaw);
-    if (!tenantKey) {
-      return null;
-    }
-    return azureProjectCatalogCacheByTenantId[tenantKey] ?? null;
-  }
-
-  function cacheAzureProjectCatalog(
-    entry: AzureProjectCatalogCacheEntry,
-  ): void {
-    const tenantKey = readAzureTenantCacheKey(entry.tenantId);
-    if (!tenantKey) {
-      return;
-    }
-    setAzureProjectCatalogCacheByTenantId((current) => ({
-      ...current,
-      [tenantKey]: {
-        tenantId: entry.tenantId,
-        principalId: entry.principalId,
-        principal: entry.principal ? { ...entry.principal } : null,
-        tenants: entry.tenants.map((tenant) => ({ ...tenant })),
-        projects: entry.projects.map((project) => ({ ...project })),
-      },
-    }));
-  }
-
-  function readCachedAzureDeployments(
-    tenantIdRaw: string,
-    projectIdRaw: string,
-  ): AzureDeploymentOption[] | null {
-    const deploymentKey = readAzureDeploymentCacheKey(
-      tenantIdRaw,
-      projectIdRaw,
-    );
-    if (!deploymentKey) {
-      return null;
-    }
-    const cached = azureDeploymentCatalogCacheByTenantProjectKey[deploymentKey];
-    return cached ? cached.map(cloneAzureDeploymentOption) : null;
-  }
-
-  function cacheAzureDeployments(
-    tenantIdRaw: string,
-    projectIdRaw: string,
-    deployments: AzureDeploymentOption[],
-  ): void {
-    const deploymentKey = readAzureDeploymentCacheKey(
-      tenantIdRaw,
-      projectIdRaw,
-    );
-    if (!deploymentKey) {
-      return;
-    }
-    setAzureDeploymentCatalogCacheByTenantProjectKey((current) => ({
-      ...current,
-      [deploymentKey]: deployments.map(cloneAzureDeploymentOption),
-    }));
-  }
-
-  function clearAzureCatalogCacheByTenant(tenantIdRaw: string): void {
-    const tenantKey = readAzureTenantCacheKey(tenantIdRaw);
-    if (!tenantKey) {
-      return;
-    }
-    setAzureProjectCatalogCacheByTenantId((current) => {
-      if (!(tenantKey in current)) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[tenantKey];
-      return next;
-    });
-    setAzureDeploymentCatalogCacheByTenantProjectKey((current) => {
-      const prefix = `${tenantKey}::`;
-      let changed = false;
-      const next: AzureDeploymentCatalogCacheByTenantProjectKey = {};
-      for (const [key, deployments] of Object.entries(current)) {
-        if (key.startsWith(prefix)) {
-          changed = true;
-          continue;
-        }
-        next[key] = deployments.map(cloneAzureDeploymentOption);
-      }
-      return changed ? next : current;
-    });
-  }
-
-  function clearAzureCatalogCache(): void {
-    setAzureProjectCatalogCacheByTenantId({});
-    setAzureDeploymentCatalogCacheByTenantProjectKey({});
-  }
-
-  function cancelAzureDeploymentLoad(target: "playground" | "utility"): void {
-    if (target === "playground") {
-      playgroundAzureDeploymentRequestSeqRef.current += 1;
-      setIsLoadingPlaygroundAzureDeployments(false);
-      return;
-    }
-
-    utilityAzureDeploymentRequestSeqRef.current += 1;
-    setIsLoadingUtilityAzureDeployments(false);
-  }
-
-  function cancelAzureDeploymentLoads(): void {
-    cancelAzureDeploymentLoad("playground");
-    cancelAzureDeploymentLoad("utility");
-  }
-
-  function clearActiveAzureIdentity(): void {
-    activeAzureTenantIdRef.current = "";
-    activeAzurePrincipalIdRef.current = "";
-    activeWorkspaceUserKeyRef.current = "";
-    preferredAzureSelectionRef.current = null;
-    cancelAzureDeploymentLoads();
-    clearAzureCatalogCache();
-    setAzureTenants([]);
-    setActiveAzurePrincipal(null);
-    setAzureTenantSwitchError(null);
-    setIsReloadingAzureCatalog(false);
-    setUtilityReasoningEffort(DEFAULT_UTILITY_REASONING_EFFORT);
-  }
-
-  function updateActiveAzureIdentity(
-    tenantId: string,
-    principalId: string,
-  ): string {
-    activeAzureTenantIdRef.current = tenantId;
-    activeAzurePrincipalIdRef.current = principalId;
-    const nextWorkspaceUserKey =
-      tenantId && principalId ? `${tenantId}::${principalId}` : "";
-    activeWorkspaceUserKeyRef.current = nextWorkspaceUserKey;
-    return nextWorkspaceUserKey;
-  }
-
-  async function reloadWorkspaceStateForActiveIdentity(
-    waitForWorkspaceStateReload: boolean,
-  ): Promise<void> {
-    clearWorkspaceMcpServerProfilesState();
-    clearThreadsState();
-
-    const nextWorkspaceUserKey = activeWorkspaceUserKeyRef.current.trim();
-    if (!nextWorkspaceUserKey) {
-      return;
-    }
-
-    showThreadReloadPlaceholder();
-
-    const reloadState = async () => {
-      await loadWorkspaceMcpServerProfiles();
-      await loadThreads();
-    };
-
-    if (waitForWorkspaceStateReload) {
-      await reloadState();
-      return;
-    }
-
-    void reloadState();
-  }
-
-  async function loadAzureProjects(
-    options: LoadAzureProjectsOptions = {},
-  ): Promise<LoadAzureProjectsResult> {
-    const forceReload = options.force === true;
-    const preferredTenantId = options.preferredTenantId?.trim() ?? "";
-    const waitForWorkspaceStateReload =
-      options.waitForWorkspaceStateReload === true;
-    const useCachedProjectCatalog = shouldUseCachedAzureProjectCatalog({
-      forceReload,
-      isAzureAuthRequired,
-    });
-    const requestSeq = azureConnectionsRequestSeqRef.current + 1;
-    azureConnectionsRequestSeqRef.current = requestSeq;
-    setIsLoadingAzureConnections(true);
-
-    try {
-      if (useCachedProjectCatalog) {
-        const tenantIdForCache =
-          preferredTenantId || activeAzureTenantIdRef.current.trim();
-        const cachedCatalog = readCachedAzureProjectCatalog(tenantIdForCache);
-        if (cachedCatalog) {
-          const previousWorkspaceUserKey = activeWorkspaceUserKeyRef.current;
-          const nextWorkspaceUserKey = updateActiveAzureIdentity(
-            cachedCatalog.tenantId,
-            cachedCatalog.principalId,
-          );
-          if (!nextWorkspaceUserKey) {
-            clearWorkspaceMcpServerProfilesState();
-            clearThreadsState();
-          } else if (previousWorkspaceUserKey !== nextWorkspaceUserKey) {
-            await reloadWorkspaceStateForActiveIdentity(
-              waitForWorkspaceStateReload,
-            );
-          } else if (!isThreadsReadyRef.current && !isLoadingThreads) {
-            if (waitForWorkspaceStateReload) {
-              await loadThreads();
-            } else {
-              void loadThreads();
-            }
-          }
-          if (
-            shouldScheduleWorkspaceMcpServerProfileLoginRetry(
-              isAzureAuthRequired,
-              nextWorkspaceUserKey,
-            )
-          ) {
-            // After login completes, token propagation can briefly lag for MCP route auth.
-            scheduleWorkspaceMcpServerProfileLoginRetry(nextWorkspaceUserKey);
-          } else {
-            clearWorkspaceMcpServerProfileLoginRetryTimeout();
-          }
-          const preferredSelection =
-            cachedCatalog.tenantId && cachedCatalog.principalId
-              ? await loadAzureSelectionPreference(
-                  cachedCatalog.tenantId,
-                  cachedCatalog.principalId,
-                )
-              : null;
-          if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-            return {
-              authRequired: false,
-              tenantSwitchPending: false,
-            };
-          }
-          preferredAzureSelectionRef.current = preferredSelection;
-          if (preferredSelection?.theme) {
-            setTheme(preferredSelection.theme);
-          }
-          const preferredPlaygroundProjectId =
-            preferredSelection?.playground?.projectId ?? "";
-          const preferredUtilityProjectId =
-            preferredSelection?.utility?.projectId ?? "";
-          const preferredUtilityReasoningEffort =
-            preferredSelection?.utility?.reasoningEffort ??
-            DEFAULT_UTILITY_REASONING_EFFORT;
-          const knownProjectIds = new Set(
-            cachedCatalog.projects.map((connection) => connection.id),
-          );
-          const defaultProjectId = cachedCatalog.projects[0]?.id ?? "";
-          const nextPlaygroundProjectId = resolveInitialAzureProjectId({
-            knownProjectIds,
-            currentProjectId: selectedPlaygroundAzureConnectionIdRef.current,
-            preferredProjectId: preferredPlaygroundProjectId,
-            defaultProjectId,
-          });
-          const nextUtilityProjectId = resolveInitialAzureProjectId({
-            knownProjectIds,
-            currentProjectId: selectedUtilityAzureConnectionIdRef.current,
-            preferredProjectId: preferredUtilityProjectId,
-            fallbackProjectId: nextPlaygroundProjectId,
-            defaultProjectId,
-          });
-
-          cancelAzureDeploymentLoads();
-          setAzureConnections(
-            cachedCatalog.projects.map((project) => ({ ...project })),
-          );
-          setAzureTenants(
-            cachedCatalog.tenants.map((tenant) => ({ ...tenant })),
-          );
-          setActiveAzurePrincipal(
-            cachedCatalog.principal ? { ...cachedCatalog.principal } : null,
-          );
-          setPlaygroundAzureDeployments([]);
-          setUtilityAzureDeployments([]);
-          setAzureConnectionError(null);
-          setPlaygroundAzureDeploymentError(null);
-          setUtilityAzureDeploymentError(null);
-          setUtilityReasoningEffort(preferredUtilityReasoningEffort);
-          setSelectedPlaygroundAzureConnectionId(nextPlaygroundProjectId);
-          setSelectedUtilityAzureConnectionId(nextUtilityProjectId);
-          return {
-            authRequired: false,
-            tenantSwitchPending: false,
-          };
-        }
-      }
-
-      const projectsRequestUrl = preferredTenantId
-        ? preferredTenantId
-        : "";
-      const payload = await azureProjectsApiClient.loadProjects({
-        preferredTenantId: projectsRequestUrl,
-      });
-      if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return {
-          authRequired: isAzureAuthRequired,
-          tenantSwitchPending: false,
-        };
-      }
-
-      const parsedProjects = readAzureProjectList(payload.projects);
-      const tenantId = readTenantIdFromUnknown(payload.tenantId);
-      const principalId = readPrincipalIdFromUnknown(payload.principalId);
-      const loadResult = buildAzureProjectsLoadResult({
-        authRequired: payload.authRequired === true,
-        preferredTenantId,
-        resolvedTenantId: tenantId,
-      });
-      if (loadResult.tenantSwitchPending) {
-        logClientWarning(
-          "azure_tenant_switch_verification_pending",
-          "Resolved tenant does not match requested tenant yet.",
-          {
-            action: "load_azure_projects",
-            context: {
-              requestedTenantId: preferredTenantId,
-              resolvedTenantId: tenantId,
-            },
-          },
-        );
-        return loadResult;
-      }
-      const parsedTenants = resolveAzureTenantOptions(
-        readAzureTenantList(payload.tenants),
-        tenantId,
-      );
-      const parsedPrincipal =
-        readAzurePrincipalProfileFromUnknown(
-          payload.principal,
-          tenantId,
-          principalId,
-        ) ??
-        (tenantId && principalId
-          ? {
-              tenantId,
-              principalId,
-              displayName: principalId,
-              principalName: "",
-              principalType: "unknown" as const,
-            }
-          : null);
-      const previousWorkspaceUserKey = activeWorkspaceUserKeyRef.current;
-      const nextWorkspaceUserKey = updateActiveAzureIdentity(
-        tenantId,
-        principalId,
-      );
-      if (!nextWorkspaceUserKey) {
-        clearWorkspaceMcpServerProfilesState();
-        clearThreadsState();
-      } else if (previousWorkspaceUserKey !== nextWorkspaceUserKey) {
-        await reloadWorkspaceStateForActiveIdentity(
-          waitForWorkspaceStateReload,
-        );
-      } else if (!isThreadsReadyRef.current && !isLoadingThreads) {
-        if (waitForWorkspaceStateReload) {
-          await loadThreads();
-        } else {
-          void loadThreads();
-        }
-      }
-      if (
-        shouldScheduleWorkspaceMcpServerProfileLoginRetry(
-          isAzureAuthRequired,
-          nextWorkspaceUserKey,
-        )
-      ) {
-        // After login completes, token propagation can briefly lag for MCP route auth.
-        scheduleWorkspaceMcpServerProfileLoginRetry(nextWorkspaceUserKey);
-      } else {
-        clearWorkspaceMcpServerProfileLoginRetryTimeout();
-      }
-      const preferredSelection =
-        tenantId && principalId
-          ? await loadAzureSelectionPreference(tenantId, principalId)
-          : null;
-      if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return {
-          authRequired: payload.authRequired === true,
-          tenantSwitchPending: false,
-        };
-      }
-      preferredAzureSelectionRef.current = preferredSelection;
-      if (preferredSelection?.theme) {
-        setTheme(preferredSelection.theme);
-      }
-      if (tenantId && principalId) {
-        cacheAzureProjectCatalog({
-          tenantId,
-          principalId,
-          principal: parsedPrincipal,
-          tenants: parsedTenants,
-          projects: parsedProjects,
-        });
-      }
-      const preferredPlaygroundProjectId =
-        preferredSelection?.playground?.projectId ?? "";
-      const preferredUtilityProjectId =
-        preferredSelection?.utility?.projectId ?? "";
-      const preferredUtilityReasoningEffort =
-        preferredSelection?.utility?.reasoningEffort ??
-        DEFAULT_UTILITY_REASONING_EFFORT;
-      const knownProjectIds = new Set(
-        parsedProjects.map((connection) => connection.id),
-      );
-      const defaultProjectId = parsedProjects[0]?.id ?? "";
-      const nextPlaygroundProjectId = resolveInitialAzureProjectId({
-        knownProjectIds,
-        currentProjectId: selectedPlaygroundAzureConnectionIdRef.current,
-        preferredProjectId: preferredPlaygroundProjectId,
-        defaultProjectId,
-      });
-      const nextUtilityProjectId = resolveInitialAzureProjectId({
-        knownProjectIds,
-        currentProjectId: selectedUtilityAzureConnectionIdRef.current,
-        preferredProjectId: preferredUtilityProjectId,
-        fallbackProjectId: nextPlaygroundProjectId,
-        defaultProjectId,
-      });
-
-      cancelAzureDeploymentLoads();
-      setAzureConnections(parsedProjects);
-      setAzureTenants(parsedTenants);
-      setActiveAzurePrincipal(parsedPrincipal);
-      setPlaygroundAzureDeployments([]);
-      setUtilityAzureDeployments([]);
-      setIsAzureAuthRequired((currentAuthRequired) =>
-        resolveAzureAuthRequiredState({
-          currentAuthRequired,
-          nextAuthRequired: loadResult.authRequired,
-          source: "projects_response",
-        }),
-      );
-      setAzureConnectionError(null);
-      setPlaygroundAzureDeploymentError(null);
-      setUtilityAzureDeploymentError(null);
-      setUtilityReasoningEffort(preferredUtilityReasoningEffort);
-      setSelectedPlaygroundAzureConnectionId(nextPlaygroundProjectId);
-      setSelectedUtilityAzureConnectionId(nextUtilityProjectId);
-      return loadResult;
-    } catch (loadError) {
-      if (requestSeq !== azureConnectionsRequestSeqRef.current) {
-        return {
-          authRequired: isAzureAuthRequired,
-          tenantSwitchPending: false,
-        };
-      }
-      logClientError("load_azure_projects_failed", loadError, {
-        action: "load_azure_projects",
-      });
-      const errorMessage = mapApiError(
-        loadError,
-        "Failed to load Azure projects.",
-      );
-      const nextAuthRequired =
-        loadError instanceof ClientApiError
-          ? loadError.kind === "auth_required"
-          : isLikelyChatAzureAuthError(errorMessage);
-      clearActiveAzureIdentity();
-      clearWorkspaceMcpServerProfilesState();
-      clearThreadsState(
-        nextAuthRequired
-          ? "Azure login is required. Open Settings and sign in to load threads."
-          : null,
-      );
-      setIsAzureAuthRequired(nextAuthRequired);
-      setAzureConnections([]);
-      setPlaygroundAzureDeployments([]);
-      setUtilityAzureDeployments([]);
-      setIsLoadingPlaygroundAzureDeployments(false);
-      setIsLoadingUtilityAzureDeployments(false);
-      setSelectedPlaygroundAzureConnectionId("");
-      setSelectedPlaygroundAzureDeploymentName("");
-      setSelectedUtilityAzureConnectionId("");
-      setSelectedUtilityAzureDeploymentName("");
-      setUtilityReasoningEffort(DEFAULT_UTILITY_REASONING_EFFORT);
-      setAzureConnectionError(nextAuthRequired ? null : errorMessage);
-      setPlaygroundAzureDeploymentError(null);
-      setUtilityAzureDeploymentError(null);
-      return {
-        authRequired: nextAuthRequired,
-        tenantSwitchPending: false,
-      };
-    } finally {
-      if (requestSeq === azureConnectionsRequestSeqRef.current) {
-        setIsLoadingAzureConnections(false);
-      }
-    }
-  }
-
-  async function loadAzureDeployments(
-    projectId: string,
-    target: "playground" | "utility",
-    options: LoadAzureDeploymentsOptions = {},
-  ): Promise<void> {
-    const normalizedProjectId = projectId.trim();
-    const forceReload = options.force !== false;
-    if (!normalizedProjectId) {
-      if (target === "playground") {
-        setPlaygroundAzureDeployments([]);
-        setSelectedPlaygroundAzureDeploymentName("");
-        setPlaygroundAzureDeploymentError(null);
-      } else {
-        setUtilityAzureDeployments([]);
-        setSelectedUtilityAzureDeploymentName("");
-        setUtilityAzureDeploymentError(null);
-      }
-      return;
-    }
-
-    const applyDeployments = (deployments: AzureDeploymentOption[]) => {
-      const preferredSelection = preferredAzureSelectionRef.current;
-      const preferredDeploymentName =
-        preferredSelection &&
-        preferredSelection.tenantId === activeAzureTenantIdRef.current &&
-        preferredSelection.principalId === activeAzurePrincipalIdRef.current &&
-        (target === "playground"
-          ? preferredSelection.playground?.projectId === normalizedProjectId
-          : preferredSelection.utility?.projectId === normalizedProjectId)
-          ? ((target === "playground"
-              ? preferredSelection.playground?.deploymentName
-              : preferredSelection.utility?.deploymentName) ?? "")
-          : "";
-
-      setIsAzureAuthRequired((currentAuthRequired) =>
-        resolveAzureAuthRequiredState({
-          currentAuthRequired,
-          nextAuthRequired: false,
-          source: "background_success",
-        }),
-      );
-      if (target === "playground") {
-        setPlaygroundAzureDeployments(deployments);
-        setSelectedPlaygroundAzureDeploymentName((current) =>
-          deployments.some((deployment) => deployment.name === current)
-            ? current
-            : preferredDeploymentName &&
-                deployments.some(
-                  (deployment) => deployment.name === preferredDeploymentName,
-                )
-              ? preferredDeploymentName
-              : (deployments[0]?.name ?? ""),
-        );
-        setPlaygroundAzureDeploymentError(
-          deployments.length === 0
-            ? "No Agents SDK-compatible deployments found for this project."
-            : null,
-        );
-      } else {
-        setUtilityAzureDeployments(deployments);
-        setSelectedUtilityAzureDeploymentName((current) =>
-          deployments.some((deployment) => deployment.name === current)
-            ? current
-            : preferredDeploymentName &&
-                deployments.some(
-                  (deployment) => deployment.name === preferredDeploymentName,
-                )
-              ? preferredDeploymentName
-              : (deployments[0]?.name ?? ""),
-        );
-        setUtilityAzureDeploymentError(
-          deployments.length === 0
-            ? "No Agents SDK-compatible deployments found for this project."
-            : null,
-        );
-      }
-    };
-
-    if (!forceReload) {
-      const cachedDeployments = readCachedAzureDeployments(
-        activeAzureTenantIdRef.current,
-        normalizedProjectId,
-      );
-      if (cachedDeployments) {
-        applyDeployments(cachedDeployments);
-        return;
-      }
-    }
-
-    const requestSeq =
-      target === "playground"
-        ? playgroundAzureDeploymentRequestSeqRef.current + 1
-        : utilityAzureDeploymentRequestSeqRef.current + 1;
-    if (target === "playground") {
-      playgroundAzureDeploymentRequestSeqRef.current = requestSeq;
-      setIsLoadingPlaygroundAzureDeployments(true);
-      setPlaygroundAzureDeploymentError(null);
-    } else {
-      utilityAzureDeploymentRequestSeqRef.current = requestSeq;
-      setIsLoadingUtilityAzureDeployments(true);
-      setUtilityAzureDeploymentError(null);
-    }
-
-    try {
-      const payload = await azureProjectsApiClient.loadDeployments(
-        normalizedProjectId,
-      );
-      const activeRequestSeq =
-        target === "playground"
-          ? playgroundAzureDeploymentRequestSeqRef.current
-          : utilityAzureDeploymentRequestSeqRef.current;
-      if (requestSeq !== activeRequestSeq) {
-        return;
-      }
-
-      const selectedProjectId =
-        target === "playground"
-          ? selectedPlaygroundAzureConnectionIdRef.current.trim()
-          : selectedUtilityAzureConnectionIdRef.current.trim();
-      if (!selectedProjectId || selectedProjectId !== normalizedProjectId) {
-        return;
-      }
-
-      const parsedDeployments = readAzureDeploymentList(payload.deployments);
-      const tenantIdFromPayload = readTenantIdFromUnknown(payload.tenantId);
-      const principalIdFromPayload = readPrincipalIdFromUnknown(
-        payload.principalId,
-      );
-      if (tenantIdFromPayload) {
-        activeAzureTenantIdRef.current = tenantIdFromPayload;
-      }
-      if (principalIdFromPayload) {
-        activeAzurePrincipalIdRef.current = principalIdFromPayload;
-      }
-      const parsedPrincipal = readAzurePrincipalProfileFromUnknown(
-        payload.principal,
-        activeAzureTenantIdRef.current,
-        activeAzurePrincipalIdRef.current,
-      );
-      if (parsedPrincipal) {
-        setActiveAzurePrincipal(parsedPrincipal);
-      } else if (
-        activeAzureTenantIdRef.current &&
-        activeAzurePrincipalIdRef.current
-      ) {
-        setActiveAzurePrincipal({
-          tenantId: activeAzureTenantIdRef.current,
-          principalId: activeAzurePrincipalIdRef.current,
-          displayName: activeAzurePrincipalIdRef.current,
-          principalName: "",
-          principalType: "unknown",
-        });
-      }
-      cacheAzureDeployments(
-        activeAzureTenantIdRef.current,
-        normalizedProjectId,
-        parsedDeployments,
-      );
-      applyDeployments(parsedDeployments);
-    } catch (loadError) {
-      const activeRequestSeq =
-        target === "playground"
-          ? playgroundAzureDeploymentRequestSeqRef.current
-          : utilityAzureDeploymentRequestSeqRef.current;
-      if (requestSeq !== activeRequestSeq) {
-        return;
-      }
-
-      logClientError("load_azure_deployments_failed", loadError, {
-        action: "load_azure_deployments",
-        context: {
-          target,
-          projectId: normalizedProjectId,
-        },
-      });
-      const authRequired =
-        loadError instanceof ClientApiError &&
-        loadError.kind === "auth_required";
-      if (authRequired) {
-        clearActiveAzureIdentity();
-        clearWorkspaceMcpServerProfilesState();
-        clearThreadsState(
-          "Azure login is required. Open Settings and sign in to load threads.",
-        );
-      }
-      setIsAzureAuthRequired(authRequired);
-      if (target === "playground") {
-        setPlaygroundAzureDeployments([]);
-        setSelectedPlaygroundAzureDeploymentName("");
-        setPlaygroundAzureDeploymentError(
-          authRequired
-            ? null
-            : mapApiError(
-                loadError,
-                "Failed to load deployments for the selected project.",
-              ),
-        );
-      } else {
-        setUtilityAzureDeployments([]);
-        setSelectedUtilityAzureDeploymentName("");
-        setUtilityAzureDeploymentError(
-          authRequired
-            ? null
-            : mapApiError(
-                loadError,
-                "Failed to load deployments for the selected project.",
-              ),
-        );
-      }
-    } finally {
-      const activeRequestSeq =
-        target === "playground"
-          ? playgroundAzureDeploymentRequestSeqRef.current
-          : utilityAzureDeploymentRequestSeqRef.current;
-      if (requestSeq === activeRequestSeq) {
-        if (target === "playground") {
-          setIsLoadingPlaygroundAzureDeployments(false);
-        } else {
-          setIsLoadingUtilityAzureDeployments(false);
-        }
-      }
-    }
-  }
 
   // MCP save/connect and chat execution flow.
   async function saveMcpServerToConfig(
@@ -3832,7 +2539,7 @@ export function useWorkspace() {
     const result = await mcpServersApiClient.saveProfile(server, {
       isUpdate,
       onAuthRequired: () => {
-        setIsAzureAuthRequired(true);
+        markAzureAuthRequired();
       },
     });
 
@@ -3863,7 +2570,7 @@ export function useWorkspace() {
   ): Promise<McpServerConfig[]> {
     const result = await mcpServersApiClient.deleteProfile(serverId, {
       onAuthRequired: () => {
-        setIsAzureAuthRequired(true);
+        markAzureAuthRequired();
       },
     });
 
@@ -4012,7 +2719,7 @@ export function useWorkspace() {
     setChatAttachmentError(null);
     setUiError(null);
     setSystemNotice(null);
-    setAzureLoginError(null);
+    clearAzureSessionStatus();
     updateThreadRequestState(threadId, (current) =>
       applySendResult(current, {
         status: "optimistic",
@@ -4096,7 +2803,7 @@ export function useWorkspace() {
 
       if (!response.ok || payload.error) {
         if (payload.errorCode === "azure_login_required") {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
         }
         throw new Error(payload.error || "Failed to send message.");
       }
@@ -4180,201 +2887,6 @@ export function useWorkspace() {
       window.setTimeout(() => {
         void saveThreadStateSilentlyIfNeeded(threadId);
       }, 0);
-    }
-  }
-
-  // UI event handlers bound to panel props.
-  async function runAzureLoginFlow(
-    targetTenantIdRaw = "",
-  ): Promise<LoadAzureProjectsResult> {
-    const targetTenantId = targetTenantIdRaw.trim();
-    const waitForWorkspaceStateReload = targetTenantId.length > 0;
-    const requestInit: RequestInit = {
-      method: "PUT",
-    };
-    const payload = await azureSessionApiClient.startSession(targetTenantId);
-
-    setSystemNotice(
-      targetTenantId
-        ? "Azure tenant switched. Azure projects were refreshed."
-        : payload.message || "Azure login completed.",
-    );
-    setIsAzureAuthRequired((currentAuthRequired) =>
-      resolveAzureAuthRequiredState({
-        currentAuthRequired,
-        nextAuthRequired: false,
-        source: "interactive_login",
-      }),
-    );
-    setAzureConnectionError(null);
-    setPlaygroundAzureDeploymentError(null);
-    setUtilityAzureDeploymentError(null);
-
-    let loadResult: LoadAzureProjectsResult = {
-      authRequired: true,
-      tenantSwitchPending: false,
-    };
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      loadResult = await loadAzureProjects(
-        targetTenantId
-          ? {
-              preferredTenantId: targetTenantId,
-              force: true,
-              waitForWorkspaceStateReload,
-            }
-          : {
-              preferredTenantId: targetTenantId,
-              waitForWorkspaceStateReload,
-            },
-      );
-      if (isAzureProjectsLoadReady(loadResult)) {
-        break;
-      }
-
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, 500);
-      });
-    }
-    if (loadResult.authRequired) {
-      setIsAzureAuthRequired(true);
-    }
-
-    return loadResult;
-  }
-
-  async function handleAzureLogin() {
-    if (isStartingAzureLogin || isSwitchingAzureTenant) {
-      return;
-    }
-
-    setAzureLoginError(null);
-    setAzureTenantSwitchError(null);
-    setSystemNotice(null);
-    setIsStartingAzureLogin(true);
-    try {
-      await runAzureLoginFlow();
-    } catch (loginError) {
-      logClientError("azure_login_flow_failed", loginError, {
-        action: "azure_login",
-      });
-      setAzureLoginError(
-        loginError instanceof Error
-          ? loginError.message
-          : "Failed to start Azure login.",
-      );
-    } finally {
-      setIsStartingAzureLogin(false);
-    }
-  }
-
-  async function handleAzureTenantChange(nextTenantIdRaw: string) {
-    if (
-      isAzureAuthRequired ||
-      isStartingAzureLogin ||
-      isSwitchingAzureTenant ||
-      isStartingAzureLogout
-    ) {
-      return;
-    }
-
-    const nextTenantId = nextTenantIdRaw.trim();
-    const activeTenantId = activeAzureTenantIdRef.current.trim();
-    if (!nextTenantId || nextTenantId === activeTenantId) {
-      return;
-    }
-
-    setAzureTenantSwitchError(null);
-    setAzureLoginError(null);
-    setSystemNotice(null);
-    setIsSwitchingAzureTenant(true);
-
-    try {
-      const loadResult = await runAzureLoginFlow(nextTenantId);
-      if (loadResult.tenantSwitchPending) {
-        setAzureTenantSwitchError(
-          "Azure tenant switch is still applying. Retry Azure Login if this persists.",
-        );
-      } else if (loadResult.authRequired) {
-        setAzureTenantSwitchError(
-          "Failed to switch Azure tenant. Retry Azure Login.",
-        );
-      }
-    } catch (switchError) {
-      logClientError("azure_tenant_switch_failed", switchError, {
-        action: "azure_tenant_switch",
-        context: {
-          tenantId: nextTenantId,
-        },
-      });
-      setAzureTenantSwitchError(
-        switchError instanceof Error
-          ? switchError.message
-          : "Failed to switch Azure tenant.",
-      );
-    } finally {
-      setIsSwitchingAzureTenant(false);
-    }
-  }
-
-  async function handleAzureLogout() {
-    if (isStartingAzureLogout || isSwitchingAzureTenant) {
-      return;
-    }
-
-    setAzureLogoutError(null);
-    setAzureTenantSwitchError(null);
-    setSystemNotice(null);
-    setIsStartingAzureLogout(true);
-    try {
-      const payload = await azureSessionApiClient.endSession();
-      setSystemNotice(payload.message || "Azure logout completed.");
-      setPlaygroundAzureDeploymentError(null);
-      setUtilityAzureDeploymentError(null);
-      await loadAzureProjects({ force: true });
-    } catch (logoutError) {
-      logClientError("azure_logout_flow_failed", logoutError, {
-        action: "azure_logout",
-      });
-      setAzureLogoutError(
-        logoutError instanceof Error
-          ? logoutError.message
-          : "Failed to run Azure logout.",
-      );
-    } finally {
-      setIsStartingAzureLogout(false);
-    }
-  }
-
-  async function handleReloadAzureCatalog() {
-    if (
-      isAzureAuthRequired ||
-      isReloadingAzureCatalog ||
-      isStartingAzureLogin ||
-      isSwitchingAzureTenant ||
-      isStartingAzureLogout ||
-      isLoadingAzureConnections ||
-      isLoadingPlaygroundAzureDeployments ||
-      isLoadingUtilityAzureDeployments
-    ) {
-      return;
-    }
-
-    setAzureConnectionError(null);
-    setPlaygroundAzureDeploymentError(null);
-    setUtilityAzureDeploymentError(null);
-    setAzureTenantSwitchError(null);
-    setAzureLoginError(null);
-    setSystemNotice(null);
-    setIsReloadingAzureCatalog(true);
-
-    try {
-      clearAzureCatalogCacheByTenant(activeAzureTenantIdRef.current);
-      const loadResult = await loadAzureProjects({ force: true });
-      if (isAzureProjectsLoadReady(loadResult)) {
-        setSystemNotice("Azure catalog reloaded.");
-      }
-    } finally {
-      setIsReloadingAzureCatalog(false);
     }
   }
 
@@ -4736,75 +3248,25 @@ export function useWorkspace() {
   }
 
   function handleChatProjectChange(projectId: string) {
-    setSelectedPlaygroundAzureConnectionId(projectId);
-    setSelectedPlaygroundAzureDeploymentName("");
-    setPlaygroundAzureDeploymentError(null);
+    handleSelectPlaygroundProject(projectId);
     setUiError(null);
   }
 
   function handleChatDeploymentChange(nextDeploymentNameRaw: string) {
     const nextDeploymentName = nextDeploymentNameRaw.trim();
-    setSelectedPlaygroundAzureDeploymentName(nextDeploymentName);
+    handleSelectPlaygroundDeployment(nextDeploymentName);
     setUiError(null);
-
-    const tenantId = activeAzureTenantIdRef.current.trim();
-    const principalId = activeAzurePrincipalIdRef.current.trim();
-    const projectId = (activePlaygroundAzureConnection?.id ?? "").trim();
-    if (!tenantId || !principalId || !projectId || !nextDeploymentName) {
-      return;
-    }
-
-    if (
-      !includesAzureDeploymentName(
-        playgroundAzureDeployments,
-        nextDeploymentName,
-      )
-    ) {
-      return;
-    }
-
-    void saveAzureSelectionPreference({
-      target: "playground",
-      tenantId,
-      principalId,
-      projectId,
-      deploymentName: nextDeploymentName,
-    });
   }
 
   function handleUtilityProjectChange(projectId: string) {
-    setSelectedUtilityAzureConnectionId(projectId);
-    setSelectedUtilityAzureDeploymentName("");
-    setUtilityAzureDeploymentError(null);
+    handleSelectUtilityProject(projectId);
     setInstructionEnhanceError(null);
   }
 
   function handleUtilityDeploymentChange(nextDeploymentNameRaw: string) {
     const nextDeploymentName = nextDeploymentNameRaw.trim();
-    setSelectedUtilityAzureDeploymentName(nextDeploymentName);
+    handleSelectUtilityDeployment(nextDeploymentName);
     setInstructionEnhanceError(null);
-
-    const tenantId = activeAzureTenantIdRef.current.trim();
-    const principalId = activeAzurePrincipalIdRef.current.trim();
-    const projectId = (activeUtilityAzureConnection?.id ?? "").trim();
-    if (!tenantId || !principalId || !projectId || !nextDeploymentName) {
-      return;
-    }
-
-    if (
-      !includesAzureDeploymentName(utilityAzureDeployments, nextDeploymentName)
-    ) {
-      return;
-    }
-
-    void saveAzureSelectionPreference({
-      target: "utility",
-      tenantId,
-      principalId,
-      projectId,
-      deploymentName: nextDeploymentName,
-      reasoningEffort: effectiveUtilityReasoningEffort,
-    });
   }
 
   function handleUtilityReasoningEffortChange(nextValue: ReasoningEffort) {
@@ -4814,7 +3276,7 @@ export function useWorkspace() {
     if (!effectiveUtilityReasoningEffortOptions.includes(nextValue)) {
       return;
     }
-    setUtilityReasoningEffort(nextValue);
+    handleAzureUtilityReasoningEffortChange(nextValue);
     setInstructionEnhanceError(null);
   }
 
@@ -5026,7 +3488,7 @@ export function useWorkspace() {
       const payload = (await response.json()) as ChatApiResponse;
       if (!response.ok || payload.error) {
         if (payload.errorCode === "azure_login_required") {
-          setIsAzureAuthRequired(true);
+          markAzureAuthRequired();
         }
 
         throw new Error(payload.error || "Failed to enhance instruction.");
@@ -5288,14 +3750,13 @@ export function useWorkspace() {
 
     setUiError(null);
     setSystemNotice(null);
-    setAzureLoginError(null);
-    setAzureTenantSwitchError(null);
+    clearAzureSessionStatus();
 
     if (
       isAzureAuthRequired ||
       isLikelyChatAzureAuthError(azureConnectionError)
     ) {
-      setIsAzureAuthRequired(true);
+      markAzureAuthRequired();
       setActiveMainTab("settings");
       void handleAzureLogin();
       return;
@@ -5329,10 +3790,7 @@ export function useWorkspace() {
   // Panel prop composition for Client route rendering.
   const settingsTabProps = buildSettingsTabProps({
     theme,
-    onThemeChange: (nextTheme: ThemeMode) => {
-      setTheme(nextTheme);
-      void saveThemePreference(nextTheme);
-    },
+    onThemeChange: handleThemeChange,
     isAzureAuthRequired,
     isSending,
     isStartingAzureLogin,
