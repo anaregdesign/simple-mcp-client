@@ -1,3 +1,12 @@
+import type { ThreadInstructionContextToggles } from "~/lib/domain/entities/thread-record";
+
+export {
+  cloneThreadInstructionContextToggles,
+  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+  hasNonDefaultThreadInstructionContextToggles,
+} from "~/lib/domain/entities/thread-record";
+export type { ThreadInstructionContextToggles } from "~/lib/domain/entities/thread-record";
+
 export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
   {
     key: "system",
@@ -15,24 +24,6 @@ export const THREAD_INSTRUCTION_CONTEXT_OPTIONS = [
 export type ThreadInstructionContextToggleOption =
   (typeof THREAD_INSTRUCTION_CONTEXT_OPTIONS)[number];
 export type ThreadInstructionContextToggleKey = ThreadInstructionContextToggleOption["key"];
-export type ThreadInstructionContextToggles = Record<
-  ThreadInstructionContextToggleKey,
-  boolean
->;
-
-export const DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES: ThreadInstructionContextToggles =
-  buildDefaultThreadInstructionContextToggles();
-
-export function cloneThreadInstructionContextToggles(
-  value: ThreadInstructionContextToggles,
-): ThreadInstructionContextToggles {
-  const cloned = {} as ThreadInstructionContextToggles;
-  for (const option of THREAD_INSTRUCTION_CONTEXT_OPTIONS) {
-    cloned[option.key] = value[option.key] === true;
-  }
-
-  return cloned;
-}
 
 export function readThreadInstructionContextTogglesFromUnknown(
   value: unknown,
@@ -48,27 +39,6 @@ export function readThreadInstructionContextTogglesFromUnknown(
       return null;
     }
     toggles[option.key] = rawToggle;
-  }
-
-  return toggles;
-}
-
-export function hasNonDefaultThreadInstructionContextToggles(
-  value: ThreadInstructionContextToggles,
-): boolean {
-  for (const option of THREAD_INSTRUCTION_CONTEXT_OPTIONS) {
-    if (value[option.key] !== option.defaultEnabled) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function buildDefaultThreadInstructionContextToggles(): ThreadInstructionContextToggles {
-  const toggles = {} as ThreadInstructionContextToggles;
-  for (const option of THREAD_INSTRUCTION_CONTEXT_OPTIONS) {
-    toggles[option.key] = option.defaultEnabled;
   }
 
   return toggles;

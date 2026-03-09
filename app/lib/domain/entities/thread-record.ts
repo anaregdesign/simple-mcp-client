@@ -1,3 +1,7 @@
+import {
+  DEFAULT_REASONING_EFFORT,
+  DEFAULT_WEB_SEARCH_ENABLED,
+} from "~/lib/constants/chat";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 export type ThreadAttachment = {
@@ -70,6 +74,11 @@ export type ThreadEnvironment = Record<string, string>;
 export type ThreadInstructionContextToggles = {
   system: boolean;
 };
+
+export const DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES: ThreadInstructionContextToggles =
+  {
+    system: true,
+  };
 
 export type ThreadWritePayload = {
   id: string;
@@ -194,6 +203,60 @@ export type ThreadRecordSnapshot = {
   mcpRpcLogs: ThreadOperationLogRecord[];
   skillSelections: ThreadSkillActivationRecord[];
 };
+
+export function cloneThreadEnvironment(value: ThreadEnvironment): ThreadEnvironment {
+  return { ...value };
+}
+
+export function cloneThreadInstructionContextToggles(
+  value: ThreadInstructionContextToggles,
+): ThreadInstructionContextToggles {
+  return {
+    system: value.system === true,
+  };
+}
+
+export function hasNonDefaultThreadInstructionContextToggles(
+  value: ThreadInstructionContextToggles,
+): boolean {
+  return value.system !== DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES.system;
+}
+
+export function hasThreadInteraction(
+  snapshot: Pick<ThreadWritePayload, "messages"> &
+    Partial<Pick<ThreadWritePayload, "skillSelections">>,
+): boolean {
+  if (snapshot.messages.length > 0) {
+    return true;
+  }
+
+  return (snapshot.skillSelections?.length ?? 0) > 0;
+}
+
+export function hasThreadPersistableState(
+  snapshot: Pick<
+    ThreadWritePayload,
+    | "messages"
+    | "reasoningEffort"
+    | "webSearchEnabled"
+    | "instructionContextToggles"
+    | "threadEnvironment"
+  > &
+    Partial<Pick<ThreadWritePayload, "skillSelections">>,
+): boolean {
+  if (hasThreadInteraction(snapshot)) {
+    return true;
+  }
+
+  return (
+    snapshot.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
+    snapshot.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
+    hasNonDefaultThreadInstructionContextToggles(
+      snapshot.instructionContextToggles,
+    ) ||
+    Object.keys(snapshot.threadEnvironment).length > 0
+  );
+}
 
 export class ThreadRecord {
   private readonly snapshot: ThreadRecordSnapshot;

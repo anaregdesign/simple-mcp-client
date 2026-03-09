@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ThreadRecord, type ThreadRecordSnapshot } from "~/lib/domain/entities/thread-record";
+import {
+  cloneThreadEnvironment,
+  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+  hasThreadPersistableState,
+  ThreadRecord,
+  type ThreadRecordSnapshot,
+} from "~/lib/domain/entities/thread-record";
 
 function createThreadRecordSnapshot(): ThreadRecordSnapshot {
   return {
@@ -63,5 +69,30 @@ describe("ThreadRecord", () => {
 
     expect(record.isArchived()).toBe(true);
     expect(record.canBeArchived()).toBe(false);
+  });
+});
+
+describe("thread-record helpers", () => {
+  it("clones thread environment defensively", () => {
+    const environment = {
+      PATH: "/tmp/bin",
+    };
+
+    const cloned = cloneThreadEnvironment(environment);
+    cloned.PATH = "/tmp/other";
+
+    expect(environment.PATH).toBe("/tmp/bin");
+  });
+
+  it("treats default thread settings as non-persistable", () => {
+    expect(
+      hasThreadPersistableState({
+        messages: [],
+        reasoningEffort: "none",
+        webSearchEnabled: false,
+        instructionContextToggles: DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+        threadEnvironment: {},
+      }),
+    ).toBe(false);
   });
 });

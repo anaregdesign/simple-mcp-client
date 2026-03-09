@@ -1,10 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/domain/value-objects/skill-registry";
-import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import {
+  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+  hasThreadPersistableState,
   ThreadRecord,
   type ThreadRecordSnapshot,
   type ThreadWritePayload,

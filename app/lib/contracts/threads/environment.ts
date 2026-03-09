@@ -4,8 +4,10 @@ import {
   THREAD_ENVIRONMENT_VARIABLES_MAX,
 } from "~/lib/constants/chat";
 import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
+import type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
 
-export type ThreadEnvironment = Record<string, string>;
+export { cloneThreadEnvironment } from "~/lib/domain/entities/thread-record";
+export type { ThreadEnvironment } from "~/lib/domain/entities/thread-record";
 
 type ParseThreadEnvironmentResult =
   | {
@@ -16,10 +18,6 @@ type ParseThreadEnvironmentResult =
       ok: false;
       error: string;
     };
-
-export function cloneThreadEnvironment(value: ThreadEnvironment): ThreadEnvironment {
-  return { ...value };
-}
 
 export function readThreadEnvironmentFromUnknown(value: unknown): ThreadEnvironment {
   const parsed = parseThreadEnvironmentFromUnknown(value, {
