@@ -18,38 +18,6 @@ export type InstructionEnhanceComparison = {
 };
 
 /**
- * Generic response envelope for Azure login/logout actions.
- */
-export type AzureActionApiResponse = {
-  message?: string;
-  error?: string;
-};
-
-/**
- * Response shape returned by `/api/azure/projects` and
- * `/api/azure/projects/:projectId/deployments`.
- * Unknown-typed payload fields are normalized by parser helpers in `~/lib/client/usecase/workspace/azure-parsers`.
- */
-export type AzureProjectsApiResponse = {
-  projects?: unknown;
-  deployments?: unknown;
-  tenants?: unknown;
-  principal?: unknown;
-  tenantId?: unknown;
-  principalId?: unknown;
-  authRequired?: boolean;
-  error?: string;
-};
-
-/**
- * Response shape returned by `/api/azure/selection`.
- */
-export type AzureSelectionApiResponse = {
-  selection?: unknown;
-  error?: string;
-};
-
-/**
  * Response shape returned by `/api/mcp/servers` and `/api/mcp/servers/:serverId`.
  */
 export type McpServersApiResponse = {

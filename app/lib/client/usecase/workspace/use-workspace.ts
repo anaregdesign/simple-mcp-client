@@ -224,6 +224,9 @@ import {
   requestClientApi,
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
+import { azureProjectsApiClient } from "~/lib/client/infrastructure/api/azure-projects-api-client";
+import { azureSelectionApiClient } from "~/lib/client/infrastructure/api/azure-selection-api-client";
+import { azureSessionApiClient } from "~/lib/client/infrastructure/api/azure-session-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import { skillsApiClient } from "~/lib/client/infrastructure/api/skills-api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
@@ -247,9 +250,6 @@ import {
   createThreadLifecycleHandlers,
 } from "~/lib/client/usecase/workspace/handlers";
 import {
-  type AzureActionApiResponse,
-  type AzureProjectsApiResponse,
-  type AzureSelectionApiResponse,
   type InstructionEnhanceComparison,
   type SkillsApiResponse,
   type ThreadRequestState,
@@ -2866,14 +2866,7 @@ export function useWorkspace() {
     }
 
     try {
-      const response = await fetch("/api/azure/selection", {
-        method: "GET",
-      });
-      const payload = (await response.json()) as AzureSelectionApiResponse;
-      if (!response.ok) {
-        return null;
-      }
-
+      const payload = await azureSelectionApiClient.loadSelection();
       return readAzureSelectionFromUnknown(
         payload.selection,
         normalizedTenantId,
@@ -2948,23 +2941,21 @@ export function useWorkspace() {
       : null;
 
     try {
-      const response = await fetch("/api/azure/selection", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          target: selection.target,
+      if (selection.target === "utility") {
+        await azureSelectionApiClient.saveSelection({
+          target: "utility",
+          projectId: selection.projectId,
+          deploymentName: selection.deploymentName,
+          reasoningEffort: selection.reasoningEffort,
+          theme: persistedThemeMode,
+        });
+      } else {
+        await azureSelectionApiClient.saveSelection({
+          target: "playground",
           projectId: selection.projectId,
           deploymentName: selection.deploymentName,
           theme: persistedThemeMode,
-          ...(selection.target === "utility"
-            ? { reasoningEffort: selection.reasoningEffort }
-            : {}),
-        }),
-      });
-      if (!response.ok) {
-        return;
+        });
       }
     } catch (selectionSaveError) {
       logClientError("save_azure_selection_failed", selectionSaveError, {
@@ -3006,21 +2997,12 @@ export function useWorkspace() {
     preferredAzureSelectionRef.current = nextPreferredSelection;
 
     try {
-      const response = await fetch("/api/azure/selection", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          theme: nextThemeMode,
-        }),
+      await azureSelectionApiClient.saveSelection({
+        theme: nextThemeMode,
       });
-      if (!response.ok) {
-        return;
-      }
     } catch (selectionSaveError) {
       logClientError("save_theme_failed", selectionSaveError, {
-        action: "save_home_theme",
+        action: "save_theme",
       });
       // Ignore persistence failures and continue normal UI flow.
     }
@@ -3406,24 +3388,10 @@ export function useWorkspace() {
       }
 
       const projectsRequestUrl = preferredTenantId
-        ? `/api/azure/projects?tenantId=${encodeURIComponent(preferredTenantId)}`
-        : "/api/azure/projects";
-      const { payload } = await requestClientApi<AzureProjectsApiResponse>({
-        url: projectsRequestUrl,
-        init: {
-          method: "GET",
-        },
-        readPayload: (response) =>
-          readJsonPayload<AzureProjectsApiResponse>(response, "Azure projects"),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string"
-            ? responsePayload.error
-            : null,
-        fallbackErrorMessage: "Failed to load Azure projects.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to load threads.",
+        ? preferredTenantId
+        : "";
+      const payload = await azureProjectsApiClient.loadProjects({
+        preferredTenantId: projectsRequestUrl,
       });
       if (requestSeq !== azureConnectionsRequestSeqRef.current) {
         return {
@@ -3725,27 +3693,9 @@ export function useWorkspace() {
     }
 
     try {
-      const { payload } = await requestClientApi<AzureProjectsApiResponse>({
-        url: `/api/azure/projects/${encodeURIComponent(normalizedProjectId)}/deployments`,
-        init: {
-          method: "GET",
-        },
-        readPayload: (response) =>
-          readJsonPayload<AzureProjectsApiResponse>(
-            response,
-            "Azure deployments",
-          ),
-        resolveAuthRequired: (status, responsePayload) =>
-          resolveAuthRequired(status, responsePayload),
-        readErrorMessage: (responsePayload) =>
-          typeof responsePayload.error === "string"
-            ? responsePayload.error
-            : null,
-        fallbackErrorMessage:
-          "Failed to load deployments for the selected project.",
-        authRequiredMessage:
-          "Azure login is required. Open Settings and sign in to load threads.",
-      });
+      const payload = await azureProjectsApiClient.loadDeployments(
+        normalizedProjectId,
+      );
       const activeRequestSeq =
         target === "playground"
           ? playgroundAzureDeploymentRequestSeqRef.current
@@ -4242,20 +4192,7 @@ export function useWorkspace() {
     const requestInit: RequestInit = {
       method: "PUT",
     };
-    if (targetTenantId) {
-      requestInit.headers = {
-        "Content-Type": "application/json",
-      };
-      requestInit.body = JSON.stringify({
-        tenantId: targetTenantId,
-      });
-    }
-
-    const response = await fetch("/api/azure/session", requestInit);
-    const payload = (await response.json()) as AzureActionApiResponse;
-    if (!response.ok) {
-      throw new Error(payload.error || "Failed to start Azure login.");
-    }
+    const payload = await azureSessionApiClient.startSession(targetTenantId);
 
     setSystemNotice(
       targetTenantId
@@ -4389,14 +4326,7 @@ export function useWorkspace() {
     setSystemNotice(null);
     setIsStartingAzureLogout(true);
     try {
-      const response = await fetch("/api/azure/session", {
-        method: "DELETE",
-      });
-      const payload = (await response.json()) as AzureActionApiResponse;
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to run Azure logout.");
-      }
-
+      const payload = await azureSessionApiClient.endSession();
       setSystemNotice(payload.message || "Azure logout completed.");
       setPlaygroundAzureDeploymentError(null);
       setUtilityAzureDeploymentError(null);
