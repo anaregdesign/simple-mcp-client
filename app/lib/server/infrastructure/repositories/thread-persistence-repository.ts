@@ -7,7 +7,7 @@ import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import {
   ThreadRecord,
   type ThreadRecordSnapshot,
-  type ThreadRecordInput,
+  type ThreadWritePayload,
 } from "~/lib/domain/entities/thread-record";
 import { reasoningEffortValues, type ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
@@ -122,9 +122,9 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     });
   }
 
-  async saveRecord(
+  async savePayload(
     userId: number,
-    payload: ThreadRecordInput,
+    payload: ThreadWritePayload,
   ): Promise<{ thread: ThreadRecord; created: boolean } | null> {
     await ensurePersistenceDatabaseReady();
     let created = false;
@@ -528,7 +528,7 @@ async function upsertThreadSkillProfiles(options: {
     "workspaceSkillRegistryProfile" | "workspaceSkillProfile"
   >;
   userId: number;
-  skillSelections: ThreadRecordInput["skillSelections"];
+  skillSelections: ThreadWritePayload["skillSelections"];
 }): Promise<Map<string, number>> {
   const uniqueSelections = new Map<
     string,

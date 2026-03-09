@@ -1,10 +1,10 @@
 /**
  * Thread application service module.
  */
-import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import type {
   ThreadRecord,
   ThreadRecordSnapshot,
+  ThreadWritePayload,
 } from "~/lib/domain/entities/thread-record";
 import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
 
@@ -149,7 +149,7 @@ async function saveThreadRecord(
   userId: number,
   payload: ThreadWritePayload,
 ): Promise<{ thread: ThreadRecord; created: boolean } | null> {
-  return repository.saveRecord(userId, payload);
+  return repository.savePayload(userId, payload);
 }
 
 export type LogicalDeleteThreadResult =

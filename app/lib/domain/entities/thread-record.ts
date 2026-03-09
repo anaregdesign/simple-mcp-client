@@ -1,14 +1,77 @@
-import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
-import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { WorkspaceSkillProfileResource } from "~/lib/contracts/skills/workspace-skill-profiles";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
-import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
-export type ThreadRecordInput = {
+export type ThreadAttachment = {
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  dataUrl: string;
+};
+
+export type ThreadSkillActivation = {
+  name: string;
+  location: string;
+};
+
+export type ThreadMessageRole = "user" | "assistant";
+
+export type ThreadMessage = {
+  id: string;
+  role: ThreadMessageRole;
+  content: string;
+  createdAt: string;
+  turnId: string;
+  attachments: ThreadAttachment[];
+  skillActivations: ThreadSkillActivation[];
+};
+
+export type ThreadOperationLogEntry = {
+  id: string;
+  sequence: number;
+  operationType: "mcp" | "skill";
+  serverName: string;
+  method: string;
+  startedAt: string;
+  completedAt: string;
+  request: unknown;
+  response: unknown;
+  isError: boolean;
+  turnId: string;
+};
+
+export type ThreadMcpHttpServerConfig = {
+  id: string;
+  name: string;
+  connectOnThreadCreate?: boolean;
+  transport: "streamable_http" | "sse";
+  url: string;
+  headers: Record<string, string>;
+  useAzureAuth: boolean;
+  azureAuthScope: string;
+  timeoutSeconds: number;
+};
+
+export type ThreadMcpStdioServerConfig = {
+  id: string;
+  name: string;
+  connectOnThreadCreate?: boolean;
+  transport: "stdio";
+  command: string;
+  args: string[];
+  cwd?: string;
+  env: Record<string, string>;
+};
+
+export type ThreadMcpServerConfig =
+  | ThreadMcpHttpServerConfig
+  | ThreadMcpStdioServerConfig;
+
+export type ThreadEnvironment = Record<string, string>;
+
+export type ThreadInstructionContextToggles = {
+  system: boolean;
+};
+
+export type ThreadWritePayload = {
   id: string;
   name: string;
   createdAt: string;
@@ -20,12 +83,19 @@ export type ThreadRecordInput = {
   instructionContextToggles: ThreadInstructionContextToggles;
   threadEnvironment: ThreadEnvironment;
   messages: ThreadMessage[];
-  mcpServers: McpServerConfig[];
+  mcpServers: ThreadMcpServerConfig[];
   mcpRpcLogs: ThreadOperationLogEntry[];
   skillSelections: ThreadSkillActivation[];
 };
 
-export type ThreadSkillProfileRecord = WorkspaceSkillProfileResource;
+export type ThreadSkillProfileRecord = {
+  id: number;
+  userId: number;
+  registryProfileId: number | null;
+  name: string;
+  location: string;
+  source: string;
+};
 
 export type ThreadInstructionRecord = {
   id: number;
@@ -45,11 +115,11 @@ export type ThreadMessageRecord = {
   id: string;
   threadId: string;
   conversationOrder: number;
-  role: ThreadMessage["role"];
+  role: ThreadMessageRole;
   content: string;
   createdAt: string;
   turnId: string;
-  attachments: ChatAttachment[];
+  attachments: ThreadAttachment[];
   skillActivations: ThreadMessageSkillActivationRecord[];
 };
 
@@ -190,11 +260,7 @@ function cloneThreadRecordSnapshot(snapshot: ThreadRecordSnapshot): ThreadRecord
 }
 
 function cloneJsonCompatibleValue<T>(value: T): T {
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value !== "object"
-  ) {
+  if (value === null || value === undefined || typeof value !== "object") {
     return value;
   }
 
