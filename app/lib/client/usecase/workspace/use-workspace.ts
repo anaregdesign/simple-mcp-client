@@ -104,20 +104,8 @@ import {
   validateEnhancedInstructionFormat,
 } from "~/lib/client/instruction/helpers";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/layout/main-splitter";
-import {
-  parseAzureAuthScopeInput,
-  parseHttpHeadersInput,
-  parseMcpTimeoutSecondsInput,
-} from "~/lib/client/mcp/http-inputs";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import {
-  buildMcpServerKey,
-  upsertMcpServer,
-} from "~/lib/contracts/mcp/profile";
-import {
-  parseStdioArgsInput,
-  parseStdioEnvInput,
-} from "~/lib/client/mcp/stdio-inputs";
+import { buildMcpServerKey, upsertMcpServer } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
@@ -4498,10 +4486,12 @@ export function useWorkspace() {
     handleDeleteWorkspaceMcpServerProfile,
     handleToggleWorkspaceMcpServerProfile,
     handleRemoveMcpServer,
+    handleAddMcpServer,
   } = createMcpProfileHandlers({
     isArchivedThread,
     readActiveThreadId: () => activeThreadIdRef.current,
     readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
+    readActiveThreadMcpServers: () => mcpServers,
     readEditingMcpServerId: () => editingMcpServerId,
     isDeletingWorkspaceMcpServerProfile,
     setWorkspaceMcpServerProfileError,
@@ -4512,10 +4502,29 @@ export function useWorkspace() {
     setMcpFormError,
     setMcpFormWarning,
     setIsDeletingWorkspaceMcpServerProfile,
+    setIsSavingMcpServer,
     applyWorkspaceMcpServerProfiles,
     deleteWorkspaceMcpServerProfileFromConfig,
+    saveMcpServerToConfig,
+    connectMcpServerToAgent,
+    resetMcpServerFormInputs,
     updateThreadStateById,
     logClientError,
+    logClientWarning,
+    mcpFormState: {
+      editingMcpServerId,
+      mcpNameInput,
+      mcpTransport,
+      mcpUrlInput,
+      mcpCommandInput,
+      mcpArgsInput,
+      mcpCwdInput,
+      mcpEnvInput,
+      mcpHeadersInput,
+      mcpUseAzureAuthInput,
+      mcpAzureAuthScopeInput,
+      mcpTimeoutSecondsInput,
+    },
   });
 
   function handleSelectActiveChatCommandSuggestion(suggestionIdRaw: string) {
@@ -5201,246 +5210,6 @@ export function useWorkspace() {
         instructionOverride: originalInstruction,
       });
     }
-  }
-
-  async function handleAddMcpServer() {
-    if (isArchivedThread(activeThreadIdRef.current)) {
-      setMcpFormError(
-        "Archived thread is read-only. Restore it from Archives to edit MCP servers.",
-      );
-      return;
-    }
-
-    const editingServerId = editingMcpServerId.trim();
-    const isEditing = editingServerId.length > 0;
-    const editingServer = isEditing
-      ? (workspaceMcpServerProfiles.find(
-          (server) => server.id === editingServerId,
-        ) ?? null)
-      : null;
-    if (isEditing && !editingServer) {
-      setEditingMcpServerId("");
-      setMcpFormError("Selected MCP server is not available.");
-      return;
-    }
-
-    const rawName = mcpNameInput.trim();
-    setMcpFormError(null);
-    setMcpFormWarning(null);
-
-    let serverToSave: McpServerConfig;
-    const serverId = isEditing ? editingServerId : createId("mcp");
-
-    if (mcpTransport === "stdio") {
-      const command = mcpCommandInput.trim();
-      if (!command) {
-        setMcpFormError("MCP stdio command is required.");
-        return;
-      }
-
-      if (/\s/.test(command)) {
-        setMcpFormError("MCP stdio command must not include spaces.");
-        return;
-      }
-
-      const argsResult = parseStdioArgsInput(mcpArgsInput);
-      if (!argsResult.ok) {
-        setMcpFormError(argsResult.error);
-        return;
-      }
-
-      const envResult = parseStdioEnvInput(mcpEnvInput);
-      if (!envResult.ok) {
-        setMcpFormError(envResult.error);
-        return;
-      }
-
-      const cwd = mcpCwdInput.trim();
-      const name = rawName || command;
-
-      serverToSave = {
-        name,
-        transport: "stdio",
-        command,
-        args: argsResult.value,
-        cwd: cwd || undefined,
-        env: envResult.value,
-        id: serverId,
-      };
-    } else {
-      const rawUrl = mcpUrlInput.trim();
-      if (!rawUrl) {
-        setMcpFormError("MCP server URL is required.");
-        return;
-      }
-
-      let parsed: URL;
-      try {
-        parsed = new URL(rawUrl);
-      } catch {
-        setMcpFormError("MCP server URL is invalid.");
-        return;
-      }
-
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        setMcpFormError("MCP server URL must start with http:// or https://.");
-        return;
-      }
-
-      const name = rawName || parsed.hostname;
-      if (!name) {
-        setMcpFormError("MCP server name is required.");
-        return;
-      }
-
-      const normalizedUrl = parsed.toString();
-      const headersResult = parseHttpHeadersInput(mcpHeadersInput);
-      if (!headersResult.ok) {
-        setMcpFormError(headersResult.error);
-        return;
-      }
-
-      let azureAuthScope = MCP_DEFAULT_AZURE_AUTH_SCOPE;
-      if (mcpUseAzureAuthInput) {
-        const scopeResult = parseAzureAuthScopeInput(mcpAzureAuthScopeInput);
-        if (!scopeResult.ok) {
-          setMcpFormError(scopeResult.error);
-          return;
-        }
-        azureAuthScope = scopeResult.value;
-      }
-      const timeoutResult = parseMcpTimeoutSecondsInput(mcpTimeoutSecondsInput);
-      if (!timeoutResult.ok) {
-        setMcpFormError(timeoutResult.error);
-        return;
-      }
-
-      serverToSave = {
-        id: serverId,
-        name,
-        url: normalizedUrl,
-        transport: mcpTransport,
-        headers: headersResult.value,
-        useAzureAuth: mcpUseAzureAuthInput,
-        azureAuthScope,
-        timeoutSeconds: timeoutResult.value,
-      };
-    }
-
-    const existingServerIndex = isEditing
-      ? -1
-      : mcpServers.findIndex(
-          (server) =>
-            buildMcpServerKey(server) === buildMcpServerKey(serverToSave),
-        );
-    const existingServerName =
-      existingServerIndex >= 0
-        ? (mcpServers[existingServerIndex]?.name ?? "")
-        : "";
-
-    setIsSavingMcpServer(true);
-    let saveWarning: string | null = null;
-    let savedProfile = serverToSave;
-    try {
-      const saveResult = await saveMcpServerToConfig(serverToSave, {
-        isUpdate: isEditing,
-      });
-      saveWarning = saveResult.warning;
-      savedProfile = saveResult.profile;
-
-      if (isEditing && editingServer) {
-        const previousServerKey = buildMcpServerKey(editingServer);
-        const nextServerKey = buildMcpServerKey(savedProfile);
-        const activeId = activeThreadIdRef.current.trim();
-        if (activeId) {
-          updateThreadStateById(activeId, (thread) => {
-            const filtered = thread.mcpServers.filter(
-              (server) => buildMcpServerKey(server) !== previousServerKey,
-            );
-            if (filtered.length === thread.mcpServers.length) {
-              return thread;
-            }
-
-            const nextIndex = filtered.findIndex(
-              (server) => buildMcpServerKey(server) === nextServerKey,
-            );
-            if (nextIndex >= 0) {
-              return {
-                ...thread,
-                mcpServers: filtered.map((server, index) =>
-                  index === nextIndex
-                    ? { ...server, name: savedProfile.name }
-                    : server,
-                ),
-              };
-            }
-
-            return {
-              ...thread,
-              mcpServers: [...filtered, savedProfile],
-            };
-          });
-        }
-      } else {
-        connectMcpServerToAgent(savedProfile);
-      }
-
-      setWorkspaceMcpServerProfileError(null);
-    } catch (saveError) {
-      logClientError("save_mcp_server_failed", saveError, {
-        action: "save_mcp_server",
-      });
-      setMcpFormError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Failed to save MCP server.",
-      );
-      return;
-    } finally {
-      setIsSavingMcpServer(false);
-    }
-
-    setMcpFormError(null);
-    if (isEditing) {
-      setMcpFormWarning(saveWarning);
-      if (saveWarning) {
-        logClientWarning("mcp_server_edit_warning", saveWarning, {
-          action: "save_mcp_server",
-          context: {
-            savedProfileName: savedProfile.name,
-            transport: savedProfile.transport,
-          },
-        });
-      }
-    } else if (existingServerIndex >= 0) {
-      const fallbackLocalWarning =
-        existingServerName && existingServerName !== savedProfile.name
-          ? `An MCP server with the same configuration already exists. Renamed it from "${existingServerName}" to "${savedProfile.name}".`
-          : "An MCP server with the same configuration already exists. Reused the existing entry.";
-      const warningToShow = saveWarning ?? fallbackLocalWarning;
-      setMcpFormWarning(warningToShow);
-      logClientWarning("mcp_server_duplicate_warning", warningToShow, {
-        action: "save_mcp_server",
-        context: {
-          existingServerName,
-          savedProfileName: savedProfile.name,
-          transport: serverToSave.transport,
-        },
-      });
-    } else {
-      setMcpFormWarning(saveWarning);
-      if (saveWarning) {
-        logClientWarning("mcp_server_save_warning", saveWarning, {
-          action: "save_mcp_server",
-          context: {
-            savedProfileName: savedProfile.name,
-            transport: serverToSave.transport,
-          },
-        });
-      }
-    }
-    setEditingMcpServerId("");
-    resetMcpServerFormInputs();
   }
 
   async function handleApplyDesktopUpdate() {
