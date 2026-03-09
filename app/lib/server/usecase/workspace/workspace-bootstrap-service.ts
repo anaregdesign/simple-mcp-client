@@ -31,7 +31,6 @@ type WorkspaceBootstrapUser = {
 };
 
 type WorkspaceBootstrapOptions = {
-  request: Request;
   user: WorkspaceBootstrapUser;
 };
 
@@ -93,11 +92,9 @@ export class WorkspaceBootstrapService {
     ] = await Promise.all([
       this.dependencies.azureArmAccessGateway.resolveAzurePrincipalProfile(tokenResult),
       this.dependencies.azureProjectQueryService.loadAzureProjectsWithFallback(
-        options.request,
         tokenResult.token,
       ),
       this.dependencies.azureProjectQueryService.loadAzureTenantsWithFallback(
-        options.request,
         tokenResult.token,
         tokenResult.tenantId,
       ),

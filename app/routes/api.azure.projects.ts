@@ -59,9 +59,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const [projects, tenants] = await Promise.all([
-      getAzureProjectQueryService().loadAzureProjectsWithFallback(request, tokenResult.token),
+      getAzureProjectQueryService().loadAzureProjectsWithFallback(tokenResult.token),
       getAzureProjectQueryService().loadAzureTenantsWithFallback(
-        request,
         tokenResult.token,
         tokenResult.tenantId,
       ),

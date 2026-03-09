@@ -21,7 +21,6 @@ const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
 
 type AzureProjectEventLogger = (input: {
-  request?: Request;
   route: string;
   eventName: string;
   action: string;
@@ -112,19 +111,16 @@ export class AzureProjectQueryService {
   ) {}
 
   async loadAzureProjectsWithFallback(
-    request: Request,
     accessToken: string,
   ): Promise<AzureProject[]> {
-    return loadAzureProjectsWithFallback(request, accessToken, this.logEvent);
+    return loadAzureProjectsWithFallback(accessToken, this.logEvent);
   }
 
   async loadAzureTenantsWithFallback(
-    request: Request,
     accessToken: string,
     activeTenantId: string,
   ): Promise<AzureTenant[]> {
     return loadAzureTenantsWithFallback(
-      request,
       accessToken,
       activeTenantId,
       this.logEvent,
@@ -146,7 +142,6 @@ export function createAzureProjectQueryService(
 }
 
 async function loadAzureProjectsWithFallback(
-  request: Request,
   accessToken: string,
   logEvent: AzureProjectEventLogger,
 ): Promise<AzureProject[]> {
@@ -154,7 +149,6 @@ async function loadAzureProjectsWithFallback(
     return await listAzureProjects(accessToken, logEvent);
   } catch (error) {
     await logEvent({
-      request,
       route: AZURE_PROJECTS_ROUTE,
       eventName: "load_azure_projects_partial_failed",
       action: "list_projects",
@@ -169,7 +163,6 @@ async function loadAzureProjectsWithFallback(
 }
 
 async function loadAzureTenantsWithFallback(
-  request: Request,
   accessToken: string,
   activeTenantId: string,
   logEvent: AzureProjectEventLogger,
@@ -178,7 +171,6 @@ async function loadAzureTenantsWithFallback(
     return await listAzureTenants(accessToken, activeTenantId, logEvent);
   } catch (error) {
     await logEvent({
-      request,
       route: AZURE_PROJECTS_ROUTE,
       eventName: "load_azure_tenants_failed",
       action: "list_tenants",

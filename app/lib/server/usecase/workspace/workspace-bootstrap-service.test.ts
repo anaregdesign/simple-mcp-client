@@ -40,7 +40,6 @@ describe("WorkspaceBootstrapService", () => {
     });
 
     const result = await service.loadWorkspaceBootstrap({
-      request: new Request("http://localhost/api/workspace-bootstrap"),
       user: {
         id: 1,
         tenantId: "tenant-a",
@@ -101,7 +100,6 @@ describe("WorkspaceBootstrapService", () => {
     });
 
     const result = await service.loadWorkspaceBootstrap({
-      request: new Request("http://localhost/api/workspace-bootstrap"),
       user: {
         id: 1,
         tenantId: "tenant-a",

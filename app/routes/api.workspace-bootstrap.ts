@@ -87,7 +87,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   try {
     const data = await getWorkspaceBootstrapService().loadWorkspaceBootstrap({
-      request,
       user,
     });
     if (!data) {
