@@ -109,7 +109,6 @@ import {
   readDesktopUpdaterStatusFromUnknown,
   resolveDesktopUpdaterActionState,
 } from "~/lib/client/usecase/workspace/desktop-updater";
-import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -126,7 +125,6 @@ import {
 import {
   buildThreadListOptions,
   findThreadStateById,
-  mergeSkillSelections,
 } from "~/lib/client/usecase/workspace/thread-runtime";
 import {
   readThreadRequestStateById,
@@ -137,11 +135,9 @@ import {
 } from "~/lib/client/usecase/workspace/state";
 import {
   applySendResult,
-  buildChatRequestPayload,
+  prepareSendMessageExecution,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
-import {
-} from "~/lib/client/infrastructure/api/api-client";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
@@ -2217,58 +2213,28 @@ export function useWorkspace() {
     }
 
     const baseThread = findThreadStateById(threadsRef.current, threadId);
-    const shouldRefreshThreadTitleOnFirstMessage =
-      !!baseThread &&
-      baseThread.deletedAt === null &&
-      baseThread.messages.length === 0;
-
     const turnId = createId("turn");
-    const requestAttachments = draftAttachments.map(
-      ({ id: _id, ...attachment }) => attachment,
-    );
-    const requestMcpServers = cloneMcpServers(mcpServers);
-    const requestMessageSkillActivations = cloneThreadSkillActivations(
-      selectedMessageSkillActivations,
-    );
-    const requestSkillSelections = mergeSkillSelections(
-      selectedThreadSkills,
-      requestMessageSkillActivations,
-    );
-    const requestThreadEnvironment = baseThread
-      ? cloneThreadEnvironment(baseThread.threadEnvironment)
-      : {};
-    const requestExplicitSkillLocations = requestSkillSelections.map(
-      (selection) => selection.location,
-    );
-    const requestAgentInstruction = agentInstruction;
-    const requestInstructionContextToggles = cloneThreadInstructionContexts(
-      instructionContextToggles,
-    );
-    const userMessage: ThreadMessage = createThreadMessage(
-      "user",
-      content,
+    const preparedSend = prepareSendMessageExecution({
+      threadId,
       turnId,
-      requestAttachments,
-      requestMessageSkillActivations,
-    );
-    const history = messages.map(
-      ({ role, content: previousContent, attachments }) => {
-        if (role === "user" && attachments.length > 0) {
-          return {
-            role,
-            content: previousContent,
-            attachments,
-          };
-        }
+      content,
+      draftAttachments,
+      messages,
+      mcpServers,
+      selectedMessageSkillActivations,
+      selectedThreadSkills,
+      baseThread,
+      agentInstruction,
+      instructionContextToggles,
+      activeAzureTenantId: activeAzureTenantIdRef.current,
+      activePlaygroundAzureConnection,
+      deploymentName,
+      isPlaygroundReasoningEffortSupported,
+      reasoningEffort,
+      webSearchEnabled,
+    });
 
-        return {
-          role,
-          content: previousContent,
-        };
-      },
-    );
-
-    appendMessageToThreadState(threadId, userMessage);
+    appendMessageToThreadState(threadId, preparedSend.userMessage);
     setDraft("");
     setSelectedMessageSkillActivations([]);
     setDraftAttachments([]);
@@ -2288,13 +2254,13 @@ export function useWorkspace() {
         threadId,
         turnId,
         messageLength: content.length,
-        historyCount: history.length,
-        attachmentCount: requestAttachments.length,
-        mcpServerCount: requestMcpServers.length,
-        skillSelectionCount: requestSkillSelections.length,
+        historyCount: preparedSend.requestPayload.history.length,
+        attachmentCount: preparedSend.requestPayload.attachments.length,
+        mcpServerCount: preparedSend.requestMcpServers.length,
+        skillSelectionCount: preparedSend.requestSkillSelections.length,
       },
     });
-    if (shouldRefreshThreadTitleOnFirstMessage) {
+    if (preparedSend.shouldRefreshThreadTitleOnFirstMessage) {
       void refreshThreadTitleInBackground({
         threadId,
         reason: "first_message",
@@ -2305,32 +2271,8 @@ export function useWorkspace() {
     assignThreadSendAbortController(threadId, sendAbortController);
 
     try {
-      const requestPayload = buildChatRequestPayload({
-        threadId,
-        turnId,
-        message: content,
-        attachments: requestAttachments,
-        history,
-        azureConfig: {
-          tenantId: activeAzureTenantIdRef.current,
-          projectName: activePlaygroundAzureConnection.projectName,
-          baseUrl: activePlaygroundAzureConnection.baseUrl,
-          apiVersion: activePlaygroundAzureConnection.apiVersion,
-          deploymentName,
-        },
-        supportsReasoningEffort: isPlaygroundReasoningEffortSupported,
-        reasoningEffort,
-        webSearchEnabled,
-        agentInstruction: requestAgentInstruction,
-        instructionContextToggles: requestInstructionContextToggles,
-        threadEnvironment: requestThreadEnvironment,
-        skills: requestSkillSelections,
-        explicitSkillLocations: requestExplicitSkillLocations,
-        mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
-      });
-
       const { response, payload, isEventStream, operationLogCount } =
-        await chatApiClient.sendMessage(requestPayload, {
+        await chatApiClient.sendMessage(preparedSend.requestPayload, {
           signal: sendAbortController.signal,
           onProgress: (message) => {
             appendThreadProgressMessage(threadId, message);
@@ -2358,7 +2300,7 @@ export function useWorkspace() {
         threadId,
         "threadEnvironment" in payload
           ? payload.threadEnvironment
-          : requestThreadEnvironment,
+          : preparedSend.requestThreadEnvironment,
       );
       const assistantMessage = createThreadMessage(
         "assistant",
@@ -2413,8 +2355,8 @@ export function useWorkspace() {
           threadId,
           turnId,
           messageLength: content.length,
-          attachmentCount: requestAttachments.length,
-          skillSelectionCount: requestSkillSelections.length,
+          attachmentCount: preparedSend.requestPayload.attachments.length,
+          skillSelectionCount: preparedSend.requestSkillSelections.length,
         },
       });
       updateThreadRequestState(threadId, (current) =>

@@ -1,9 +1,29 @@
 /**
  * Client controller send-message use-case helpers.
  */
+import { createThreadMessage, type ThreadMessage } from "~/lib/client/chat/messages";
+import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
+import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
+import { mergeSkillSelections } from "~/lib/client/usecase/workspace/thread-runtime";
 import type { ChatApiRequestPayload } from "~/lib/contracts/chat/request";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import {
+  cloneThreadEnvironment,
+  type ThreadEnvironment,
+} from "~/lib/contracts/threads/environment";
+import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import {
+  cloneMcpServers,
+  cloneThreadInstructionContexts,
+  cloneThreadSkillActivations,
+} from "~/lib/contracts/threads/state";
+import type { ThreadState } from "~/lib/contracts/threads/types";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type {
+  AzureConnectionView,
+  ReasoningEffort,
+} from "~/lib/client/usecase/workspace/view-types";
 
 export type SendPreconditionViolation = {
   type: "thread_error" | "ui_error";
@@ -144,6 +164,113 @@ export function buildChatRequestPayload(
     skills: options.skills,
     explicitSkillLocations: options.explicitSkillLocations,
     mcpServers: options.mcpServers,
+  };
+}
+
+export type PreparedSendMessageExecution = {
+  userMessage: ThreadMessage;
+  requestThreadEnvironment: ThreadEnvironment;
+  requestPayload: ChatApiRequestPayload;
+  requestMcpServers: McpServerConfig[];
+  requestSkillSelections: ThreadSkillActivation[];
+  shouldRefreshThreadTitleOnFirstMessage: boolean;
+};
+
+export function prepareSendMessageExecution(options: {
+  threadId: string;
+  turnId: string;
+  content: string;
+  draftAttachments: DraftChatAttachment[];
+  messages: ThreadMessage[];
+  mcpServers: McpServerConfig[];
+  selectedMessageSkillActivations: ThreadSkillActivation[];
+  selectedThreadSkills: ThreadSkillActivation[];
+  baseThread: ThreadState | null;
+  agentInstruction: string;
+  instructionContextToggles: ThreadInstructionContextToggles;
+  activeAzureTenantId: string;
+  activePlaygroundAzureConnection: AzureConnectionView;
+  deploymentName: string;
+  isPlaygroundReasoningEffortSupported: boolean;
+  reasoningEffort: ReasoningEffort;
+  webSearchEnabled: boolean;
+}): PreparedSendMessageExecution {
+  const requestAttachments = options.draftAttachments.map(
+    ({ id: _id, ...attachment }) => attachment,
+  );
+  const requestMcpServers = cloneMcpServers(options.mcpServers);
+  const requestMessageSkillActivations = cloneThreadSkillActivations(
+    options.selectedMessageSkillActivations,
+  );
+  const requestSkillSelections = mergeSkillSelections(
+    options.selectedThreadSkills,
+    requestMessageSkillActivations,
+  );
+  const requestThreadEnvironment = options.baseThread
+    ? cloneThreadEnvironment(options.baseThread.threadEnvironment)
+    : {};
+  const requestExplicitSkillLocations = requestSkillSelections.map(
+    (selection) => selection.location,
+  );
+  const requestInstructionContextToggles = cloneThreadInstructionContexts(
+    options.instructionContextToggles,
+  );
+  const userMessage = createThreadMessage(
+    "user",
+    options.content,
+    options.turnId,
+    requestAttachments,
+    requestMessageSkillActivations,
+  );
+  const history = options.messages.map(
+    ({ role, content: previousContent, attachments }) => {
+      if (role === "user" && attachments.length > 0) {
+        return {
+          role,
+          content: previousContent,
+          attachments,
+        };
+      }
+
+      return {
+        role,
+        content: previousContent,
+      };
+    },
+  );
+
+  return {
+    userMessage,
+    requestThreadEnvironment,
+    requestPayload: buildChatRequestPayload({
+      threadId: options.threadId,
+      turnId: options.turnId,
+      message: options.content,
+      attachments: requestAttachments,
+      history,
+      azureConfig: {
+        tenantId: options.activeAzureTenantId,
+        projectName: options.activePlaygroundAzureConnection.projectName,
+        baseUrl: options.activePlaygroundAzureConnection.baseUrl,
+        apiVersion: options.activePlaygroundAzureConnection.apiVersion,
+        deploymentName: options.deploymentName,
+      },
+      supportsReasoningEffort: options.isPlaygroundReasoningEffortSupported,
+      reasoningEffort: options.reasoningEffort,
+      webSearchEnabled: options.webSearchEnabled,
+      agentInstruction: options.agentInstruction,
+      instructionContextToggles: requestInstructionContextToggles,
+      threadEnvironment: requestThreadEnvironment,
+      skills: requestSkillSelections,
+      explicitSkillLocations: requestExplicitSkillLocations,
+      mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
+    }),
+    requestMcpServers,
+    requestSkillSelections,
+    shouldRefreshThreadTitleOnFirstMessage:
+      options.baseThread !== null &&
+      options.baseThread.deletedAt === null &&
+      options.baseThread.messages.length === 0,
   };
 }
 
