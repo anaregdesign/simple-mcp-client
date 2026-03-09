@@ -5,6 +5,13 @@ import {
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
 import {
+  connectMcpServerToThread,
+  reconcileSavedThreadMcpServer,
+  removeThreadMcpServerByConfig,
+  removeThreadMcpServerById,
+  toggleThreadMcpServer,
+} from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
+import {
   parseAzureAuthScopeInput,
   parseHttpHeadersInput,
   parseMcpTimeoutSecondsInput,
@@ -53,7 +60,7 @@ type McpProfileHandlerDependencies = {
     profile: McpServerConfig;
     warning: string | null;
   }>;
-  connectMcpServerToAgent: (serverToConnect: McpServerConfig) => void;
+  connectMcpServerToActiveThread: (serverToConnect: McpServerConfig) => void;
   resetMcpServerFormInputs: () => void;
   updateThreadStateById: (
     threadId: string,
@@ -176,15 +183,11 @@ export function createMcpProfileHandlers(
           await deps.deleteWorkspaceMcpServerProfileFromConfig(serverId);
         deps.applyWorkspaceMcpServerProfiles(nextWorkspaceMcpServerProfiles);
 
-        const deletedKey = buildMcpServerKey(selected);
         const activeId = deps.readActiveThreadId().trim();
         if (activeId) {
-          deps.updateThreadStateById(activeId, (thread) => ({
-            ...thread,
-            mcpServers: thread.mcpServers.filter(
-              (server) => buildMcpServerKey(server) !== deletedKey,
-            ),
-          }));
+          deps.updateThreadStateById(activeId, (thread) =>
+            removeThreadMcpServerByConfig(thread, selected),
+          );
         }
 
         if (deps.readEditingMcpServerId().trim() === serverId) {
@@ -231,30 +234,14 @@ export function createMcpProfileHandlers(
         return;
       }
 
-      const selectedKey = buildMcpServerKey(selected);
       const activeId = deps.readActiveThreadId().trim();
       if (!activeId) {
         return;
       }
 
-      deps.updateThreadStateById(activeId, (thread) => {
-        const alreadyConnected = thread.mcpServers.some(
-          (server) => buildMcpServerKey(server) === selectedKey,
-        );
-        if (alreadyConnected) {
-          return {
-            ...thread,
-            mcpServers: thread.mcpServers.filter(
-              (server) => buildMcpServerKey(server) !== selectedKey,
-            ),
-          };
-        }
-
-        return {
-          ...thread,
-          mcpServers: [...thread.mcpServers, selected],
-        };
-      });
+      deps.updateThreadStateById(activeId, (thread) =>
+        toggleThreadMcpServer(thread, selected),
+      );
       deps.setWorkspaceMcpServerProfileError(null);
     },
 
@@ -268,10 +255,9 @@ export function createMcpProfileHandlers(
         return;
       }
 
-      deps.updateThreadStateById(activeId, (thread) => ({
-        ...thread,
-        mcpServers: thread.mcpServers.filter((server) => server.id !== id),
-      }));
+      deps.updateThreadStateById(activeId, (thread) =>
+        removeThreadMcpServerById(thread, id),
+      );
     },
 
     async handleAddMcpServer() {
@@ -440,40 +426,17 @@ export function createMcpProfileHandlers(
         savedProfile = saveResult.profile;
 
         if (isEditing && editingServer) {
-          const previousServerKey = buildMcpServerKey(editingServer);
-          const nextServerKey = buildMcpServerKey(savedProfile);
           const activeId = deps.readActiveThreadId().trim();
           if (activeId) {
-            deps.updateThreadStateById(activeId, (thread) => {
-              const filtered = thread.mcpServers.filter(
-                (server) => buildMcpServerKey(server) !== previousServerKey,
-              );
-              if (filtered.length === thread.mcpServers.length) {
-                return thread;
-              }
-
-              const nextIndex = filtered.findIndex(
-                (server) => buildMcpServerKey(server) === nextServerKey,
-              );
-              if (nextIndex >= 0) {
-                return {
-                  ...thread,
-                  mcpServers: filtered.map((server, index) =>
-                    index === nextIndex
-                      ? { ...server, name: savedProfile.name }
-                      : server,
-                  ),
-                };
-              }
-
-              return {
-                ...thread,
-                mcpServers: [...filtered, savedProfile],
-              };
-            });
+            deps.updateThreadStateById(activeId, (thread) =>
+              reconcileSavedThreadMcpServer(thread, {
+                previousServer: editingServer,
+                savedProfile,
+              }),
+            );
           }
         } else {
-          deps.connectMcpServerToAgent(savedProfile);
+          deps.connectMcpServerToActiveThread(savedProfile);
         }
 
         deps.setWorkspaceMcpServerProfileError(null);

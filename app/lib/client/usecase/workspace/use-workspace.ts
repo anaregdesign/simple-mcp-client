@@ -54,7 +54,6 @@ import {
 } from "~/lib/client/usecase/workspace/instruction-document";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/main-splitter";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import { buildMcpServerKey } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
@@ -191,6 +190,9 @@ import {
 import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profile-handlers";
+import {
+  connectMcpServerToThread,
+} from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
 import {
   createSkillSelectionHandlers,
 } from "~/lib/client/usecase/workspace/skill-selection-handlers";
@@ -2201,33 +2203,15 @@ export function useWorkspace() {
     );
   }
 
-  function connectMcpServerToAgent(serverToConnect: McpServerConfig) {
+  function connectMcpServerToActiveThread(serverToConnect: McpServerConfig) {
     const activeId = activeThreadIdRef.current.trim();
     if (!activeId) {
       return;
     }
 
-    updateThreadStateById(activeId, (thread) => {
-      const existingIndex = thread.mcpServers.findIndex(
-        (server) =>
-          buildMcpServerKey(server) === buildMcpServerKey(serverToConnect),
-      );
-      if (existingIndex >= 0) {
-        return {
-          ...thread,
-          mcpServers: thread.mcpServers.map((server, index) =>
-            index === existingIndex
-              ? { ...server, name: serverToConnect.name }
-              : server,
-          ),
-        };
-      }
-
-      return {
-        ...thread,
-        mcpServers: [...thread.mcpServers, serverToConnect],
-      };
-    });
+    updateThreadStateById(activeId, (thread) =>
+      connectMcpServerToThread(thread, serverToConnect),
+    );
   }
 
   async function sendMessage() {
@@ -2282,7 +2266,7 @@ export function useWorkspace() {
     applyWorkspaceMcpServerProfiles,
     deleteWorkspaceMcpServerProfileFromConfig,
     saveMcpServerToConfig,
-    connectMcpServerToAgent,
+    connectMcpServerToActiveThread,
     resetMcpServerFormInputs,
     updateThreadStateById,
     logClientError,
