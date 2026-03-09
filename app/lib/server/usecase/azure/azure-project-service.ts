@@ -26,7 +26,7 @@ import {
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
-const AZURE_PROJECTS_ROUTE = "/api/azure/projects";
+const AZURE_PROJECT_QUERY_LOG_LOCATION = "azure_project_query_service";
 
 export type AzureProject = {
   id: string;
@@ -153,7 +153,7 @@ async function loadAzureProjectsWithFallback(
     return await listAzureProjects(accessToken, logEvent, armPagedFetchGateway);
   } catch (error) {
     await logEvent({
-      route: AZURE_PROJECTS_ROUTE,
+      route: AZURE_PROJECT_QUERY_LOG_LOCATION,
       eventName: "load_azure_projects_partial_failed",
       action: "list_projects",
       level: "warning",
@@ -181,7 +181,7 @@ async function loadAzureTenantsWithFallback(
     );
   } catch (error) {
     await logEvent({
-      route: AZURE_PROJECTS_ROUTE,
+      route: AZURE_PROJECT_QUERY_LOG_LOCATION,
       eventName: "load_azure_tenants_failed",
       action: "list_tenants",
       level: "warning",
@@ -253,7 +253,7 @@ export async function listAzureProjects(
           });
         } catch (error) {
           await logEvent({
-            route: AZURE_PROJECTS_ROUTE,
+            route: AZURE_PROJECT_QUERY_LOG_LOCATION,
             eventName: "list_accounts_failed",
             action: "list_subscription_accounts",
             level: "warning",
@@ -505,7 +505,7 @@ async function listAccountModels(
     });
   } catch (error) {
     await logEvent({
-      route: AZURE_PROJECTS_ROUTE,
+      route: AZURE_PROJECT_QUERY_LOG_LOCATION,
       eventName: "list_account_models_failed",
       action: "list_account_models",
       level: "warning",
