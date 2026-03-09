@@ -40,6 +40,7 @@ import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import { presentThreadResources } from "~/lib/server/usecase/threads/thread-resource-presentation";
 import type { Route } from "./+types/api.workspace-bootstrap";
 
 const WORKSPACE_BOOTSTRAP_ALLOWED_METHODS = ["GET"] as const;
@@ -85,7 +86,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       return structuredAuthRequiredResponse();
     }
 
-    return successResponse(data);
+    return successResponse({
+      ...data,
+      threads: presentThreadResources(data.threads),
+    });
   } catch (error) {
     await logServerRouteEvent({
       request,
