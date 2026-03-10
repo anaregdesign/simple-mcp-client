@@ -418,6 +418,17 @@ const checks = [
     ],
   },
   {
+    key: "azureSettingsBrowserAdapterOwnership",
+    description:
+      "azure-settings browser effects must stay in client/infrastructure/browser instead of touching document/window directly from the usecase Hook.",
+    command: "rg",
+    args: [
+      "-n",
+      "document\\.|window\\.(setInterval|clearInterval|addEventListener|removeEventListener)",
+      "app/lib/client/usecase/workspace/azure-settings/use-azure-settings-effects.ts",
+    ],
+  },
+  {
     key: "legacyConfigPanelPropsFile",
     description:
       "config-panel generic panel-props.ts wrapper must stay retired.",
