@@ -396,6 +396,28 @@ const checks = [
     ],
   },
   {
+    key: "workspaceInstructionEditorAssemblyOwnership",
+    description:
+      "use-workspace must delegate instruction-editor state, handlers, and selectors to instruction-editor/use-workspace-instruction-editor.",
+    command: "rg",
+    args: [
+      "-n",
+      "useInstructionEditor|createInstructionEditingHandlers|createInstructionPromptHandlers|selectInstructionEditorViewModel",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
+    key: "workspaceMcpProfileAssemblyOwnership",
+    description:
+      "use-workspace must delegate MCP profile state, handlers, selectors, and storage runtime to mcp-profiles/use-workspace-mcp-profiles.",
+    command: "rg",
+    args: [
+      "-n",
+      "useMcpProfileForm|createMcpProfileHandlers|selectWorkspaceMcpProfileViewModel|createWorkspaceMcpProfileStorageRuntime|useWorkspaceStorageRuntimes",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
     key: "workspacePanelAssemblyOwnership",
     description:
       "use-workspace must delegate config-panel and playground-panel assembly to feature-local workspace Hooks.",
@@ -404,6 +426,28 @@ const checks = [
       "-n",
       "buildConfigPanelProps|selectWorkspaceConfigPanelProps|createPlaygroundControlHandlers|createChatComposerHandlers|usePlaygroundRuntime|selectPlaygroundOperationLogViewModel|selectPlaygroundComposerViewModel|buildWorkspacePlaygroundPanelProps|selectWorkspacePlaygroundPanelProps",
       "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
+    key: "legacyWorkspaceStorageRuntimesHook",
+    description:
+      "workspace mixed storage runtime Hook must stay retired after feature-local storage ownership extraction.",
+    rootPath: "app/lib/client/usecase/workspace/use-workspace-storage-runtimes.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/use-workspace-storage-runtimes.ts",
+    ],
+  },
+  {
+    key: "threadWorkspaceMcpAssemblyOwnership",
+    description:
+      "threads/use-workspace-threads must not own MCP server connection helpers once MCP profile membership is feature-local.",
+    command: "rg",
+    args: [
+      "-n",
+      "connectThreadMcpServer|connectMcpServerToActiveThread",
+      "app/lib/client/usecase/workspace/threads/use-workspace-threads.ts",
     ],
   },
   {
