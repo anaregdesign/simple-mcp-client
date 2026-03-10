@@ -424,7 +424,7 @@ const checks = [
     command: "rg",
     args: [
       "-n",
-      "buildConfigPanelProps|selectWorkspaceConfigPanelProps|createPlaygroundControlHandlers|createChatComposerHandlers|usePlaygroundRuntime|selectPlaygroundOperationLogViewModel|selectPlaygroundComposerViewModel|buildWorkspacePlaygroundPanelProps|selectWorkspacePlaygroundPanelProps",
+      "buildConfigPanelProps|selectWorkspaceConfigPanelProps|createWorkspaceConfigPanelViewModel|createPlaygroundControlHandlers|createChatComposerHandlers|usePlaygroundRuntime|selectPlaygroundOperationLogViewModel|selectPlaygroundComposerViewModel|buildWorkspacePlaygroundPanelProps|selectWorkspacePlaygroundPanelProps",
       "app/lib/client/usecase/workspace/use-workspace.ts",
     ],
   },
@@ -616,6 +616,28 @@ const checks = [
     ],
   },
   {
+    key: "legacyAzureSettingsCatalogHandlersFile",
+    description:
+      "azure-settings catalog-handlers.ts mega-owner must stay retired in favor of catalog-loading-handlers plus intent helpers.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/catalog-handlers.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-handlers.ts",
+    ],
+  },
+  {
+    key: "azureSettingsCatalogLoadingOwnership",
+    description:
+      "catalog-loading-handlers.ts must keep identity, preference, and deployment helper ownership in dedicated intent modules.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (clearActiveAzureIdentity|updateActiveAzureIdentity|syncWorkspaceStateForLoadedIdentity|loadAzureSelectionPreference|saveAzureSelectionPreference|saveThemePreference|resolveProjectSelection|applyAzureDeployments|cancelAzureDeploymentLoad|cancelAzureDeploymentLoads)",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-loading-handlers.ts",
+    ],
+  },
+  {
     key: "legacyAzureSettingsCatalogOperationsFile",
     description:
       "azure-settings catalog-operations.ts must stay retired after canonical handler consolidation.",
@@ -671,6 +693,17 @@ const checks = [
     ],
   },
   {
+    key: "configPanelTabBuilderResidue",
+    description:
+      "config-panel workspace hook must expose view-model naming instead of legacy build*TabProps helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "function build[A-Z].*TabProps|selectWorkspaceConfigPanelProps",
+      "app/lib/client/usecase/workspace/config-panel/use-workspace-config-panel.ts",
+    ],
+  },
+  {
     key: "legacyPlaygroundPanelPropsFile",
     description:
       "playground-panel generic panel-props.ts wrapper must use the concept-specific workspace owner name.",
@@ -691,6 +724,50 @@ const checks = [
     args: [
       "--files",
       "app/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props.ts",
+    ],
+  },
+  {
+    key: "chatSkillToolsCompositionOwnership",
+    description:
+      "chat-skill-tools.ts must stay a thin composition layer after splitting resource/script/runtime concerns.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (buildSkillResourcePreview|buildSkillToolResult|buildSkillToolErrorResult|buildSkillScriptRunFailureMessage|readSkillToolCategory|readInteger|readSkillScriptArgs|normalizeSkillScriptTimeout|buildSkillScriptEnvironment|readUnsetThreadEnvironmentKeys|expandThreadEnvironmentTemplate)",
+      "app/lib/server/infrastructure/gateways/skills/chat-skill-tools.ts",
+    ],
+  },
+  {
+    key: "skillRuntimeReexportOwnership",
+    description:
+      "skill-runtime.ts must stay a thin re-export owner after resource/script runtime extraction.",
+    command: "rg",
+    args: [
+      "-n",
+      "function |async function |node:(child_process|fs/promises|path)",
+      "app/lib/server/infrastructure/gateways/skills/skill-runtime.ts",
+    ],
+  },
+  {
+    key: "skillRegistryGatewayOwnership",
+    description:
+      "skill-registry-gateway.ts must keep remote/cache/storage helper ownership in dedicated modules.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (buildRepositoryUrl|buildRegistryListCacheKey|buildRegistryTreeCacheKey|fetchRegistryFileBytes|normalizeSkillName|readRegistrySkillBlobEntries|resolveAppDataSkillsRoot|normalizeRepoPath|readErrorMessage|validateInstalledSkill|writeInstalledSkillMetadata)",
+      "app/lib/server/infrastructure/gateways/skills/skill-registry-gateway.ts",
+    ],
+  },
+  {
+    key: "azureProjectServiceSelectorOwnership",
+    description:
+      "azure-project-service.ts must not re-own selector or error helper implementations.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (selectAzureProjectList|selectAzureDeploymentList|prioritizeActiveTenant|readAzureProjectErrorMessage|isLikelyAzureAuthError)",
+      "app/lib/server/usecase/azure/azure-project-service.ts",
     ],
   },
   {
