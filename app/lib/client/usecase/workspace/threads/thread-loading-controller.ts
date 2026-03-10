@@ -7,9 +7,10 @@ import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-
 
 type CreateThreadLoadingControllerOptions = {
   activeWorkspaceUserKeyRef: MutableRefObject<string>;
-  activeThreadIdRef: MutableRefObject<string>;
-  threadLoadRequestSeqRef: MutableRefObject<number>;
-  isThreadsReadyRef: MutableRefObject<boolean>;
+  readPreferredThreadId: () => string;
+  nextThreadLoadRequestSeq: () => number;
+  readThreadLoadRequestSeq: () => number;
+  setThreadsReady: () => void;
   clearThreadsState: (nextError?: string | null) => void;
   beginLoadingThreadOperation: () => boolean;
   endLoadingThreadOperation: () => void;
@@ -54,11 +55,8 @@ export function createThreadLoadingController(
     return {
       readActiveWorkspaceUserKey: () => options.activeWorkspaceUserKeyRef.current,
       clearThreadsState: options.clearThreadsState,
-      nextThreadLoadRequestSeq: () => {
-        options.threadLoadRequestSeqRef.current += 1;
-        return options.threadLoadRequestSeqRef.current;
-      },
-      readThreadLoadRequestSeq: () => options.threadLoadRequestSeqRef.current,
+      nextThreadLoadRequestSeq: options.nextThreadLoadRequestSeq,
+      readThreadLoadRequestSeq: options.readThreadLoadRequestSeq,
       beginThreadOperation: options.beginLoadingThreadOperation,
       endThreadOperation: options.endLoadingThreadOperation,
       setThreadError: options.setThreadError,
@@ -67,10 +65,8 @@ export function createThreadLoadingController(
       setThreadSaveSignatures: options.setThreadSaveSignatures,
       setThreadsState: options.setThreadsState,
       pruneThreadRequestState: options.pruneThreadRequestState,
-      setThreadsReady: () => {
-        options.isThreadsReadyRef.current = true;
-      },
-      readPreferredThreadId: () => options.activeThreadIdRef.current,
+      setThreadsReady: options.setThreadsReady,
+      readPreferredThreadId: options.readPreferredThreadId,
       applyThreadState: options.applyThreadState,
       createLocalThreadState: options.createLocalThreadState,
       logClientInfo: options.logClientInfo,

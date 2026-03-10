@@ -306,7 +306,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
 
   function showThreadReloadPlaceholder(): void {
     const localThread = createLocalThreadState();
-    isThreadsReadyRef.current = true;
+    setThreadsReady();
     setThreadsState([localThread]);
     options.dispatchWorkspaceInteraction({
       type: "thread_request_state/reset_all",
@@ -314,6 +314,23 @@ export function useThreadShell(options: UseThreadShellOptions) {
     applyThreadState(localThread);
     setThreadError(null);
     beginThreadOperation("loading");
+  }
+
+  function nextThreadLoadRequestSeq(): number {
+    threadLoadRequestSeqRef.current += 1;
+    return threadLoadRequestSeqRef.current;
+  }
+
+  function readThreadLoadRequestSeq(): number {
+    return threadLoadRequestSeqRef.current;
+  }
+
+  function readIsThreadsReady(): boolean {
+    return isThreadsReadyRef.current;
+  }
+
+  function setThreadsReady(): void {
+    isThreadsReadyRef.current = true;
   }
 
   return {
@@ -337,7 +354,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     threadNameSaveTimeoutRef,
     threadSaveTimeoutRef,
     threadTitleRefreshTimeoutRef,
-    threadLoadRequestSeqRef,
     threadSaveRequestSeqRef,
     threadRequestStateByIdRef,
     threadSendAbortControllerByIdRef,
@@ -363,9 +379,13 @@ export function useThreadShell(options: UseThreadShellOptions) {
     isArchivedThread,
     createLocalThreadState,
     buildThreadStateFromCurrentState,
+    nextThreadLoadRequestSeq,
+    readThreadLoadRequestSeq,
+    readIsThreadsReady,
     readSavedThreadSignature,
     rememberThreadSaveSignature,
     writeThreadSaveSignature,
+    setThreadsReady,
     setThreadSaveSignatures,
     applyThreadState,
     clearActiveThreadState,

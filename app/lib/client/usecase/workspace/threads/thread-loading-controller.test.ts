@@ -43,15 +43,20 @@ describe("createThreadLoadingController", () => {
     const beginLoadingThreadOperation = vi.fn(() => true);
     const endLoadingThreadOperation = vi.fn();
     const activeWorkspaceUserKeyRef = { current: "tenant::principal" };
-    const activeThreadIdRef = { current: "thread-9" };
-    const threadLoadRequestSeqRef = { current: 0 };
-    const isThreadsReadyRef = { current: false };
+    let threadLoadRequestSeq = 0;
+    let isThreadsReady = false;
 
     const controller = createThreadLoadingController({
       activeWorkspaceUserKeyRef,
-      activeThreadIdRef,
-      threadLoadRequestSeqRef,
-      isThreadsReadyRef,
+      readPreferredThreadId: () => "thread-9",
+      nextThreadLoadRequestSeq: () => {
+        threadLoadRequestSeq += 1;
+        return threadLoadRequestSeq;
+      },
+      readThreadLoadRequestSeq: () => threadLoadRequestSeq,
+      setThreadsReady: () => {
+        isThreadsReady = true;
+      },
       clearThreadsState: vi.fn(),
       beginLoadingThreadOperation,
       endLoadingThreadOperation,
@@ -74,11 +79,11 @@ describe("createThreadLoadingController", () => {
     expect(deps?.readActiveWorkspaceUserKey()).toBe("tenant::principal");
     expect(deps?.nextThreadLoadRequestSeq()).toBe(1);
     expect(deps?.readThreadLoadRequestSeq()).toBe(1);
-    expect(threadLoadRequestSeqRef.current).toBe(1);
+    expect(threadLoadRequestSeq).toBe(1);
     expect(deps?.beginThreadOperation()).toBe(true);
     expect(beginLoadingThreadOperation).toHaveBeenCalledTimes(1);
     deps?.setThreadsReady();
-    expect(isThreadsReadyRef.current).toBe(true);
+    expect(isThreadsReady).toBe(true);
     expect(deps?.readPreferredThreadId()).toBe("thread-9");
     deps?.endThreadOperation();
     expect(endLoadingThreadOperation).toHaveBeenCalledTimes(1);

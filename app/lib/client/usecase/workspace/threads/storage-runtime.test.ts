@@ -93,9 +93,10 @@ describe("createThreadStorageRuntime", () => {
       },
       loading: {
         activeWorkspaceUserKeyRef: { current: "tenant::principal" },
-        activeThreadIdRef: { current: "thread-1" },
-        threadLoadRequestSeqRef: { current: 0 },
-        isThreadsReadyRef: { current: false },
+        readPreferredThreadId: vi.fn(() => "thread-1"),
+        nextThreadLoadRequestSeq: vi.fn(() => 1),
+        readThreadLoadRequestSeq: vi.fn(() => 1),
+        setThreadsReady: vi.fn(),
         clearThreadsState: vi.fn(),
         beginLoadingThreadOperation: vi.fn(() => true),
         endLoadingThreadOperation: vi.fn(),
