@@ -538,6 +538,22 @@ const checks = [
     args: ["--files", "app/lib/client/usecase/workspace/types.ts"],
   },
   {
+    key: "legacyWorkspaceStateFile",
+    description:
+      "workspace generic state.ts bucket must stay retired in favor of feature-local state owners.",
+    rootPath: "app/lib/client/usecase/workspace/state.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/state.ts"],
+  },
+  {
+    key: "legacyWorkspaceReducerFile",
+    description:
+      "workspace generic reducer.ts bucket must stay retired in favor of feature-local reducer owners.",
+    rootPath: "app/lib/client/usecase/workspace/reducer.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/reducer.ts"],
+  },
+  {
     key: "legacyThreadRequestStateControllerFile",
     description:
       "threads generic request-state.ts file must use the explicit thread-request-state-controller.ts owner name.",
@@ -601,6 +617,21 @@ const checks = [
     args: [
       "-n",
       "from ['\\\"]~/lib/client/usecase/workspace/types['\\\"]",
+      "app",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
+    ],
+  },
+  {
+    key: "workspaceLegacyStateReducerImports",
+    description:
+      "workspace features must not import the retired generic workspace/state.ts or workspace/reducer.ts buckets.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/client/usecase/workspace/(state|reducer)['\\\"]",
       "app",
       "--glob",
       "!**/*.test.ts",
