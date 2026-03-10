@@ -3,6 +3,11 @@ import {
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
 } from "~/lib/domain/value-objects/thread-defaults";
+import {
+  clearThreadTimeout,
+  deferAppliedThreadStateReset,
+  scheduleThreadTimeout,
+} from "~/lib/client/infrastructure/browser/threads";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   isThreadArchivedById,
@@ -102,27 +107,39 @@ export function useThreadShell(options: UseThreadShellOptions) {
   }, [threads]);
 
   function clearThreadNameSaveTimeout() {
-    const timeoutId = threadNameSaveTimeoutRef.current;
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      threadNameSaveTimeoutRef.current = null;
-    }
+    clearThreadTimeout(threadNameSaveTimeoutRef);
   }
 
   function clearThreadTitleRefreshTimeout() {
-    const timeoutId = threadTitleRefreshTimeoutRef.current;
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      threadTitleRefreshTimeoutRef.current = null;
-    }
+    clearThreadTimeout(threadTitleRefreshTimeoutRef);
   }
 
   function clearThreadSaveTimeout() {
-    const timeoutId = threadSaveTimeoutRef.current;
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      threadSaveTimeoutRef.current = null;
-    }
+    clearThreadTimeout(threadSaveTimeoutRef);
+  }
+
+  function scheduleThreadNameSaveTimeout(onElapsed: () => void): void {
+    scheduleThreadTimeout({
+      timeoutRef: threadNameSaveTimeoutRef,
+      delayMs: 3000,
+      onElapsed,
+    });
+  }
+
+  function scheduleThreadTitleRefreshTimeout(onElapsed: () => void): void {
+    scheduleThreadTimeout({
+      timeoutRef: threadTitleRefreshTimeoutRef,
+      delayMs: 1000,
+      onElapsed,
+    });
+  }
+
+  function scheduleThreadSaveTimeout(onElapsed: () => void): void {
+    scheduleThreadTimeout({
+      timeoutRef: threadSaveTimeoutRef,
+      delayMs: 450,
+      onElapsed,
+    });
   }
 
   const {
@@ -291,9 +308,9 @@ export function useThreadShell(options: UseThreadShellOptions) {
     options.applyThreadPlaygroundState(thread);
     options.applyThreadInstructionState(thread);
 
-    window.setTimeout(() => {
+    deferAppliedThreadStateReset(() => {
       isApplyingThreadStateRef.current = false;
-    }, 0);
+    });
   }
 
   function clearActiveThreadState() {
@@ -365,9 +382,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     setThreadOperationPhase,
     threadError,
     setThreadError,
-    threadNameSaveTimeoutRef,
-    threadSaveTimeoutRef,
-    threadTitleRefreshTimeoutRef,
     threadRequestStateByIdRef,
     threadSendAbortControllerByIdRef,
     setThreadsState,
@@ -385,6 +399,9 @@ export function useThreadShell(options: UseThreadShellOptions) {
     clearThreadNameSaveTimeout,
     clearThreadTitleRefreshTimeout,
     clearThreadSaveTimeout,
+    scheduleThreadNameSaveTimeout,
+    scheduleThreadTitleRefreshTimeout,
+    scheduleThreadSaveTimeout,
     clearThreadsState,
     beginThreadOperation,
     resetThreadOperationPhase,

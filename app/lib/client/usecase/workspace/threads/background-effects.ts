@@ -44,12 +44,12 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
   readIsThreadsReady: () => boolean;
   readIsApplyingThreadState: () => boolean;
   activeThreadIdRef: MutableRefObject<string>;
-  threadNameSaveTimeoutRef: MutableRefObject<number | null>;
-  threadSaveTimeoutRef: MutableRefObject<number | null>;
-  threadTitleRefreshTimeoutRef: MutableRefObject<number | null>;
   clearThreadNameSaveTimeout: () => void;
   clearThreadSaveTimeout: () => void;
   clearThreadTitleRefreshTimeout: () => void;
+  scheduleThreadNameSaveTimeout: (onElapsed: () => void) => void;
+  scheduleThreadSaveTimeout: (onElapsed: () => void) => void;
+  scheduleThreadTitleRefreshTimeout: (onElapsed: () => void) => void;
   readThreadById: (threadId: string) => ThreadState | undefined;
   isArchivedThread: (threadId: string) => boolean;
   isSelectedUtilityDeploymentAvailable: (deploymentName: string) => boolean;
@@ -141,10 +141,9 @@ export function useWorkspaceThreadBackgroundEffects(
     }
 
     options.clearThreadSaveTimeout();
-    options.threadSaveTimeoutRef.current = window.setTimeout(() => {
-      options.threadSaveTimeoutRef.current = null;
+    options.scheduleThreadSaveTimeout(() => {
       void persistThreadState(persistencePlan.snapshot);
-    }, 450);
+    });
 
     return () => {
       options.clearThreadSaveTimeout();
@@ -209,10 +208,9 @@ export function useWorkspaceThreadBackgroundEffects(
     }
 
     options.clearThreadNameSaveTimeout();
-    options.threadNameSaveTimeoutRef.current = window.setTimeout(() => {
-      options.threadNameSaveTimeoutRef.current = null;
+    options.scheduleThreadNameSaveTimeout(() => {
       void persistThreadName(currentThreadId, nextName);
-    }, 3000);
+    });
 
     return () => {
       options.clearThreadNameSaveTimeout();
@@ -250,13 +248,12 @@ export function useWorkspaceThreadBackgroundEffects(
     }
 
     options.clearThreadTitleRefreshTimeout();
-    options.threadTitleRefreshTimeoutRef.current = window.setTimeout(() => {
-      options.threadTitleRefreshTimeoutRef.current = null;
+    options.scheduleThreadTitleRefreshTimeout(() => {
       void refreshThreadTitle({
         threadId: currentThreadId,
         reason: "instruction_update",
       });
-    }, 1000);
+    });
 
     return () => {
       options.clearThreadTitleRefreshTimeout();

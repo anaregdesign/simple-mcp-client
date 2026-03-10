@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyBrowserTheme,
+  clearAzureSettingsTimeout,
   installAzureConnectionRefreshLoop,
   isBrowserDocumentVisible,
+  scheduleWorkspaceMcpServerProfileLoginRetry,
+  waitForAzureCatalogRetryDelay,
 } from "~/lib/client/infrastructure/browser/azure-settings";
 
 describe("isBrowserDocumentVisible", () => {
@@ -95,5 +98,46 @@ describe("installAzureConnectionRefreshLoop", () => {
     windowStub.dispatchEvent(new Event("focus"));
     documentStub.dispatchEvent(new Event("visibilitychange"));
     expect(onRefresh).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("azure settings timeout helpers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("clears a scheduled workspace MCP Server login retry", () => {
+    vi.useFakeTimers();
+    const onRetry = vi.fn();
+    const windowStub = {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    };
+    const timeoutRef: { current: number | null } = {
+      current: null,
+    };
+    vi.stubGlobal("window", windowStub);
+
+    scheduleWorkspaceMcpServerProfileLoginRetry(timeoutRef, onRetry);
+    clearAzureSettingsTimeout(timeoutRef);
+    vi.advanceTimersByTime(1200);
+
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(timeoutRef.current).toBeNull();
+  });
+
+  it("waits for the azure catalog retry delay", async () => {
+    vi.useFakeTimers();
+    const windowStub = {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    };
+    vi.stubGlobal("window", windowStub);
+
+    const waitPromise = waitForAzureCatalogRetryDelay();
+
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(waitPromise).resolves.toBeUndefined();
   });
 });

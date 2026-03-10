@@ -2,6 +2,9 @@ import {
   azureSessionApiClient,
 } from "~/lib/client/infrastructure/api/azure-session-api-client";
 import {
+  waitForAzureCatalogRetryDelay,
+} from "~/lib/client/infrastructure/browser/azure-settings";
+import {
   isAzureProjectsLoadReady,
 } from "./runtime";
 import type {
@@ -56,9 +59,7 @@ export function createAzureSessionOperations(
         break;
       }
 
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, 500);
-      });
+      await waitForAzureCatalogRetryDelay();
     }
     if (loadResult.authRequired) {
       deps.patchState({

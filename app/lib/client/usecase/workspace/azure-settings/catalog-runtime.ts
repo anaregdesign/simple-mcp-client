@@ -5,6 +5,10 @@ import {
   azureSelectionApiClient,
 } from "~/lib/client/infrastructure/api/azure-selection-api-client";
 import {
+  clearAzureSettingsTimeout,
+  scheduleWorkspaceMcpServerProfileLoginRetry as scheduleWorkspaceMcpServerProfileLoginRetryTimeout,
+} from "~/lib/client/infrastructure/browser/azure-settings";
+import {
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 import type {
@@ -58,11 +62,9 @@ export function createAzureCatalogRuntime(
   deps: AzureSettingsHandlerDependencies,
 ): AzureCatalogRuntime {
   function clearWorkspaceMcpServerProfileLoginRetryTimeout() {
-    const timeoutId = deps.workspaceMcpServerProfileLoginRetryTimeoutRef.current;
-    if (timeoutId !== null) {
-      window.clearTimeout(timeoutId);
-      deps.workspaceMcpServerProfileLoginRetryTimeoutRef.current = null;
-    }
+    clearAzureSettingsTimeout(
+      deps.workspaceMcpServerProfileLoginRetryTimeoutRef,
+    );
   }
 
   function cancelAzureDeploymentLoad(target: "playground" | "utility"): void {
@@ -141,14 +143,14 @@ export function createAzureCatalogRuntime(
   }
 
   function scheduleWorkspaceMcpServerProfileLoginRetry(expectedUserKey: string) {
-    clearWorkspaceMcpServerProfileLoginRetryTimeout();
-    deps.workspaceMcpServerProfileLoginRetryTimeoutRef.current =
-      window.setTimeout(() => {
-        deps.workspaceMcpServerProfileLoginRetryTimeoutRef.current = null;
+    scheduleWorkspaceMcpServerProfileLoginRetryTimeout(
+      deps.workspaceMcpServerProfileLoginRetryTimeoutRef,
+      () => {
         if (deps.options.activeWorkspaceUserKeyRef.current === expectedUserKey) {
           void deps.options.loadWorkspaceMcpServerProfiles();
         }
-      }, 1200);
+      },
+    );
   }
 
   async function syncWorkspaceStateForLoadedIdentity(options: {
