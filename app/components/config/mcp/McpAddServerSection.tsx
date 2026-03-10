@@ -3,7 +3,7 @@
  */
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
-import { AutoDismissStatusMessageList } from "~/components/shared/AutoDismissStatusMessageList";
+import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
 import type { McpTransport } from "~/lib/client/usecase/workspace/view-types";
 
@@ -303,7 +303,7 @@ export function McpAddServerSection(props: McpAddServerSectionProps) {
           </Button>
         ) : null}
       </div>
-      <AutoDismissStatusMessageList
+      <CopyableAutoDismissStatusMessageList
         messages={[
           { intent: "error", text: mcpFormError },
           {

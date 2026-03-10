@@ -3,7 +3,7 @@
  */
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
-import { StatusMessageList } from "~/components/shared/StatusMessageList";
+import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import type {
   AzureConnectionOptionView,
   ReasoningEffort,
@@ -128,7 +128,7 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
               </option>
             ))}
           </Select>
-          <StatusMessageList
+          <CopyableStatusMessageList
             messages={[
               {
                 intent: "error",

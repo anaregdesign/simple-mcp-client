@@ -1,7 +1,7 @@
 /**
  * Client UI component module.
  */
-import { AutoDismissStatusMessageList } from "~/components/shared/AutoDismissStatusMessageList";
+import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import {
   CollapsibleSelectableCardGroupList,
   type CollapsibleSelectableCardGroup,
@@ -143,7 +143,7 @@ export function SkillRegistrySection(props: SkillRegistrySectionProps) {
         emptyHint="No Skills are currently available from supported registries."
         isActionDisabled={isLoadingSkillRegistries || isMutatingSkillRegistries}
       />
-      <AutoDismissStatusMessageList
+      <CopyableAutoDismissStatusMessageList
         messages={[
           { intent: "error", text: skillRegistryError },
           {

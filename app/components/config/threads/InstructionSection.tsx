@@ -6,7 +6,7 @@ import type { ChangeEvent, RefObject } from "react";
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { SubSection } from "~/components/shared/SubSection";
-import { AutoDismissStatusMessageList } from "~/components/shared/AutoDismissStatusMessageList";
+import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
@@ -247,7 +247,7 @@ export function InstructionSection(props: InstructionSectionProps) {
           </div>
         </>
       )}
-      <AutoDismissStatusMessageList
+      <CopyableAutoDismissStatusMessageList
         messages={[
           { intent: "error", text: instructionFileError },
           { intent: "error", text: instructionSaveError },

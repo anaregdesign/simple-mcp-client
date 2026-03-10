@@ -13,10 +13,11 @@ type AutoDismissStatusMessage = StatusMessage & {
 type AutoDismissStatusMessageListProps = {
   className?: string;
   messages: AutoDismissStatusMessage[];
+  onCopyText?: (text: string) => void;
 };
 
 export function AutoDismissStatusMessageList(props: AutoDismissStatusMessageListProps) {
-  const { className, messages } = props;
+  const { className, messages, onCopyText } = props;
 
   const dismissibleMessages = useMemo(
     () =>
@@ -65,5 +66,11 @@ export function AutoDismissStatusMessageList(props: AutoDismissStatusMessageList
     text: message.text,
   }));
 
-  return <StatusMessageList className={className} messages={normalizedMessages} />;
+  return (
+    <StatusMessageList
+      className={className}
+      messages={normalizedMessages}
+      onCopyText={onCopyText}
+    />
+  );
 }

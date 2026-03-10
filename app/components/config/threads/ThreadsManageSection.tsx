@@ -8,7 +8,7 @@ import {
   ContextActionMenu,
   type ContextActionMenuItem,
 } from "~/components/shared/ContextActionMenu";
-import { StatusMessageList } from "~/components/shared/StatusMessageList";
+import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import {
   type ThreadManagementSectionProps,
 } from "~/lib/client/usecase/workspace/thread-management/types";
@@ -284,7 +284,7 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
           </div>
         </details>
       ) : null}
-      <StatusMessageList messages={[{ intent: "error", text: threadError }]} />
+      <CopyableStatusMessageList messages={[{ intent: "error", text: threadError }]} />
     </ConfigSection>
   );
 }

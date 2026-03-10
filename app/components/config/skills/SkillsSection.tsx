@@ -1,7 +1,7 @@
 /**
  * Client UI component module.
  */
-import { AutoDismissStatusMessageList } from "~/components/shared/AutoDismissStatusMessageList";
+import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import {
   CollapsibleSelectableCardGroupList,
   type CollapsibleSelectableCardGroup,
@@ -117,7 +117,7 @@ export function SkillsSection(props: SkillsSectionProps) {
         emptyHint="No Skills discovered in CODEX_HOME or app data skills directories."
         isActionDisabled={isSending || isThreadReadOnly}
       />
-      <AutoDismissStatusMessageList
+      <CopyableAutoDismissStatusMessageList
         messages={[
           { intent: "error", text: skillsError },
           {

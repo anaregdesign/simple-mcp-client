@@ -12,8 +12,8 @@ import {
 import { CopyIconButton } from "~/components/shared/CopyIconButton";
 import { FluentUI } from "~/components/shared/fluent";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
-import { AutoDismissStatusMessageList } from "~/components/shared/AutoDismissStatusMessageList";
-import { StatusMessageList } from "~/components/shared/StatusMessageList";
+import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
+import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import { QuickControlFrame } from "~/components/shared/QuickControlFrame";
 import type {
   AzureConnectionOptionView,
@@ -718,7 +718,7 @@ export function PlaygroundPanel<
       </div>
 
       <footer className="chat-footer">
-        <AutoDismissStatusMessageList
+        <CopyableAutoDismissStatusMessageList
           className="chat-error-stack"
           messages={[
             {
@@ -733,7 +733,7 @@ export function PlaygroundPanel<
         azureLoginError ||
         messageAttachmentError ||
         isThreadReadOnly ? (
-          <StatusMessageList
+          <CopyableStatusMessageList
             className="chat-error-stack"
             messages={[
               {

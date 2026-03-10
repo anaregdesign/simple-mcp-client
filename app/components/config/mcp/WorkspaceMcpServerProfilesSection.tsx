@@ -3,7 +3,7 @@
  */
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
-import { StatusMessageList } from "~/components/shared/StatusMessageList";
+import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import { SelectableCardList } from "~/components/shared/SelectableCardList";
 import type { ContextActionMenuItem } from "~/components/shared/ContextActionMenu";
 import type { WorkspaceMcpServerProfileOption } from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
@@ -110,7 +110,7 @@ export function WorkspaceMcpServerProfilesSection(props: WorkspaceMcpServerProfi
           return contextMenuItems;
         }}
       />
-      <StatusMessageList messages={[{ intent: "error", text: workspaceMcpServerProfileError }]} />
+      <CopyableStatusMessageList messages={[{ intent: "error", text: workspaceMcpServerProfileError }]} />
     </ConfigSection>
   );
 }

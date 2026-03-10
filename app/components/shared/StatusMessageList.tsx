@@ -4,7 +4,6 @@
 import type { ComponentProps } from "react";
 import { CopyIconButton } from "~/components/shared/CopyIconButton";
 import { FluentUI } from "~/components/shared/fluent";
-import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
 
 const { MessageBar, MessageBarBody, MessageBarTitle } = FluentUI;
 
@@ -19,10 +18,11 @@ export type StatusMessage = {
 type StatusMessageListProps = {
   className?: string;
   messages: StatusMessage[];
+  onCopyText?: (text: string) => void;
 };
 
 export function StatusMessageList(props: StatusMessageListProps) {
-  const { className, messages } = props;
+  const { className, messages, onCopyText } = props;
 
   const handleCopyMessage = (message: StatusMessage) => {
     const parts = [message.title, message.text]
@@ -33,9 +33,7 @@ export function StatusMessageList(props: StatusMessageListProps) {
       return;
     }
 
-    void copyTextToClipboard(text).catch(() => {
-      /* no-op */
-    });
+    onCopyText?.(text);
   };
 
   return (
@@ -52,14 +50,16 @@ export function StatusMessageList(props: StatusMessageListProps) {
                 {message.title ? <MessageBarTitle>{message.title}</MessageBarTitle> : null}
                 <span className="status-message-text">{message.text}</span>
               </div>
-              <CopyIconButton
-                ariaLabel={message.title ? `${message.title} message copy` : "Message copy"}
-                title={message.title ? `${message.title} message copy` : "Copy message"}
-                className="status-message-copy-btn"
-                onClick={() => {
-                  handleCopyMessage(message);
-                }}
-              />
+              {onCopyText ? (
+                <CopyIconButton
+                  ariaLabel={message.title ? `${message.title} message copy` : "Message copy"}
+                  title={message.title ? `${message.title} message copy` : "Copy message"}
+                  className="status-message-copy-btn"
+                  onClick={() => {
+                    handleCopyMessage(message);
+                  }}
+                />
+              ) : null}
             </MessageBarBody>
           </MessageBar>
         );

@@ -123,9 +123,7 @@
     "app/lib/client/chat/stream.test.ts",
     "app/lib/client/chat/stream.ts"
   ],
-  "sharedComponentBoundaryViolations": [
-    "app/components/shared/StatusMessageList.tsx:7:import { copyTextToClipboard } from \"~/lib/client/infrastructure/browser/clipboard\";"
-  ],
+  "sharedComponentBoundaryViolations": [],
   "domainRepositoryContractImports": [],
   "raw405InRoutes": [],
   "historicalNaming": []

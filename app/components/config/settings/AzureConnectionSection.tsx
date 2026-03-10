@@ -3,7 +3,7 @@
  */
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
-import { StatusMessageList } from "~/components/shared/StatusMessageList";
+import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import { SubSection } from "~/components/shared/SubSection";
 import type {
   AzureConnectionView,
@@ -233,7 +233,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
               </Button>
             </div>
           ) : null}
-          <StatusMessageList
+          <CopyableStatusMessageList
             messages={[
               { intent: "error", text: azureTenantSwitchError },
               { intent: "error", text: azureLogoutError },
