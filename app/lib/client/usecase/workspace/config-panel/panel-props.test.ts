@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MCP_DEFAULT_AZURE_AUTH_SCOPE } from "~/lib/constants/mcp";
 import {
   buildWorkspaceMcpServersTabProps,
-} from "~/lib/client/usecase/workspace/workspace-config-panel-props";
+} from "~/lib/client/usecase/workspace/config-panel/panel-props";
 
 function createMcpOptions() {
   return {

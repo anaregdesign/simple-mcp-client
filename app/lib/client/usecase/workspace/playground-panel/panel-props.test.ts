@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildWorkspacePlaygroundPanelProps,
-} from "~/lib/client/usecase/workspace/workspace-playground-panel-props";
+} from "~/lib/client/usecase/workspace/playground-panel/panel-props";
 
 function createOptions() {
   return {

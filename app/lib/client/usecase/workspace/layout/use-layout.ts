@@ -7,7 +7,7 @@ import {
 import {
   CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
 } from "~/lib/constants/client";
-import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/main-splitter";
+import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/layout/main-splitter";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 
 const DEFAULT_RIGHT_PANE_WIDTH_PX = 420;

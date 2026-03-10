@@ -8,7 +8,7 @@ import {
   readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
   resolveDesktopUpdaterActionState,
-} from "~/lib/client/usecase/workspace/desktop-updater";
+} from "~/lib/client/usecase/workspace/desktop-updater/runtime";
 
 type ClientErrorLogger = (
   eventName: string,

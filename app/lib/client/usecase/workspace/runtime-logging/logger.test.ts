@@ -13,7 +13,7 @@ import {
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
   createWorkspaceRuntimeLogging,
-} from "~/lib/client/usecase/workspace/workspace-runtime-logging";
+} from "~/lib/client/usecase/workspace/runtime-logging/logger";
 
 function createLogger() {
   return createWorkspaceRuntimeLogging({

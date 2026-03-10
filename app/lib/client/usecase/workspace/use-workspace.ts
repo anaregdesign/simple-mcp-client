@@ -86,14 +86,14 @@ import type {
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
-import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/use-workspace-desktop-updater";
-import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
+import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";
+import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
 import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/skills-catalog/effects";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";
-import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
-import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/workspace-config-panel-props";
-import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/workspace-playground-panel-props";
-import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/workspace-runtime-logging";
+import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
+import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
+import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
+import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-editor/instruction-runtime";
 import {
   canTransition,
