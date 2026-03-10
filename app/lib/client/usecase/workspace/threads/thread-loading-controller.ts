@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import type { ThreadsApiResponse } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   loadThreads as loadThreadsOperation,
@@ -6,7 +5,7 @@ import {
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type CreateThreadLoadingControllerOptions = {
-  activeWorkspaceUserKeyRef: MutableRefObject<string>;
+  readActiveWorkspaceUserKey: () => string;
   readPreferredThreadId: () => string;
   nextThreadLoadRequestSeq: () => number;
   readThreadLoadRequestSeq: () => number;
@@ -53,7 +52,7 @@ export function createThreadLoadingController(
 ) {
   function buildOperationDeps() {
     return {
-      readActiveWorkspaceUserKey: () => options.activeWorkspaceUserKeyRef.current,
+      readActiveWorkspaceUserKey: options.readActiveWorkspaceUserKey,
       clearThreadsState: options.clearThreadsState,
       nextThreadLoadRequestSeq: options.nextThreadLoadRequestSeq,
       readThreadLoadRequestSeq: options.readThreadLoadRequestSeq,

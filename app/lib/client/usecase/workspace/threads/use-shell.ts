@@ -321,8 +321,21 @@ export function useThreadShell(options: UseThreadShellOptions) {
     return threadLoadRequestSeqRef.current;
   }
 
+  function nextThreadSaveRequestSeq(): number {
+    threadSaveRequestSeqRef.current += 1;
+    return threadSaveRequestSeqRef.current;
+  }
+
   function readThreadLoadRequestSeq(): number {
     return threadLoadRequestSeqRef.current;
+  }
+
+  function readThreadSaveRequestSeq(): number {
+    return threadSaveRequestSeqRef.current;
+  }
+
+  function readActiveThreadNameInput(): string {
+    return activeThreadNameInputRef.current;
   }
 
   function readIsThreadsReady(): boolean {
@@ -346,7 +359,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     activeThreadIdRef,
     activeThreadNameInput,
     setActiveThreadNameInput,
-    activeThreadNameInputRef,
     isSavingThread,
     setIsSavingThread,
     threadOperationPhase,
@@ -356,7 +368,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     threadNameSaveTimeoutRef,
     threadSaveTimeoutRef,
     threadTitleRefreshTimeoutRef,
-    threadSaveRequestSeqRef,
     threadRequestStateByIdRef,
     threadSendAbortControllerByIdRef,
     setThreadsState,
@@ -382,7 +393,10 @@ export function useThreadShell(options: UseThreadShellOptions) {
     createLocalThreadState,
     buildThreadStateFromCurrentState,
     nextThreadLoadRequestSeq,
+    nextThreadSaveRequestSeq,
     readThreadLoadRequestSeq,
+    readThreadSaveRequestSeq,
+    readActiveThreadNameInput,
     readIsThreadsReady,
     readIsApplyingThreadState,
     readSavedThreadSignature,

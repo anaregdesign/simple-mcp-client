@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import type {
   ThreadTitleApiResponse,
   ThreadTitleSuggestionRequest,
@@ -7,9 +6,6 @@ import {
   refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
   type RefreshThreadTitleOptions,
 } from "~/lib/client/usecase/workspace/threads/thread-title-operations";
-import {
-  findThreadStateById,
-} from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type {
   AzureConnectionView,
   ReasoningEffort,
@@ -17,10 +13,10 @@ import type {
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type CreateThreadTitleControllerOptions = {
-  activeThreadIdRef: MutableRefObject<string>;
-  activeThreadNameInputRef: MutableRefObject<string>;
-  activeAzureTenantIdRef: MutableRefObject<string>;
-  threadsRef: MutableRefObject<ThreadState[]>;
+  readThreadById: (threadId: string) => ThreadState | undefined;
+  readActiveThreadId: () => string;
+  readActiveThreadNameInput: () => string;
+  readActiveAzureTenantId: () => string;
   isArchivedThread: (threadIdRaw: string) => boolean;
   isChatLocked: boolean;
   isLoadingUtilityAzureDeployments: boolean;
@@ -71,12 +67,11 @@ export function createThreadTitleController(
         options.readSelectedUtilityAzureDeploymentName,
       isSelectedUtilityDeploymentAvailable:
         options.isSelectedUtilityDeploymentAvailable,
-      readThreadById: (threadId: string) =>
-        findThreadStateById(options.threadsRef.current, threadId) ?? undefined,
-      readActiveThreadId: () => options.activeThreadIdRef.current,
-      readActiveThreadNameInput: () => options.activeThreadNameInputRef.current,
+      readThreadById: options.readThreadById,
+      readActiveThreadId: options.readActiveThreadId,
+      readActiveThreadNameInput: options.readActiveThreadNameInput,
       readAgentInstruction: options.readAgentInstruction,
-      readActiveAzureTenantId: () => options.activeAzureTenantIdRef.current,
+      readActiveAzureTenantId: options.readActiveAzureTenantId,
       isUtilityReasoningEffortSupported:
         options.isUtilityReasoningEffortSupported,
       readEffectiveUtilityReasoningEffort:

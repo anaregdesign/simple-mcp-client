@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import type { ThreadsApiResponse } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   flushActiveThreadState as flushActiveThreadStateOperation,
@@ -10,12 +9,13 @@ import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type CreateThreadPersistenceControllerOptions = {
-  activeWorkspaceUserKeyRef: MutableRefObject<string>;
-  activeThreadIdRef: MutableRefObject<string>;
-  threadsRef: MutableRefObject<ThreadState[]>;
+  readActiveWorkspaceUserKey: () => string;
+  readActiveThreadId: () => string;
+  readThreads: () => ThreadState[];
   readSavedThreadSignature: (threadId: string) => string | undefined;
   writeThreadSaveSignature: (threadId: string, signature: string) => void;
-  threadSaveRequestSeqRef: MutableRefObject<number>;
+  nextThreadSaveRequestSeq: () => number;
+  readThreadSaveRequestSeq: () => number;
   setIsSavingThread: (value: boolean) => void;
   markAzureAuthRequired: () => void;
   setThreadError: (value: string | null) => void;
@@ -67,16 +67,13 @@ export function createThreadPersistenceController(
 ) {
   function buildOperationDeps() {
     return {
-      readActiveWorkspaceUserKey: () => options.activeWorkspaceUserKeyRef.current,
-      readActiveThreadId: () => options.activeThreadIdRef.current,
-      readThreads: () => options.threadsRef.current,
+      readActiveWorkspaceUserKey: options.readActiveWorkspaceUserKey,
+      readActiveThreadId: options.readActiveThreadId,
+      readThreads: options.readThreads,
       readSavedThreadSignature: options.readSavedThreadSignature,
       writeThreadSaveSignature: options.writeThreadSaveSignature,
-      nextThreadSaveRequestSeq: () => {
-        options.threadSaveRequestSeqRef.current += 1;
-        return options.threadSaveRequestSeqRef.current;
-      },
-      readThreadSaveRequestSeq: () => options.threadSaveRequestSeqRef.current,
+      nextThreadSaveRequestSeq: options.nextThreadSaveRequestSeq,
+      readThreadSaveRequestSeq: options.readThreadSaveRequestSeq,
       setIsSavingThread: options.setIsSavingThread,
       markAzureAuthRequired: options.markAzureAuthRequired,
       setThreadError: options.setThreadError,
