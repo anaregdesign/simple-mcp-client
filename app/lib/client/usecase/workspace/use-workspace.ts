@@ -81,11 +81,11 @@ import {
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
-import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
+import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-runtime";
 import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-session";
 import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
@@ -143,10 +143,8 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-lifecycle-handlers";
 import {
   createChatComposerHandlers,
-  resizeChatComposerInput,
 } from "~/lib/client/usecase/workspace/chat-composer/handlers";
 import {
-  deriveActiveChatCommandMenuState,
   type ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import {
@@ -637,19 +635,25 @@ export function useWorkspace() {
       },
     },
   ];
-  const effectiveChatComposerCursorIndex =
-    chatInputRef.current?.selectionStart ?? chatComposerCursorIndex;
   const {
     activeChatCommandMatch,
     activeChatCommandProvider,
     activeChatCommandSuggestions,
     activeChatCommandHighlightIndex,
     activeChatCommandMenu,
-  } = deriveActiveChatCommandMenuState({
-    value: draft,
-    cursorIndex: effectiveChatComposerCursorIndex,
+  } = usePlaygroundRuntime({
+    messages,
+    isSending,
+    sendProgressMessages,
+    endOfMessagesRef,
+    chatInputRef,
+    pendingChatCommandCursorIndexRef,
+    draft,
+    chatComposerCursorIndex,
+    setChatComposerCursorIndex,
+    chatCommandHighlightedIndex,
+    setChatCommandHighlightedIndex,
     chatCommandProviders,
-    highlightedIndex: chatCommandHighlightedIndex,
   });
   const threadOperationLogsByTurnId = useMemo(
     () => buildThreadOperationLogsByTurnId(mcpRpcLogs),
@@ -775,57 +779,6 @@ export function useWorkspace() {
       }),
     );
   }, []);
-
-  useEffect(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isSending, sendProgressMessages]);
-
-  useEffect(() => {
-    const input = chatInputRef.current;
-    if (!input) {
-      return;
-    }
-
-    resizeChatComposerInput(input);
-  }, [draft]);
-
-  useEffect(() => {
-    const pendingCursorIndex = pendingChatCommandCursorIndexRef.current;
-    if (pendingCursorIndex === null) {
-      return;
-    }
-
-    const input = chatInputRef.current;
-    if (!input) {
-      return;
-    }
-
-    const nextCursorIndex = clampNumber(pendingCursorIndex, 0, draft.length);
-    input.focus();
-    input.setSelectionRange(nextCursorIndex, nextCursorIndex);
-    pendingChatCommandCursorIndexRef.current = null;
-    setChatComposerCursorIndex(nextCursorIndex);
-  }, [draft]);
-
-  useEffect(() => {
-    setChatCommandHighlightedIndex(0);
-  }, [
-    activeChatCommandMatch?.keyword,
-    activeChatCommandMatch?.query,
-    activeChatCommandMatch?.rangeStart,
-    activeChatCommandMatch?.rangeEnd,
-  ]);
-
-  useEffect(() => {
-    if (activeChatCommandSuggestions.length === 0) {
-      setChatCommandHighlightedIndex(0);
-      return;
-    }
-
-    setChatCommandHighlightedIndex((current) =>
-      clampNumber(current, 0, activeChatCommandSuggestions.length - 1),
-    );
-  }, [activeChatCommandSuggestions.length]);
 
   useEffect(() => {
     if (isChatLocked && activeMainTab !== "settings") {
