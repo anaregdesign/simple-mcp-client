@@ -4,8 +4,10 @@ import {
 import {
   removeThreadMcpServerById,
   toggleThreadMcpServer,
-} from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
-import type { McpProfileFormState } from "~/lib/client/usecase/workspace/mcp-profiles/form";
+} from "~/lib/domain/policies/thread-mcp-server-membership";
+import {
+  type McpProfileFormState,
+} from "~/lib/client/usecase/workspace/mcp-profiles/form";
 import {
   deleteWorkspaceMcpServerProfile,
   MCP_PROFILE_ARCHIVED_THREAD_ERROR,
@@ -153,7 +155,10 @@ export function createMcpProfileHandlers(
       }
 
       deps.updateThreadStateById(activeId, (thread) =>
-        toggleThreadMcpServer(thread, selected),
+        ({
+          ...thread,
+          mcpServers: toggleThreadMcpServer(thread.mcpServers, selected),
+        }),
       );
       deps.setWorkspaceMcpServerProfileError(null);
     },
@@ -169,7 +174,10 @@ export function createMcpProfileHandlers(
       }
 
       deps.updateThreadStateById(activeId, (thread) =>
-        removeThreadMcpServerById(thread, id),
+        ({
+          ...thread,
+          mcpServers: removeThreadMcpServerById(thread.mcpServers, id),
+        }),
       );
     },
 

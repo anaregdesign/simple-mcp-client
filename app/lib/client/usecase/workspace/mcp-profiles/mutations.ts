@@ -8,9 +8,9 @@ import {
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import {
-  reconcileSavedThreadMcpServer,
+  reconcileThreadMcpServerProfile,
   removeThreadMcpServerByConfig,
-} from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
+} from "~/lib/domain/policies/thread-mcp-server-membership";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 export const MCP_PROFILE_ARCHIVED_THREAD_ERROR =
@@ -110,7 +110,13 @@ export async function deleteWorkspaceMcpServerProfile(
     const activeId = deps.readActiveThreadId().trim();
     if (activeId) {
       deps.updateThreadStateById(activeId, (thread) =>
-        removeThreadMcpServerByConfig(thread, selected),
+        ({
+          ...thread,
+          mcpServers: removeThreadMcpServerByConfig(
+            thread.mcpServers,
+            selected,
+          ),
+        }),
       );
     }
 
@@ -196,9 +202,12 @@ export async function saveWorkspaceMcpServerProfile(
       const activeId = deps.readActiveThreadId().trim();
       if (activeId) {
         deps.updateThreadStateById(activeId, (thread) =>
-          reconcileSavedThreadMcpServer(thread, {
+          ({
+            ...thread,
+            mcpServers: reconcileThreadMcpServerProfile(thread.mcpServers, {
             previousServer: editingServer,
-            savedProfile,
+            nextServer: savedProfile,
+            }),
           }),
         );
       }

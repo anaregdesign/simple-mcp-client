@@ -137,8 +137,8 @@ import {
 } from "~/lib/client/usecase/workspace/mcp-profiles/handlers";
 import { useMcpProfileForm } from "~/lib/client/usecase/workspace/mcp-profiles/use-form";
 import {
-  connectMcpServerToThread,
-} from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
+  connectThreadMcpServer,
+} from "~/lib/domain/policies/thread-mcp-server-membership";
 import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
@@ -1009,7 +1009,10 @@ export function useWorkspace() {
     }
 
     updateThreadStateById(activeId, (thread) =>
-      connectMcpServerToThread(thread, serverToConnect),
+      ({
+        ...thread,
+        mcpServers: connectThreadMcpServer(thread.mcpServers, serverToConnect),
+      }),
     );
   }
 

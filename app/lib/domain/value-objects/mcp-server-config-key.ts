@@ -1,25 +1,32 @@
+import type {
+  IncomingMcpHttpServerConfig,
+  IncomingMcpStdioServerConfig,
+  McpHttpServerConfig,
+  McpStdioServerConfig,
+} from "~/lib/domain/value-objects/mcp-server-config";
+
 type McpServerConfigKeySharedInput = {
   id?: string;
   name?: string;
   connectOnThreadCreate?: boolean;
 };
 
-type McpServerConfigKeyHttpInput = McpServerConfigKeySharedInput & {
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string;
-  timeoutSeconds: number;
-};
+type McpServerConfigKeyHttpInput = McpServerConfigKeySharedInput &
+  Pick<
+  McpHttpServerConfig | IncomingMcpHttpServerConfig,
+  | "transport"
+  | "url"
+  | "headers"
+  | "useAzureAuth"
+  | "azureAuthScope"
+  | "timeoutSeconds"
+>;
 
-type McpServerConfigKeyStdioInput = McpServerConfigKeySharedInput & {
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd?: string;
-  env: Record<string, string>;
-};
+type McpServerConfigKeyStdioInput = McpServerConfigKeySharedInput &
+  Pick<
+  McpStdioServerConfig | IncomingMcpStdioServerConfig,
+  "transport" | "command" | "args" | "cwd" | "env"
+>;
 
 export type McpServerConfigKeyInput =
   | McpServerConfigKeyHttpInput

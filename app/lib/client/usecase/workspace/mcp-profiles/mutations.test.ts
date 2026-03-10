@@ -7,7 +7,7 @@ import {
   MCP_PROFILE_NOT_AVAILABLE_ERROR,
   saveWorkspaceMcpServerProfile,
 } from "./mutations";
-import { connectMcpServerToThread } from "../threads/thread-mcp-server-operations";
+import { connectThreadMcpServer } from "~/lib/domain/policies/thread-mcp-server-membership";
 
 function createHttpServer(
   overrides: Partial<McpHttpServerConfig> & {
@@ -151,10 +151,13 @@ function createDependencies(
       })),
     connectMcpServerToActiveThread: (serverToConnect: McpServerConfig) => {
       state.connectedProfiles.push(serverToConnect);
-      state.activeThread = connectMcpServerToThread(
-        state.activeThread,
-        serverToConnect,
-      );
+      state.activeThread = {
+        ...state.activeThread,
+        mcpServers: connectThreadMcpServer(
+          state.activeThread.mcpServers,
+          serverToConnect,
+        ),
+      };
     },
     resetMcpServerFormInputs: () => {
       state.resetFormCount += 1;

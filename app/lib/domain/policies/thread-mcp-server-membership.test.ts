@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { McpHttpServerConfig, McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
+import type { McpHttpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
-  connectMcpServerToThread,
-  reconcileSavedThreadMcpServer,
+  connectThreadMcpServer,
+  reconcileThreadMcpServerProfile,
   removeThreadMcpServerByConfig,
   removeThreadMcpServerById,
   toggleThreadMcpServer,
-} from "./thread-mcp-server-operations";
+} from "./thread-mcp-server-membership";
 
 function createHttpServer(
   overrides: Partial<McpHttpServerConfig> & {
@@ -16,12 +15,7 @@ function createHttpServer(
     url: string;
   },
 ): McpHttpServerConfig {
-  const {
-    id,
-    name,
-    url,
-    ...rest
-  } = overrides;
+  const { id, name, url, ...rest } = overrides;
   return {
     id,
     name,
@@ -35,29 +29,7 @@ function createHttpServer(
   };
 }
 
-function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
-  return {
-    id: "thread-1",
-    name: "Thread 1",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    deletedAt: null,
-    reasoningEffort: "high",
-    webSearchEnabled: false,
-    agentInstruction: "Instruction",
-    instructionContextToggles: {
-      system: true,
-    },
-    threadEnvironment: {},
-    messages: [],
-    mcpServers: [],
-    mcpRpcLogs: [],
-    skillSelections: [],
-    ...overrides,
-  };
-}
-
-describe("thread-mcp-server-operations", () => {
+describe("thread-mcp-server-membership", () => {
   it("connects a new MCP server and renames an existing config match", () => {
     const existingServer = createHttpServer({
       id: "mcp-1",
@@ -70,18 +42,8 @@ describe("thread-mcp-server-operations", () => {
       url: "https://example.test/mcp",
     });
 
-    expect(
-      connectMcpServerToThread(createThreadState(), existingServer).mcpServers,
-    ).toEqual([existingServer]);
-
-    expect(
-      connectMcpServerToThread(
-        createThreadState({
-          mcpServers: [existingServer],
-        }),
-        renamedMatch,
-      ).mcpServers,
-    ).toEqual([
+    expect(connectThreadMcpServer([], existingServer)).toEqual([existingServer]);
+    expect(connectThreadMcpServer([existingServer], renamedMatch)).toEqual([
       {
         ...existingServer,
         name: "Filesystem Renamed",
@@ -105,17 +67,12 @@ describe("thread-mcp-server-operations", () => {
       name: "GitHub",
       url: "https://example.test/github",
     });
-    const thread = createThreadState({
-      mcpServers: [first, second],
-    });
 
-    expect(toggleThreadMcpServer(thread, duplicateConfig).mcpServers).toEqual([
+    expect(toggleThreadMcpServer([first, second], duplicateConfig)).toEqual([
       second,
     ]);
-    expect(removeThreadMcpServerById(thread, "mcp-3").mcpServers).toEqual([
-      first,
-    ]);
-    expect(removeThreadMcpServerByConfig(thread, duplicateConfig).mcpServers).toEqual([
+    expect(removeThreadMcpServerById([first, second], "mcp-3")).toEqual([first]);
+    expect(removeThreadMcpServerByConfig([first, second], duplicateConfig)).toEqual([
       second,
     ]);
   });
@@ -138,27 +95,17 @@ describe("thread-mcp-server-operations", () => {
     });
 
     expect(
-      reconcileSavedThreadMcpServer(
-        createThreadState({
-          mcpServers: [previousServer],
-        }),
-        {
-          previousServer,
-          savedProfile: secondServer,
-        },
-      ).mcpServers,
+      reconcileThreadMcpServerProfile([previousServer], {
+        previousServer,
+        nextServer: secondServer,
+      }),
     ).toEqual([secondServer]);
 
     expect(
-      reconcileSavedThreadMcpServer(
-        createThreadState({
-          mcpServers: [previousServer, secondServer],
-        }),
-        {
-          previousServer,
-          savedProfile: renamedDuplicate,
-        },
-      ).mcpServers,
+      reconcileThreadMcpServerProfile([previousServer, secondServer], {
+        previousServer,
+        nextServer: renamedDuplicate,
+      }),
     ).toEqual([
       {
         ...secondServer,
