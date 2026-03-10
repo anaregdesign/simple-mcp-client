@@ -70,8 +70,8 @@ import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/deskt
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
-import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-runtime";
-import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-session";
+import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-playground-runtime";
+import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-playground-session";
 import { buildConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
 import {
   useConfigPanelState,
@@ -79,7 +79,7 @@ import {
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
 import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
-import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-editor";
+import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-instruction-editor";
 import {
   canTransition,
   canStartThreadOperation,

@@ -28,7 +28,7 @@ import {
 } from "./handlers";
 import {
   useAzureSettingsEffects,
-} from "./effects";
+} from "./use-azure-settings-effects";
 import type {
   AzureSettingsController,
   AzureSettingsState,
