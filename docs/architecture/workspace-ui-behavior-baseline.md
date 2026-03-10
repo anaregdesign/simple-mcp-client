@@ -15,7 +15,6 @@ Source of truth for this baseline:
 ### Initial state
 
 - The workspace renders from `app/routes/_index.tsx`.
-- `useWorkspace()` returns all screen state, handlers, layout refs, and panel props.
 - The main route always mounts a Fluent `FluentProvider` and chooses a light or dark theme from the workspace state.
 
 ### Auth gate
@@ -87,7 +86,6 @@ Source of truth for this baseline:
 ### Known quirks
 
 - Composer locking is modeled as `readOnly`, so browser focus and selection behavior remain closer to an editable textarea than a disabled control.
-- Current component contract for `PlaygroundPanel` is a very large prop surface and acts as a rendering shell rather than a narrow view model.
 
 ## Azure Login, Tenant, Project, And Deployment Selection
 
@@ -115,8 +113,7 @@ Source of truth for this baseline:
 
 ### Known quirks
 
-- Azure settings still expose a large callback-heavy contract and depend on request-sequencing runtime state.
-- Playground reasoning-effort compatibility is derived in a wrapper Hook instead of the canonical `use-azure-settings.ts` public surface.
+- Azure auth and catalog reload can cascade into several control resets at once, so the screen may visibly refresh multiple selectors together.
 
 ## Threads Lifecycle
 
@@ -145,8 +142,7 @@ Source of truth for this baseline:
 
 ### Known quirks
 
-- Thread lifecycle still relies on a broad dependency object and root composition wiring from `use-workspace.ts`.
-- Thread and Playground state are coupled through root composition instead of a dedicated screen-level feature owner.
+- Switching or creating a thread can trigger a visible save/apply sequence before the next thread becomes active.
 
 ## MCP Servers
 
@@ -172,7 +168,7 @@ Source of truth for this baseline:
 
 ### Known quirks
 
-- The current MCP form and tab contract is still a large mixed bag of form state, mutation handlers, and selection state.
+- MCP profile edits and active-thread MCP membership changes can update adjacent UI regions in quick succession.
 
 ## Skills
 
@@ -198,7 +194,7 @@ Source of truth for this baseline:
 
 ### Known quirks
 
-- Message skill activation state is still rooted in Playground session state rather than a narrower message-composer feature owner.
+- Thread skill toggles and message skill activations are visually related but remain separate selections.
 
 ## Instruction Editor And Title Suggestion
 

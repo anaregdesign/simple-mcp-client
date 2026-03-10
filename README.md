@@ -29,6 +29,10 @@ The contributor architecture source of truth is:
 
 - [`AGENTS.md`](AGENTS.md)
 
+Current workspace UI behavior baseline for post-refactor bug fixing:
+
+- [`workspace-ui-behavior-baseline.md`](docs/architecture/workspace-ui-behavior-baseline.md)
+
 Stable contributor rules:
 
 - `app/lib` is organized by layer, not by ad-hoc feature roots

@@ -41,6 +41,14 @@ const checks = [
     args: ["--files", "app/lib/client/chat"],
   },
   {
+    key: "legacyClientArchitectureDoc",
+    description:
+      "Conflicting client architecture migration docs must stay retired; the skill and AGENTS are the normative architecture source.",
+    rootPath: "docs/architecture/client-clean-architecture.md",
+    command: "rg",
+    args: ["--files", "docs/architecture/client-clean-architecture.md"],
+  },
+  {
     key: "sharedComponentBoundaryViolations",
     description:
       "Shared components must not depend on feature usecases, browser adapters, or server code.",
@@ -954,6 +962,55 @@ const checks = [
       "-n",
       "function (buildDefaultMcpServerProfiles|normalizeLegacyDefaultProfiles|isLegacyDefaultMermaidProfile|isLegacyDefaultFilesystemProfile|isLegacyUnavailableDefaultStdioProfile|isLegacyDefaultWorkingDirectory|buildIncomingProfileKey)",
       "app/lib/server/usecase/mcp/mcp-server-profile-service.ts",
+    ],
+  },
+  {
+    key: "serverUsecaseAgentsSdkImports",
+    description:
+      "server/usecase must not import OpenAI Agents SDK packages directly.",
+    command: "rg",
+    args: [
+      "-n",
+      "@openai/agents|@openai/agents-openai|@openai/agents-core",
+      "app/lib/server/usecase",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
+    ],
+  },
+  {
+    key: "legacyChatSessionUsecaseOwner",
+    description:
+      "Chat session construction must stay behind the infrastructure gateway instead of server/usecase/chat/chat-session.ts.",
+    rootPath: "app/lib/server/usecase/chat/chat-session.ts",
+    command: "rg",
+    args: ["--files", "app/lib/server/usecase/chat/chat-session.ts"],
+  },
+  {
+    key: "chatUsecaseGatewayDetailImports",
+    description:
+      "chat-execution usecase must not depend on chat or Azure infrastructure gateway details directly.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/server/infrastructure/gateways/(chat|azure)/",
+      "app/lib/server/usecase/chat/chat-execution.ts",
+    ],
+  },
+  {
+    key: "azureUsecaseArmTransportOwnership",
+    description:
+      "server/usecase/azure must not own raw ARM types, management URLs, or paged-fetch gateway wiring.",
+    command: "rg",
+    args: [
+      "-n",
+      "https://management\\.azure\\.com|\\bArm[A-Z]\\w*\\b|AzureArmPagedFetch|armPagedFetchGateway",
+      "app/lib/server/usecase/azure",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
     ],
   },
   {
