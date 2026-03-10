@@ -46,9 +46,6 @@ import {
   buildThreadOperationLogsByTurnId,
   upsertThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
-import {
-  describeInstructionLanguage,
-} from "~/lib/client/usecase/workspace/instruction-document";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
@@ -101,6 +98,7 @@ import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace
 import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/use-workspace-skill-catalog-effects";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/use-workspace-thread-background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
+import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/workspace-config-panel-props";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -150,14 +148,10 @@ import {
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import { useAzureSettings } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
-  buildMcpServersTabProps,
   buildPlaygroundPanelProps,
-  buildSettingsTabProps,
   buildMessageSkillActivationOptions,
   buildSkillRegistryGroups,
-  buildSkillsTabProps,
   buildThreadSkillOptions,
-  buildThreadsTabProps,
   buildUnauthenticatedPanelProps,
   readSkillCommandSuggestions,
 } from "~/lib/client/usecase/workspace/selectors";
@@ -2131,114 +2125,90 @@ export function useWorkspace() {
     loadAzureProjects,
   });
 
-  // Panel prop composition for Client route rendering.
-  const settingsTabProps = buildSettingsTabProps({
+  const configPanelProps = buildWorkspaceConfigPanelProps({
+    activeMainTab,
+    setActiveMainTab,
+    isChatLocked,
     theme,
-    onThemeChange: handleThemeChange,
+    handleThemeChange,
     isAzureAuthRequired,
     isSending,
     isStartingAzureLogin,
-    onAzureLogin: handleAzureLogin,
+    handleAzureLogin,
     azureTenants,
     activeAzureTenantId: activeAzurePrincipal?.tenantId ?? "",
     isSwitchingAzureTenant,
-    onAzureTenantChange: handleAzureTenantChange,
+    handleAzureTenantChange,
     isLoadingAzureConnections,
-    isLoadingAzureDeployments:
-      isLoadingPlaygroundAzureDeployments || isLoadingUtilityAzureDeployments,
+    isLoadingPlaygroundAzureDeployments,
+    isLoadingUtilityAzureDeployments,
     isReloadingAzureCatalog,
-    onAzureCatalogReload: handleReloadAzureCatalog,
-    activeAzureConnection: activePlaygroundAzureConnection,
+    handleReloadAzureCatalog,
+    activePlaygroundAzureConnection,
     activeAzurePrincipal,
     selectedPlaygroundAzureDeploymentName,
     isStartingAzureLogout,
-    onAzureLogout: handleAzureLogout,
+    handleAzureLogout,
     azureTenantSwitchError,
     azureLogoutError,
     azureConnectionError,
     azureConnections,
     selectedUtilityAzureConnectionId,
     selectedUtilityAzureDeploymentName,
-    utilityAzureDeployments: utilityAzureDeploymentNames,
-    utilityReasoningEffort: effectiveUtilityReasoningEffort,
-    utilityReasoningEffortOptions: effectiveUtilityReasoningEffortOptions,
+    utilityAzureDeploymentNames,
+    effectiveUtilityReasoningEffort,
+    effectiveUtilityReasoningEffortOptions,
     isUtilityReasoningEffortSupported,
     utilityAzureDeploymentError,
-    onUtilityProjectChange: handleUtilityProjectChange,
-    onUtilityDeploymentChange: handleUtilityDeploymentChange,
-    onUtilityReasoningEffortChange: handleUtilityReasoningEffortChange,
-    isLoadingUtilityAzureDeployments,
-  });
-
-  const mcpServersTabProps = buildMcpServersTabProps({
+    handleUtilityProjectChange,
+    handleUtilityDeploymentChange,
+    handleUtilityReasoningEffortChange,
     workspaceMcpServerProfileOptions,
     selectedWorkspaceMcpServerProfileCount,
-    isSending,
-    isThreadReadOnly: isActiveThreadArchived,
+    isActiveThreadArchived,
     isLoadingWorkspaceMcpServerProfiles,
     isMutatingWorkspaceMcpServerProfiles,
     workspaceMcpServerProfileError,
-    onToggleWorkspaceMcpServerProfile: handleToggleWorkspaceMcpServerProfile,
-    onEditWorkspaceMcpServerProfile: handleEditWorkspaceMcpServerProfile,
-    onDeleteWorkspaceMcpServerProfile: (serverId: string) => {
-      void handleDeleteWorkspaceMcpServerProfile(serverId);
-    },
-    onReloadWorkspaceMcpServerProfiles: handleReloadWorkspaceMcpServerProfiles,
+    handleToggleWorkspaceMcpServerProfile,
+    handleEditWorkspaceMcpServerProfile,
+    handleDeleteWorkspaceMcpServerProfile,
+    handleReloadWorkspaceMcpServerProfiles,
     isEditingMcpServer,
     editingMcpServerName,
     mcpNameInput,
-    onMcpNameInputChange: setMcpNameInput,
+    setMcpNameInput,
     mcpTransport,
-    onMcpTransportChange: (value: McpTransport) => {
-      setMcpTransport(value);
-      setMcpFormError(null);
-    },
+    setMcpTransport,
+    setMcpFormError,
     mcpCommandInput,
-    onMcpCommandInputChange: setMcpCommandInput,
+    setMcpCommandInput,
     mcpArgsInput,
-    onMcpArgsInputChange: setMcpArgsInput,
+    setMcpArgsInput,
     mcpCwdInput,
-    onMcpCwdInputChange: setMcpCwdInput,
+    setMcpCwdInput,
     mcpEnvInput,
-    onMcpEnvInputChange: setMcpEnvInput,
+    setMcpEnvInput,
     mcpUrlInput,
-    onMcpUrlInputChange: setMcpUrlInput,
+    setMcpUrlInput,
     mcpHeadersInput,
-    onMcpHeadersInputChange: setMcpHeadersInput,
+    setMcpHeadersInput,
     mcpUseAzureAuthInput,
-    onMcpUseAzureAuthInputChange: (checked: boolean) => {
-      setMcpUseAzureAuthInput(checked);
-      if (checked && !mcpAzureAuthScopeInput.trim()) {
-        setMcpAzureAuthScopeInput(MCP_DEFAULT_AZURE_AUTH_SCOPE);
-      }
-    },
+    setMcpUseAzureAuthInput,
     mcpAzureAuthScopeInput,
-    onMcpAzureAuthScopeInputChange: setMcpAzureAuthScopeInput,
+    setMcpAzureAuthScopeInput,
     mcpTimeoutSecondsInput,
-    onMcpTimeoutSecondsInputChange: setMcpTimeoutSecondsInput,
-    defaultMcpAzureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
-    defaultMcpTimeoutSeconds: MCP_DEFAULT_TIMEOUT_SECONDS,
-    minMcpTimeoutSeconds: MCP_TIMEOUT_SECONDS_MIN,
-    maxMcpTimeoutSeconds: MCP_TIMEOUT_SECONDS_MAX,
-    onAddMcpServer: handleAddMcpServer,
-    onCancelMcpServerEdit: handleCancelMcpServerEdit,
+    setMcpTimeoutSecondsInput,
+    handleAddMcpServer,
+    handleCancelMcpServerEdit,
     isSavingMcpServer,
     mcpFormError,
     mcpFormWarning,
-    onClearMcpFormWarning: () => {
-      setMcpFormWarning(null);
-    },
-  });
-
-  const threadsTabProps = buildThreadsTabProps({
+    setMcpFormWarning,
     agentInstruction,
     instructionContextToggles,
     instructionEnhanceComparison,
-    describeInstructionLanguage,
-    isSending,
-    isThreadReadOnly: isActiveThreadArchived,
     isEnhancingInstruction,
-    showEnhancingInstructionSpinner: isEnhancingInstructionForActiveThread,
+    isEnhancingInstructionForActiveThread,
     isSavingInstructionPrompt,
     canSaveAgentInstructionPrompt,
     canEnhanceAgentInstruction,
@@ -2250,20 +2220,16 @@ export function useWorkspace() {
     instructionSaveSuccess,
     instructionEnhanceError,
     instructionEnhanceSuccess,
-    onClearInstructionSaveSuccess: () => {
-      setInstructionSaveSuccess(null);
-    },
-    onClearInstructionEnhanceSuccess: () => {
-      setInstructionEnhanceSuccess(null);
-    },
-    onInstructionContextToggleChange: handleInstructionContextToggleChange,
-    onAgentInstructionChange: handleAgentInstructionChange,
-    onInstructionFileChange: handleInstructionFileChange,
-    onSaveInstructionPrompt: handleSaveInstructionPrompt,
-    onEnhanceInstruction: handleEnhanceInstruction,
-    onClearInstruction: handleClearInstruction,
-    onAdoptEnhancedInstruction: handleAdoptEnhancedInstruction,
-    onAdoptOriginalInstruction: handleAdoptOriginalInstruction,
+    setInstructionSaveSuccess,
+    setInstructionEnhanceSuccess,
+    handleInstructionContextToggleChange,
+    handleAgentInstructionChange,
+    handleInstructionFileChange,
+    handleSaveInstructionPrompt,
+    handleEnhanceInstruction,
+    handleClearInstruction,
+    handleAdoptEnhancedInstruction,
+    handleAdoptOriginalInstruction,
     activeThreadOptions,
     archivedThreadOptions,
     activeThreadId,
@@ -2274,53 +2240,28 @@ export function useWorkspace() {
     isClearingThread,
     isRestoringThread,
     threadError,
-    onActiveThreadChange: (threadId: string) => {
-      void handleThreadChange(threadId);
-    },
-    onCreateThread: () => {
-      void handleCreateThread();
-    },
-    onThreadRename: (threadId: string, nextName: string) => {
-      void handleThreadRename(threadId, nextName);
-    },
-    onThreadCancel: (threadId: string) => {
-      handleThreadCancel(threadId);
-    },
-    onThreadDelete: (threadId: string) => {
-      void handleThreadLogicalDelete(threadId);
-    },
-    onThreadClear: (threadId: string) => {
-      void handleThreadClear(threadId);
-    },
-    onThreadRestore: (threadId: string) => {
-      void handleThreadRestore(threadId);
-    },
-  });
-
-  const skillsTabProps = buildSkillsTabProps({
+    handleThreadChange,
+    handleCreateThread,
+    handleThreadRename,
+    handleThreadCancel,
+    handleThreadLogicalDelete,
+    handleThreadClear,
+    handleThreadRestore,
     threadSkillOptions,
     isLoadingSkills,
-    isSending,
-    isThreadReadOnly: isActiveThreadArchived,
     skillsError,
     skillsWarning,
-    onReloadSkills: handleReloadSkills,
-    onToggleThreadSkill: handleToggleThreadSkill,
-    onClearSkillsWarning: () => {
-      setSkillsWarning(null);
-    },
+    handleReloadSkills,
+    handleToggleThreadSkill,
+    setSkillsWarning,
     skillRegistryGroups,
     isMutatingSkillRegistries,
     skillRegistryError,
     skillRegistryWarning,
     skillRegistrySuccess,
-    onToggleRegistrySkill: handleToggleRegistrySkill,
-    onClearSkillRegistryWarning: () => {
-      setSkillRegistryWarning(null);
-    },
-    onClearSkillRegistrySuccess: () => {
-      setSkillRegistrySuccess(null);
-    },
+    handleToggleRegistrySkill,
+    setSkillRegistryWarning,
+    setSkillRegistrySuccess,
   });
 
   const playgroundPanelProps = buildPlaygroundPanelProps({
@@ -2420,13 +2361,7 @@ export function useWorkspace() {
     theme,
     unauthenticatedPanelProps,
     configPanelProps: {
-      activeMainTab,
-      onMainTabChange: setActiveMainTab,
-      isChatLocked,
-      settingsTabProps,
-      mcpServersTabProps,
-      skillsTabProps,
-      threadsTabProps,
+      ...configPanelProps,
     },
     playgroundPanelProps,
   };
