@@ -189,9 +189,6 @@ import {
   saveMcpServerToConfig as saveMcpServerToConfigOperation,
 } from "~/lib/client/usecase/workspace/workspace-mcp-server-profile-operations";
 import {
-  refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
-} from "~/lib/client/usecase/workspace/thread-title-operations";
-import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
 } from "~/lib/client/usecase/workspace/types";
@@ -201,6 +198,9 @@ import {
 import {
   createThreadPersistenceController,
 } from "~/lib/client/usecase/workspace/thread-persistence-controller";
+import {
+  createThreadTitleController,
+} from "~/lib/client/usecase/workspace/thread-title-controller";
 
 /**
  * Client runtime controller.
@@ -1331,47 +1331,6 @@ export function useWorkspace() {
     }
   }
 
-  function buildThreadTitleOperationDeps() {
-    return {
-      isArchivedThread,
-      isChatLocked,
-      isLoadingUtilityAzureDeployments,
-      readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
-      readSelectedUtilityAzureDeploymentName: () =>
-        selectedUtilityAzureDeploymentName,
-      isSelectedUtilityDeploymentAvailable: (deploymentName: string) =>
-        includesAzureDeploymentName(utilityAzureDeployments, deploymentName),
-      readThreadById: (threadId: string) =>
-        findThreadStateById(threadsRef.current, threadId) ?? undefined,
-      readActiveThreadId: () => activeThreadIdRef.current,
-      readActiveThreadNameInput: () => activeThreadNameInputRef.current,
-      readAgentInstruction: () => agentInstruction,
-      readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
-      isUtilityReasoningEffortSupported,
-      readEffectiveUtilityReasoningEffort: () =>
-        effectiveUtilityReasoningEffort,
-      generateTitle: (request: {
-        playgroundContent: string;
-        instruction: string;
-        azureConfig: {
-          tenantId: string;
-          projectName: string;
-          baseUrl: string;
-          apiVersion: string;
-          deploymentName: string;
-        };
-        supportsReasoningEffort: boolean;
-        reasoningEffort?: ThreadState["reasoningEffort"];
-      }) => threadTitleApiClient.generateTitle(request),
-      updateThreadStateById,
-      setActiveThreadNameInput,
-      saveActiveThreadNameInBackground,
-      isSwitchingAzureTenant,
-      reportAzureTenantSwitchPending,
-      logClientError,
-    };
-  }
-
   function buildSendMessageOperationDeps() {
     return {
       readActiveThreadId: () => activeThreadIdRef.current,
@@ -1594,6 +1553,32 @@ export function useWorkspace() {
     logClientError,
   });
 
+  const threadTitleController = createThreadTitleController({
+    activeThreadIdRef,
+    activeThreadNameInputRef,
+    activeAzureTenantIdRef,
+    threadsRef,
+    isArchivedThread,
+    isChatLocked,
+    isLoadingUtilityAzureDeployments,
+    readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
+    readSelectedUtilityAzureDeploymentName: () =>
+      selectedUtilityAzureDeploymentName,
+    isSelectedUtilityDeploymentAvailable: (deploymentName) =>
+      includesAzureDeploymentName(utilityAzureDeployments, deploymentName),
+    readAgentInstruction: () => agentInstruction,
+    isUtilityReasoningEffortSupported,
+    readEffectiveUtilityReasoningEffort: () =>
+      effectiveUtilityReasoningEffort,
+    generateTitle: (request) => threadTitleApiClient.generateTitle(request),
+    updateThreadStateById,
+    setActiveThreadNameInput,
+    saveActiveThreadNameInBackground,
+    isSwitchingAzureTenant,
+    reportAzureTenantSwitchPending,
+    logClientError,
+  });
+
   // Thread persistence and title-refresh orchestration.
   async function saveThreadStateToDatabase(
     thread: ThreadState,
@@ -1638,10 +1623,7 @@ export function useWorkspace() {
       | "utility_deployment_update";
     instructionOverride?: string;
   }): Promise<void> {
-    await refreshThreadTitleInBackgroundOperation(
-      buildThreadTitleOperationDeps(),
-      options,
-    );
+    await threadTitleController.refreshThreadTitleInBackground(options);
   }
 
   useWorkspaceThreadBackgroundEffects({
