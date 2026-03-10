@@ -132,6 +132,42 @@ describe("createChatComposerHandlers", () => {
     expect(input.value).toBe("");
   });
 
+  it("opens the attachment file picker through the browser adapter", () => {
+    const setChatAttachmentError = vi.fn();
+    const openChatAttachmentPicker = vi.fn(() => true);
+    const input = {} as HTMLInputElement;
+    const handlers = createChatComposerHandlers(
+      createBaseDependencies({
+        readChatAttachmentInput: () => input,
+        setChatAttachmentError,
+        openChatAttachmentPicker,
+      }),
+    );
+
+    handlers.handleOpenChatAttachmentPicker();
+
+    expect(setChatAttachmentError).toHaveBeenCalledWith(null);
+    expect(openChatAttachmentPicker).toHaveBeenCalledWith(input);
+  });
+
+  it("shows an error when the attachment file picker cannot open", () => {
+    const setChatAttachmentError = vi.fn();
+    const handlers = createChatComposerHandlers(
+      createBaseDependencies({
+        setChatAttachmentError,
+        openChatAttachmentPicker: () => false,
+      }),
+    );
+
+    handlers.handleOpenChatAttachmentPicker();
+
+    expect(setChatAttachmentError).toHaveBeenNthCalledWith(1, null);
+    expect(setChatAttachmentError).toHaveBeenNthCalledWith(
+      2,
+      "Attachment file picker is unavailable right now.",
+    );
+  });
+
   it("removes a draft attachment and clears attachment errors", () => {
     const setDraftAttachments = vi.fn();
     const setChatAttachmentError = vi.fn();

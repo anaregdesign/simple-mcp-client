@@ -2,7 +2,7 @@ type FileInputWithPicker = HTMLInputElement & {
   showPicker?: () => void;
 };
 
-export function openInstructionClientFilePicker(
+export function openClientFileInputPicker(
   input: HTMLInputElement | null,
 ): boolean {
   if (!input || input.disabled) {

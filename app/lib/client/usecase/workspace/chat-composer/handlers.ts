@@ -8,6 +8,9 @@ import type {
 } from "react";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
+  openClientFileInputPicker,
+} from "~/lib/client/infrastructure/browser/file-input-open";
+import {
   formatChatAttachmentSize,
 } from "~/lib/client/usecase/workspace/chat-composer/attachment-size";
 import {
@@ -66,6 +69,7 @@ type ChatComposerHandlerDependencies = {
   readActiveChatCommandMenu: () => ChatCommandMenuView | null;
   readActiveChatCommandHighlightIndex: () => number;
   readChatAttachmentInput: () => HTMLInputElement | null;
+  openChatAttachmentPicker?: (input: HTMLInputElement | null) => boolean;
   setPendingChatCommandCursorIndex: (value: number | null) => void;
   setDraft: (value: string) => void;
   setChatComposerCursorIndex: (value: number) => void;
@@ -250,7 +254,15 @@ export function createChatComposerHandlers(
         return;
       }
 
-      deps.readChatAttachmentInput()?.click();
+      deps.setChatAttachmentError(null);
+      const didOpen = (
+        deps.openChatAttachmentPicker ?? openClientFileInputPicker
+      )(deps.readChatAttachmentInput());
+      if (!didOpen) {
+        deps.setChatAttachmentError(
+          "Attachment file picker is unavailable right now.",
+        );
+      }
     },
 
     async handleChatAttachmentFileChange(

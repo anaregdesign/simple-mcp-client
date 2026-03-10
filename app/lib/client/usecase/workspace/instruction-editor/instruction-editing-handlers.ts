@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react";
 import {
-  openInstructionClientFilePicker,
-} from "~/lib/client/infrastructure/browser/instruction-file-open";
+  openClientFileInputPicker,
+} from "~/lib/client/infrastructure/browser/file-input-open";
 import {
   INSTRUCTION_ALLOWED_EXTENSIONS,
   INSTRUCTION_MAX_FILE_SIZE_BYTES,
@@ -102,7 +102,7 @@ export function createInstructionEditingHandlers(
 
       deps.setInstructionFileError(null);
       const didOpen = (
-        deps.openInstructionFilePicker ?? openInstructionClientFilePicker
+        deps.openInstructionFilePicker ?? openClientFileInputPicker
       )(deps.readInstructionFileInput());
       if (!didOpen) {
         deps.setInstructionFileError(
