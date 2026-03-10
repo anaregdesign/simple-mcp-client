@@ -4,7 +4,7 @@ import {
   type MutableRefObject,
 } from "react";
 import { THREAD_DEFAULT_NAME } from "~/lib/domain/value-objects/thread-defaults";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { normalizeThreadName } from "~/lib/domain/value-objects/thread-name";
 import {
   hasThreadInteraction,
 } from "~/lib/client/usecase/workspace/threads/thread-save-state";
@@ -188,9 +188,7 @@ export function useWorkspaceThreadBackgroundEffects(
       return;
     }
 
-    const trimmedName = options.activeThreadNameInput
-      .trim()
-      .slice(0, THREAD_NAME_MAX_LENGTH);
+    const trimmedName = normalizeThreadName(options.activeThreadNameInput);
     const nextName = trimmedName || baseThread.name;
     if (nextName === baseThread.name) {
       return;

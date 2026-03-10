@@ -5,18 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildThreadAutoTitlePlaygroundContent,
   buildThreadAutoTitleRequestMessage,
-  normalizeThreadAutoTitle,
 } from "~/lib/contracts/threads/title";
-
-describe("normalizeThreadAutoTitle", () => {
-  it("normalizes whitespace and keeps only the first non-empty line", () => {
-    expect(normalizeThreadAutoTitle('  "Playground  plan"  \nsecond line')).toBe("Playground plan");
-  });
-
-  it("truncates to 20 characters", () => {
-    expect(normalizeThreadAutoTitle("12345678901234567890xyz")).toBe("12345678901234567890");
-  });
-});
 
 describe("buildThreadAutoTitlePlaygroundContent", () => {
   it("includes recent messages with role labels", () => {

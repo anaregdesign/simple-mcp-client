@@ -1,4 +1,4 @@
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { normalizeThreadName } from "~/lib/domain/value-objects/thread-name";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 export type ThreadNameMutationDependencies = {
@@ -18,7 +18,7 @@ export function applyThreadNameChange(
   },
 ): ThreadState | null {
   const normalizedThreadId = options.threadId.trim();
-  const normalizedName = options.nextName.trim().slice(0, THREAD_NAME_MAX_LENGTH);
+  const normalizedName = normalizeThreadName(options.nextName);
   if (!normalizedThreadId || !normalizedName) {
     return null;
   }

@@ -1,7 +1,8 @@
 import { THREAD_AUTO_TITLE_SYSTEM_PROMPT } from "~/lib/constants/chat";
-import { buildThreadAutoTitleRequestMessage, normalizeThreadAutoTitle } from "~/lib/contracts/threads/title";
+import { buildThreadAutoTitleRequestMessage } from "~/lib/contracts/threads/title";
 import type { ThreadTitleGenerationGateway } from "~/lib/domain/repositories/thread-title-generation-gateway";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import { normalizeGeneratedThreadTitle } from "~/lib/domain/value-objects/thread-name";
 
 export type ResolvedThreadTitleAzureConfig = {
   tenantId: string;
@@ -48,7 +49,7 @@ export function createThreadTitleSuggestionService(
 
 export function extractThreadAutoTitle(finalOutput: unknown): string {
   if (isRecord(finalOutput) && typeof finalOutput.title === "string") {
-    const normalized = normalizeThreadAutoTitle(finalOutput.title);
+    const normalized = normalizeGeneratedThreadTitle(finalOutput.title);
     if (normalized) {
       return normalized;
     }
@@ -63,13 +64,13 @@ export function extractThreadAutoTitle(finalOutput: unknown): string {
 
     const parsed = parseJson(trimmed);
     if (isRecord(parsed) && typeof parsed.title === "string") {
-      const normalizedFromJson = normalizeThreadAutoTitle(parsed.title);
+      const normalizedFromJson = normalizeGeneratedThreadTitle(parsed.title);
       if (normalizedFromJson) {
         return normalizedFromJson;
       }
     }
 
-    const normalized = normalizeThreadAutoTitle(trimmed);
+    const normalized = normalizeGeneratedThreadTitle(trimmed);
     if (normalized) {
       return normalized;
     }

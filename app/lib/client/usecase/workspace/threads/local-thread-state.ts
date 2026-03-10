@@ -4,7 +4,9 @@ import {
   DEFAULT_WEB_SEARCH_ENABLED,
   THREAD_DEFAULT_NAME,
 } from "~/lib/domain/value-objects/thread-defaults";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import {
+  normalizeThreadName,
+} from "~/lib/domain/value-objects/thread-name";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   cloneMcpServers,
@@ -56,16 +58,14 @@ export function resolveThreadNameForSave(
     return baseName;
   }
 
-  return draftName.slice(0, THREAD_NAME_MAX_LENGTH);
+  return normalizeThreadName(draftName);
 }
 
 export function createLocalThreadState(
   options: CreateLocalThreadStateOptions,
 ): ThreadState {
   const now = (options.now ?? (() => new Date().toISOString()))();
-  const normalizedName = (options.name ?? "")
-    .trim()
-    .slice(0, THREAD_NAME_MAX_LENGTH);
+  const normalizedName = normalizeThreadName(options.name ?? "");
   const name = normalizedName || THREAD_DEFAULT_NAME;
 
   return {

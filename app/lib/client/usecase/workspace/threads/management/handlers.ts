@@ -1,9 +1,9 @@
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { truncateThreadNameInput } from "~/lib/domain/value-objects/thread-name";
 
 export type ThreadRenameKeyAction = "submit" | "cancel" | null;
 
 export function normalizeThreadRenameInput(value: string): string {
-  return value.slice(0, THREAD_NAME_MAX_LENGTH);
+  return truncateThreadNameInput(value);
 }
 
 export function resolveThreadRenameKeyAction(

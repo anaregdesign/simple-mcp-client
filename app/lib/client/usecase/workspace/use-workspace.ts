@@ -19,7 +19,6 @@ import {
 } from "~/lib/domain/value-objects/thread-defaults";
 import {
   DEFAULT_THEME_MODE,
-  THREAD_NAME_MAX_LENGTH,
 } from "~/lib/constants/client";
 import {
   DEFAULT_MCP_TRANSPORT,
@@ -32,9 +31,6 @@ import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type {
   ThreadOperationLogEntry,
-} from "~/lib/contracts/chat/operation-log";
-import {
-  upsertThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {

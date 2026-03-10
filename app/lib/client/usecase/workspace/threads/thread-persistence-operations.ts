@@ -1,7 +1,7 @@
 import { ClientApiError, mapApiError } from "~/lib/client/infrastructure/api/api-client";
 import type { ThreadsApiResponse } from "~/lib/client/infrastructure/api/threads-api-client";
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { normalizeThreadName } from "~/lib/domain/value-objects/thread-name";
 import {
   convertThreadResourceToState,
   convertThreadStateToWritePayload,
@@ -239,7 +239,7 @@ export async function saveActiveThreadNameInBackground(
   name: string,
 ): Promise<void> {
   const normalizedThreadId = threadId.trim();
-  const normalizedName = name.trim().slice(0, THREAD_NAME_MAX_LENGTH);
+  const normalizedName = normalizeThreadName(name);
   if (!normalizedThreadId || !normalizedName) {
     return;
   }

@@ -1,5 +1,5 @@
 import { THREAD_DEFAULT_NAME } from "~/lib/domain/value-objects/thread-defaults";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { normalizeThreadName } from "~/lib/domain/value-objects/thread-name";
 import { readSkillRegistryOptionFromSkillLocation } from "~/lib/domain/value-objects/skill-registry";
 import { Thread } from "~/lib/domain/entities/thread";
 import { hasPersistableThreadState } from "~/lib/domain/policies/thread-persistable-state";
@@ -540,10 +540,6 @@ function readSkillSourceFromLocation(location: string): string {
   }
 
   return "workspace";
-}
-
-function normalizeThreadName(value: string): string {
-  return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
 }
 
 function hasPersistableThreadSnapshot(payload: ThreadSaveInput): boolean {

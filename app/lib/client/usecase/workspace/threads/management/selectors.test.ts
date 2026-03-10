@@ -2,7 +2,7 @@
  * Tests for thread-management selectors and handler helpers.
  */
 import { describe, expect, it } from "vitest";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { THREAD_NAME_MAX_LENGTH } from "~/lib/domain/value-objects/thread-name";
 import {
   normalizeThreadRenameInput,
   resolveThreadRenameKeyAction,

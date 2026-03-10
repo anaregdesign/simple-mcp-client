@@ -10,8 +10,8 @@ import type {
 import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import {
   buildThreadAutoTitlePlaygroundContent,
-  normalizeThreadAutoTitle,
 } from "~/lib/contracts/threads/title";
+import { normalizeGeneratedThreadTitle } from "~/lib/domain/value-objects/thread-name";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   applyThreadNameChange,
@@ -131,7 +131,7 @@ export async function refreshThreadTitleInBackground(
         : {}),
     });
 
-    const nextTitle = normalizeThreadAutoTitle(
+    const nextTitle = normalizeGeneratedThreadTitle(
       typeof payload.title === "string" ? payload.title : "",
     );
     if (!nextTitle) {

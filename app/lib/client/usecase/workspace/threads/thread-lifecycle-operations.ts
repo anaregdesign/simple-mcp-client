@@ -1,5 +1,5 @@
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
-import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
+import { normalizeThreadName } from "~/lib/domain/value-objects/thread-name";
 import { readThreadResourceFromUnknown } from "~/lib/contracts/threads/parsers";
 import { convertThreadResourceToState } from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
 import {
@@ -100,7 +100,7 @@ export async function renameThread(
     return;
   }
 
-  const normalizedName = nextNameRaw.trim().slice(0, THREAD_NAME_MAX_LENGTH);
+  const normalizedName = normalizeThreadName(nextNameRaw);
   if (!normalizedName) {
     deps.setThreadError("Thread name cannot be empty.");
     return;
