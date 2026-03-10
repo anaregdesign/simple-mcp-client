@@ -429,6 +429,17 @@ const checks = [
     ],
   },
   {
+    key: "workspaceScreenShellOwnership",
+    description:
+      "use-workspace must stay a screen shell and avoid direct imports of feature-local runtime/state owners.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/client/usecase/workspace/(playground-panel/use-playground-session|config-panel/use-config-panel|layout/use-layout|runtime-logging/use-runtime-logging|threads/thread-request-state-store|threads/use-shell|threads/storage-runtime)['\\\"]",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
     key: "legacyWorkspaceStorageRuntimesHook",
     description:
       "workspace mixed storage runtime Hook must stay retired after feature-local storage ownership extraction.",
@@ -627,14 +638,104 @@ const checks = [
     ],
   },
   {
-    key: "azureSettingsCatalogLoadingOwnership",
+    key: "legacyAzureSettingsCatalogLoadingHandlersFile",
     description:
-      "catalog-loading-handlers.ts must keep identity, preference, and deployment helper ownership in dedicated intent modules.",
+      "azure-settings catalog-loading-handlers.ts must stay retired after intent split.",
+    rootPath:
+      "app/lib/client/usecase/workspace/azure-settings/catalog-loading-handlers.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-loading-handlers.ts",
+    ],
+  },
+  {
+    key: "legacyAzureSettingsSessionHandlersFile",
+    description:
+      "azure-settings session-handlers.ts must stay retired after intent split.",
+    rootPath:
+      "app/lib/client/usecase/workspace/azure-settings/session-handlers.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/session-handlers.ts",
+    ],
+  },
+  {
+    key: "azureSettingsHandlersCompositionOwnership",
+    description:
+      "azure-settings handlers.ts must stay a thin public composition owner after intent splitting.",
     command: "rg",
     args: [
       "-n",
-      "function (clearActiveAzureIdentity|updateActiveAzureIdentity|syncWorkspaceStateForLoadedIdentity|loadAzureSelectionPreference|saveAzureSelectionPreference|saveThemePreference|resolveProjectSelection|applyAzureDeployments|cancelAzureDeploymentLoad|cancelAzureDeploymentLoads)",
-      "app/lib/client/usecase/workspace/azure-settings/catalog-loading-handlers.ts",
+      "async function (loadAzureProjects|loadAzureDeployments|runAzureLoginFlow|handleAzureLogin|handleAzureTenantChange|handleAzureLogout|handleReloadAzureCatalog)",
+      "app/lib/client/usecase/workspace/azure-settings/handlers.ts",
+    ],
+  },
+  {
+    key: "azureProjectCatalogLoadingOwnership",
+    description:
+      "project-catalog-loading.ts must not absorb deployment or session intent helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (loadAzureDeployments|runAzureLoginFlow|handleAzureLogin|handleAzureTenantChange|handleAzureLogout|handleReloadAzureCatalog)",
+      "app/lib/client/usecase/workspace/azure-settings/project-catalog-loading.ts",
+    ],
+  },
+  {
+    key: "azureDeploymentCatalogLoadingOwnership",
+    description:
+      "deployment-catalog-loading.ts must not absorb project or session intent helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (loadAzureProjects|runAzureLoginFlow|handleAzureLogin|handleAzureTenantChange|handleAzureLogout|handleReloadAzureCatalog)",
+      "app/lib/client/usecase/workspace/azure-settings/deployment-catalog-loading.ts",
+    ],
+  },
+  {
+    key: "azureLoginIntentOwnership",
+    description:
+      "azure-login.ts must not absorb tenant switch, logout, or reload ownership.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (handleAzureTenantChange|handleAzureLogout|handleReloadAzureCatalog)",
+      "app/lib/client/usecase/workspace/azure-settings/azure-login.ts",
+    ],
+  },
+  {
+    key: "azureTenantSwitchIntentOwnership",
+    description:
+      "azure-tenant-switch.ts must not absorb login, logout, or reload ownership.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (handleAzureLogin|handleAzureLogout|handleReloadAzureCatalog)",
+      "app/lib/client/usecase/workspace/azure-settings/azure-tenant-switch.ts",
+    ],
+  },
+  {
+    key: "azureLogoutIntentOwnership",
+    description:
+      "azure-logout.ts must not absorb login, tenant switch, or reload ownership.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (handleAzureLogin|handleAzureTenantChange|handleReloadAzureCatalog)",
+      "app/lib/client/usecase/workspace/azure-settings/azure-logout.ts",
+    ],
+  },
+  {
+    key: "azureCatalogReloadIntentOwnership",
+    description:
+      "azure-catalog-reload.ts must not absorb login, tenant switch, or logout ownership.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (handleAzureLogin|handleAzureTenantChange|handleAzureLogout)",
+      "app/lib/client/usecase/workspace/azure-settings/azure-catalog-reload.ts",
     ],
   },
   {
@@ -756,6 +857,17 @@ const checks = [
     args: [
       "-n",
       "function (buildRepositoryUrl|buildRegistryListCacheKey|buildRegistryTreeCacheKey|fetchRegistryFileBytes|normalizeSkillName|readRegistrySkillBlobEntries|resolveAppDataSkillsRoot|normalizeRepoPath|readErrorMessage|validateInstalledSkill|writeInstalledSkillMetadata)",
+      "app/lib/server/infrastructure/gateways/skills/skill-registry-gateway.ts",
+    ],
+  },
+  {
+    key: "skillRegistryGatewayTestUtilsOwnership",
+    description:
+      "skill-registry test utils must stay out of the production gateway entry module.",
+    command: "rg",
+    args: [
+      "-n",
+      "skillRegistryServerTestUtils",
       "app/lib/server/infrastructure/gateways/skills/skill-registry-gateway.ts",
     ],
   },
@@ -1117,6 +1229,28 @@ const checks = [
       "-n",
       "from ['\\\"]~/lib/server/infrastructure/gateways/(chat|azure)/",
       "app/lib/server/usecase/chat/chat-execution.ts",
+    ],
+  },
+  {
+    key: "chatExecutionHelperOwnership",
+    description:
+      "chat-execution.ts must stay orchestration-only after code-interpreter, error, and agent-run extraction.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (shouldEnableCodeInterpreter|collectNonPdfAttachments|truncateProgressMessage|buildAttachmentKey|readFileExtension|readErrorMessage|awaitWithTimeout|throwIfAborted|isChatCanceledError|buildUpstreamErrorMessage|isTransientNetworkTerminationError|shouldRetryChatExecution|sleep)|class ChatCanceledError",
+      "app/lib/server/usecase/chat/chat-execution.ts",
+    ],
+  },
+  {
+    key: "threadChatRunHelperOwnership",
+    description:
+      "thread-chat-run.ts must stay orchestration-only after validation, mapper, and persistence extraction.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (loadThreadSnapshot|readThreadAzureConfig|validateThreadExecutionConfiguration|readCurrentUserMessage|readHistoryMessages|mergeThreadSkillSelections|mapThreadMcpServerToClientConfig|mapOperationLogRecord|createAssistantMessage|presentDomainThreadMessage|persistThreadState)",
+      "app/lib/server/usecase/chat/thread-chat-run.ts",
     ],
   },
   {
