@@ -377,6 +377,17 @@ const checks = [
     ],
   },
   {
+    key: "workspaceThreadAssemblyOwnership",
+    description:
+      "use-workspace must delegate thread controller, lifecycle, and background-effect assembly to threads/use-workspace-threads.",
+    command: "rg",
+    args: [
+      "-n",
+      "createThreadTitleController|createSendMessageController|createThreadLifecycleHandlers|useWorkspaceThreadBackgroundEffects|connectThreadMcpServer",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
     key: "threadPrivateRuntimeRefOwnership",
     description:
       "Thread private state updaters and request-state controller must use reader callbacks instead of raw refs.",
