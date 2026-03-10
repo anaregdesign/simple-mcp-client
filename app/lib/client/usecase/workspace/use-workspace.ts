@@ -22,7 +22,6 @@ import {
 } from "~/lib/constants/chat";
 import {
   DEFAULT_THEME_MODE,
-  INITIAL_THREAD_MESSAGES,
   THREAD_NAME_MAX_LENGTH,
 } from "~/lib/constants/client";
 import {
@@ -50,9 +49,6 @@ import {
   installGlobalClientErrorLogging,
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
-  buildThreadSummary,
-} from "~/lib/contracts/threads/parsers";
-import {
   cloneThreadEnvironment,
   cloneThreadInstructionContexts,
   buildThreadSaveSignature,
@@ -63,8 +59,6 @@ import {
   hasThreadInteraction,
   hasThreadPersistableState,
   isThreadArchivedById,
-  isThreadArchived,
-  readThreadRuntimeStateById,
   updateThreadStateCollectionById,
 } from "~/lib/contracts/threads/state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
@@ -73,7 +67,7 @@ import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
   type ThreadInstructionContextToggleKey,
 } from "~/lib/contracts/threads/instruction-context";
-import type { ThreadState, ThreadSummary } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
@@ -103,10 +97,7 @@ import {
   selectThreadOperationPhaseFlags,
   shouldBlockThreadPersistence,
 } from "~/lib/client/usecase/workspace/threads/thread-guards";
-import {
-  buildThreadListOptions,
-  findThreadStateById,
-} from "~/lib/client/usecase/workspace/threads/thread-runtime";
+import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import {
   readThreadRequestStateById,
   workspaceInteractionReducer,
@@ -187,6 +178,9 @@ import {
 import {
   createWorkspaceMcpProfileStorageRuntime,
 } from "~/lib/client/usecase/workspace/mcp-profiles/storage-runtime";
+import {
+  selectThreadViewModel,
+} from "~/lib/client/usecase/workspace/threads/selectors";
 
 /**
  * Client runtime controller.
@@ -527,18 +521,25 @@ export function useWorkspace() {
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
   const error = uiError ?? activeThreadRequestState.error;
-  const activeThreadRuntimeState = useMemo(
-    () => readThreadRuntimeStateById(threads, activeThreadId),
-    [activeThreadId, threads],
+  const {
+    activeThreadState,
+    messages,
+    mcpServers,
+    mcpRpcLogs,
+    selectedThreadSkills,
+    isActiveThreadArchived,
+    activeThreadOptions,
+    archivedThreadOptions,
+  } = useMemo(
+    () =>
+      selectThreadViewModel({
+        threads,
+        activeThreadId,
+        activeThreadNameInput,
+        threadRequestStateById,
+      }),
+    [activeThreadId, activeThreadNameInput, threadRequestStateById, threads],
   );
-  const activeThreadState = activeThreadRuntimeState.activeThreadState;
-  const messages =
-    activeThreadState !== null
-      ? activeThreadRuntimeState.messages
-      : [...INITIAL_THREAD_MESSAGES];
-  const mcpServers = activeThreadRuntimeState.mcpServers;
-  const mcpRpcLogs = activeThreadRuntimeState.mcpRpcLogs;
-  const selectedThreadSkills = activeThreadRuntimeState.skillSelections;
   const {
     skillRegistryCatalogs,
     isMutatingSkillRegistries,
@@ -667,30 +668,10 @@ export function useWorkspace() {
   ].join(",");
   const chatAttachmentFormatHint =
     "Code Interpreter supported files (.pdf, .csv, .xlsx, .docx, .png, ...)";
-  const threadSummaries: ThreadSummary[] = threads.map((thread) =>
-    buildThreadSummary(thread),
-  );
-  const isActiveThreadArchived = isThreadArchived(activeThreadState);
   const isEnhancingInstructionForActiveThread =
     isEnhancingInstruction &&
     instructionEnhancingThreadId.length > 0 &&
     instructionEnhancingThreadId === activeThreadId;
-  const activeThreadSummaries = threadSummaries.filter(
-    (thread) => thread.deletedAt === null,
-  );
-  const archivedThreadSummaries = threadSummaries.filter(
-    (thread) => thread.deletedAt !== null,
-  );
-  const activeThreadOptions = buildThreadListOptions({
-    summaries: activeThreadSummaries,
-    threadRequestStateById,
-    renameActiveThreadId: activeThreadId,
-    activeThreadNameInput,
-  });
-  const archivedThreadOptions = buildThreadListOptions({
-    summaries: archivedThreadSummaries,
-    threadRequestStateById,
-  });
   const canSendMessage = canSendMessageByGuard({
     threadOperationPhase,
     isSending,
