@@ -1,16 +1,10 @@
-import { INSTRUCTION_ENHANCE_SYSTEM_PROMPT } from "~/lib/constants/instruction";
 import { includesAzureDeploymentName } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import {
-  applyInstructionUnifiedDiffPatch,
-  normalizeInstructionDiffPatchResponse,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-diff-patch";
+  buildInstructionEnhancementRequest,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhancement-request";
 import {
-  buildInstructionEnhanceMessage,
-  detectInstructionLanguage,
-  resolveInstructionFormatExtension,
-  resolveInstructionSourceFileName,
-  validateEnhancedInstructionFormat,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-format";
+  readInstructionEnhancementComparison,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhancement-response";
 import type {
   InstructionPromptHandlerDependencies,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-types";
@@ -70,85 +64,41 @@ export async function enhanceInstruction(
     return;
   }
 
-  const sourceFileName = resolveInstructionSourceFileName(
-    deps.readLoadedInstructionFileName(),
-  );
-  const instructionExtension = resolveInstructionFormatExtension(
-    sourceFileName,
+  const enhancementDraft = buildInstructionEnhancementRequest({
     currentInstruction,
-  );
-  const instructionLanguage = detectInstructionLanguage(currentInstruction);
-  const enhanceRequestMessage = buildInstructionEnhanceMessage({
-    instruction: currentInstruction,
-    extension: instructionExtension,
-    language: instructionLanguage,
+    loadedInstructionFileName: deps.readLoadedInstructionFileName(),
+    activeAzureTenantId: deps.readActiveAzureTenantId(),
+    utilityAzureConnection: activeUtilityAzureConnection,
+    deploymentName,
+    isUtilityReasoningEffortSupported:
+      deps.isUtilityReasoningEffortSupported,
+    effectiveUtilityReasoningEffort:
+      deps.readEffectiveUtilityReasoningEffort(),
   });
 
   deps.setInstructionEnhancingThreadId(enhanceThreadId);
   deps.setIsEnhancingInstruction(true);
 
   try {
-    const request = {
-      message: enhanceRequestMessage,
-      azureConfig: {
-        tenantId: deps.readActiveAzureTenantId(),
-        projectName: activeUtilityAzureConnection.projectName,
-        baseUrl: activeUtilityAzureConnection.baseUrl,
-        apiVersion: activeUtilityAzureConnection.apiVersion,
-        deploymentName,
-      },
-      supportsReasoningEffort: deps.isUtilityReasoningEffortSupported,
-      enhanceAgentInstruction: INSTRUCTION_ENHANCE_SYSTEM_PROMPT,
-      ...(deps.isUtilityReasoningEffortSupported
-        ? {
-            reasoningEffort: deps.readEffectiveUtilityReasoningEffort(),
-          }
-        : {}),
-    };
-
-    const payload = await deps.requestInstructionEnhancement(request);
+    const payload = await deps.requestInstructionEnhancement(
+      enhancementDraft.request,
+    );
     if (typeof payload.error === "string" && payload.error.trim()) {
       throw new Error(payload.error);
     }
 
-    const rawInstructionPatch =
-      typeof payload.message === "string" ? payload.message : "";
-    const normalizedInstructionPatch =
-      normalizeInstructionDiffPatchResponse(rawInstructionPatch);
-    if (!normalizedInstructionPatch) {
-      deps.setInstructionEnhanceSuccess("No changes were suggested.");
-      return;
-    }
-
-    const patchApplyResult = applyInstructionUnifiedDiffPatch(
+    const comparison = readInstructionEnhancementComparison({
       currentInstruction,
-      normalizedInstructionPatch,
-    );
-    if (!patchApplyResult.ok) {
-      throw new Error(patchApplyResult.error);
-    }
-
-    const normalizedEnhancedInstruction = patchApplyResult.value;
-    const formatValidation = validateEnhancedInstructionFormat(
-      normalizedEnhancedInstruction,
-      instructionExtension,
-    );
-    if (!formatValidation.ok) {
-      throw new Error(formatValidation.error);
-    }
-
-    if (normalizedEnhancedInstruction === currentInstruction) {
+      responseMessage: typeof payload.message === "string" ? payload.message : "",
+      instructionExtension: enhancementDraft.instructionExtension,
+      instructionLanguage: enhancementDraft.instructionLanguage,
+    });
+    if (!comparison) {
       deps.setInstructionEnhanceSuccess("No changes were suggested.");
       return;
     }
 
-    deps.setInstructionEnhanceComparison({
-      original: currentInstruction,
-      enhanced: normalizedEnhancedInstruction,
-      extension: instructionExtension,
-      language: instructionLanguage,
-      diffPatch: normalizedInstructionPatch,
-    });
+    deps.setInstructionEnhanceComparison(comparison);
     deps.setInstructionFileError(null);
     deps.setInstructionSaveError(null);
     deps.setInstructionSaveSuccess(null);
