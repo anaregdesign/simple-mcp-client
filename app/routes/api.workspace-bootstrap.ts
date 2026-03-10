@@ -1,6 +1,6 @@
 import {
   handleWorkspaceBootstrapLoader,
-} from "~/lib/server/http/workspace/workspace-bootstrap-loader";
+} from "~/lib/server/infrastructure/workspace/workspace-bootstrap-loader";
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
