@@ -103,7 +103,6 @@ type CreateSendMessageControllerOptions = {
   ) => void;
   saveThreadStateToDatabase: (
     thread: ThreadState,
-    signature: string,
   ) => Promise<boolean>;
   markAzureAuthRequired: () => void;
   sendMessage: SendMessageGateway;

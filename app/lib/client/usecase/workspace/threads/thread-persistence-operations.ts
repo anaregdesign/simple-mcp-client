@@ -71,7 +71,6 @@ type ThreadPersistenceDependencies = {
 export async function saveThreadStateToDatabase(
   deps: ThreadPersistenceDependencies,
   thread: ThreadState,
-  signature: string,
   options: {
     showBusy?: boolean;
     reportError?: boolean;
@@ -93,10 +92,7 @@ export async function saveThreadStateToDatabase(
 
   const expectedThreadId = persistencePlan.snapshot.id;
   const hasPersistedSignature = persistencePlan.hasSavedSignature;
-  const nextSignature =
-    signature === persistencePlan.signature
-      ? signature
-      : persistencePlan.signature;
+  const nextSignature = persistencePlan.signature;
   const method = hasPersistedSignature ? "PUT" : "POST";
   const requestSeq = deps.nextThreadSaveRequestSeq();
   if (showBusy) {
@@ -198,7 +194,6 @@ export async function saveThreadStateSilentlyIfNeeded(
   await saveThreadStateToDatabase(
     deps,
     persistencePlan.snapshot,
-    persistencePlan.signature,
     {
       showBusy: false,
       reportError: false,
@@ -235,7 +230,6 @@ export async function flushActiveThreadState(
   return await saveThreadStateToDatabase(
     deps,
     persistencePlan.snapshot,
-    persistencePlan.signature,
   );
 }
 
@@ -275,6 +269,5 @@ export async function saveActiveThreadNameInBackground(
   await saveThreadStateToDatabase(
     deps,
     persistencePlan.snapshot,
-    persistencePlan.signature,
   );
 }

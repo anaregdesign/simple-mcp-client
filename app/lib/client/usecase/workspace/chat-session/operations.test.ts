@@ -58,7 +58,6 @@ function createDependencies(
     isChatLocked?: boolean;
     saveThreadStateToDatabase?: (
       thread: ThreadState,
-      signature: string,
     ) => Promise<boolean>;
     assignThreadSendAbortController?: (
       threadId: string,
@@ -242,8 +241,8 @@ function createDependencies(
     },
     assignThreadSendAbortController:
       overrides.assignThreadSendAbortController ?? vi.fn(),
-    saveThreadStateToDatabase: async (thread: ThreadState, signature: string) =>
-      saveThreadStateToDatabase(thread, signature),
+    saveThreadStateToDatabase: async (thread: ThreadState) =>
+      saveThreadStateToDatabase(thread),
     sendMessageTransport: async (options: { signal: AbortSignal }) => {
       state.flow.push("send");
       return await sendMessageTransport(options);

@@ -89,7 +89,7 @@ function createDependencies(
     readThreadRequestState: vi.fn().mockReturnValue({ isSending: false }),
     updateThreadStateById: vi.fn(),
     updateThreadsState: vi.fn((updater) => updater(threads)),
-    hasSavedThreadSignature: vi.fn().mockReturnValue(false),
+    readSavedThreadSignature: vi.fn().mockReturnValue(undefined),
     setThreadsReady: vi.fn(),
     rememberThreadSaveSignature: vi.fn(),
     applyThreadState: vi.fn(),
@@ -197,7 +197,7 @@ describe("thread lifecycle operations", () => {
     const nextThread = createThread({ id: "thread-2", name: "New Thread" });
     const deps = createDependencies({
       createLocalThreadState: vi.fn(() => nextThread),
-      hasSavedThreadSignature: vi.fn().mockReturnValue(true),
+      readSavedThreadSignature: vi.fn().mockReturnValue("saved-signature"),
       buildThreadStateFromCurrentState: vi.fn((thread) => thread),
       readThreads: () => [createThread({ messages: [{ id: "message-1", role: "user", content: "hello", createdAt: "2026-03-10T00:00:00.000Z", turnId: "turn-1", attachments: [], skillActivations: [] }] })],
     });
@@ -234,7 +234,7 @@ describe("thread lifecycle operations", () => {
         threads = updater(threads);
         return threads;
       }),
-      hasSavedThreadSignature: vi.fn().mockReturnValue(false),
+      readSavedThreadSignature: vi.fn().mockReturnValue(undefined),
       readActiveThreadId: () => "thread-1",
     });
 
@@ -257,7 +257,9 @@ describe("thread lifecycle operations", () => {
         threads = updater(threads);
         return threads;
       }),
-      hasSavedThreadSignature: vi.fn((threadId: string) => threadId === "thread-2"),
+      readSavedThreadSignature: vi.fn((threadId: string) =>
+        threadId === "thread-2" ? "saved-signature" : undefined,
+      ),
       readActiveThreadId: () => "thread-1",
     });
 
@@ -279,7 +281,7 @@ describe("thread lifecycle operations", () => {
     });
     const deps = createDependencies({
       readThreads: () => threads,
-      hasSavedThreadSignature: vi.fn().mockReturnValue(true),
+      readSavedThreadSignature: vi.fn().mockReturnValue("saved-signature"),
       readActiveThreadId: () => "thread-1",
       loadThreads: vi.fn().mockImplementation(async () => {
         threads = [nextThread, createThread({ id: "thread-1", deletedAt: "2026-03-10T12:00:00.000Z" })];
@@ -302,7 +304,7 @@ describe("thread lifecycle operations", () => {
     });
     const deps = createDependencies({
       readThreads: () => threads,
-      hasSavedThreadSignature: vi.fn().mockReturnValue(true),
+      readSavedThreadSignature: vi.fn().mockReturnValue("saved-signature"),
       readActiveThreadId: () => "thread-1",
       loadThreads: vi.fn().mockImplementation(async () => {
         threads = [createThread({ id: "thread-1", deletedAt: "2026-03-10T12:00:00.000Z" })];

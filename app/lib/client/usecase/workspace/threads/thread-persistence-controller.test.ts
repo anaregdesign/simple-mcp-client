@@ -76,7 +76,7 @@ describe("createThreadPersistenceController", () => {
       logClientError: vi.fn(),
     });
 
-    await controller.saveThreadStateToDatabase(thread, "signature-1");
+    await controller.saveThreadStateToDatabase(thread);
     expect(saveThreadStateToDatabase).toHaveBeenCalledTimes(1);
     const persistenceDeps = vi.mocked(saveThreadStateToDatabase).mock.calls[0]?.[0];
     expect(persistenceDeps?.readActiveWorkspaceUserKey()).toBe("tenant::principal");

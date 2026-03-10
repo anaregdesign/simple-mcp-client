@@ -19,7 +19,6 @@ import type {
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import { buildThreadSaveSignature } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
@@ -96,7 +95,6 @@ type SendMessageOperationDependencies = {
   ) => void;
   saveThreadStateToDatabase: (
     thread: ThreadState,
-    signature: string,
   ) => Promise<boolean>;
   sendMessageTransport: (options: {
     requestPayload: ReturnType<typeof prepareSendMessageExecution>["requestPayload"];
@@ -209,10 +207,7 @@ export async function sendMessage(
     webSearchEnabled,
   });
 
-  const saved = await deps.saveThreadStateToDatabase(
-    preparedSend.threadSnapshot,
-    buildThreadSaveSignature(preparedSend.threadSnapshot),
-  );
+  const saved = await deps.saveThreadStateToDatabase(preparedSend.threadSnapshot);
   if (!saved) {
     return;
   }

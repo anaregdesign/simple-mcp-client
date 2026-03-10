@@ -180,7 +180,6 @@ describe("thread-persistence-operations", () => {
     const result = await saveThreadStateToDatabase(
       deps,
       state.threads[0]!,
-      signature,
     );
 
     expect(result).toBe(true);
@@ -224,7 +223,6 @@ describe("thread-persistence-operations", () => {
     const result = await saveThreadStateToDatabase(
       deps,
       state.threads[0]!,
-      signature,
     );
 
     expect(result).toBe(false);

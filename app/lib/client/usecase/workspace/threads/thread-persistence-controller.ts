@@ -96,7 +96,6 @@ export function createThreadPersistenceController(
   return {
     async saveThreadStateToDatabase(
       thread: ThreadState,
-      signature: string,
       saveOptions: {
         showBusy?: boolean;
         reportError?: boolean;
@@ -105,7 +104,6 @@ export function createThreadPersistenceController(
       return await saveThreadStateToDatabaseOperation(
         buildOperationDeps(),
         thread,
-        signature,
         saveOptions,
       );
     },

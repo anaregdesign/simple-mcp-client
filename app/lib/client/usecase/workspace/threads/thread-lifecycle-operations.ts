@@ -3,10 +3,11 @@ import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { readThreadResourceFromUnknown } from "~/lib/contracts/threads/parsers";
 import { convertThreadResourceToState } from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
 import {
-  buildThreadSaveSignature,
   hasThreadInteraction,
-  hasThreadPersistableState,
 } from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import {
+  canPersistThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-plan";
 import { upsertThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   ClientApiError,
@@ -43,8 +44,7 @@ export async function createThreadAndSwitch(
     if (
       currentThread &&
       currentThreadState &&
-      !hasThreadPersistableState(currentThreadState) &&
-      !deps.hasSavedThreadSignature(currentThread.id)
+      !canPersistThreadState(currentThreadState, deps.readSavedThreadSignature)
     ) {
       deps.applyThreadState(currentThread);
       return true;
@@ -143,8 +143,7 @@ export async function renameThread(
     return;
   }
 
-  const signature = buildThreadSaveSignature(renamedThread);
-  await deps.saveThreadStateToDatabase(renamedThread, signature);
+  await deps.saveThreadStateToDatabase(renamedThread);
 }
 
 export function cancelThreadProcessing(
@@ -253,11 +252,7 @@ export async function clearThread(
       deps.applyThreadState(targetThreadForSave);
     }
 
-    const signature = buildThreadSaveSignature(targetThreadForSave);
-    const saved = await deps.saveThreadStateToDatabase(
-      targetThreadForSave,
-      signature,
-    );
+    const saved = await deps.saveThreadStateToDatabase(targetThreadForSave);
     if (!saved) {
       return;
     }
@@ -326,7 +321,7 @@ export async function deleteThread(
       }
     }
 
-    if (!deps.hasSavedThreadSignature(threadId)) {
+    if (typeof deps.readSavedThreadSignature(threadId) !== "string") {
       const remainingThreads = deps.updateThreadsState((current) =>
         current.filter((thread) => thread.id !== threadId),
       );

@@ -62,7 +62,6 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
   ) => ThreadState;
   saveThreadStateToDatabase: (
     thread: ThreadState,
-    signature: string,
   ) => Promise<boolean>;
   saveActiveThreadNameInBackground: (
     threadId: string,
@@ -79,8 +78,8 @@ export function useWorkspaceThreadBackgroundEffects(
   options: UseWorkspaceThreadBackgroundEffectsOptions,
 ) {
   const persistThreadState = useEffectEvent(
-    async (thread: ThreadState, signature: string) => {
-      await options.saveThreadStateToDatabase(thread, signature);
+    async (thread: ThreadState) => {
+      await options.saveThreadStateToDatabase(thread);
     },
   );
 
@@ -145,10 +144,7 @@ export function useWorkspaceThreadBackgroundEffects(
     options.clearThreadSaveTimeout();
     options.threadSaveTimeoutRef.current = window.setTimeout(() => {
       options.threadSaveTimeoutRef.current = null;
-      void persistThreadState(
-        persistencePlan.snapshot,
-        persistencePlan.signature,
-      );
+      void persistThreadState(persistencePlan.snapshot);
     }, 450);
 
     return () => {

@@ -978,8 +978,8 @@ export function useWorkspace() {
     readThreadRequestState,
     updateThreadStateById,
     updateThreadsState,
-    hasSavedThreadSignature: (threadId) =>
-      threadSaveSignatureByIdRef.current.has(threadId),
+    readSavedThreadSignature: (threadId) =>
+      threadSaveSignatureByIdRef.current.get(threadId),
     setThreadsReady: () => {
       isThreadsReadyRef.current = true;
     },

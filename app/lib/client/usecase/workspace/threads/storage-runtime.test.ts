@@ -133,10 +133,7 @@ describe("createThreadStorageRuntime", () => {
       onAuthRequired: expect.any(Function),
     });
 
-    await runtime.saveThreadStateToDatabase(
-      thread,
-      "signature-1",
-    );
+    await runtime.saveThreadStateToDatabase(thread);
     await runtime.saveThreadStateSilentlyIfNeeded("thread-1");
     await runtime.flushActiveThreadState();
     await runtime.saveActiveThreadNameInBackground("thread-1", "Renamed");
@@ -144,7 +141,6 @@ describe("createThreadStorageRuntime", () => {
 
     expect(mockPersistenceController.saveThreadStateToDatabase).toHaveBeenCalledWith(
       thread,
-      "signature-1",
       {},
     );
     expect(mockPersistenceController.saveThreadStateSilentlyIfNeeded).toHaveBeenCalledWith(

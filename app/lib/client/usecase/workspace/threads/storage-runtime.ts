@@ -35,7 +35,6 @@ export function createThreadStorageRuntime(
   return {
     async saveThreadStateToDatabase(
       thread: ThreadState,
-      signature: string,
       saveOptions: {
         showBusy?: boolean;
         reportError?: boolean;
@@ -43,7 +42,6 @@ export function createThreadStorageRuntime(
     ): Promise<boolean> {
       return await threadPersistenceController.saveThreadStateToDatabase(
         thread,
-        signature,
         saveOptions,
       );
     },

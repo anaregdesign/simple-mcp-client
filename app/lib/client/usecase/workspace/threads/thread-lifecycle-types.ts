@@ -30,7 +30,7 @@ export type ThreadLifecycleHandlerDependencies = {
   updateThreadsState: (
     updater: (current: ThreadState[]) => ThreadState[],
   ) => ThreadState[];
-  hasSavedThreadSignature: (threadId: string) => boolean;
+  readSavedThreadSignature: (threadId: string) => string | undefined;
   setThreadsReady: () => void;
   rememberThreadSaveSignature: (thread: ThreadState) => void;
   applyThreadState: (thread: ThreadState) => void;
@@ -43,7 +43,6 @@ export type ThreadLifecycleHandlerDependencies = {
   ) => ThreadState;
   saveThreadStateToDatabase: (
     thread: ThreadState,
-    signature: string,
   ) => Promise<boolean>;
   flushActiveThreadState: () => Promise<boolean>;
   cancelThreadInProgressProcessing: (threadId: string) => boolean;
