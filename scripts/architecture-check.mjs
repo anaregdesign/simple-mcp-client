@@ -506,6 +506,30 @@ const checks = [
     ],
   },
   {
+    key: "legacyWorkspaceFilesUtility",
+    description:
+      "workspace generic files.ts utility bucket must stay retired in favor of narrow feature-local file helpers.",
+    rootPath: "app/lib/client/usecase/workspace/files.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/files.ts"],
+  },
+  {
+    key: "legacyWorkspaceNumbersUtility",
+    description:
+      "workspace generic numbers.ts utility bucket must stay retired in favor of narrow feature-local numeric helpers.",
+    rootPath: "app/lib/client/usecase/workspace/numbers.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/numbers.ts"],
+  },
+  {
+    key: "legacyWorkspaceIdsUtility",
+    description:
+      "workspace generic ids.ts utility bucket must stay retired in favor of the explicit runtime-id owner.",
+    rootPath: "app/lib/client/usecase/workspace/ids.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/ids.ts"],
+  },
+  {
     key: "legacyDesktopUpdaterRuntimeFile",
     description:
       "desktop-updater browser adapter must not live under client/usecase/workspace/desktop-updater/runtime.ts.",
@@ -536,6 +560,21 @@ const checks = [
       "-n",
       "document\\.|window\\.(addEventListener|removeEventListener)",
       "app/lib/client/usecase/workspace/layout/use-layout.ts",
+    ],
+  },
+  {
+    key: "workspaceLegacyUtilityImports",
+    description:
+      "workspace features must not import retired generic files.ts, numbers.ts, or ids.ts buckets.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/client/usecase/workspace/(files|numbers|ids)['\\\"]",
+      "app/lib/client/usecase/workspace",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
     ],
   },
   {
