@@ -495,6 +495,28 @@ const checks = [
     ],
   },
   {
+    key: "workspaceRuntimeLoggingOwnership",
+    description:
+      "use-workspace must reuse the runtime-logging Hook instead of installing global client logging inline.",
+    command: "rg",
+    args: [
+      "-n",
+      "installGlobalClientErrorLogging|createWorkspaceRuntimeLogging",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
+    key: "workspaceThreadSaveSchedulingOwnership",
+    description:
+      "use-workspace must reuse thread storage runtime scheduling instead of inlining deferred thread saves.",
+    command: "rg",
+    args: [
+      "-n",
+      "window\\.setTimeout\\(|saveThreadStateSilentlyIfNeeded\\(",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
     key: "legacyThreadMcpServerOperations",
     description:
       "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
