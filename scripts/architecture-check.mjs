@@ -451,6 +451,28 @@ const checks = [
     ],
   },
   {
+    key: "legacyDesktopUpdaterRuntimeFile",
+    description:
+      "desktop-updater browser adapter must not live under client/usecase/workspace/desktop-updater/runtime.ts.",
+    rootPath: "app/lib/client/usecase/workspace/desktop-updater/runtime.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/desktop-updater/runtime.ts",
+    ],
+  },
+  {
+    key: "desktopUpdaterBrowserAdapterOwnership",
+    description:
+      "desktop-updater browser adapter helpers must stay in client/infrastructure/browser.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (readDesktopApi|readDesktopUpdaterStatusFromUnknown)|type DesktopUpdaterApi =",
+      "app/lib/client/usecase/workspace/desktop-updater",
+    ],
+  },
+  {
     key: "legacyThreadMcpServerOperations",
     description:
       "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
