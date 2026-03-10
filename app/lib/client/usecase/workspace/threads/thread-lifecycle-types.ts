@@ -34,6 +34,7 @@ export type ThreadLifecycleHandlerDependencies = {
   setThreadsReady: () => void;
   rememberThreadSaveSignature: (thread: ThreadState) => void;
   applyThreadState: (thread: ThreadState) => void;
+  clearActiveThreadState: () => void;
   buildThreadStateFromCurrentState: (
     base: ThreadState,
     options?: {

@@ -87,19 +87,14 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
               thread.id,
             );
             const isDeleteDisabled =
-              isThreadOperationBusy ||
-              thread.isAwaitingResponse ||
-              thread.messageCount === 0;
+              isThreadOperationBusy || thread.isAwaitingResponse;
             const isClearDisabled =
               isThreadOperationBusy ||
               thread.isAwaitingResponse ||
               thread.messageCount === 0;
             const isCancelDisabled =
               isThreadOperationBusy || !thread.isAwaitingResponse;
-            const deleteButtonTitle =
-              thread.messageCount === 0
-                ? `Cannot delete thread ${thread.name} because it has no messages`
-                : `Delete thread ${thread.name}`;
+            const deleteButtonTitle = `Delete thread ${thread.name}`;
             const clearButtonTitle =
               thread.messageCount === 0
                 ? `Cannot clear thread ${thread.name} because it has no messages`

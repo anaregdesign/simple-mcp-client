@@ -156,19 +156,6 @@ export function presentDeleteThreadResult(
     };
   }
 
-  if (result.status === "empty") {
-    return {
-      kind: "error",
-      action: "delete_thread",
-      eventName: "thread_delete_disallowed_empty",
-      level: "warning",
-      statusCode: 409,
-      code: "thread_delete_disallowed_empty",
-      error: "Threads without messages cannot be deleted.",
-      message: "Threads without messages cannot be deleted.",
-    };
-  }
-
   return threadNotFoundPresentation("delete_thread");
 }
 

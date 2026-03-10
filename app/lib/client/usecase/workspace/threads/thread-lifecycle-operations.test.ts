@@ -3,6 +3,7 @@ import {
   cancelThreadProcessing,
   clearThread,
   createThreadAndSwitch,
+  deleteThread,
   renameThread,
   switchThread,
 } from "~/lib/client/usecase/workspace/threads/thread-lifecycle-operations";
@@ -53,6 +54,7 @@ function createDependencies(
     setThreadsReady: vi.fn(),
     rememberThreadSaveSignature: vi.fn(),
     applyThreadState: vi.fn(),
+    clearActiveThreadState: vi.fn(),
     buildThreadStateFromCurrentState: vi.fn((thread) => thread),
     saveThreadStateToDatabase: vi.fn().mockResolvedValue(true),
     flushActiveThreadState: vi.fn().mockResolvedValue(true),
@@ -181,6 +183,48 @@ describe("thread lifecycle operations", () => {
     );
     expect(deps.setActiveThreadNameInput).toHaveBeenCalledWith("New Name");
     expect(deps.saveThreadStateToDatabase).toHaveBeenCalled();
+  });
+
+  it("removes an unsaved empty active thread from local state", async () => {
+    let threads = [createThread()];
+    const deps = createDependencies({
+      readThreads: () => threads,
+      updateThreadsState: vi.fn((updater) => {
+        threads = updater(threads);
+        return threads;
+      }),
+      hasSavedThreadSignature: vi.fn().mockReturnValue(false),
+      readActiveThreadId: () => "thread-1",
+    });
+
+    await deleteThread(deps, "thread-1");
+
+    expect(threads).toEqual([]);
+    expect(deps.removeThreadRequestState).toHaveBeenCalledWith("thread-1");
+    expect(deps.clearActiveThreadState).toHaveBeenCalledTimes(1);
+    expect(deps.applyThreadState).not.toHaveBeenCalled();
+    expect(deps.loadThreads).not.toHaveBeenCalled();
+    expect(deps.endThreadOperation).toHaveBeenCalledWith("deleting");
+  });
+
+  it("switches to another active thread when removing an unsaved active thread", async () => {
+    const nextThread = createThread({ id: "thread-2", name: "Thread 2" });
+    let threads = [createThread(), nextThread];
+    const deps = createDependencies({
+      readThreads: () => threads,
+      updateThreadsState: vi.fn((updater) => {
+        threads = updater(threads);
+        return threads;
+      }),
+      hasSavedThreadSignature: vi.fn((threadId: string) => threadId === "thread-2"),
+      readActiveThreadId: () => "thread-1",
+    });
+
+    await deleteThread(deps, "thread-1");
+
+    expect(threads).toEqual([nextThread]);
+    expect(deps.applyThreadState).toHaveBeenCalledWith(nextThread);
+    expect(deps.clearActiveThreadState).not.toHaveBeenCalled();
   });
 
   it("records a notice when in-progress processing is canceled", () => {

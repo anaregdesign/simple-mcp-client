@@ -184,11 +184,6 @@ describe("thread-route-presentation", () => {
       statusCode: 200,
       eventName: "delete_thread_succeeded",
     });
-    expect(presentDeleteThreadResult({ status: "empty" })).toMatchObject({
-      kind: "error",
-      statusCode: 409,
-      code: "thread_delete_disallowed_empty",
-    });
     expect(presentRestoreThreadResult({ status: "not_found" })).toMatchObject({
       kind: "error",
       statusCode: 404,

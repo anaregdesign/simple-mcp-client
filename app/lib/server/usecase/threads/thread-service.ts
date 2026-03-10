@@ -154,9 +154,6 @@ export type LogicalDeleteThreadResult =
       status: "not_found";
     }
   | {
-      status: "empty";
-    }
-  | {
       status: "ok";
       thread: Thread;
     };
@@ -169,9 +166,6 @@ async function logicalDeleteThread(
   const existing = await repository.findByIdForUser(userId, threadId);
   if (!existing) {
     return { status: "not_found" };
-  }
-  if (!existing.canBeArchived()) {
-    return { status: "empty" };
   }
   if (existing.isArchived()) {
     return {

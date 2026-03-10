@@ -357,6 +357,7 @@ export function useWorkspace() {
     buildThreadStateFromCurrentState,
     setThreadSaveSignatures,
     applyThreadState,
+    clearActiveThreadState,
     showThreadReloadPlaceholder,
   } = useThreadShell({
     threadRequestStateById,
@@ -991,6 +992,7 @@ export function useWorkspace() {
       );
     },
     applyThreadState,
+    clearActiveThreadState,
     buildThreadStateFromCurrentState,
     saveThreadStateToDatabase: threadStorageRuntime.saveThreadStateToDatabase,
     flushActiveThreadState: threadStorageRuntime.flushActiveThreadState,

@@ -271,16 +271,22 @@ describe("/api/threads/:threadId", () => {
     expect(payload.error).toBe("Archived thread is read-only. Restore it from Archives to update.");
   });
 
-  it("returns 409 when deleting an empty thread", async () => {
-    logicalDeleteThread.mockResolvedValueOnce({ status: "empty" });
+  it("returns 200 when deleting an empty persisted thread", async () => {
+    logicalDeleteThread.mockResolvedValueOnce({
+      status: "ok",
+      thread: new Thread({
+        ...createThreadProps("thread-a"),
+        deletedAt: "2026-03-10T00:00:00.000Z",
+      }),
+    });
 
     const response = await action({
       request: new Request("http://localhost/api/threads/thread-a", { method: "DELETE" }),
       params: { threadId: "thread-a" },
     } as never);
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as { error?: string; thread?: { deletedAt?: string | null } };
 
-    expect(response.status).toBe(409);
-    expect(payload.error).toBe("Threads without messages cannot be deleted.");
+    expect(response.status).toBe(200);
+    expect(payload.thread?.deletedAt).toBe("2026-03-10T00:00:00.000Z");
   });
 });

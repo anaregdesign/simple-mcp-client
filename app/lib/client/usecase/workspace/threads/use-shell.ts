@@ -290,6 +290,14 @@ export function useThreadShell(options: UseThreadShellOptions) {
     }, 0);
   }
 
+  function clearActiveThreadState() {
+    activeThreadIdRef.current = "";
+    setActiveThreadId("");
+    setActiveThreadNameInput("");
+    options.resetPlaygroundSession();
+    options.resetInstructionEditor();
+  }
+
   function showThreadReloadPlaceholder(): void {
     const localThread = createLocalThreadState();
     isThreadsReadyRef.current = true;
@@ -353,6 +361,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     buildThreadStateFromCurrentState,
     setThreadSaveSignatures,
     applyThreadState,
+    clearActiveThreadState,
     showThreadReloadPlaceholder,
   };
 }

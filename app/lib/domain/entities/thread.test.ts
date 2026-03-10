@@ -48,7 +48,6 @@ describe("Thread", () => {
     const thread = new Thread(createThreadProps());
 
     expect(thread.isArchived()).toBe(false);
-    expect(thread.canBeArchived()).toBe(true);
   });
 
   it("returns defensive copies from getters", () => {
@@ -72,15 +71,15 @@ describe("Thread", () => {
     ).toBe("2026-01-03T00:00:00.000Z");
   });
 
-  it("rejects archive when the thread has no activity", () => {
+  it("allows archiving an empty thread", () => {
     const thread = new Thread({
       ...createThreadProps(),
       messages: [],
       skillSelections: [],
     });
 
-    expect(() => thread.archive("2026-01-03T00:00:00.000Z")).toThrow(
-      "Threads without messages or selected skills cannot be archived.",
+    expect(thread.archive("2026-01-03T00:00:00.000Z").deletedAt).toBe(
+      "2026-01-03T00:00:00.000Z",
     );
   });
 });

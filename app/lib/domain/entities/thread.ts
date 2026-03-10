@@ -215,24 +215,12 @@ export class Thread {
     return this.props.deletedAt !== null;
   }
 
-  canBeArchived(): boolean {
-    return (
-      this.props.messages.length > 0 || this.props.skillSelections.length > 0
-    );
-  }
-
   archive(deletedAt: string): Thread {
     const normalizedDeletedAt = deletedAt.trim();
     if (!normalizedDeletedAt) {
       throw new DomainError(
         "thread_deleted_at_required",
         "Thread deletedAt is required to archive a thread.",
-      );
-    }
-    if (!this.canBeArchived()) {
-      throw new DomainError(
-        "thread_archive_requires_activity",
-        "Threads without messages or selected skills cannot be archived.",
       );
     }
     if (this.isArchived()) {

@@ -311,10 +311,6 @@ export async function deleteThread(
     deps.setThreadError("Selected thread is not available.");
     return;
   }
-  if (!hasThreadInteraction(targetThread)) {
-    deps.setThreadError("Threads without messages cannot be deleted.");
-    return;
-  }
 
   if (deps.readThreadRequestState(threadId).isSending) {
     deps.setThreadError("Cannot delete a thread while a response is in progress.");
@@ -330,6 +326,32 @@ export async function deleteThread(
       if (!saved) {
         return;
       }
+    }
+
+    if (!deps.hasSavedThreadSignature(threadId)) {
+      const remainingThreads = deps.updateThreadsState((current) =>
+        current.filter((thread) => thread.id !== threadId),
+      );
+      deps.removeThreadRequestState(threadId);
+
+      if (threadId === currentThreadId) {
+        const nextActiveThread =
+          remainingThreads.find((thread) => thread.deletedAt === null) ?? null;
+        if (nextActiveThread) {
+          deps.applyThreadState(nextActiveThread);
+        } else {
+          deps.clearActiveThreadState();
+        }
+      }
+
+      deps.logClientInfo("delete_thread_succeeded", "Thread removed locally.", {
+        action: "delete_thread",
+        context: {
+          threadId,
+          localOnly: true,
+        },
+      });
+      return;
     }
 
     const payload = await threadsApiClient.deleteThread(threadId, {
