@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildSettingsTabProps,
   buildThreadsTabProps,
-} from "~/lib/client/usecase/workspace/selectors";
+} from "~/lib/client/usecase/workspace/config-panel/selectors";
 import { THREAD_INSTRUCTION_CONTEXT_OPTIONS } from "~/lib/contracts/threads/instruction-context";
 
 describe("buildSettingsTabProps", () => {

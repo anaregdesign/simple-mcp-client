@@ -2,141 +2,28 @@ import type {
   AzurePrincipalProfile,
   AzureProjectOption,
   AzureTenantOption,
-} from "~/lib/client/usecase/workspace/azure-parsers";
-import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
-import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import {
-  type WorkspaceMcpServerProfileOption,
-} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
+} from "~/lib/client/usecase/workspace/azure-settings/parsers";
 import type {
-  ChatCommandMenuView,
+  WorkspaceMcpServerProfileOption,
+} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
+import {
+  buildSkillRegistryGroups,
+  type SelectableSkillOption,
+} from "~/lib/client/usecase/workspace/skills-catalog/selectors";
+import type { ThreadListOption } from "~/lib/client/usecase/workspace/threads/thread-runtime";
+import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
+import type {
   InstructionLanguage,
   McpTransport,
   ReasoningEffort,
   ThemeMode,
 } from "~/lib/client/usecase/workspace/view-types";
-import type {
-  DesktopUpdaterActionState,
-  DesktopUpdaterStatus,
-} from "~/lib/client/usecase/workspace/desktop-updater/runtime";
-import type { ThreadListOption } from "~/lib/client/usecase/workspace/threads/thread-runtime";
-import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
 } from "~/lib/contracts/threads/instruction-context";
-import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import {
-  readSkillRegistryLabelFromSkillLocation,
-  readSkillRegistryOptionById,
-  SKILL_REGISTRY_OPTIONS,
-} from "~/lib/contracts/skills/registry";
-import type {
-  SkillCatalogEntry,
-  SkillRegistryCatalog,
-  ThreadSkillActivation,
-} from "~/lib/contracts/skills/types";
 
 type Callback = (...args: any[]) => void | Promise<void>;
 type RefLike<T> = { current: T | null };
-
-export type ChatCommandSuggestion = {
-  id: string;
-  label: string;
-  description: string;
-  detail: string;
-  isSelected: boolean;
-  isAvailable: boolean;
-};
-
-type SelectableSkillOption = {
-  name: string;
-  description: string;
-  location: string;
-  source: SkillCatalogEntry["source"] | "app_data";
-  badge: string;
-  isSelected: boolean;
-  isAvailable: boolean;
-};
-
-export function buildThreadSkillOptions(options: {
-  availableSkills: SkillCatalogEntry[];
-  selectedThreadSkills: ThreadSkillActivation[];
-}): SelectableSkillOption[] {
-  return buildSelectableSkillOptions({
-    availableSkills: options.availableSkills,
-    selectedSkills: options.selectedThreadSkills,
-    unavailableDescription:
-      "Saved for this thread, but the SKILL.md file is currently unavailable.",
-  });
-}
-
-export function buildMessageSkillActivationOptions(options: {
-  availableSkills: SkillCatalogEntry[];
-  selectedMessageSkillActivations: ThreadSkillActivation[];
-}): SelectableSkillOption[] {
-  return buildSelectableSkillOptions({
-    availableSkills: options.availableSkills,
-    selectedSkills: options.selectedMessageSkillActivations,
-    unavailableDescription:
-      "Added for this message, but the SKILL.md file is currently unavailable.",
-  });
-}
-
-export function buildSkillRegistryGroups(
-  skillRegistryCatalogs: SkillRegistryCatalog[],
-) {
-  if (skillRegistryCatalogs.length > 0) {
-    return skillRegistryCatalogs.map((registry) => ({
-      registryUrl:
-        readSkillRegistryOptionById(registry.registryId)?.sourceUrl ??
-        registry.repositoryUrl,
-      registryId: registry.registryId,
-      label: registry.registryLabel,
-      description: registry.registryDescription,
-      skillCount: registry.skills.length,
-      installedCount: registry.skills.filter((skill) => skill.isInstalled)
-        .length,
-      skills: [...registry.skills]
-        .sort((left, right) => {
-          if (left.isInstalled !== right.isInstalled) {
-            return left.isInstalled ? -1 : 1;
-          }
-
-          const byTag = (left.tag ?? "").localeCompare(right.tag ?? "");
-          if (byTag !== 0) {
-            return byTag;
-          }
-
-          return left.name.localeCompare(right.name);
-        })
-        .map((skill) => ({
-          id: skill.id,
-          name: skill.name,
-          description: skill.description,
-          detail: skill.isInstalled
-            ? `${skill.tag ? `Tag: ${skill.tag} · ` : ""}${
-                skill.isUpdateAvailable ? "Update available · " : ""
-              }Installed: ${skill.installLocation}`
-            : `${skill.tag ? `Tag: ${skill.tag} · ` : ""}Source: ${
-                skill.remotePath
-              }`,
-          isInstalled: skill.isInstalled,
-          isUpdateAvailable: skill.isUpdateAvailable,
-        })),
-    }));
-  }
-
-  return SKILL_REGISTRY_OPTIONS.map((registry) => ({
-    registryUrl: registry.sourceUrl,
-    registryId: registry.id,
-    label: registry.label,
-    description: registry.description,
-    skillCount: 0,
-    installedCount: 0,
-    skills: [],
-  }));
-}
 
 export function buildSettingsTabProps(options: {
   theme: ThemeMode;
@@ -209,7 +96,8 @@ export function buildSettingsTabProps(options: {
       isLoadingUtilityAzureDeployments:
         options.isLoadingUtilityAzureDeployments,
       azureConnections: options.azureConnections,
-      selectedUtilityAzureConnectionId: options.selectedUtilityAzureConnectionId,
+      selectedUtilityAzureConnectionId:
+        options.selectedUtilityAzureConnectionId,
       selectedUtilityAzureDeploymentName:
         options.selectedUtilityAzureDeploymentName,
       utilityAzureDeployments: options.utilityAzureDeployments,
@@ -483,253 +371,4 @@ export function buildSkillsTabProps(options: {
       onClearSkillRegistrySuccess: options.onClearSkillRegistrySuccess,
     },
   };
-}
-
-export function buildPlaygroundPanelProps(options: {
-  messages: ThreadMessage[];
-  threadOperationLogsByTurnId: Map<string, ThreadOperationLogEntry[]>;
-  isSending: boolean;
-  isThreadReadOnly: boolean;
-  desktopUpdaterStatus: DesktopUpdaterStatus;
-  desktopUpdaterActionState: DesktopUpdaterActionState;
-  isApplyingDesktopUpdate: boolean;
-  onCheckDesktopUpdates: Callback;
-  onApplyDesktopUpdate: Callback;
-  activeThreadName: string;
-  isThreadOperationBusy: boolean;
-  isCreatingThread: boolean;
-  onCreateThread: Callback;
-  onCancelThreadProcessing: Callback;
-  onCopyMessage: (content: string) => void;
-  onCopyOperationLog: (content: string) => void;
-  sendProgressMessages: string[];
-  activeTurnOperationLogs: ThreadOperationLogEntry[];
-  errorTurnOperationLogs: ThreadOperationLogEntry[];
-  endOfMessagesRef: RefLike<HTMLDivElement>;
-  systemNotice: string | null;
-  onClearSystemNotice: Callback;
-  error: string | null;
-  azureLoginError: string | null;
-  onSubmit: Callback;
-  chatInputRef: RefLike<HTMLTextAreaElement>;
-  messageAttachmentInputRef: RefLike<HTMLInputElement>;
-  messageAttachmentAccept: string;
-  messageAttachmentFormatHint: string;
-  draft: string;
-  messageAttachments: DraftChatAttachment[];
-  messageAttachmentError: string | null;
-  onDraftChange: Callback;
-  onInputSelect: Callback;
-  onOpenMessageAttachmentPicker: Callback;
-  onMessageAttachmentFileChange: Callback;
-  onRemoveMessageAttachment: (id: string) => void;
-  onInputKeyDown: Callback;
-  chatCommandMenu: ChatCommandMenuView | null;
-  onSelectChatCommandSuggestion: (id: string) => void;
-  onHighlightChatCommandSuggestion: (index: number) => void;
-  onCompositionStart: Callback;
-  onCompositionEnd: Callback;
-  isChatLocked: boolean;
-  isLoadingAzureConnections: boolean;
-  isLoadingAzureDeployments: boolean;
-  isAzureAuthRequired: boolean;
-  isStartingAzureLogin: boolean;
-  isStartingAzureLogout: boolean;
-  onChatAzureSelectorAction: (target: "project" | "deployment") => void;
-  azureConnections: AzureProjectOption[];
-  activeAzureConnectionId: string;
-  onProjectChange: (projectId: string) => void;
-  selectedAzureDeploymentName: string;
-  azureDeployments: string[];
-  onDeploymentChange: (deploymentName: string) => void;
-  reasoningEffort: ReasoningEffort;
-  reasoningEffortOptions: ReasoningEffort[];
-  isReasoningEffortSupported: boolean;
-  onReasoningEffortChange: (value: ReasoningEffort) => void;
-  webSearchEnabled: boolean;
-  onWebSearchEnabledChange: (value: boolean) => void;
-  maxMessageAttachmentFiles: number;
-  canSendMessage: boolean;
-  selectedThreadSkills: ThreadSkillActivation[];
-  selectedMessageSkillActivations: ThreadSkillActivation[];
-  onRemoveThreadSkill: (location: string) => void;
-  onRemoveMessageSkillActivation: (location: string) => void;
-  mcpServers: McpServerConfig[];
-  onRemoveMcpServer: (id: string) => void;
-}) {
-  return {
-    messages: options.messages,
-    threadOperationLogsByTurnId: options.threadOperationLogsByTurnId,
-    isSending: options.isSending,
-    isThreadReadOnly: options.isThreadReadOnly,
-    desktopUpdaterStatus: options.desktopUpdaterStatus,
-    desktopUpdaterActionState: options.desktopUpdaterActionState,
-    isApplyingDesktopUpdate: options.isApplyingDesktopUpdate,
-    onCheckDesktopUpdates: options.onCheckDesktopUpdates,
-    onApplyDesktopUpdate: options.onApplyDesktopUpdate,
-    activeThreadName: options.activeThreadName,
-    isThreadOperationBusy: options.isThreadOperationBusy,
-    isCreatingThread: options.isCreatingThread,
-    onCreateThread: options.onCreateThread,
-    onCancelThreadProcessing: options.onCancelThreadProcessing,
-    onCopyMessage: options.onCopyMessage,
-    onCopyOperationLog: options.onCopyOperationLog,
-    sendProgressMessages: options.sendProgressMessages,
-    activeTurnOperationLogs: options.activeTurnOperationLogs,
-    errorTurnOperationLogs: options.errorTurnOperationLogs,
-    endOfMessagesRef: options.endOfMessagesRef,
-    systemNotice: options.systemNotice,
-    onClearSystemNotice: options.onClearSystemNotice,
-    error: options.error,
-    azureLoginError: options.azureLoginError,
-    onSubmit: options.onSubmit,
-    chatInputRef: options.chatInputRef,
-    messageAttachmentInputRef: options.messageAttachmentInputRef,
-    messageAttachmentAccept: options.messageAttachmentAccept,
-    messageAttachmentFormatHint: options.messageAttachmentFormatHint,
-    draft: options.draft,
-    messageAttachments: options.messageAttachments,
-    messageAttachmentError: options.messageAttachmentError,
-    onDraftChange: options.onDraftChange,
-    onInputSelect: options.onInputSelect,
-    onOpenMessageAttachmentPicker: options.onOpenMessageAttachmentPicker,
-    onMessageAttachmentFileChange: options.onMessageAttachmentFileChange,
-    onRemoveMessageAttachment: options.onRemoveMessageAttachment,
-    onInputKeyDown: options.onInputKeyDown,
-    chatCommandMenu: options.chatCommandMenu,
-    onSelectChatCommandSuggestion: options.onSelectChatCommandSuggestion,
-    onHighlightChatCommandSuggestion:
-      options.onHighlightChatCommandSuggestion,
-    onCompositionStart: options.onCompositionStart,
-    onCompositionEnd: options.onCompositionEnd,
-    isChatLocked: options.isChatLocked,
-    isLoadingAzureConnections: options.isLoadingAzureConnections,
-    isLoadingAzureDeployments: options.isLoadingAzureDeployments,
-    isAzureAuthRequired: options.isAzureAuthRequired,
-    isStartingAzureLogin: options.isStartingAzureLogin,
-    isStartingAzureLogout: options.isStartingAzureLogout,
-    onChatAzureSelectorAction: options.onChatAzureSelectorAction,
-    azureConnections: options.azureConnections,
-    activeAzureConnectionId: options.activeAzureConnectionId,
-    onProjectChange: options.onProjectChange,
-    selectedAzureDeploymentName: options.selectedAzureDeploymentName,
-    azureDeployments: options.azureDeployments,
-    onDeploymentChange: options.onDeploymentChange,
-    reasoningEffort: options.reasoningEffort,
-    reasoningEffortOptions: options.reasoningEffortOptions,
-    isReasoningEffortSupported: options.isReasoningEffortSupported,
-    onReasoningEffortChange: options.onReasoningEffortChange,
-    webSearchEnabled: options.webSearchEnabled,
-    onWebSearchEnabledChange: options.onWebSearchEnabledChange,
-    maxMessageAttachmentFiles: options.maxMessageAttachmentFiles,
-    canSendMessage: options.canSendMessage,
-    selectedThreadSkills: options.selectedThreadSkills,
-    selectedMessageSkillActivations: options.selectedMessageSkillActivations,
-    onRemoveThreadSkill: options.onRemoveThreadSkill,
-    onRemoveMessageSkillActivation: options.onRemoveMessageSkillActivation,
-    mcpServers: options.mcpServers,
-    onRemoveMcpServer: options.onRemoveMcpServer,
-  };
-}
-
-export function buildUnauthenticatedPanelProps(options: {
-  isStartingAzureLogin: boolean;
-  onAzureLogin: Callback;
-}) {
-  return {
-    isStartingAzureLogin: options.isStartingAzureLogin,
-    onAzureLogin: options.onAzureLogin,
-  };
-}
-
-export function readSkillCommandSuggestions(
-  skillOptions: SelectableSkillOption[],
-  queryRaw: string,
-): ChatCommandSuggestion[] {
-  const query = queryRaw.trim().toLowerCase();
-  const maxSuggestions = 12;
-
-  return skillOptions
-    .filter((skill) => {
-      if (!skill.isAvailable) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      return (
-        skill.name.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query) ||
-        skill.location.toLowerCase().includes(query)
-      );
-    })
-    .slice(0, maxSuggestions)
-    .map((skill) => ({
-      id: skill.location,
-      label: skill.name,
-      description: skill.description,
-      detail: `${skill.badge} · ${skill.location}`,
-      isSelected: skill.isSelected,
-      isAvailable: skill.isAvailable,
-    }));
-}
-
-export function resolveSkillBadgeLabel(
-  source: SkillCatalogEntry["source"] | "app_data",
-  location: string,
-): string {
-  if (source === "workspace") {
-    return "Workspace";
-  }
-
-  if (source === "codex_home") {
-    return "CODEX_HOME";
-  }
-
-  const registryLabel = readSkillRegistryLabelFromSkillLocation(location);
-  return registryLabel ?? "App Data";
-}
-
-function buildSelectableSkillOptions(options: {
-  availableSkills: SkillCatalogEntry[];
-  selectedSkills: ThreadSkillActivation[];
-  unavailableDescription: string;
-}): SelectableSkillOption[] {
-  const availableSkillLocationSet = new Set(
-    options.availableSkills.map((skill) => skill.location),
-  );
-  const selectedSkillLocationSet = new Set(
-    options.selectedSkills.map((selection) => selection.location),
-  );
-
-  return [
-    ...options.availableSkills.map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      location: skill.location,
-      source: skill.source,
-      badge: resolveSkillBadgeLabel(skill.source, skill.location),
-      isSelected: selectedSkillLocationSet.has(skill.location),
-      isAvailable: true,
-    })),
-    ...options.selectedSkills
-      .filter((selection) => !availableSkillLocationSet.has(selection.location))
-      .map((selection) => ({
-        name: selection.name,
-        description: options.unavailableDescription,
-        location: selection.location,
-        source: "app_data" as const,
-        badge: resolveSkillBadgeLabel("app_data", selection.location),
-        isSelected: true,
-        isAvailable: false,
-      })),
-  ].sort((left, right) => {
-    if (left.isSelected !== right.isSelected) {
-      return left.isSelected ? -1 : 1;
-    }
-
-    return left.name.localeCompare(right.name);
-  });
 }

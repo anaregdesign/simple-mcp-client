@@ -8,7 +8,7 @@ import {
   prepareSendMessageExecution,
   type SendMessageTransportResult,
   validateSendPreconditions,
-} from "~/lib/client/usecase/workspace/send-message-usecase";
+} from "~/lib/client/usecase/workspace/chat-session/usecase";
 import { isThreadPhaseBlockingSend } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";

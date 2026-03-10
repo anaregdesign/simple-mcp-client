@@ -8,7 +8,7 @@ import {
   executeSendMessageTransport,
   prepareSendMessageExecution,
   validateSendPreconditions,
-} from "~/lib/client/usecase/workspace/send-message-usecase";
+} from "~/lib/client/usecase/workspace/chat-session/usecase";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {

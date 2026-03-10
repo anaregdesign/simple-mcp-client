@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   createChatComposerHandlers,
-} from "~/lib/client/usecase/workspace/chat-composer-handlers";
+} from "~/lib/client/usecase/workspace/chat-composer/handlers";
 import type {
   ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";

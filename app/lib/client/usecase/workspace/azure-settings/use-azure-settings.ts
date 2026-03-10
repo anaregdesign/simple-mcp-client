@@ -19,7 +19,7 @@ import {
   azureSessionApiClient,
 } from "~/lib/client/infrastructure/api/azure-session-api-client";
 import { ClientApiError, mapApiError } from "~/lib/client/infrastructure/api/api-client";
-import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
+import { isLikelyChatAzureAuthError } from "./errors";
 import {
   buildAzureProjectsLoadResult,
   isAzureProjectsLoadReady,
@@ -27,7 +27,7 @@ import {
   resolveAzureTenantOptions,
   resolveInitialAzureProjectId,
   shouldUseCachedAzureProjectCatalog,
-} from "~/lib/client/usecase/workspace/azure-runtime";
+} from "./runtime";
 import {
   readAzureDeploymentList,
   readAzurePrincipalProfileFromUnknown,
@@ -37,7 +37,7 @@ import {
   readAzureSelectionFromUnknown,
   readAzureTenantList,
   readTenantIdFromUnknown,
-} from "~/lib/client/usecase/workspace/azure-parsers";
+} from "./parsers";
 import {
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";

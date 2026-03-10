@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
-vi.mock("~/lib/client/usecase/workspace/send-message-operations", () => ({
+vi.mock("~/lib/client/usecase/workspace/chat-session/operations", () => ({
   sendMessage: vi.fn(async () => {}),
 }));
 
-vi.mock("~/lib/client/usecase/workspace/send-message-usecase", () => ({
+vi.mock("~/lib/client/usecase/workspace/chat-session/usecase", () => ({
   executeSendMessageTransport: vi.fn(async () => ({
     assistantMessage: "assistant response",
     threadEnvironment: {},
@@ -16,13 +16,13 @@ vi.mock("~/lib/client/usecase/workspace/send-message-usecase", () => ({
 
 import {
   sendMessage as sendMessageOperation,
-} from "~/lib/client/usecase/workspace/send-message-operations";
+} from "~/lib/client/usecase/workspace/chat-session/operations";
 import {
   executeSendMessageTransport,
-} from "~/lib/client/usecase/workspace/send-message-usecase";
+} from "~/lib/client/usecase/workspace/chat-session/usecase";
 import {
   createSendMessageController,
-} from "~/lib/client/usecase/workspace/send-message-controller";
+} from "~/lib/client/usecase/workspace/chat-session/controller";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {

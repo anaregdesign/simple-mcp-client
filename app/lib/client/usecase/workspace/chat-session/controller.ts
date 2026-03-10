@@ -2,10 +2,10 @@ import type { MutableRefObject } from "react";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import {
   sendMessage as sendMessageOperation,
-} from "~/lib/client/usecase/workspace/send-message-operations";
+} from "~/lib/client/usecase/workspace/chat-session/operations";
 import {
   executeSendMessageTransport,
-} from "~/lib/client/usecase/workspace/send-message-usecase";
+} from "~/lib/client/usecase/workspace/chat-session/usecase";
 import {
   findThreadStateById,
 } from "~/lib/client/usecase/workspace/threads/thread-runtime";

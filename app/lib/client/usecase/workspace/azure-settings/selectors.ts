@@ -2,7 +2,7 @@ import { DEFAULT_REASONING_EFFORT } from "~/lib/constants/chat";
 import type {
   AzureDeploymentOption,
   AzureProjectOption,
-} from "~/lib/client/usecase/workspace/azure-parsers";
+} from "./parsers";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import { readAzureDeploymentCacheKey, readAzureTenantCacheKey } from "./handlers";
 import type { AzureSettingsState } from "./types";

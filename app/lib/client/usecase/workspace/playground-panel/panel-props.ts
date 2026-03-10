@@ -1,7 +1,7 @@
 import { CHAT_ATTACHMENT_MAX_FILES } from "~/lib/constants/chat";
 import {
   buildPlaygroundPanelProps,
-} from "~/lib/client/usecase/workspace/selectors";
+} from "~/lib/client/usecase/workspace/playground-panel/selectors";
 
 type PlaygroundPanelPropsOptions = Parameters<typeof buildPlaygroundPanelProps>[0];
 

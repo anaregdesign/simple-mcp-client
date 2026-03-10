@@ -5,9 +5,9 @@ import type {
   AzureProjectOption,
   AzureSelectionPreference,
   AzureTenantOption,
-} from "~/lib/client/usecase/workspace/azure-parsers";
+} from "./parsers";
 import type { ReasoningEffort, ThemeMode } from "~/lib/client/usecase/workspace/view-types";
-import type { AzureProjectsLoadResult } from "~/lib/client/usecase/workspace/azure-runtime";
+import type { AzureProjectsLoadResult } from "./runtime";
 
 export type AzureProjectCatalogCacheEntry = {
   tenantId: string;

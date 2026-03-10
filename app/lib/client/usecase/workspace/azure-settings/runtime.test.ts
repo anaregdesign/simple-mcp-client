@@ -9,7 +9,7 @@ import {
   resolveAzureTenantOptions,
   resolveInitialAzureProjectId,
   shouldUseCachedAzureProjectCatalog,
-} from "~/lib/client/usecase/workspace/azure-runtime";
+} from "~/lib/client/usecase/workspace/azure-settings/runtime";
 
 describe("resolveAzureTenantOptions", () => {
   it("deduplicates tenants and appends active tenant when missing", () => {

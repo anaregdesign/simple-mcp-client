@@ -12,7 +12,7 @@ import {
   buildSettingsTabProps,
   buildSkillsTabProps,
   buildThreadsTabProps,
-} from "~/lib/client/usecase/workspace/selectors";
+} from "~/lib/client/usecase/workspace/config-panel/selectors";
 import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 
 type SettingsTabBuilderOptions = Parameters<typeof buildSettingsTabProps>[0];

@@ -6,7 +6,7 @@ import type {
 import type {
   AzureDeploymentOption,
   AzureProjectOption,
-} from "~/lib/client/usecase/workspace/azure-parsers";
+} from "~/lib/client/usecase/workspace/azure-settings/parsers";
 import { includesAzureDeploymentName } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import {
   applyInstructionUnifiedDiffPatch,

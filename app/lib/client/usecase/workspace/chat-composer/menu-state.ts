@@ -3,7 +3,9 @@ import {
   type ChatCommandMatch,
 } from "~/lib/client/usecase/workspace/chat-composer/commands";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
-import type { ChatCommandSuggestion } from "~/lib/client/usecase/workspace/selectors";
+import type {
+  ChatCommandSuggestion,
+} from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import type { ChatCommandMenuView } from "~/lib/client/usecase/workspace/view-types";
 
 export type ChatCommandProvider = {

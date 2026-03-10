@@ -19,7 +19,9 @@ import {
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import { readFileAsDataUrl } from "~/lib/client/infrastructure/browser/file-data-url";
 import { createId } from "~/lib/client/usecase/workspace/ids";
-import type { ChatCommandSuggestion } from "~/lib/client/usecase/workspace/selectors";
+import type {
+  ChatCommandSuggestion,
+} from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import type {
   ChatCommandMenuView,
   MainViewTab,

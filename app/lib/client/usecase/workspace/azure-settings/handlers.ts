@@ -1,6 +1,6 @@
 import type {
   AzureDeploymentOption,
-} from "~/lib/client/usecase/workspace/azure-parsers";
+} from "./parsers";
 import type {
   AzureDeploymentCatalogCacheByTenantProjectKey,
   AzureProjectCatalogCacheByTenantId,

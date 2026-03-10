@@ -1,5 +1,7 @@
 import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
-import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
+import {
+  isLikelyChatAzureAuthError,
+} from "~/lib/client/usecase/workspace/azure-settings/errors";
 import {
   filterReasoningEffortOptionsForWebSearch,
   isWebSearchCompatibleReasoningEffort,

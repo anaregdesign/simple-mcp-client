@@ -138,7 +138,7 @@ import {
 import { useAzureSettings } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
   buildUnauthenticatedPanelProps,
-} from "~/lib/client/usecase/workspace/selectors";
+} from "~/lib/client/usecase/workspace/unauthenticated-panel/selectors";
 import {
   buildMessageSkillActivationOptions,
   buildSkillRegistryGroups,
@@ -151,7 +151,7 @@ import {
 import {
   createChatComposerHandlers,
   resizeChatComposerInput,
-} from "~/lib/client/usecase/workspace/chat-composer-handlers";
+} from "~/lib/client/usecase/workspace/chat-composer/handlers";
 import {
   deriveActiveChatCommandMenuState,
   type ChatCommandProvider,
@@ -196,7 +196,7 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-title-controller";
 import {
   createSendMessageController,
-} from "~/lib/client/usecase/workspace/send-message-controller";
+} from "~/lib/client/usecase/workspace/chat-session/controller";
 import {
   clearMcpServerEditState as clearMcpServerEditStateOperation,
   createWorkspaceMcpProfileOperationDeps,

@@ -2,7 +2,7 @@
  * Test module verifying errors behavior.
  */
 import { describe, expect, it } from "vitest";
-import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
+import { isLikelyChatAzureAuthError } from "./errors";
 
 describe("isLikelyChatAzureAuthError", () => {
   it("returns true for typical Azure auth failures", () => {
