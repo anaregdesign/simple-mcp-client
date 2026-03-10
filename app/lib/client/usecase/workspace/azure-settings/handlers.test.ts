@@ -35,6 +35,9 @@ import {
   azureSelectionApiClient,
 } from "~/lib/client/infrastructure/api/azure-selection-api-client";
 import {
+  azureSessionApiClient,
+} from "~/lib/client/infrastructure/api/azure-session-api-client";
+import {
   createAzureSettingsHandlers,
 } from "./handlers";
 import type {
@@ -352,5 +355,63 @@ describe("createAzureSettingsHandlers", () => {
         reasoningEffort: "high",
       },
     });
+  });
+
+  it("runs azure login through session operations and clears auth-required state", async () => {
+    const harness = createHarness({
+      isAzureAuthRequired: true,
+    });
+    vi.mocked(azureSessionApiClient.startSession).mockResolvedValue({
+      message: "Azure login completed.",
+    });
+    vi.mocked(azureProjectsApiClient.loadProjects).mockResolvedValue({
+      authRequired: false,
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+      principal: null,
+      tenants: [],
+      projects: [],
+    });
+    vi.mocked(azureSelectionApiClient.loadSelection).mockResolvedValue({
+      selection: null,
+    });
+
+    await harness.handlers.handleAzureLogin();
+
+    expect(vi.mocked(azureSessionApiClient.startSession)).toHaveBeenCalledWith("");
+    expect(harness.readState().isStartingAzureLogin).toBe(false);
+    expect(harness.readState().isAzureAuthRequired).toBe(false);
+    expect(harness.options.setSystemNotice).toHaveBeenLastCalledWith(
+      "Azure login completed.",
+    );
+  });
+
+  it("reports pending tenant switch after interactive tenant change", async () => {
+    const harness = createHarness();
+    harness.options.activeAzureTenantIdRef.current = "tenant-a";
+    vi.mocked(azureSessionApiClient.startSession).mockResolvedValue({
+      message: "Azure login completed.",
+    });
+    vi.mocked(azureProjectsApiClient.loadProjects).mockResolvedValue({
+      authRequired: false,
+      tenantId: "tenant-b",
+      principalId: "principal-b",
+      principal: null,
+      tenants: [],
+      projects: [],
+    });
+    vi.mocked(azureSelectionApiClient.loadSelection).mockResolvedValue({
+      selection: null,
+    });
+
+    await harness.handlers.handleAzureTenantChange("tenant-c");
+
+    expect(vi.mocked(azureSessionApiClient.startSession)).toHaveBeenCalledWith(
+      "tenant-c",
+    );
+    expect(harness.readState().azureTenantSwitchError).toBe(
+      "Azure tenant switch is still applying. Retry Azure Login if this persists.",
+    );
+    expect(harness.readState().isSwitchingAzureTenant).toBe(false);
   });
 });

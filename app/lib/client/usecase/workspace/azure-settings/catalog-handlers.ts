@@ -9,7 +9,7 @@ import type {
   AzureSettingsHandlers,
 } from "./types";
 
-type AzureCatalogHandlers = Pick<
+export type AzureCatalogHandlers = Pick<
   AzureSettingsHandlers,
   | "cancelAzureDeploymentLoad"
   | "clearWorkspaceMcpServerProfileLoginRetryTimeout"
