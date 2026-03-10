@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  clearThreadSaveSignatures,
   readSavedThreadSignature,
   rememberThreadSaveSignature,
   setThreadSaveSignatures,
+  writeThreadSaveSignature,
 } from "~/lib/client/usecase/workspace/threads/thread-save-signatures";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
@@ -38,6 +40,16 @@ describe("threads/thread-save-signatures", () => {
     rememberThreadSaveSignature(signatureMap, thread);
 
     expect(readSavedThreadSignature(signatureMap, "thread-1")).toBeTypeOf("string");
+  });
+
+  it("writes and clears explicit signatures", () => {
+    const signatureMap = new Map<string, string>();
+
+    writeThreadSaveSignature(signatureMap, "thread-1", "signature-1");
+    expect(readSavedThreadSignature(signatureMap, "thread-1")).toBe("signature-1");
+
+    clearThreadSaveSignatures(signatureMap);
+    expect(readSavedThreadSignature(signatureMap, "thread-1")).toBeUndefined();
   });
 
   it("replaces signatures using the latest thread list", () => {

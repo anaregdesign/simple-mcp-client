@@ -50,16 +50,17 @@ describe("createThreadPersistenceController", () => {
     const activeWorkspaceUserKeyRef = { current: "tenant::principal" };
     const activeThreadIdRef = { current: "thread-1" };
     const threadsRef = { current: [thread] };
-    const threadSaveSignatureByIdRef = {
-      current: new Map<string, string>(),
-    };
+    const threadSaveSignatures = new Map<string, string>();
     const threadSaveRequestSeqRef = { current: 0 };
 
     const controller = createThreadPersistenceController({
       activeWorkspaceUserKeyRef,
       activeThreadIdRef,
       threadsRef,
-      threadSaveSignatureByIdRef,
+      readSavedThreadSignature: (threadId) => threadSaveSignatures.get(threadId),
+      writeThreadSaveSignature: (threadId, signature) => {
+        threadSaveSignatures.set(threadId, signature);
+      },
       threadSaveRequestSeqRef,
       setIsSavingThread: vi.fn(),
       markAzureAuthRequired: vi.fn(),

@@ -16,9 +16,11 @@ import {
   createLocalThreadState as createLocalThreadStateOperation,
 } from "./local-thread-state";
 import {
+  clearThreadSaveSignatures as clearThreadSaveSignaturesOperation,
   readSavedThreadSignature as readSavedThreadSignatureOperation,
   rememberThreadSaveSignature as rememberThreadSaveSignatureOperation,
   setThreadSaveSignatures as setThreadSaveSignaturesOperation,
+  writeThreadSaveSignature as writeThreadSaveSignatureOperation,
 } from "./thread-save-signatures";
 import { createThreadRequestStateController } from "./request-state";
 import { createThreadStateUpdaters } from "./state-updaters";
@@ -202,7 +204,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     isThreadsReadyRef.current = false;
     activeThreadIdRef.current = "";
     isApplyingThreadStateRef.current = false;
-    threadSaveSignatureByIdRef.current.clear();
+    clearThreadSaveSignaturesOperation(threadSaveSignatureByIdRef.current);
     setThreadsState([]);
     setActiveThreadId("");
     setActiveThreadNameInput("");
@@ -272,6 +274,14 @@ export function useThreadShell(options: UseThreadShellOptions) {
     rememberThreadSaveSignatureOperation(threadSaveSignatureByIdRef.current, thread);
   }
 
+  function writeThreadSaveSignature(threadId: string, signature: string): void {
+    writeThreadSaveSignatureOperation(
+      threadSaveSignatureByIdRef.current,
+      threadId,
+      signature,
+    );
+  }
+
   function applyThreadState(thread: ThreadState) {
     isApplyingThreadStateRef.current = true;
 
@@ -329,7 +339,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     threadTitleRefreshTimeoutRef,
     threadLoadRequestSeqRef,
     threadSaveRequestSeqRef,
-    threadSaveSignatureByIdRef,
     threadRequestStateByIdRef,
     threadSendAbortControllerByIdRef,
     setThreadsState,
@@ -356,6 +365,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     buildThreadStateFromCurrentState,
     readSavedThreadSignature,
     rememberThreadSaveSignature,
+    writeThreadSaveSignature,
     setThreadSaveSignatures,
     applyThreadState,
     clearActiveThreadState,

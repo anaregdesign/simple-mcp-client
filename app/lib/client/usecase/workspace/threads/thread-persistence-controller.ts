@@ -13,7 +13,8 @@ type CreateThreadPersistenceControllerOptions = {
   activeWorkspaceUserKeyRef: MutableRefObject<string>;
   activeThreadIdRef: MutableRefObject<string>;
   threadsRef: MutableRefObject<ThreadState[]>;
-  threadSaveSignatureByIdRef: MutableRefObject<Map<string, string>>;
+  readSavedThreadSignature: (threadId: string) => string | undefined;
+  writeThreadSaveSignature: (threadId: string, signature: string) => void;
   threadSaveRequestSeqRef: MutableRefObject<number>;
   setIsSavingThread: (value: boolean) => void;
   markAzureAuthRequired: () => void;
@@ -69,11 +70,8 @@ export function createThreadPersistenceController(
       readActiveWorkspaceUserKey: () => options.activeWorkspaceUserKeyRef.current,
       readActiveThreadId: () => options.activeThreadIdRef.current,
       readThreads: () => options.threadsRef.current,
-      readSavedThreadSignature: (threadId: string) =>
-        options.threadSaveSignatureByIdRef.current.get(threadId),
-      writeThreadSaveSignature: (threadId: string, signature: string) => {
-        options.threadSaveSignatureByIdRef.current.set(threadId, signature);
-      },
+      readSavedThreadSignature: options.readSavedThreadSignature,
+      writeThreadSaveSignature: options.writeThreadSaveSignature,
       nextThreadSaveRequestSeq: () => {
         options.threadSaveRequestSeqRef.current += 1;
         return options.threadSaveRequestSeqRef.current;
