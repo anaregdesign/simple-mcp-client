@@ -14,7 +14,6 @@ import {
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
-import type { WorkspaceInteractionAction } from "~/lib/client/usecase/workspace/reducer";
 import {
   buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
   createLocalThreadState as createLocalThreadStateOperation,
@@ -27,6 +26,7 @@ import {
   writeThreadSaveSignature as writeThreadSaveSignatureOperation,
 } from "./thread-save-signatures";
 import { createThreadRequestStateController } from "./thread-request-state-controller";
+import type { ThreadRequestStateAction } from "./thread-request-state-store";
 import { createThreadStateUpdaters } from "./state-updaters";
 import type { ThreadRequestState } from "./thread-request-state";
 import {
@@ -37,7 +37,7 @@ import {
 
 type UseThreadShellOptions = {
   threadRequestStateById: Record<string, ThreadRequestState>;
-  dispatchWorkspaceInteraction: Dispatch<WorkspaceInteractionAction>;
+  dispatchThreadRequestState: Dispatch<ThreadRequestStateAction>;
   readDefaultThreadMcpServers: () => McpServerConfig[];
   readCurrentThreadDraftState: () => {
     reasoningEffort: ThreadState["reasoningEffort"];
@@ -207,7 +207,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
   } = createThreadRequestStateController({
     threadRequestStateByIdRef,
     threadSendAbortControllerByIdRef,
-    dispatchWorkspaceInteraction: options.dispatchWorkspaceInteraction,
+    dispatchThreadRequestState: options.dispatchThreadRequestState,
   });
 
   function clearThreadsState(nextError: string | null = null) {
@@ -230,7 +230,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     setIsSavingThread(false);
     options.resetPlaygroundSession();
     options.resetInstructionEditor();
-    options.dispatchWorkspaceInteraction({
+    options.dispatchThreadRequestState({
       type: "thread_request_state/reset_all",
     });
   }
@@ -325,7 +325,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     const localThread = createLocalThreadState();
     setThreadsReady();
     setThreadsState([localThread]);
-    options.dispatchWorkspaceInteraction({
+    options.dispatchThreadRequestState({
       type: "thread_request_state/reset_all",
     });
     applyThreadState(localThread);

@@ -1,13 +1,11 @@
 import { DEFAULT_THREAD_REQUEST_STATE } from "~/lib/constants/client";
-import {
-  createInitialWorkspaceInteractionState,
-  type WorkspaceInteractionState,
-} from "~/lib/client/usecase/workspace/state";
-import type {
-  ThreadRequestState,
-} from "~/lib/client/usecase/workspace/threads/thread-request-state";
+import type { ThreadRequestState } from "./thread-request-state";
 
-export type WorkspaceInteractionAction =
+export type ThreadRequestStateCollection = {
+  threadRequestStateById: Record<string, ThreadRequestState>;
+};
+
+export type ThreadRequestStateAction =
   | { type: "thread_request_state/reset_all" }
   | {
       type: "thread_request_state/set";
@@ -20,13 +18,19 @@ export type WorkspaceInteractionAction =
       validThreadIds: string[];
     };
 
-export function workspaceInteractionReducer(
-  state: WorkspaceInteractionState,
-  action: WorkspaceInteractionAction,
-): WorkspaceInteractionState {
+export function createInitialThreadRequestStateCollection(): ThreadRequestStateCollection {
+  return {
+    threadRequestStateById: {},
+  };
+}
+
+export function threadRequestStateReducer(
+  state: ThreadRequestStateCollection,
+  action: ThreadRequestStateAction,
+): ThreadRequestStateCollection {
   switch (action.type) {
     case "thread_request_state/reset_all":
-      return createInitialWorkspaceInteractionState();
+      return createInitialThreadRequestStateCollection();
     case "thread_request_state/set": {
       const threadId = action.threadId.trim();
       if (!threadId) {
@@ -82,7 +86,7 @@ export function workspaceInteractionReducer(
 }
 
 export function readThreadRequestStateById(
-  state: WorkspaceInteractionState,
+  state: ThreadRequestStateCollection,
   threadIdRaw: string,
 ): ThreadRequestState {
   const threadId = threadIdRaw.trim();

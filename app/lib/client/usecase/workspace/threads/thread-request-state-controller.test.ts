@@ -3,7 +3,7 @@ import { createThreadRequestStateController } from "~/lib/client/usecase/workspa
 
 describe("threads/thread-request-state-controller", () => {
   it("updates request state through the reducer action", () => {
-    const dispatchWorkspaceInteraction = vi.fn();
+    const dispatchThreadRequestState = vi.fn();
     const controller = createThreadRequestStateController({
       threadRequestStateByIdRef: {
         current: {
@@ -17,7 +17,7 @@ describe("threads/thread-request-state-controller", () => {
         },
       },
       threadSendAbortControllerByIdRef: { current: new Map() },
-      dispatchWorkspaceInteraction,
+      dispatchThreadRequestState,
     });
 
     controller.updateThreadRequestState("thread-1", (current) => ({
@@ -25,7 +25,7 @@ describe("threads/thread-request-state-controller", () => {
       isSending: true,
     }));
 
-    expect(dispatchWorkspaceInteraction).toHaveBeenCalledWith({
+    expect(dispatchThreadRequestState).toHaveBeenCalledWith({
       type: "thread_request_state/set",
       threadId: "thread-1",
       nextState: {
@@ -52,7 +52,7 @@ describe("threads/thread-request-state-controller", () => {
     const controller = createThreadRequestStateController({
       threadRequestStateByIdRef: { current: states },
       threadSendAbortControllerByIdRef: { current: new Map() },
-      dispatchWorkspaceInteraction: vi.fn((action) => {
+      dispatchThreadRequestState: vi.fn((action) => {
         if (action.type === "thread_request_state/set") {
           states[action.threadId] = action.nextState;
         }
@@ -95,7 +95,7 @@ describe("threads/thread-request-state-controller", () => {
       threadSendAbortControllerByIdRef: {
         current: new Map([["thread-1", abortController]]),
       },
-      dispatchWorkspaceInteraction: vi.fn((action) => {
+      dispatchThreadRequestState: vi.fn((action) => {
         if (action.type === "thread_request_state/set") {
           states[action.threadId] = action.nextState;
         }

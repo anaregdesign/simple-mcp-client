@@ -1,8 +1,8 @@
 import type { Dispatch, MutableRefObject } from "react";
 import {
   readThreadRequestStateById,
-  type WorkspaceInteractionAction,
-} from "~/lib/client/usecase/workspace/reducer";
+  type ThreadRequestStateAction,
+} from "./thread-request-state-store";
 import type { ThreadRequestState } from "./thread-request-state";
 
 type CreateThreadRequestStateControllerOptions = {
@@ -10,7 +10,7 @@ type CreateThreadRequestStateControllerOptions = {
   threadSendAbortControllerByIdRef: MutableRefObject<
     Map<string, AbortController>
   >;
-  dispatchWorkspaceInteraction: Dispatch<WorkspaceInteractionAction>;
+  dispatchThreadRequestState: Dispatch<ThreadRequestStateAction>;
 };
 
 export function createThreadRequestStateController(
@@ -33,7 +33,7 @@ export function createThreadRequestStateController(
       return;
     }
 
-    options.dispatchWorkspaceInteraction({
+    options.dispatchThreadRequestState({
       type: "thread_request_state/set",
       threadId,
       nextState: updater(readThreadRequestState(threadId)),

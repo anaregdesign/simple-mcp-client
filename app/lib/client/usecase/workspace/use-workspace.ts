@@ -86,12 +86,10 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import {
+  createInitialThreadRequestStateCollection,
   readThreadRequestStateById,
-  workspaceInteractionReducer,
-} from "~/lib/client/usecase/workspace/reducer";
-import {
-  createInitialWorkspaceInteractionState,
-} from "~/lib/client/usecase/workspace/state";
+  threadRequestStateReducer,
+} from "~/lib/client/usecase/workspace/threads/thread-request-state-store";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import {
@@ -281,12 +279,13 @@ export function useWorkspace() {
     clearMcpServerEditState,
     populateMcpServerFormForEdit,
   } = useMcpProfileForm();
-  const [workspaceInteractionState, dispatchWorkspaceInteraction] = useReducer(
-    workspaceInteractionReducer,
+  const [threadRequestStateCollection, dispatchThreadRequestState] = useReducer(
+    threadRequestStateReducer,
     undefined,
-    createInitialWorkspaceInteractionState,
+    createInitialThreadRequestStateCollection,
   );
-  const threadRequestStateById = workspaceInteractionState.threadRequestStateById;
+  const threadRequestStateById =
+    threadRequestStateCollection.threadRequestStateById;
   const {
     threads,
     setThreads,
@@ -344,7 +343,7 @@ export function useWorkspace() {
     showThreadReloadPlaceholder,
   } = useThreadShell({
     threadRequestStateById,
-    dispatchWorkspaceInteraction,
+    dispatchThreadRequestState,
     readDefaultThreadMcpServers: () =>
       workspaceMcpServerProfilesRef.current.filter(
         (server) => server.connectOnThreadCreate === true,
@@ -427,7 +426,7 @@ export function useWorkspace() {
 
   // Derived UI state and view models consumed by panel props.
   const activeThreadRequestState = readThreadRequestStateById(
-    workspaceInteractionState,
+    threadRequestStateCollection,
     activeThreadId,
   );
   const isSending = activeThreadRequestState.isSending;
@@ -772,7 +771,7 @@ export function useWorkspace() {
         setThreadSaveSignatures,
         setThreadsState,
         pruneThreadRequestState: (validThreadIds) => {
-          dispatchWorkspaceInteraction({
+          dispatchThreadRequestState({
             type: "thread_request_state/prune",
             validThreadIds,
           });
@@ -964,7 +963,7 @@ export function useWorkspace() {
     createLocalThreadState,
     loadThreads: threadStorageRuntime.loadThreads,
     removeThreadRequestState: (threadId) => {
-      dispatchWorkspaceInteraction({
+      dispatchThreadRequestState({
         type: "thread_request_state/remove",
         threadId,
       });
