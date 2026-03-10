@@ -25,11 +25,10 @@ describe("threads/state-updaters", () => {
   }
 
   it("updates a thread in place through the current collection", () => {
-    const threadsRef = { current: [createThread()] };
-    let latestThreads = threadsRef.current;
+    let latestThreads = [createThread()];
     const controller = createThreadStateUpdaters({
-      threadsRef,
-      setThreads: (value) => {
+      readThreads: () => latestThreads,
+      writeThreads: (value) => {
         latestThreads = value;
       },
     });
@@ -43,11 +42,10 @@ describe("threads/state-updaters", () => {
   });
 
   it("appends messages and operation logs with cloned payloads", () => {
-    const threadsRef = { current: [createThread()] };
-    let latestThreads = threadsRef.current;
+    let latestThreads = [createThread()];
     const controller = createThreadStateUpdaters({
-      threadsRef,
-      setThreads: (value) => {
+      readThreads: () => latestThreads,
+      writeThreads: (value) => {
         latestThreads = value;
       },
     });
@@ -80,11 +78,10 @@ describe("threads/state-updaters", () => {
   });
 
   it("applies thread environment updates", () => {
-    const threadsRef = { current: [createThread()] };
-    let latestThreads = threadsRef.current;
+    let latestThreads = [createThread()];
     const controller = createThreadStateUpdaters({
-      threadsRef,
-      setThreads: (value) => {
+      readThreads: () => latestThreads,
+      writeThreads: (value) => {
         latestThreads = value;
       },
     });

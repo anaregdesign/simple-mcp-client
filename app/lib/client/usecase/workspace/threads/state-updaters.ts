@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
 import { upsertThreadOperationLogEntry } from "~/lib/domain/value-objects/thread-operation-log";
 import {
@@ -10,24 +9,22 @@ import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 
 type CreateThreadStateUpdatersOptions = {
-  threadsRef: MutableRefObject<ThreadState[]>;
-  setThreads: (value: ThreadState[]) => void;
+  readThreads: () => ThreadState[];
+  writeThreads: (value: ThreadState[]) => void;
 };
 
 export function createThreadStateUpdaters(
   options: CreateThreadStateUpdatersOptions,
 ) {
   function setThreadsState(nextThreads: ThreadState[]): void {
-    options.threadsRef.current = nextThreads;
-    options.setThreads(nextThreads);
+    options.writeThreads(nextThreads);
   }
 
   function updateThreadsState(
     updater: (current: ThreadState[]) => ThreadState[],
   ): ThreadState[] {
-    const nextThreads = updater(options.threadsRef.current);
-    options.threadsRef.current = nextThreads;
-    options.setThreads(nextThreads);
+    const nextThreads = updater(options.readThreads());
+    options.writeThreads(nextThreads);
     return nextThreads;
   }
 

@@ -150,8 +150,11 @@ export function useThreadShell(options: UseThreadShellOptions) {
     appendThreadOperationLogToThreadState,
     applyThreadEnvironmentToThreadState,
   } = createThreadStateUpdaters({
-    threadsRef,
-    setThreads,
+    readThreads: () => threadsRef.current,
+    writeThreads: (value) => {
+      threadsRef.current = value;
+      setThreads(value);
+    },
   });
 
   function beginThreadOperation(
@@ -205,8 +208,15 @@ export function useThreadShell(options: UseThreadShellOptions) {
     cancelThreadInProgressProcessing,
     appendThreadProgressMessage,
   } = createThreadRequestStateController({
-    threadRequestStateByIdRef,
-    threadSendAbortControllerByIdRef,
+    readThreadRequestStateByIdRecord: () => threadRequestStateByIdRef.current,
+    readThreadSendAbortController: (threadId) =>
+      threadSendAbortControllerByIdRef.current.get(threadId),
+    writeThreadSendAbortController: (threadId, abortController) => {
+      threadSendAbortControllerByIdRef.current.set(threadId, abortController);
+    },
+    clearThreadSendAbortControllerEntry: (threadId) => {
+      threadSendAbortControllerByIdRef.current.delete(threadId);
+    },
     dispatchThreadRequestState: options.dispatchThreadRequestState,
   });
 
@@ -382,8 +392,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     setThreadOperationPhase,
     threadError,
     setThreadError,
-    threadRequestStateByIdRef,
-    threadSendAbortControllerByIdRef,
     setThreadsState,
     updateThreadsState,
     updateThreadStateById,

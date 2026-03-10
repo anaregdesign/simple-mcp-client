@@ -1,22 +1,30 @@
 import { describe, expect, it, vi } from "vitest";
 import { createThreadRequestStateController } from "~/lib/client/usecase/workspace/threads/thread-request-state-controller";
+import type { ThreadRequestState } from "~/lib/client/usecase/workspace/threads/thread-request-state";
 
 describe("threads/thread-request-state-controller", () => {
   it("updates request state through the reducer action", () => {
     const dispatchThreadRequestState = vi.fn();
-    const controller = createThreadRequestStateController({
-      threadRequestStateByIdRef: {
-        current: {
-          "thread-1": {
-            isSending: false,
-            sendProgressMessages: [],
-            activeTurnId: null,
-            lastErrorTurnId: null,
-            error: null,
-          },
-        },
+    const threadRequestStateById: Record<string, ThreadRequestState> = {
+      "thread-1": {
+        isSending: false,
+        sendProgressMessages: [],
+        activeTurnId: null,
+        lastErrorTurnId: null,
+        error: null,
       },
-      threadSendAbortControllerByIdRef: { current: new Map() },
+    };
+    const threadSendAbortControllerById = new Map<string, AbortController>();
+    const controller = createThreadRequestStateController({
+      readThreadRequestStateByIdRecord: () => threadRequestStateById,
+      readThreadSendAbortController: (threadId) =>
+        threadSendAbortControllerById.get(threadId),
+      writeThreadSendAbortController: (threadId, abortController) => {
+        threadSendAbortControllerById.set(threadId, abortController);
+      },
+      clearThreadSendAbortControllerEntry: (threadId) => {
+        threadSendAbortControllerById.delete(threadId);
+      },
       dispatchThreadRequestState,
     });
 
@@ -39,7 +47,7 @@ describe("threads/thread-request-state-controller", () => {
   });
 
   it("deduplicates trailing progress messages and caps history", () => {
-    const states: Record<string, any> = {
+    const threadRequestStateById: Record<string, ThreadRequestState> = {
       "thread-1": {
         isSending: true,
         sendProgressMessages: ["already there"],
@@ -48,25 +56,35 @@ describe("threads/thread-request-state-controller", () => {
         error: null,
       },
     };
+    const threadSendAbortControllerById = new Map<string, AbortController>();
 
     const controller = createThreadRequestStateController({
-      threadRequestStateByIdRef: { current: states },
-      threadSendAbortControllerByIdRef: { current: new Map() },
+      readThreadRequestStateByIdRecord: () => threadRequestStateById,
+      readThreadSendAbortController: (threadId) =>
+        threadSendAbortControllerById.get(threadId),
+      writeThreadSendAbortController: (threadId, abortController) => {
+        threadSendAbortControllerById.set(threadId, abortController);
+      },
+      clearThreadSendAbortControllerEntry: (threadId) => {
+        threadSendAbortControllerById.delete(threadId);
+      },
       dispatchThreadRequestState: vi.fn((action) => {
         if (action.type === "thread_request_state/set") {
-          states[action.threadId] = action.nextState;
+          threadRequestStateById[action.threadId] = action.nextState;
         }
       }),
     });
 
     controller.appendThreadProgressMessage("thread-1", "already there");
-    expect(states["thread-1"].sendProgressMessages).toEqual(["already there"]);
+    expect(threadRequestStateById["thread-1"]?.sendProgressMessages).toEqual([
+      "already there",
+    ]);
 
     for (let index = 0; index < 10; index += 1) {
       controller.appendThreadProgressMessage("thread-1", `step-${index}`);
     }
 
-    expect(states["thread-1"].sendProgressMessages).toEqual([
+    expect(threadRequestStateById["thread-1"]?.sendProgressMessages).toEqual([
       "step-2",
       "step-3",
       "step-4",
@@ -80,7 +98,7 @@ describe("threads/thread-request-state-controller", () => {
 
   it("cancels the active send request and clears the state", () => {
     const abortController = new AbortController();
-    const states: Record<string, any> = {
+    const threadRequestStateById: Record<string, ThreadRequestState> = {
       "thread-1": {
         isSending: true,
         sendProgressMessages: ["working"],
@@ -89,27 +107,36 @@ describe("threads/thread-request-state-controller", () => {
         error: "error",
       },
     };
+    const threadSendAbortControllerById = new Map<string, AbortController>([
+      ["thread-1", abortController],
+    ]);
 
     const controller = createThreadRequestStateController({
-      threadRequestStateByIdRef: { current: states },
-      threadSendAbortControllerByIdRef: {
-        current: new Map([["thread-1", abortController]]),
+      readThreadRequestStateByIdRecord: () => threadRequestStateById,
+      readThreadSendAbortController: (threadId) =>
+        threadSendAbortControllerById.get(threadId),
+      writeThreadSendAbortController: (threadId, nextAbortController) => {
+        threadSendAbortControllerById.set(threadId, nextAbortController);
+      },
+      clearThreadSendAbortControllerEntry: (threadId) => {
+        threadSendAbortControllerById.delete(threadId);
       },
       dispatchThreadRequestState: vi.fn((action) => {
         if (action.type === "thread_request_state/set") {
-          states[action.threadId] = action.nextState;
+          threadRequestStateById[action.threadId] = action.nextState;
         }
       }),
     });
 
     expect(controller.cancelThreadInProgressProcessing("thread-1")).toBe(true);
     expect(abortController.signal.aborted).toBe(true);
-    expect(states["thread-1"]).toEqual({
+    expect(threadRequestStateById["thread-1"]).toEqual({
       isSending: false,
       sendProgressMessages: [],
       activeTurnId: null,
       lastErrorTurnId: null,
       error: null,
     });
+    expect(threadSendAbortControllerById.has("thread-1")).toBe(false);
   });
 });

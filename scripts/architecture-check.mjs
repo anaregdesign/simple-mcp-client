@@ -366,6 +366,30 @@ const checks = [
     ],
   },
   {
+    key: "threadPrivateRuntimeRefOwnership",
+    description:
+      "Thread private state updaters and request-state controller must use reader callbacks instead of raw refs.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|threadsRef|threadRequestStateByIdRef|threadSendAbortControllerByIdRef",
+      "app/lib/client/usecase/workspace/threads/state-updaters.ts",
+      "app/lib/client/usecase/workspace/threads/thread-request-state-controller.ts",
+    ],
+  },
+  {
+    key: "threadPrivateRuntimeRefSurface",
+    description:
+      "use-shell must not leak thread request-state runtime refs through its return surface.",
+    command: "rg",
+    args: [
+      "-n",
+      "-P",
+      "^\\s+threadRequestStateByIdRef,|^\\s+threadSendAbortControllerByIdRef,",
+      "app/lib/client/usecase/workspace/threads/use-shell.ts",
+    ],
+  },
+  {
     key: "legacyChatSessionUsecaseFile",
     description:
       "chat-session generic usecase.ts owner must stay split into send-message intent modules.",

@@ -1,4 +1,4 @@
-import type { Dispatch, MutableRefObject } from "react";
+import type { Dispatch } from "react";
 import {
   readThreadRequestStateById,
   type ThreadRequestStateAction,
@@ -6,10 +6,15 @@ import {
 import type { ThreadRequestState } from "./thread-request-state";
 
 type CreateThreadRequestStateControllerOptions = {
-  threadRequestStateByIdRef: MutableRefObject<Record<string, ThreadRequestState>>;
-  threadSendAbortControllerByIdRef: MutableRefObject<
-    Map<string, AbortController>
-  >;
+  readThreadRequestStateByIdRecord: () => Record<string, ThreadRequestState>;
+  readThreadSendAbortController: (
+    threadId: string,
+  ) => AbortController | undefined;
+  writeThreadSendAbortController: (
+    threadId: string,
+    abortController: AbortController,
+  ) => void;
+  clearThreadSendAbortControllerEntry: (threadId: string) => void;
   dispatchThreadRequestState: Dispatch<ThreadRequestStateAction>;
 };
 
@@ -19,7 +24,7 @@ export function createThreadRequestStateController(
   function readThreadRequestState(threadId: string): ThreadRequestState {
     return readThreadRequestStateById(
       {
-        threadRequestStateById: options.threadRequestStateByIdRef.current,
+        threadRequestStateById: options.readThreadRequestStateByIdRecord(),
       },
       threadId,
     );
@@ -49,10 +54,7 @@ export function createThreadRequestStateController(
       return;
     }
 
-    options.threadSendAbortControllerByIdRef.current.set(
-      normalizedThreadId,
-      abortController,
-    );
+    options.writeThreadSendAbortController(normalizedThreadId, abortController);
   }
 
   function clearThreadSendAbortController(
@@ -65,16 +67,13 @@ export function createThreadRequestStateController(
     }
 
     if (abortController) {
-      const current =
-        options.threadSendAbortControllerByIdRef.current.get(
-          normalizedThreadId,
-        );
+      const current = options.readThreadSendAbortController(normalizedThreadId);
       if (current !== abortController) {
         return;
       }
     }
 
-    options.threadSendAbortControllerByIdRef.current.delete(normalizedThreadId);
+    options.clearThreadSendAbortControllerEntry(normalizedThreadId);
   }
 
   function cancelThreadInProgressProcessing(threadIdRaw: string): boolean {
@@ -88,11 +87,10 @@ export function createThreadRequestStateController(
       return false;
     }
 
-    const abortController =
-      options.threadSendAbortControllerByIdRef.current.get(threadId);
+    const abortController = options.readThreadSendAbortController(threadId);
     if (abortController) {
       abortController.abort();
-      options.threadSendAbortControllerByIdRef.current.delete(threadId);
+      options.clearThreadSendAbortControllerEntry(threadId);
     }
 
     updateThreadRequestState(threadId, (current) => ({
