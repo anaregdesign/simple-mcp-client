@@ -74,7 +74,7 @@ import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
   type ThreadInstructionContextToggleKey,
 } from "~/lib/contracts/threads/instruction-context";
-import type { ThreadState, ThreadSummary, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadState, ThreadSummary } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
@@ -189,21 +189,18 @@ import {
   saveMcpServerToConfig as saveMcpServerToConfigOperation,
 } from "~/lib/client/usecase/workspace/workspace-mcp-server-profile-operations";
 import {
-  flushActiveThreadState as flushActiveThreadStateOperation,
-  saveActiveThreadNameInBackground as saveActiveThreadNameInBackgroundOperation,
-  saveThreadStateSilentlyIfNeeded as saveThreadStateSilentlyIfNeededOperation,
-  saveThreadStateToDatabase as saveThreadStateToDatabaseOperation,
-} from "~/lib/client/usecase/workspace/thread-persistence-operations";
-import {
-  loadThreads as loadThreadsOperation,
-} from "~/lib/client/usecase/workspace/thread-loading-operations";
-import {
   refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
 } from "~/lib/client/usecase/workspace/thread-title-operations";
 import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
 } from "~/lib/client/usecase/workspace/types";
+import {
+  createThreadLoadingController,
+} from "~/lib/client/usecase/workspace/thread-loading-controller";
+import {
+  createThreadPersistenceController,
+} from "~/lib/client/usecase/workspace/thread-persistence-controller";
 
 /**
  * Client runtime controller.
@@ -1334,41 +1331,6 @@ export function useWorkspace() {
     }
   }
 
-  function buildThreadPersistenceOperationDeps() {
-    return {
-      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-      readActiveThreadId: () => activeThreadIdRef.current,
-      readThreads: () => threadsRef.current,
-      hasSavedThreadSignature: (threadId: string) =>
-        threadSaveSignatureByIdRef.current.has(threadId),
-      readSavedThreadSignature: (threadId: string) =>
-        threadSaveSignatureByIdRef.current.get(threadId),
-      writeThreadSaveSignature: (threadId: string, signature: string) => {
-        threadSaveSignatureByIdRef.current.set(threadId, signature);
-      },
-      nextThreadSaveRequestSeq: () => {
-        threadSaveRequestSeqRef.current += 1;
-        return threadSaveRequestSeqRef.current;
-      },
-      readThreadSaveRequestSeq: () => threadSaveRequestSeqRef.current,
-      setIsSavingThread,
-      markAzureAuthRequired,
-      setThreadError,
-      updateThreadsState,
-      setActiveThreadNameInput,
-      shouldPersistThreadState,
-      buildThreadStateFromCurrentState,
-      clearThreadNameSaveTimeout,
-      clearThreadSaveTimeout,
-      saveThread: (payload: ThreadWritePayload, options: {
-        isUpdate?: boolean;
-        onAuthRequired?: () => void;
-      }) => threadsApiClient.saveThread(payload, options),
-      logClientInfo,
-      logClientError,
-    };
-  }
-
   function buildThreadTitleOperationDeps() {
     return {
       isArchivedThread,
@@ -1406,40 +1368,6 @@ export function useWorkspace() {
       saveActiveThreadNameInBackground,
       isSwitchingAzureTenant,
       reportAzureTenantSwitchPending,
-      logClientError,
-    };
-  }
-
-  function buildThreadLoadingOperationDeps() {
-    return {
-      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-      clearThreadsState,
-      nextThreadLoadRequestSeq: () => {
-        threadLoadRequestSeqRef.current += 1;
-        return threadLoadRequestSeqRef.current;
-      },
-      readThreadLoadRequestSeq: () => threadLoadRequestSeqRef.current,
-      beginThreadOperation: () => beginThreadOperation("loading"),
-      endThreadOperation: () => endThreadOperation("loading"),
-      setThreadError,
-      loadThreads: (options: { onAuthRequired?: () => void }) =>
-        threadsApiClient.loadThreads(options),
-      markAzureAuthRequired,
-      setThreadSaveSignatures,
-      setThreadsState,
-      pruneThreadRequestState: (validThreadIds: string[]) => {
-        dispatchWorkspaceInteraction({
-          type: "thread_request_state/prune",
-          validThreadIds,
-        });
-      },
-      setThreadsReady: () => {
-        isThreadsReadyRef.current = true;
-      },
-      readPreferredThreadId: () => activeThreadIdRef.current,
-      applyThreadState,
-      createLocalThreadState: () => createLocalThreadState(),
-      logClientInfo,
       logClientError,
     };
   }
@@ -1621,6 +1549,51 @@ export function useWorkspace() {
     beginThreadOperation("loading");
   }
 
+  const threadPersistenceController = createThreadPersistenceController({
+    activeWorkspaceUserKeyRef,
+    activeThreadIdRef,
+    threadsRef,
+    threadSaveSignatureByIdRef,
+    threadSaveRequestSeqRef,
+    setIsSavingThread,
+    markAzureAuthRequired,
+    setThreadError,
+    updateThreadsState,
+    setActiveThreadNameInput,
+    shouldPersistThreadState,
+    buildThreadStateFromCurrentState,
+    clearThreadNameSaveTimeout,
+    clearThreadSaveTimeout,
+    saveThread: (payload, options) => threadsApiClient.saveThread(payload, options),
+    logClientInfo,
+    logClientError,
+  });
+
+  const threadLoadingController = createThreadLoadingController({
+    activeWorkspaceUserKeyRef,
+    activeThreadIdRef,
+    threadLoadRequestSeqRef,
+    isThreadsReadyRef,
+    clearThreadsState,
+    beginLoadingThreadOperation: () => beginThreadOperation("loading"),
+    endLoadingThreadOperation: () => endThreadOperation("loading"),
+    setThreadError,
+    loadThreads: (options) => threadsApiClient.loadThreads(options),
+    markAzureAuthRequired,
+    setThreadSaveSignatures,
+    setThreadsState,
+    pruneThreadRequestState: (validThreadIds) => {
+      dispatchWorkspaceInteraction({
+        type: "thread_request_state/prune",
+        validThreadIds,
+      });
+    },
+    applyThreadState,
+    createLocalThreadState,
+    logClientInfo,
+    logClientError,
+  });
+
   // Thread persistence and title-refresh orchestration.
   async function saveThreadStateToDatabase(
     thread: ThreadState,
@@ -1630,8 +1603,7 @@ export function useWorkspace() {
       reportError?: boolean;
     } = {},
   ): Promise<boolean> {
-    return await saveThreadStateToDatabaseOperation(
-      buildThreadPersistenceOperationDeps(),
+    return await threadPersistenceController.saveThreadStateToDatabase(
       thread,
       signature,
       options,
@@ -1641,24 +1613,18 @@ export function useWorkspace() {
   async function saveThreadStateSilentlyIfNeeded(
     threadId: string,
   ): Promise<void> {
-    await saveThreadStateSilentlyIfNeededOperation(
-      buildThreadPersistenceOperationDeps(),
-      threadId,
-    );
+    await threadPersistenceController.saveThreadStateSilentlyIfNeeded(threadId);
   }
 
   async function flushActiveThreadState(): Promise<boolean> {
-    return await flushActiveThreadStateOperation(
-      buildThreadPersistenceOperationDeps(),
-    );
+    return await threadPersistenceController.flushActiveThreadState();
   }
 
   async function saveActiveThreadNameInBackground(
     threadId: string,
     name: string,
   ): Promise<void> {
-    await saveActiveThreadNameInBackgroundOperation(
-      buildThreadPersistenceOperationDeps(),
+    await threadPersistenceController.saveActiveThreadNameInBackground(
       threadId,
       name,
     );
@@ -1721,7 +1687,7 @@ export function useWorkspace() {
 
   // Thread lifecycle actions (load/create/rename/archive/switch).
   async function loadThreads(): Promise<void> {
-    await loadThreadsOperation(buildThreadLoadingOperationDeps());
+    await threadLoadingController.loadThreads();
   }
 
   const {
