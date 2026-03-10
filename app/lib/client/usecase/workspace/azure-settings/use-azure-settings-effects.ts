@@ -3,6 +3,11 @@ import {
   useEffectEvent,
   type MutableRefObject,
 } from "react";
+import {
+  applyBrowserTheme,
+  installAzureConnectionRefreshLoop,
+  isBrowserDocumentVisible,
+} from "~/lib/client/infrastructure/browser/azure-settings";
 import type {
   AzureProjectOption,
   AzureSelectionPreference,
@@ -57,10 +62,7 @@ export function useAzureSettingsEffects(
     void options.loadAzureProjects();
   });
   const refreshAzureConnections = useEffectEvent(async () => {
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState !== "visible"
-    ) {
+    if (!isBrowserDocumentVisible()) {
       return;
     }
 
@@ -92,9 +94,7 @@ export function useAzureSettingsEffects(
   );
 
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.theme = options.state.theme;
-    }
+    applyBrowserTheme(options.state.theme);
   }, [options.state.theme]);
 
   useEffect(() => {
@@ -126,17 +126,7 @@ export function useAzureSettingsEffects(
       return;
     }
 
-    const intervalId = window.setInterval(() => {
-      void refreshAzureConnections();
-    }, 4000);
-    window.addEventListener("focus", refreshAzureConnections);
-    document.addEventListener("visibilitychange", refreshAzureConnections);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", refreshAzureConnections);
-      document.removeEventListener("visibilitychange", refreshAzureConnections);
-    };
+    return installAzureConnectionRefreshLoop(refreshAzureConnections);
   }, [options.state.isAzureAuthRequired]);
 
   useEffect(() => {
