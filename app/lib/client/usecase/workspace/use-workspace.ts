@@ -15,7 +15,6 @@ import type {
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
 import {
-  CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   DEFAULT_AGENT_INSTRUCTION,
   DEFAULT_WEB_SEARCH_ENABLED,
   THREAD_DEFAULT_NAME,
@@ -37,7 +36,6 @@ import type {
   ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import {
-  buildThreadOperationLogsByTurnId,
   upsertThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
@@ -72,7 +70,6 @@ import {
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
@@ -92,7 +89,6 @@ import {
   type ThreadOperationPhase,
 } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import {
-  canSendMessageByGuard,
   isThreadPhaseBlockingSend,
   selectThreadOperationPhaseFlags,
   shouldBlockThreadPersistence,
@@ -181,6 +177,10 @@ import {
 import {
   selectThreadViewModel,
 } from "~/lib/client/usecase/workspace/threads/selectors";
+import {
+  selectPlaygroundComposerViewModel,
+  selectPlaygroundOperationLogViewModel,
+} from "~/lib/client/usecase/workspace/playground-panel/selectors";
 
 /**
  * Client runtime controller.
@@ -609,21 +609,18 @@ export function useWorkspace() {
     setChatCommandHighlightedIndex,
     chatCommandProviders,
   });
-  const threadOperationLogsByTurnId = useMemo(
-    () => buildThreadOperationLogsByTurnId(mcpRpcLogs),
-    [mcpRpcLogs],
-  );
-  const activeTurnOperationLogs = useMemo(
+  const {
+    threadOperationLogsByTurnId,
+    activeTurnOperationLogs,
+    errorTurnOperationLogs,
+  } = useMemo(
     () =>
-      activeTurnId ? (threadOperationLogsByTurnId.get(activeTurnId) ?? []) : [],
-    [activeTurnId, threadOperationLogsByTurnId],
-  );
-  const errorTurnOperationLogs = useMemo(
-    () =>
-      lastErrorTurnId
-        ? (threadOperationLogsByTurnId.get(lastErrorTurnId) ?? [])
-        : [],
-    [lastErrorTurnId, threadOperationLogsByTurnId],
+      selectPlaygroundOperationLogViewModel({
+        mcpRpcLogs,
+        activeTurnId,
+        lastErrorTurnId,
+      }),
+    [activeTurnId, lastErrorTurnId, mcpRpcLogs],
   );
   const workspaceMcpServerProfileOptions = useMemo(
     () =>
@@ -650,43 +647,50 @@ export function useWorkspace() {
       ),
     [workspaceMcpServerProfileOptions],
   );
-  const draftAttachmentTotalSizeBytes = draftAttachments.reduce(
-    (sum, attachment) => sum + attachment.sizeBytes,
-    0,
-  );
-  const draftPdfAttachmentTotalSizeBytes = draftAttachments.reduce(
-    (sum, attachment) =>
-      sum +
-      (getFileExtension(attachment.name) === "pdf" ? attachment.sizeBytes : 0),
-    0,
-  );
-  const chatAttachmentAccept = [
-    ...Array.from(
-      CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
-      (extension) => `.${extension}`,
-    ),
-  ].join(",");
-  const chatAttachmentFormatHint =
-    "Code Interpreter supported files (.pdf, .csv, .xlsx, .docx, .png, ...)";
   const isEnhancingInstructionForActiveThread =
     isEnhancingInstruction &&
     instructionEnhancingThreadId.length > 0 &&
     instructionEnhancingThreadId === activeThreadId;
-  const canSendMessage = canSendMessageByGuard({
-    threadOperationPhase,
-    isSending,
-    isActiveThreadArchived,
-    isChatLocked,
-    isLoadingAzureConnections,
-    isLoadingPlaygroundAzureDeployments,
-    hasActiveThreadId: activeThreadId.trim().length > 0,
-    hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
-    hasSelectedPlaygroundAzureDeploymentName:
-      selectedPlaygroundAzureDeploymentName.trim().length > 0,
-    isSelectedPlaygroundReasoningEffortOptionAvailable,
-    isPlaygroundReasoningEffortWebSearchCompatible,
-    hasDraftContent: draft.trim().length > 0,
-  });
+  const {
+    draftAttachmentTotalSizeBytes,
+    draftPdfAttachmentTotalSizeBytes,
+    messageAttachmentAccept: chatAttachmentAccept,
+    messageAttachmentFormatHint: chatAttachmentFormatHint,
+    canSendMessage,
+  } = useMemo(
+    () =>
+      selectPlaygroundComposerViewModel({
+        draft,
+        draftAttachments,
+        threadOperationPhase,
+        isSending,
+        isActiveThreadArchived,
+        isChatLocked,
+        isLoadingAzureConnections,
+        isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
+        hasActiveThreadId: activeThreadId.trim().length > 0,
+        hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+        hasSelectedPlaygroundAzureDeploymentName:
+          selectedPlaygroundAzureDeploymentName.trim().length > 0,
+        isSelectedPlaygroundReasoningEffortOptionAvailable,
+        isPlaygroundReasoningEffortWebSearchCompatible,
+      }),
+    [
+      activeThreadId,
+      activePlaygroundAzureConnection,
+      draft,
+      draftAttachments,
+      isActiveThreadArchived,
+      isChatLocked,
+      isLoadingAzureConnections,
+      isLoadingPlaygroundAzureDeployments,
+      isPlaygroundReasoningEffortWebSearchCompatible,
+      isSelectedPlaygroundReasoningEffortOptionAvailable,
+      isSending,
+      selectedPlaygroundAzureDeploymentName,
+      threadOperationPhase,
+    ],
+  );
 
   const {
     desktopUpdaterStatus,

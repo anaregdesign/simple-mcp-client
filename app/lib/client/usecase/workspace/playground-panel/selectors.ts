@@ -1,3 +1,4 @@
+import { CHAT_ATTACHMENT_ALLOWED_EXTENSIONS } from "~/lib/constants/chat";
 import type {
   AzureProjectOption,
 } from "~/lib/client/usecase/workspace/azure-settings/parsers";
@@ -11,12 +12,96 @@ import type {
 } from "~/lib/client/usecase/workspace/view-types";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
+import {
+  buildThreadOperationLogsByTurnId,
+  type ThreadOperationLogEntry,
+} from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import { getFileExtension } from "~/lib/client/usecase/workspace/files";
+import { canSendMessageByGuard } from "~/lib/client/usecase/workspace/threads/thread-guards";
+import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 
 type Callback = (...args: any[]) => void | Promise<void>;
 type RefLike<T> = { current: T | null };
+
+export function selectPlaygroundOperationLogViewModel(options: {
+  mcpRpcLogs: ThreadOperationLogEntry[];
+  activeTurnId: string | null;
+  lastErrorTurnId: string | null;
+}) {
+  const threadOperationLogsByTurnId = buildThreadOperationLogsByTurnId(
+    options.mcpRpcLogs,
+  );
+
+  return {
+    threadOperationLogsByTurnId,
+    activeTurnOperationLogs: options.activeTurnId
+      ? (threadOperationLogsByTurnId.get(options.activeTurnId) ?? [])
+      : [],
+    errorTurnOperationLogs: options.lastErrorTurnId
+      ? (threadOperationLogsByTurnId.get(options.lastErrorTurnId) ?? [])
+      : [],
+  };
+}
+
+export function selectPlaygroundComposerViewModel(options: {
+  draft: string;
+  draftAttachments: DraftChatAttachment[];
+  threadOperationPhase: ThreadOperationPhase;
+  isSending: boolean;
+  isActiveThreadArchived: boolean;
+  isChatLocked: boolean;
+  isLoadingAzureConnections: boolean;
+  isLoadingAzureDeployments: boolean;
+  hasActiveThreadId: boolean;
+  hasActivePlaygroundAzureConnection: boolean;
+  hasSelectedPlaygroundAzureDeploymentName: boolean;
+  isSelectedPlaygroundReasoningEffortOptionAvailable: boolean;
+  isPlaygroundReasoningEffortWebSearchCompatible: boolean;
+}) {
+  const draftAttachmentTotalSizeBytes = options.draftAttachments.reduce(
+    (sum, attachment) => sum + attachment.sizeBytes,
+    0,
+  );
+  const draftPdfAttachmentTotalSizeBytes = options.draftAttachments.reduce(
+    (sum, attachment) =>
+      sum +
+      (getFileExtension(attachment.name) === "pdf" ? attachment.sizeBytes : 0),
+    0,
+  );
+
+  return {
+    draftAttachmentTotalSizeBytes,
+    draftPdfAttachmentTotalSizeBytes,
+    messageAttachmentAccept: [
+      ...Array.from(
+        CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
+        (extension) => `.${extension}`,
+      ),
+    ].join(","),
+    messageAttachmentFormatHint:
+      "Code Interpreter supported files (.pdf, .csv, .xlsx, .docx, .png, ...)",
+    canSendMessage: canSendMessageByGuard({
+      threadOperationPhase: options.threadOperationPhase,
+      isSending: options.isSending,
+      isActiveThreadArchived: options.isActiveThreadArchived,
+      isChatLocked: options.isChatLocked,
+      isLoadingAzureConnections: options.isLoadingAzureConnections,
+      isLoadingPlaygroundAzureDeployments: options.isLoadingAzureDeployments,
+      hasActiveThreadId: options.hasActiveThreadId,
+      hasActivePlaygroundAzureConnection:
+        options.hasActivePlaygroundAzureConnection,
+      hasSelectedPlaygroundAzureDeploymentName:
+        options.hasSelectedPlaygroundAzureDeploymentName,
+      isSelectedPlaygroundReasoningEffortOptionAvailable:
+        options.isSelectedPlaygroundReasoningEffortOptionAvailable,
+      isPlaygroundReasoningEffortWebSearchCompatible:
+        options.isPlaygroundReasoningEffortWebSearchCompatible,
+      hasDraftContent: options.draft.trim().length > 0,
+    }),
+  };
+}
 
 export function buildPlaygroundPanelProps(options: {
   messages: ThreadMessage[];
