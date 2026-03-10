@@ -78,17 +78,12 @@ import type { ThreadState, ThreadSummary } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
 } from "~/lib/contracts/skills/registry";
-import type {
-  SkillCatalogEntry,
-  SkillRegistryCatalog,
-  ThreadSkillActivation,
-} from "~/lib/contracts/skills/types";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
-import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/skills-catalog/effects";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
 import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-session";
@@ -124,7 +119,6 @@ import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import {
-  skillsApiClient,
   type SkillsCatalogSnapshot,
 } from "~/lib/client/infrastructure/api/skills-api-client";
 import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
@@ -142,9 +136,6 @@ import {
   buildUnauthenticatedPanelProps,
 } from "~/lib/client/usecase/workspace/unauthenticated-panel/selectors";
 import {
-  buildMessageSkillActivationOptions,
-  buildSkillRegistryGroups,
-  buildThreadSkillOptions,
   readSkillCommandSuggestions,
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import {
@@ -165,18 +156,12 @@ import {
   createInstructionPromptHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
 import {
-  createSkillCatalogController,
-} from "~/lib/client/usecase/workspace/skills-catalog/controller";
-import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profiles/handlers";
 import { useMcpProfileForm } from "~/lib/client/usecase/workspace/mcp-profiles/use-form";
 import {
   connectMcpServerToThread,
 } from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
-import {
-  createSkillSelectionHandlers,
-} from "~/lib/client/usecase/workspace/skills-catalog/handlers";
 import {
   applyWorkspaceMcpServerProfiles as applyWorkspaceMcpServerProfilesOperation,
   clearWorkspaceMcpServerProfilesState as clearWorkspaceMcpServerProfilesStateOperation,
@@ -218,6 +203,9 @@ import {
 import {
   useThreadShell,
 } from "~/lib/client/usecase/workspace/threads/use-shell";
+import {
+  useSkillCatalog,
+} from "~/lib/client/usecase/workspace/skills-catalog/use-skill-catalog";
 
 /**
  * Client runtime controller.
@@ -338,26 +326,6 @@ export function useWorkspace() {
     createInitialWorkspaceInteractionState,
   );
   const threadRequestStateById = workspaceInteractionState.threadRequestStateById;
-  const [availableSkills, setAvailableSkills] = useState<SkillCatalogEntry[]>(
-    [],
-  );
-  const [skillRegistryCatalogs, setSkillRegistryCatalogs] = useState<
-    SkillRegistryCatalog[]
-  >([]);
-  const [isMutatingSkillRegistries, setIsMutatingSkillRegistries] =
-    useState(false);
-  const [skillRegistryError, setSkillRegistryError] = useState<string | null>(
-    null,
-  );
-  const [skillRegistryWarning, setSkillRegistryWarning] = useState<
-    string | null
-  >(null);
-  const [skillRegistrySuccess, setSkillRegistrySuccess] = useState<
-    string | null
-  >(null);
-  const [isLoadingSkills, setIsLoadingSkills] = useState(false);
-  const [skillsError, setSkillsError] = useState<string | null>(null);
-  const [skillsWarning, setSkillsWarning] = useState<string | null>(null);
   const {
     threads,
     setThreads,
@@ -453,8 +421,6 @@ export function useWorkspace() {
   const activeAzurePrincipalIdRef = useRef("");
   const activeWorkspaceUserKeyRef = useRef("");
   const workspaceMcpServerProfileRequestSeqRef = useRef(0);
-  const skillsRequestSeqRef = useRef(0);
-  const lastManualSkillsReloadAtRef = useRef(0);
   const activeMainTabRef = useRef<MainViewTab>("threads");
   const selectedPlaygroundAzureConnectionIdRef = useRef("");
   const selectedPlaygroundAzureDeploymentNameRef = useRef("");
@@ -622,6 +588,69 @@ export function useWorkspace() {
   const mcpServers = activeThreadRuntimeState.mcpServers;
   const mcpRpcLogs = activeThreadRuntimeState.mcpRpcLogs;
   const selectedThreadSkills = activeThreadRuntimeState.skillSelections;
+  const {
+    skillRegistryCatalogs,
+    isMutatingSkillRegistries,
+    skillRegistryError,
+    setSkillRegistryWarning,
+    skillRegistryWarning,
+    setSkillRegistrySuccess,
+    skillRegistrySuccess,
+    isLoadingSkills,
+    skillsError,
+    setSkillsWarning,
+    skillsWarning,
+    threadSkillOptions,
+    messageSkillActivationOptions,
+    skillRegistryGroups,
+    handleReloadSkills,
+    handleToggleRegistrySkill,
+    handleAddMessageSkillActivation,
+    handleRemoveMessageSkillActivation,
+    handleRemoveThreadSkill,
+    handleToggleThreadSkill,
+  } = useSkillCatalog({
+    activeWorkspaceUserKeyRef,
+    activeAzurePrincipal,
+    isAzureAuthRequired,
+    markAzureAuthRequired,
+    resolveAzureBackgroundSuccess,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    updateThreadStateById,
+    selectedThreadSkills,
+    selectedMessageSkillActivations,
+    setSelectedMessageSkillActivations,
+    logClientError,
+  });
+  const chatCommandProviders: ChatCommandProvider[] = [
+    {
+      keyword: "$",
+      emptyHint: "No matching Skills.",
+      readSuggestions: (query) =>
+        readSkillCommandSuggestions(messageSkillActivationOptions, query),
+      applySuggestion: (suggestion) => {
+        if (!suggestion.isAvailable) {
+          return;
+        }
+
+        handleAddMessageSkillActivation(suggestion.id);
+      },
+    },
+  ];
+  const effectiveChatComposerCursorIndex =
+    chatInputRef.current?.selectionStart ?? chatComposerCursorIndex;
+  const {
+    activeChatCommandMatch,
+    activeChatCommandProvider,
+    activeChatCommandSuggestions,
+    activeChatCommandHighlightIndex,
+    activeChatCommandMenu,
+  } = deriveActiveChatCommandMenuState({
+    value: draft,
+    cursorIndex: effectiveChatComposerCursorIndex,
+    chatCommandProviders,
+    highlightedIndex: chatCommandHighlightedIndex,
+  });
   const threadOperationLogsByTurnId = useMemo(
     () => buildThreadOperationLogsByTurnId(mcpRpcLogs),
     [mcpRpcLogs],
@@ -705,56 +734,6 @@ export function useWorkspace() {
     summaries: archivedThreadSummaries,
     threadRequestStateById,
   });
-  const availableSkillByLocation = useMemo(
-    () =>
-      new Map(availableSkills.map((skill) => [skill.location, skill] as const)),
-    [availableSkills],
-  );
-  const threadSkillOptions = useMemo(() => {
-    return buildThreadSkillOptions({
-      availableSkills,
-      selectedThreadSkills,
-    });
-  }, [availableSkills, selectedThreadSkills]);
-  const messageSkillActivationOptions = useMemo(() => {
-    return buildMessageSkillActivationOptions({
-      availableSkills,
-      selectedMessageSkillActivations,
-    });
-  }, [availableSkills, selectedMessageSkillActivations]);
-  const chatCommandProviders: ChatCommandProvider[] = [
-    {
-      keyword: "$",
-      emptyHint: "No matching Skills.",
-      readSuggestions: (query) =>
-        readSkillCommandSuggestions(messageSkillActivationOptions, query),
-      applySuggestion: (suggestion) => {
-        if (!suggestion.isAvailable) {
-          return;
-        }
-
-        handleAddMessageSkillActivation(suggestion.id);
-      },
-    },
-  ];
-  const effectiveChatComposerCursorIndex =
-    chatInputRef.current?.selectionStart ?? chatComposerCursorIndex;
-  const {
-    activeChatCommandMatch,
-    activeChatCommandProvider,
-    activeChatCommandSuggestions,
-    activeChatCommandHighlightIndex,
-    activeChatCommandMenu,
-  } = deriveActiveChatCommandMenuState({
-    value: draft,
-    cursorIndex: effectiveChatComposerCursorIndex,
-    chatCommandProviders,
-    highlightedIndex: chatCommandHighlightedIndex,
-  });
-  const skillRegistryGroups = useMemo(
-    () => buildSkillRegistryGroups(skillRegistryCatalogs),
-    [skillRegistryCatalogs],
-  );
   const canSendMessage = canSendMessageByGuard({
     threadOperationPhase,
     isSending,
@@ -1010,34 +989,6 @@ export function useWorkspace() {
     },
   });
 
-  const skillCatalogController = createSkillCatalogController({
-    activeWorkspaceUserKeyRef,
-    skillsRequestSeqRef,
-    lastManualSkillsReloadAtRef,
-    markAzureAuthRequired,
-    resolveAzureBackgroundSuccess,
-    setAvailableSkills,
-    setSkillRegistryCatalogs,
-    setSkillsError,
-    setSkillsWarning,
-    setSkillRegistryError,
-    setSkillRegistryWarning,
-    setSkillRegistrySuccess,
-    setIsLoadingSkills,
-    setIsMutatingSkillRegistries,
-    loadSkills: (options) => skillsApiClient.loadSkills(options),
-    updateRegistrySkill: (options) => skillsApiClient.updateRegistrySkill(options),
-    logClientError,
-  });
-
-  useWorkspaceSkillCatalogEffects({
-    activeAzurePrincipal,
-    isAzureAuthRequired,
-    skillRegistryError,
-    skillsError,
-    loadAvailableSkills: skillCatalogController.loadAvailableSkills,
-  });
-
   // Thread persistence and title-refresh orchestration.
   async function saveThreadStateToDatabase(
     thread: ThreadState,
@@ -1197,27 +1148,6 @@ export function useWorkspace() {
   async function sendMessage() {
     await sendMessageController.sendMessage();
   }
-
-  function handleReloadSkills() {
-    skillCatalogController.handleReloadSkills();
-  }
-
-  const {
-    handleToggleRegistrySkill,
-    handleAddMessageSkillActivation,
-    handleRemoveMessageSkillActivation,
-    handleAddThreadSkill,
-    handleRemoveThreadSkill,
-    handleToggleThreadSkill,
-  } = createSkillSelectionHandlers({
-    availableSkillByLocation,
-    skillRegistryCatalogs,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    updateThreadStateById,
-    setSelectedMessageSkillActivations,
-    setSkillsError,
-    updateSkillRegistrySkill: skillCatalogController.updateSkillRegistrySkill,
-  });
 
   const {
     handleReloadWorkspaceMcpServerProfiles,
