@@ -2,7 +2,7 @@ import {
   readSkillRegistryLabelFromSkillLocation,
   readSkillRegistryOptionById,
   SKILL_REGISTRY_OPTIONS,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,

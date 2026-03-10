@@ -1,4 +1,4 @@
-const AGENT_SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const AGENT_SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const SKILL_REGISTRY_OPTIONS = [
   {
@@ -146,6 +146,18 @@ export function readSkillRegistrySkillNameValidationMessage(
 export function readSkillRegistryLabelFromSkillLocation(
   location: string,
 ): string | null {
+  return readSkillRegistryOptionFromSkillLocation(location)?.label ?? null;
+}
+
+export function readSkillRegistryInstallDirectoryNameFromSkillLocation(
+  location: string,
+): string | null {
+  return readSkillRegistryOptionFromSkillLocation(location)?.installDirectoryName ?? null;
+}
+
+export function readSkillRegistryOptionFromSkillLocation(
+  location: string,
+): SkillRegistryOption | null {
   const normalizedLocation = location.trim().replaceAll("\\", "/");
   if (!normalizedLocation) {
     return null;
@@ -171,7 +183,7 @@ export function readSkillRegistryLabelFromSkillLocation(
         (option) => option.installDirectoryName === registryDirectoryName,
       );
       if (registry) {
-        return registry.label;
+        return registry;
       }
     }
   }

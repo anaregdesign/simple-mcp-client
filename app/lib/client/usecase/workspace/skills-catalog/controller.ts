@@ -6,7 +6,7 @@ import {
   loadAvailableSkills as loadAvailableSkillsOperation,
   updateSkillRegistrySkill as updateSkillRegistrySkillOperation,
 } from "~/lib/client/usecase/workspace/skills-catalog/operations";
-import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,

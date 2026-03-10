@@ -1,15 +1,17 @@
 import {
+  isSkillRegistryId,
+  readSkillRegistryInstallDirectoryNameFromSkillLocation,
   readSkillRegistryOptionById,
-  SKILL_REGISTRY_OPTIONS,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,
 } from "~/lib/contracts/skills/types";
 import type {
+  WorkspaceSkillProfile,
   WorkspaceSkillProfilesData,
-  WorkspaceSkillRegistryProfileResource as WorkspaceSkillRegistryProfile,
-} from "~/lib/contracts/skills/workspace-skill-profiles";
+  WorkspaceSkillRegistryProfile,
+} from "~/lib/domain/repositories/workspace-skill-profile-repository";
 import type {
   SyncWorkspaceSkillMastersResult,
   WorkspaceSkillProfileRepository,
@@ -75,8 +77,16 @@ export class WorkspaceSkillProfilePersistenceRepository
       ]);
 
     return {
-      workspaceSkillProfiles,
-      workspaceSkillRegistryProfiles,
+      workspaceSkillProfiles: workspaceSkillProfiles.flatMap((profile) => {
+        const mapped = mapWorkspaceSkillProfile(profile);
+        return mapped ? [mapped] : [];
+      }),
+      workspaceSkillRegistryProfiles: workspaceSkillRegistryProfiles.flatMap(
+        (profile) => {
+          const mapped = mapWorkspaceSkillRegistryProfile(profile);
+          return mapped ? [mapped] : [];
+        },
+      ),
     };
   }
 
@@ -138,7 +148,7 @@ export class WorkspaceSkillProfilePersistenceRepository
 
       for (const skill of options.skills) {
         const installDirectoryName =
-          readRegistryInstallDirectoryNameFromSkillLocation(skill.location);
+          readSkillRegistryInstallDirectoryNameFromSkillLocation(skill.location);
         const registryProfileId = installDirectoryName
           ? registryProfileIdByInstallDirectory.get(installDirectoryName) ?? null
           : null;
@@ -193,46 +203,51 @@ export function createWorkspaceSkillProfilePersistenceRepository(): WorkspaceSki
   return new WorkspaceSkillProfilePersistenceRepository();
 }
 
-function readRegistryInstallDirectoryNameFromSkillLocation(
-  location: string,
-): string | null {
-  const segments = location
-    .trim()
-    .replaceAll("\\", "/")
-    .split("/")
-    .filter((segment) => segment.length > 0);
-  if (segments.length === 0) {
+function mapWorkspaceSkillProfile(
+  profile: {
+    id: number;
+    userId: number;
+    registryProfileId: number | null;
+    name: string;
+    location: string;
+    source: string;
+  },
+): WorkspaceSkillProfile | null {
+  if (
+    profile.source !== "workspace" &&
+    profile.source !== "codex_home" &&
+    profile.source !== "app_data"
+  ) {
     return null;
   }
 
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    if (segments[index] !== "skills") {
-      continue;
-    }
-
-    const firstCandidate = segments[index + 1] ?? "";
-    const secondCandidate = segments[index + 2] ?? "";
-    const candidates = [firstCandidate];
-    if (isPositiveIntegerString(firstCandidate)) {
-      candidates.push(secondCandidate);
-    }
-
-    for (const candidate of candidates) {
-      if (
-        SKILL_REGISTRY_OPTIONS.some(
-          (option) => option.installDirectoryName === candidate,
-        )
-      ) {
-        return candidate;
-      }
-    }
-  }
-
-  return null;
+  return {
+    ...profile,
+    source: profile.source,
+  };
 }
 
-function isPositiveIntegerString(value: string): boolean {
-  return /^[1-9]\d*$/.test(value.trim());
+function mapWorkspaceSkillRegistryProfile(
+  profile: {
+    id: number;
+    userId: number;
+    registryId: string;
+    registryLabel: string;
+    registryDescription: string;
+    repository: string;
+    repositoryUrl: string;
+    sourcePath: string;
+    installDirectoryName: string;
+  },
+): WorkspaceSkillRegistryProfile | null {
+  if (!isSkillRegistryId(profile.registryId)) {
+    return null;
+  }
+
+  return {
+    ...profile,
+    registryId: profile.registryId,
+  };
 }
 
 function buildWorkspaceSkillRegistryProfileRecord(

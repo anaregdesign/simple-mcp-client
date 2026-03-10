@@ -1,4 +1,4 @@
-import { DEFAULT_SKILL_REGISTRY_OPTIONS } from "~/lib/constants/skills";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 
 export type SkillCatalogSource = "workspace" | "codex_home" | "app_data";
 
@@ -21,7 +21,7 @@ export type SkillRegistrySkillEntry = {
 };
 
 export type SkillRegistryCatalog = {
-  registryId: (typeof DEFAULT_SKILL_REGISTRY_OPTIONS)[number]["id"];
+  registryId: SkillRegistryId;
   registryLabel: string;
   registryDescription: string;
   repository: string;

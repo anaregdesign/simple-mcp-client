@@ -1,12 +1,14 @@
 import type {
   SkillCatalogEntry,
+  SkillCatalogSource,
   SkillRegistryCatalog,
 } from "~/lib/domain/repositories/workspace-skill-discovery-gateway";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 
 export type WorkspaceSkillRegistryProfile = {
   id: number;
   userId: number;
-  registryId: string;
+  registryId: SkillRegistryId;
   registryLabel: string;
   registryDescription: string;
   repository: string;
@@ -21,7 +23,7 @@ export type WorkspaceSkillProfile = {
   registryProfileId: number | null;
   name: string;
   location: string;
-  source: string;
+  source: SkillCatalogSource;
 };
 
 export type WorkspaceSkillProfilesData = {

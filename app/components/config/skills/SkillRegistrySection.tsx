@@ -8,7 +8,7 @@ import {
 } from "~/components/shared/CollapsibleSelectableCardGroupList";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { FluentUI } from "~/components/shared/fluent";
-import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 
 const { Button, Spinner } = FluentUI;
 

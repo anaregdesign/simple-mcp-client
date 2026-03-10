@@ -66,7 +66,7 @@ import {
 import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";

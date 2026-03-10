@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ClientApiError } from "~/lib/client/infrastructure/api/api-client";
 import type { SkillsCatalogSnapshot } from "~/lib/client/infrastructure/api/skills-api-client";
-import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 import {
   handleReloadSkills,
   loadAvailableSkills,

@@ -1,7 +1,7 @@
 import { ClientApiError, mapApiError } from "~/lib/client/infrastructure/api/api-client";
 import type { SkillsCatalogSnapshot } from "~/lib/client/infrastructure/api/skills-api-client";
 import { CLIENT_SKILLS_RELOAD_MIN_INTERVAL_MS } from "~/lib/constants/skills";
-import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
+import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 import type {
   SkillCatalogEntry,
   SkillRegistryCatalog,

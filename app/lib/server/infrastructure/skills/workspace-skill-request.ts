@@ -3,7 +3,7 @@ import {
   parseSkillRegistrySkillName,
   readSkillRegistrySkillNameValidationMessage,
   type SkillRegistryId,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
 
 export type SkillRegistryMutationPayload = {
   registryId: SkillRegistryId;

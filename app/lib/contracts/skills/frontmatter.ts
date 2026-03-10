@@ -1,8 +1,8 @@
 import {
   AGENT_SKILL_DESCRIPTION_MAX_LENGTH,
   AGENT_SKILL_NAME_MAX_LENGTH,
-  AGENT_SKILL_NAME_PATTERN,
 } from "~/lib/constants/skills";
+import { AGENT_SKILL_NAME_PATTERN } from "~/lib/domain/value-objects/skill-registry";
 
 export type SkillFrontmatter = {
   name: string;

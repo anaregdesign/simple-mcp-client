@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
 import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
-import { SKILL_REGISTRY_OPTIONS } from "~/lib/domain/value-objects/skill-registry";
+import { readSkillRegistryOptionFromSkillLocation } from "~/lib/domain/value-objects/skill-registry";
 import {
   Thread,
   type ThreadSkillReference,
@@ -568,7 +568,7 @@ async function upsertThreadSkillProfiles(options: {
       name: string;
       location: string;
       source: string;
-      registryOption: (typeof SKILL_REGISTRY_OPTIONS)[number] | null;
+      registryOption: ReturnType<typeof readSkillRegistryOptionFromSkillLocation>;
     }
   >();
 
@@ -674,43 +674,6 @@ async function upsertThreadSkillProfiles(options: {
   return skillProfileIdByLocation;
 }
 
-function readSkillRegistryOptionFromSkillLocation(
-  location: string,
-): (typeof SKILL_REGISTRY_OPTIONS)[number] | null {
-  const normalizedSegments = location
-    .trim()
-    .replaceAll("\\", "/")
-    .split("/")
-    .filter((segment) => segment.length > 0);
-  if (normalizedSegments.length === 0) {
-    return null;
-  }
-
-  for (let index = 0; index < normalizedSegments.length - 1; index += 1) {
-    if (normalizedSegments[index] !== "skills") {
-      continue;
-    }
-
-    const firstCandidate = normalizedSegments[index + 1] ?? "";
-    const secondCandidate = normalizedSegments[index + 2] ?? "";
-    const candidates = [firstCandidate];
-    if (isPositiveIntegerString(firstCandidate)) {
-      candidates.push(secondCandidate);
-    }
-
-    for (const candidate of candidates) {
-      const registry = SKILL_REGISTRY_OPTIONS.find(
-        (option) => option.installDirectoryName === candidate,
-      );
-      if (registry) {
-        return registry;
-      }
-    }
-  }
-
-  return null;
-}
-
 function readSkillSourceFromLocation(location: string): string {
   const normalizedLocation = location
     .trim()
@@ -727,10 +690,6 @@ function readSkillSourceFromLocation(location: string): string {
   }
 
   return "workspace";
-}
-
-function isPositiveIntegerString(value: string): boolean {
-  return /^[1-9]\d*$/.test(value.trim());
 }
 
 function normalizeThreadName(value: string): string {

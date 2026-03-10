@@ -11,23 +11,23 @@ import {
   WORKSPACE_USERS_DIRECTORY_NAME,
 } from "~/lib/constants/persistence";
 import {
-  AGENT_SKILL_NAME_PATTERN,
   SKILL_REGISTRY_LIST_CACHE_TTL_MS,
   SKILL_REGISTRY_TREE_CACHE_TTL_MS,
 } from "~/lib/constants/skills";
-import { resolveWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import {
-  parseSkillFrontmatter,
-  validateSkillFrontmatter,
-} from "~/lib/contracts/skills/frontmatter";
-import {
+  AGENT_SKILL_NAME_PATTERN,
   parseSkillRegistrySkillName,
   readSkillRegistryOptionById,
   readSkillRegistrySkillNameValidationMessage,
   SKILL_REGISTRY_OPTIONS,
   type SkillRegistryId,
   type SkillRegistryOption,
-} from "~/lib/contracts/skills/registry";
+} from "~/lib/domain/value-objects/skill-registry";
+import { resolveWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import {
+  parseSkillFrontmatter,
+  validateSkillFrontmatter,
+} from "~/lib/contracts/skills/frontmatter";
 import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
 import type {
   WorkspaceSkillRegistryMutationGateway,
