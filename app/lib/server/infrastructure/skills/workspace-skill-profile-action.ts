@@ -2,6 +2,10 @@ import {
   readWorkspaceSkillProfileReconcilePayload,
 } from "~/lib/server/infrastructure/skills/workspace-skill-request";
 import {
+  presentReconcileWorkspaceSkillProfilesData,
+  presentWorkspaceSkillProfilesData,
+} from "~/lib/server/infrastructure/skills/workspace-skill-profile-presentation";
+import {
   readErrorMessage,
   structuredErrorResponse,
 } from "~/lib/server/infrastructure/http/route-transport";
@@ -19,7 +23,7 @@ export async function handleWorkspaceSkillProfilesLoader(options: {
 
   try {
     const data = await workspaceSkillService.readWorkspaceSkillProfiles(userId);
-    return Response.json(data);
+    return Response.json(presentWorkspaceSkillProfilesData(data));
   } catch (error) {
     await logServerRouteEvent({
       request,
@@ -75,21 +79,17 @@ export async function handleWorkspaceSkillProfilesAction(options: {
       skills: discoveryResult.skills,
       registries: discoveryResult.registries,
     });
-    const data = await workspaceSkillService.readWorkspaceSkillProfiles(userId);
+    const profilesData = await workspaceSkillService.readWorkspaceSkillProfiles(
+      userId,
+    );
 
-    return Response.json({
-      message: "Workspace Skill profiles reconciled from installed Skills.",
-      skills: discoveryResult.skills,
-      skillRegistries: discoveryResult.registries,
-      skillWarnings: discoveryResult.skillWarnings,
-      registryWarnings: discoveryResult.registryWarnings,
-      warnings: discoveryResult.warnings,
-      workspaceSkillProfileCount: syncResult.workspaceSkillProfileCount,
-      workspaceSkillRegistryProfileCount:
-        syncResult.workspaceSkillRegistryProfileCount,
-      workspaceSkillProfiles: data.workspaceSkillProfiles,
-      workspaceSkillRegistryProfiles: data.workspaceSkillRegistryProfiles,
-    });
+    return Response.json(
+      presentReconcileWorkspaceSkillProfilesData({
+        discovery: discoveryResult,
+        sync: syncResult,
+        profilesData,
+      }),
+    );
   } catch (error) {
     await logServerRouteEvent({
       request,
