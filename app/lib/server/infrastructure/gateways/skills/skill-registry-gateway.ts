@@ -26,12 +26,12 @@ import {
 import { resolveWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import {
   parseSkillFrontmatter,
-  validateSkillFrontmatter,
 } from "~/lib/contracts/skills/frontmatter";
 import type { SkillRegistryCatalog } from "~/lib/contracts/skills/types";
 import type {
   WorkspaceSkillRegistryMutationGateway,
 } from "~/lib/domain/repositories/workspace-skill-registry-mutation-gateway";
+import { validateSkillFrontmatterForDirectory } from "~/lib/server/infrastructure/gateways/skills/skill-frontmatter-validation";
 import {
   ensurePersistenceDatabaseReady,
   prisma,
@@ -561,7 +561,7 @@ async function validateInstalledSkill(
     throw new Error("Installed Skill is missing valid frontmatter.");
   }
 
-  const validationError = validateSkillFrontmatter(
+  const validationError = validateSkillFrontmatterForDirectory(
     frontmatter,
     expectedSkillName,
   );

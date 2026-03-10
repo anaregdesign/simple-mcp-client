@@ -15,8 +15,8 @@ import { resolveWorkspaceUserSkillsDirectory } from "~/lib/server/infrastructure
 import {
   parseSkillFrontmatter,
   type SkillFrontmatter,
-  validateSkillFrontmatter,
 } from "~/lib/contracts/skills/frontmatter";
+import { validateSkillFrontmatterForDirectory } from "~/lib/server/infrastructure/gateways/skills/skill-frontmatter-validation";
 import type {
   SkillCatalogEntry,
   SkillCatalogSource,
@@ -125,7 +125,7 @@ export async function discoverSkillCatalog(
       }
 
       const directoryName = path.basename(path.dirname(canonicalLocation));
-      const validationError = validateSkillFrontmatter(
+      const validationError = validateSkillFrontmatterForDirectory(
         frontmatterResult.frontmatter,
         directoryName,
       );
