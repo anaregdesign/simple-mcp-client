@@ -16,7 +16,6 @@ import type {
 } from "~/lib/client/usecase/workspace/view-types";
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
-  CHAT_ATTACHMENT_MAX_FILES,
   DEFAULT_AGENT_INSTRUCTION,
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
@@ -99,6 +98,7 @@ import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/use-workspace-thread-background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
 import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/workspace-config-panel-props";
+import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/workspace-playground-panel-props";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -148,7 +148,6 @@ import {
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import { useAzureSettings } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
-  buildPlaygroundPanelProps,
   buildMessageSkillActivationOptions,
   buildSkillRegistryGroups,
   buildThreadSkillOptions,
@@ -2264,7 +2263,7 @@ export function useWorkspace() {
     setSkillRegistrySuccess,
   });
 
-  const playgroundPanelProps = buildPlaygroundPanelProps({
+  const playgroundPanelProps = buildWorkspacePlaygroundPanelProps({
     messages,
     threadOperationLogsByTurnId,
     isSending,
@@ -2272,21 +2271,14 @@ export function useWorkspace() {
     desktopUpdaterStatus,
     desktopUpdaterActionState,
     isApplyingDesktopUpdate,
-    onCheckDesktopUpdates: () => {
-      void handleCheckDesktopUpdates();
-    },
-    onApplyDesktopUpdate: () => {
-      void handleApplyDesktopUpdate();
-    },
+    handleCheckDesktopUpdates,
+    handleApplyDesktopUpdate,
     activeThreadName: activeThreadNameInput,
     isThreadOperationBusy,
     isCreatingThread,
-    onCreateThread: () => {
-      void handleCreateThread();
-    },
-    onCancelThreadProcessing: () => {
-      handleThreadCancel(activeThreadIdRef.current);
-    },
+    handleCreateThread,
+    handleThreadCancel,
+    readActiveThreadId: () => activeThreadIdRef.current,
     onCopyMessage: handleCopyMessage,
     onCopyOperationLog: handleCopyMcpLog,
     sendProgressMessages,
@@ -2294,9 +2286,7 @@ export function useWorkspace() {
     errorTurnOperationLogs,
     endOfMessagesRef,
     systemNotice,
-    onClearSystemNotice: () => {
-      setSystemNotice(null);
-    },
+    setSystemNotice,
     error,
     azureLoginError,
     onSubmit: handleSubmit,
@@ -2316,8 +2306,7 @@ export function useWorkspace() {
     chatCommandMenu: activeChatCommandMenu,
     onSelectChatCommandSuggestion: handleSelectActiveChatCommandSuggestion,
     onHighlightChatCommandSuggestion: setChatCommandHighlightedIndex,
-    onCompositionStart: () => setIsComposing(true),
-    onCompositionEnd: () => setIsComposing(false),
+    setIsComposing,
     isChatLocked,
     isLoadingAzureConnections,
     isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
@@ -2337,7 +2326,6 @@ export function useWorkspace() {
     onReasoningEffortChange: handleReasoningEffortChange,
     webSearchEnabled,
     onWebSearchEnabledChange: handleWebSearchEnabledChange,
-    maxMessageAttachmentFiles: CHAT_ATTACHMENT_MAX_FILES,
     canSendMessage,
     selectedThreadSkills,
     selectedMessageSkillActivations,
