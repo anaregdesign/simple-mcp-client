@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
+import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
   upsertThreadOperationLogEntry,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
-import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
+import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { Thread } from "~/lib/domain/entities/thread";
 import type {
   ThreadRepository,

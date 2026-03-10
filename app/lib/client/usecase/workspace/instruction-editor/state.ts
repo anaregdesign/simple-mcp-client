@@ -1,9 +1,7 @@
-import {
-  DEFAULT_AGENT_INSTRUCTION,
-} from "~/lib/constants/chat";
+import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
-} from "~/lib/contracts/threads/instruction-context";
+} from "~/lib/domain/value-objects/thread-instruction-context";
 import {
   cloneThreadInstructionContexts,
 } from "~/lib/contracts/threads/state";

@@ -1,4 +1,7 @@
-import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
+import {
+  DEFAULT_REASONING_EFFORT,
+  reasoningEffortValues,
+} from "~/lib/domain/value-objects/reasoning-effort";
 import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   readThreadMessageFromUnknown,
@@ -15,8 +18,8 @@ import {
   readChatAzureConfigFromUnknown,
 } from "~/lib/domain/value-objects/chat-azure-config";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
-import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/contracts/threads/instruction-context";
+import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
+import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ThreadResource, ThreadState, ThreadSummary, ThreadWritePayload } from "~/lib/contracts/threads/types";
 
 type ReadThreadWritePayloadOptions = {
@@ -530,7 +533,7 @@ function readSafeInteger(value: unknown): number | null {
 function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null {
   if (
     typeof value === "string" &&
-    REASONING_EFFORT_OPTIONS.includes(value as ReasoningEffort)
+    reasoningEffortValues.includes(value as ReasoningEffort)
   ) {
     return value as ReasoningEffort;
   }

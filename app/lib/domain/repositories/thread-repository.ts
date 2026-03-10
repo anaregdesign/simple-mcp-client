@@ -1,10 +1,10 @@
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { ChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
+import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 import type {
   Thread,
   ThreadAttachment,
-  ThreadEnvironment,
-  ThreadInstructionContextToggles,
   ThreadMessageRole,
   ThreadOperationType,
   ThreadSkillReference,

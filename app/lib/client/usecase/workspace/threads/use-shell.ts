@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type Dispatch } from "react";
 import {
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
-} from "~/lib/constants/chat";
+} from "~/lib/domain/value-objects/thread-defaults";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import { isThreadArchivedById } from "~/lib/contracts/threads/state";
 import type { ThreadState } from "~/lib/contracts/threads/types";

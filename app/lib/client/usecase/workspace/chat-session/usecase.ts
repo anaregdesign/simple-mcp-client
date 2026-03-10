@@ -13,8 +13,8 @@ import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   cloneThreadEnvironment,
   type ThreadEnvironment,
-} from "~/lib/contracts/threads/environment";
-import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+} from "~/lib/domain/value-objects/thread-environment";
+import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 import {
   cloneMessages,
   cloneMcpServers,

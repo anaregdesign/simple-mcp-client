@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createSkillSelectionHandlers,
 } from "~/lib/client/usecase/workspace/skills-catalog/handlers";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {

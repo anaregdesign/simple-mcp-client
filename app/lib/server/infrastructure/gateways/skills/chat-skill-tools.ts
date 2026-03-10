@@ -2,11 +2,7 @@ import { tool, type Tool } from "@openai/agents";
 import {
   CHAT_MAX_CONSECUTIVE_IDENTICAL_SKILL_OPERATIONS,
   CHAT_MAX_SKILL_OPERATION_ERRORS,
-  THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VARIABLES_MAX,
 } from "~/lib/constants/chat";
-import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
 import {
   AGENT_SKILL_READ_TEXT_DEFAULT_MAX_CHARS,
   AGENT_SKILL_READ_TEXT_MAX_CHARS,
@@ -20,7 +16,11 @@ import {
   cloneThreadEnvironment,
   parseThreadEnvironmentFromUnknown,
   type ThreadEnvironment,
-} from "~/lib/contracts/threads/environment";
+  THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
+  THREAD_ENVIRONMENT_KEY_PATTERN,
+  THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
+  THREAD_ENVIRONMENT_VARIABLES_MAX,
+} from "~/lib/domain/value-objects/thread-environment";
 import { buildStdioSpawnEnvironment } from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
 import {
   buildThreadOperationLogRequestId,
@@ -947,7 +947,7 @@ export function buildSkillTools(
       properties: {
         variables: {
           type: "object" as const,
-          description: `Optional environment key-value map. Keys must match ${ENV_KEY_PATTERN.toString()} and be ${THREAD_ENVIRONMENT_KEY_MAX_LENGTH} characters or fewer.`,
+          description: `Optional environment key-value map. Keys must match ${THREAD_ENVIRONMENT_KEY_PATTERN.toString()} and be ${THREAD_ENVIRONMENT_KEY_MAX_LENGTH} characters or fewer.`,
           additionalProperties: {
             type: "string" as const,
           },
@@ -1252,13 +1252,13 @@ function readUnsetThreadEnvironmentKeys(value: unknown): ParseResult<string[]> {
     if (
       key.length === 0 ||
       key.length > THREAD_ENVIRONMENT_KEY_MAX_LENGTH ||
-      !ENV_KEY_PATTERN.test(key)
+      !THREAD_ENVIRONMENT_KEY_PATTERN.test(key)
     ) {
       return {
         ok: false,
         error:
           `unset[${index}] is invalid. ` +
-          `Keys must match ${ENV_KEY_PATTERN.toString()} and be ` +
+          `Keys must match ${THREAD_ENVIRONMENT_KEY_PATTERN.toString()} and be ` +
           `${THREAD_ENVIRONMENT_KEY_MAX_LENGTH} characters or fewer.`,
       };
     }

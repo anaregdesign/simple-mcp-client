@@ -1,9 +1,7 @@
-import {
-  THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
-  THREAD_ENVIRONMENT_VARIABLES_MAX,
-} from "~/lib/constants/chat";
-import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
+export const THREAD_ENVIRONMENT_VARIABLES_MAX = 128;
+export const THREAD_ENVIRONMENT_KEY_MAX_LENGTH = 128;
+export const THREAD_ENVIRONMENT_VALUE_MAX_LENGTH = 16_384;
+export const THREAD_ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export type ThreadEnvironment = Record<string, string>;
 
@@ -74,14 +72,14 @@ export function parseThreadEnvironmentFromUnknown(
     if (
       key.length === 0 ||
       key.length > THREAD_ENVIRONMENT_KEY_MAX_LENGTH ||
-      !ENV_KEY_PATTERN.test(key)
+      !THREAD_ENVIRONMENT_KEY_PATTERN.test(key)
     ) {
       if (strict) {
         return {
           ok: false,
           error:
             `\`${pathLabel}\` includes an invalid key "${key}". ` +
-            `Keys must match ${ENV_KEY_PATTERN.toString()} and be ` +
+            `Keys must match ${THREAD_ENVIRONMENT_KEY_PATTERN.toString()} and be ` +
             `${THREAD_ENVIRONMENT_KEY_MAX_LENGTH} characters or fewer.`,
         };
       }

@@ -8,3 +8,5 @@ export const reasoningEffortValues = [
 ] as const;
 
 export type ReasoningEffort = (typeof reasoningEffortValues)[number];
+
+export const DEFAULT_REASONING_EFFORT: ReasoningEffort = "none";

@@ -1,4 +1,4 @@
-import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
+import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
 import {
   readThreadMessageFromUnknown,
   type ThreadMessage,

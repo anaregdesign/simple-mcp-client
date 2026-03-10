@@ -3,7 +3,7 @@ import {
   useEffectEvent,
   type MutableRefObject,
 } from "react";
-import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
+import { THREAD_DEFAULT_NAME } from "~/lib/domain/value-objects/thread-defaults";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { buildThreadSaveSignature, hasThreadInteraction } from "~/lib/contracts/threads/state";
 import type { ThreadState } from "~/lib/contracts/threads/types";

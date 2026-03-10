@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
+import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
 import type { ThreadSaveInput } from "~/lib/domain/repositories/thread-repository";
 

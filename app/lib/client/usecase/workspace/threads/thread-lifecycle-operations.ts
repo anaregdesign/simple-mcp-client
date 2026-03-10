@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/constants/chat";
+import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import {
   convertThreadResourceToState,

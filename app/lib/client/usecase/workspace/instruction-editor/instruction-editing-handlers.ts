@@ -10,7 +10,7 @@ import {
 import type {
   ThreadInstructionContextToggles,
   ThreadInstructionContextToggleKey,
-} from "~/lib/contracts/threads/instruction-context";
+} from "~/lib/domain/value-objects/thread-instruction-context";
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 

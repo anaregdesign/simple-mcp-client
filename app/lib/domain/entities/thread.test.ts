@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
+import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
 import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import {
   Thread,

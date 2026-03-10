@@ -1,10 +1,10 @@
 import {
   THREAD_ENVIRONMENT_KEY_MAX_LENGTH,
+  THREAD_ENVIRONMENT_KEY_PATTERN,
   THREAD_ENVIRONMENT_VALUE_MAX_LENGTH,
   THREAD_ENVIRONMENT_VARIABLES_MAX,
-} from "~/lib/constants/chat";
-import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+  type ThreadEnvironment,
+} from "~/lib/domain/value-objects/thread-environment";
 
 export function applySkillScriptEnvironmentChanges(
   threadEnvironment: ThreadEnvironment,
@@ -44,7 +44,7 @@ export function applySkillScriptEnvironmentChanges(
   for (const [key, value] of Object.entries(changes.updated)) {
     if (
       key.length > THREAD_ENVIRONMENT_KEY_MAX_LENGTH ||
-      !ENV_KEY_PATTERN.test(key) ||
+      !THREAD_ENVIRONMENT_KEY_PATTERN.test(key) ||
       value.length > THREAD_ENVIRONMENT_VALUE_MAX_LENGTH
     ) {
       ignoredKeys.push(key);

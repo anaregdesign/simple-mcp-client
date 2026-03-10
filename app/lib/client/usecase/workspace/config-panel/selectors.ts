@@ -20,7 +20,7 @@ import type {
 } from "~/lib/client/usecase/workspace/view-types";
 import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
-} from "~/lib/contracts/threads/instruction-context";
+} from "~/lib/domain/value-objects/thread-instruction-context";
 
 type Callback = (...args: any[]) => void | Promise<void>;
 type RefLike<T> = { current: T | null };

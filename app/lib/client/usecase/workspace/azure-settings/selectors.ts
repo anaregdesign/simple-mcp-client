@@ -1,4 +1,4 @@
-import { DEFAULT_REASONING_EFFORT } from "~/lib/constants/chat";
+import { DEFAULT_REASONING_EFFORT } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureDeploymentOption,
   AzureProjectOption,

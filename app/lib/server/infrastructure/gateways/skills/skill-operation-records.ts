@@ -3,8 +3,8 @@ import {
 } from "~/lib/constants/skills";
 import {
   cloneThreadEnvironment,
-} from "~/lib/contracts/threads/environment";
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
+  type ThreadEnvironment,
+} from "~/lib/domain/value-objects/thread-environment";
 import {
   buildThreadOperationLogRequestId,
   type JsonRpcRequestPayload,

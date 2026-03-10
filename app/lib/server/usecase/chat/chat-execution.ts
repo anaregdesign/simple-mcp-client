@@ -12,10 +12,9 @@ import {
   CHAT_MODEL_RUN_TIMEOUT_MS,
 } from "~/lib/constants/chat";
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
-import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
+import { cloneThreadEnvironment, type ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
-import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
 import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";

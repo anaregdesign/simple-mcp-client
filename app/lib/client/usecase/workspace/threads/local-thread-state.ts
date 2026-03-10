@@ -3,7 +3,7 @@ import {
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
   THREAD_DEFAULT_NAME,
-} from "~/lib/constants/chat";
+} from "~/lib/domain/value-objects/thread-defaults";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
@@ -16,7 +16,7 @@ import {
   cloneThreadSkillActivations,
   hasThreadPersistableState,
 } from "~/lib/contracts/threads/state";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";

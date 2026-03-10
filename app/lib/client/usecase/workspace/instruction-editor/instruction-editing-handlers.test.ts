@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createInstructionEditingHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-editing-handlers";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
 
 describe("createInstructionEditingHandlers", () => {
   it("updates the instruction value and resets mutation status", () => {

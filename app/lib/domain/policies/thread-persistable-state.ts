@@ -1,14 +1,8 @@
-import {
-  DEFAULT_AGENT_INSTRUCTION,
-  DEFAULT_REASONING_EFFORT,
-  DEFAULT_WEB_SEARCH_ENABLED,
-} from "~/lib/constants/chat";
-import type {
-  ThreadEnvironment,
-  ThreadInstructionContextToggles,
-} from "~/lib/domain/entities/thread";
+import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import { DEFAULT_AGENT_INSTRUCTION, DEFAULT_REASONING_EFFORT, DEFAULT_WEB_SEARCH_ENABLED } from "~/lib/domain/value-objects/thread-defaults";
 
 export type ThreadPersistableStateInput = {
   messageCount: number;

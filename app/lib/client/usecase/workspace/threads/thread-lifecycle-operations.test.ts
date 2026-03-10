@@ -14,7 +14,7 @@ import type {
 import type { ThreadResource, ThreadState } from "~/lib/contracts/threads/types";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
-} from "~/lib/contracts/threads/instruction-context";
+} from "~/lib/domain/value-objects/thread-instruction-context";
 
 vi.mock("~/lib/client/infrastructure/api/threads-api-client", () => ({
   threadsApiClient: {

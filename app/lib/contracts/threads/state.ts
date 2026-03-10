@@ -4,8 +4,8 @@ import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { hasPersistableThreadState as hasPersistableThreadSnapshot } from "~/lib/domain/policies/thread-persistable-state";
 import { cloneChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
-import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
-import { cloneThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import { cloneThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 import type {
   ThreadState,
   ThreadWritePayload,

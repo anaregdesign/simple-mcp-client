@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
-import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
+import { THREAD_DEFAULT_NAME } from "~/lib/domain/value-objects/thread-defaults";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { readSkillRegistryOptionFromSkillLocation } from "~/lib/domain/value-objects/skill-registry";
 import {

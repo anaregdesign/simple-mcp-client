@@ -16,7 +16,7 @@ import {
   DEFAULT_AGENT_INSTRUCTION,
   DEFAULT_WEB_SEARCH_ENABLED,
   THREAD_DEFAULT_NAME,
-} from "~/lib/constants/chat";
+} from "~/lib/domain/value-objects/thread-defaults";
 import {
   DEFAULT_THEME_MODE,
   THREAD_NAME_MAX_LENGTH,
@@ -57,12 +57,12 @@ import {
   isThreadArchivedById,
   updateThreadStateCollectionById,
 } from "~/lib/contracts/threads/state";
-import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
+import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
   type ThreadInstructionContextToggleKey,
-} from "~/lib/contracts/threads/instruction-context";
+} from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,

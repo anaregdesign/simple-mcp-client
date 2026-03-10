@@ -4,6 +4,8 @@ import {
   cloneChatAzureConfig,
   type ChatAzureConfig,
 } from "~/lib/domain/value-objects/chat-azure-config";
+import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
 
 export type ThreadAttachment = {
   name: string;
@@ -20,12 +22,6 @@ export type ThreadSkillReference = {
 export type ThreadMessageRole = "user" | "assistant";
 
 export type ThreadOperationType = "mcp" | "skill";
-
-export type ThreadEnvironment = Record<string, string>;
-
-export type ThreadInstructionContextToggles = {
-  system: boolean;
-};
 
 export type ThreadSkillProfile = {
   id: number;

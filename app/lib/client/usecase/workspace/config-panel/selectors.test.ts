@@ -3,7 +3,7 @@ import {
   buildSettingsTabProps,
   buildThreadsTabProps,
 } from "~/lib/client/usecase/workspace/config-panel/selectors";
-import { THREAD_INSTRUCTION_CONTEXT_OPTIONS } from "~/lib/contracts/threads/instruction-context";
+import { THREAD_INSTRUCTION_CONTEXT_OPTIONS } from "~/lib/domain/value-objects/thread-instruction-context";
 
 describe("buildSettingsTabProps", () => {
   it("maps utility deployment loading state to utility section props", () => {
