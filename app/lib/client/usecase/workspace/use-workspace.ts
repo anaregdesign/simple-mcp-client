@@ -72,8 +72,8 @@ import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/worksp
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
 import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-playground-runtime";
 import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-playground-session";
-import { buildConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
 import {
+  buildConfigPanelProps,
   useConfigPanelState,
   useLockedConfigPanelTab,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
