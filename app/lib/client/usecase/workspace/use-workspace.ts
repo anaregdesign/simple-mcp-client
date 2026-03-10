@@ -161,11 +161,8 @@ import {
   createInstructionPromptHandlers,
 } from "~/lib/client/usecase/workspace/instruction-prompt-handlers";
 import {
-  applySkillsCatalogSnapshot as applySkillsCatalogSnapshotOperation,
-  handleReloadSkills as handleReloadSkillsOperation,
-  loadAvailableSkills as loadAvailableSkillsOperation,
-  updateSkillRegistrySkill as updateSkillRegistrySkillOperation,
-} from "~/lib/client/usecase/workspace/skill-catalog-operations";
+  createSkillCatalogController,
+} from "~/lib/client/usecase/workspace/skill-catalog-controller";
 import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profile-handlers";
@@ -853,71 +850,6 @@ export function useWorkspace() {
     };
   }
 
-  function buildSkillCatalogOperationDeps() {
-    return {
-      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-      nextSkillsRequestSeq: () => {
-        const requestSeq = skillsRequestSeqRef.current + 1;
-        skillsRequestSeqRef.current = requestSeq;
-        return requestSeq;
-      },
-      readSkillsRequestSeq: () => skillsRequestSeqRef.current,
-      readLastManualReloadAt: () => lastManualSkillsReloadAtRef.current,
-      setLastManualReloadAt: (value: number) => {
-        lastManualSkillsReloadAtRef.current = value;
-      },
-      markAzureAuthRequired,
-      resolveAzureBackgroundSuccess,
-      setAvailableSkills,
-      setSkillRegistryCatalogs,
-      setSkillsError,
-      setSkillsWarning,
-      setSkillRegistryError,
-      setSkillRegistryWarning,
-      setSkillRegistrySuccess,
-      setIsLoadingSkills,
-      setIsMutatingSkillRegistries,
-      loadSkills: (options: {
-        forceRefresh?: boolean;
-        onAuthRequired?: () => void;
-      }) => skillsApiClient.loadSkills(options),
-      updateRegistrySkill: (options: {
-        action: "install_registry_skill" | "delete_registry_skill";
-        registryId: SkillRegistryId;
-        skillName: string;
-        onAuthRequired?: () => void;
-      }) => skillsApiClient.updateRegistrySkill(options),
-      logClientError,
-    };
-  }
-
-  async function loadAvailableSkills(
-    options: {
-      clearStatus?: boolean;
-      forceRefresh?: boolean;
-    } = {},
-  ): Promise<void> {
-    await loadAvailableSkillsOperation(buildSkillCatalogOperationDeps(), options);
-  }
-
-  function applySkillsCatalogSnapshot(snapshot: SkillsCatalogSnapshot) {
-    applySkillsCatalogSnapshotOperation(
-      buildSkillCatalogOperationDeps(),
-      snapshot,
-    );
-  }
-
-  async function updateSkillRegistrySkill(options: {
-    action: "install_registry_skill" | "delete_registry_skill";
-    registryId: SkillRegistryId;
-    skillName: string;
-  }): Promise<void> {
-    await updateSkillRegistrySkillOperation(
-      buildSkillCatalogOperationDeps(),
-      options,
-    );
-  }
-
   function resetMcpServerFormInputs() {
     setMcpNameInput("");
     setMcpUrlInput("");
@@ -1563,6 +1495,26 @@ export function useWorkspace() {
     },
   });
 
+  const skillCatalogController = createSkillCatalogController({
+    activeWorkspaceUserKeyRef,
+    skillsRequestSeqRef,
+    lastManualSkillsReloadAtRef,
+    markAzureAuthRequired,
+    resolveAzureBackgroundSuccess,
+    setAvailableSkills,
+    setSkillRegistryCatalogs,
+    setSkillsError,
+    setSkillsWarning,
+    setSkillRegistryError,
+    setSkillRegistryWarning,
+    setSkillRegistrySuccess,
+    setIsLoadingSkills,
+    setIsMutatingSkillRegistries,
+    loadSkills: (options) => skillsApiClient.loadSkills(options),
+    updateRegistrySkill: (options) => skillsApiClient.updateRegistrySkill(options),
+    logClientError,
+  });
+
   // Thread persistence and title-refresh orchestration.
   async function saveThreadStateToDatabase(
     thread: ThreadState,
@@ -1608,6 +1560,27 @@ export function useWorkspace() {
     instructionOverride?: string;
   }): Promise<void> {
     await threadTitleController.refreshThreadTitleInBackground(options);
+  }
+
+  async function loadAvailableSkills(
+    options: {
+      clearStatus?: boolean;
+      forceRefresh?: boolean;
+    } = {},
+  ): Promise<void> {
+    await skillCatalogController.loadAvailableSkills(options);
+  }
+
+  function applySkillsCatalogSnapshot(snapshot: SkillsCatalogSnapshot) {
+    skillCatalogController.applySkillsCatalogSnapshot(snapshot);
+  }
+
+  async function updateSkillRegistrySkill(options: {
+    action: "install_registry_skill" | "delete_registry_skill";
+    registryId: SkillRegistryId;
+    skillName: string;
+  }): Promise<void> {
+    await skillCatalogController.updateSkillRegistrySkill(options);
   }
 
   useWorkspaceThreadBackgroundEffects({
@@ -1724,7 +1697,7 @@ export function useWorkspace() {
   }
 
   function handleReloadSkills() {
-    handleReloadSkillsOperation(buildSkillCatalogOperationDeps());
+    skillCatalogController.handleReloadSkills();
   }
 
   const {
