@@ -31,7 +31,7 @@ export function includesAzureDeploymentName(
 }
 
 export function resolveSupportedReasoningEffortOptions(
-  options: ReasoningEffort[],
+  options: readonly ReasoningEffort[],
 ): ReasoningEffort[] {
   const optionSet = new Set(options);
   return ["none", "minimal", "low", "medium", "high", "xhigh"].filter(
@@ -58,7 +58,7 @@ export function isReasoningEffortCompatibleWithDeployment(
 }
 
 export function filterReasoningEffortOptionsForDeploymentCompatibility(
-  options: ReasoningEffort[],
+  options: readonly ReasoningEffort[],
   deploymentNameRaw: string,
 ): ReasoningEffort[] {
   return options.filter((value) =>
@@ -67,11 +67,11 @@ export function filterReasoningEffortOptionsForDeploymentCompatibility(
 }
 
 export function filterReasoningEffortOptionsForWebSearch(
-  options: ReasoningEffort[],
+  options: readonly ReasoningEffort[],
   webSearchEnabled: boolean,
 ): ReasoningEffort[] {
   if (!webSearchEnabled) {
-    return options;
+    return [...options];
   }
 
   return options.filter(isWebSearchCompatibleReasoningEffort);
@@ -79,7 +79,7 @@ export function filterReasoningEffortOptionsForWebSearch(
 
 export function resolveEffectiveReasoningEffort(
   current: ReasoningEffort,
-  options: ReasoningEffort[],
+  options: readonly ReasoningEffort[],
   fallback: ReasoningEffort,
 ): ReasoningEffort {
   if (options.includes(current)) {

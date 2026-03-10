@@ -34,7 +34,6 @@ import {
   MCP_TIMEOUT_SECONDS_MAX,
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
-import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   readChatCommandMatchAtCursor,
@@ -94,7 +93,6 @@ import type {
   SkillRegistryCatalog,
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
-import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboard";
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
@@ -102,6 +100,7 @@ import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/use-w
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
 import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/use-workspace-skill-catalog-effects";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/use-workspace-thread-background-effects";
+import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -2020,56 +2019,6 @@ export function useWorkspace() {
     logClientError,
   });
 
-  function handleChatProjectChange(projectId: string) {
-    handleSelectPlaygroundProject(projectId);
-    setUiError(null);
-  }
-
-  function handleChatDeploymentChange(nextDeploymentNameRaw: string) {
-    const nextDeploymentName = nextDeploymentNameRaw.trim();
-    handleSelectPlaygroundDeployment(nextDeploymentName);
-    setUiError(null);
-  }
-
-  function handleReasoningEffortChange(nextValue: ReasoningEffort) {
-    if (!isPlaygroundReasoningEffortSupported) {
-      return;
-    }
-    if (!effectivePlaygroundReasoningEffortOptions.includes(nextValue)) {
-      return;
-    }
-    setReasoningEffort(nextValue);
-    setUiError(null);
-  }
-
-  function handleWebSearchEnabledChange(nextValue: boolean) {
-    if (
-      nextValue &&
-      isPlaygroundReasoningEffortSupported &&
-      filterReasoningEffortOptionsForWebSearch(
-        selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
-        true,
-      ).length === 0
-    ) {
-      setUiError("Web Search is not available for the selected deployment.");
-      return;
-    }
-
-    if (
-      nextValue &&
-      isPlaygroundReasoningEffortSupported &&
-      !isWebSearchCompatibleReasoningEffort(reasoningEffort)
-    ) {
-      setUiError(
-        "Selected Reasoning Effort cannot be used with Web Search. Choose a compatible value first.",
-      );
-      return;
-    }
-
-    setWebSearchEnabled(nextValue);
-    setUiError(null);
-  }
-
   const {
     handleInstructionContextToggleChange,
     handleAgentInstructionChange,
@@ -2143,56 +2092,44 @@ export function useWorkspace() {
     logClientError,
   });
 
-  function handleChatAzureSelectorAction(target: "project" | "deployment") {
-    if (
-      isSending ||
-      isStartingAzureLogin ||
-      isSwitchingAzureTenant ||
-      isStartingAzureLogout ||
-      isLoadingAzureConnections ||
-      isLoadingPlaygroundAzureDeployments
-    ) {
-      return;
-    }
-
-    setUiError(null);
-    setSystemNotice(null);
-    clearAzureSessionStatus();
-
-    if (
-      isAzureAuthRequired ||
-      isLikelyChatAzureAuthError(azureConnectionError)
-    ) {
-      markAzureAuthRequired();
-      setActiveMainTab("settings");
-      void handleAzureLogin();
-      return;
-    }
-
-    const needsProjectReload =
-      azureConnections.length === 0 || !activePlaygroundAzureConnection;
-    const needsDeploymentReload =
-      target === "deployment" &&
-      (!activePlaygroundAzureConnection ||
-        playgroundAzureDeployments.length === 0 ||
-        !selectedPlaygroundAzureDeploymentName.trim());
-
-    if (needsProjectReload || needsDeploymentReload) {
-      void loadAzureProjects({ force: true });
-    }
-  }
-
-  const handleCopyMessage = (content: string) => {
-    void copyTextToClipboard(content).catch(() => {
-      setUiError("Failed to copy text to clipboard.");
-    });
-  };
-
-  const handleCopyMcpLog = (text: string) => {
-    void copyTextToClipboard(text).catch(() => {
-      setUiError("Failed to copy MCP log to clipboard.");
-    });
-  };
+  const {
+    handleChatProjectChange,
+    handleChatDeploymentChange,
+    handleReasoningEffortChange,
+    handleWebSearchEnabledChange,
+    handleChatAzureSelectorAction,
+    handleCopyMessage,
+    handleCopyMcpLog,
+  } = createPlaygroundControlHandlers({
+    isSending,
+    isStartingAzureLogin,
+    isSwitchingAzureTenant,
+    isStartingAzureLogout,
+    isLoadingAzureConnections,
+    isLoadingPlaygroundAzureDeployments,
+    isAzureAuthRequired,
+    azureConnectionError,
+    hasAzureConnections: azureConnections.length > 0,
+    hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+    hasPlaygroundAzureDeployments: playgroundAzureDeployments.length > 0,
+    hasSelectedPlaygroundAzureDeploymentName:
+      selectedPlaygroundAzureDeploymentName.trim().length > 0,
+    isPlaygroundReasoningEffortSupported,
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+    effectivePlaygroundReasoningEffortOptions,
+    reasoningEffort,
+    setUiError,
+    setSystemNotice,
+    setActiveMainTab,
+    setReasoningEffort,
+    setWebSearchEnabled,
+    clearAzureSessionStatus,
+    markAzureAuthRequired,
+    handleAzureLogin,
+    handleSelectPlaygroundProject,
+    handleSelectPlaygroundDeployment,
+    loadAzureProjects,
+  });
 
   // Panel prop composition for Client route rendering.
   const settingsTabProps = buildSettingsTabProps({
