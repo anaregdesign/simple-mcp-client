@@ -1,7 +1,7 @@
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import { readThreadWritePayloadFromUnknown } from "~/lib/contracts/threads/parsers";
-import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import type { ThreadSaveInput } from "~/lib/domain/repositories/thread-repository";
+import { mapThreadWritePayloadToSaveInput } from "~/lib/server/usecase/threads/thread-save-input-mapper";
 
 export type ThreadRouteValidationIssue = {
   statusCode: 422;
@@ -125,26 +125,6 @@ export function readThreadRestoreRequest(
 
 function isThreadRestorePayload(value: unknown): boolean {
   return isRecord(value) && value.archived === false;
-}
-
-function mapThreadWritePayloadToSaveInput(
-  payload: ThreadWritePayload,
-): ThreadSaveInput {
-  return {
-    id: payload.id,
-    name: payload.name,
-    createdAt: payload.createdAt,
-    reasoningEffort: payload.reasoningEffort,
-    webSearchEnabled: payload.webSearchEnabled,
-    chatAzureConfig: payload.chatAzureConfig ?? null,
-    instructionContent: payload.instruction.content,
-    instructionContextToggles: payload.instructionContextToggles,
-    threadEnvironment: payload.threadEnvironment,
-    messages: payload.messages,
-    mcpServers: payload.mcpServers,
-    operationLogs: payload.mcpRpcLogs,
-    skillSelections: payload.skillSelections,
-  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

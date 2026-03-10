@@ -1,5 +1,6 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 import type { Thread } from "~/lib/domain/entities/thread";
+import { readThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
 
 export function presentThreadResources(
   threads: Thread[],
@@ -10,24 +11,26 @@ export function presentThreadResources(
 export function presentThreadResource(
   thread: Thread,
 ): ThreadResource {
+  const snapshot = readThreadSnapshot(thread);
+
   return {
-    id: thread.id,
-    userId: thread.userId,
-    name: thread.name,
-    createdAt: thread.createdAt,
-    updatedAt: thread.updatedAt,
-    deletedAt: thread.deletedAt,
-    reasoningEffort: thread.reasoningEffort,
-    webSearchEnabled: thread.webSearchEnabled,
-    chatAzureConfigJson: thread.chatAzureConfig
-      ? JSON.stringify(thread.chatAzureConfig)
+    id: snapshot.id,
+    userId: snapshot.userId,
+    name: snapshot.name,
+    createdAt: snapshot.createdAt,
+    updatedAt: snapshot.updatedAt,
+    deletedAt: snapshot.deletedAt,
+    reasoningEffort: snapshot.reasoningEffort,
+    webSearchEnabled: snapshot.webSearchEnabled,
+    chatAzureConfigJson: snapshot.chatAzureConfig
+      ? JSON.stringify(snapshot.chatAzureConfig)
       : null,
-    threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
+    threadEnvironmentJson: JSON.stringify(snapshot.threadEnvironment),
     instructionContextTogglesJson: JSON.stringify(
-      thread.instructionContextToggles,
+      snapshot.instructionContextToggles,
     ),
-    instruction: thread.instruction ? { ...thread.instruction } : null,
-    messages: thread.messages.map((message) => ({
+    instruction: snapshot.instruction ? { ...snapshot.instruction } : null,
+    messages: snapshot.messages.map((message) => ({
       id: message.id,
       threadId: message.threadId,
       conversationOrder: message.conversationOrder,
@@ -41,7 +44,7 @@ export function presentThreadResource(
         skillProfile: { ...activation.skillProfile },
       })),
     })),
-    mcpServers: thread.mcpServers.map((server) =>
+    mcpServers: snapshot.mcpServers.map((server) =>
       server.transport === "stdio"
         ? {
             id: server.id,
@@ -76,7 +79,7 @@ export function presentThreadResource(
             envJson: null,
           },
     ),
-    mcpRpcLogs: thread.operationLogs.map((entry) => ({
+    mcpRpcLogs: snapshot.operationLogs.map((entry) => ({
       rowId: entry.rowId,
       sourceRpcId: entry.sourceRpcId,
       threadId: entry.threadId,
@@ -92,7 +95,7 @@ export function presentThreadResource(
       isError: entry.isError,
       turnId: entry.turnId,
     })),
-    skillSelections: thread.skillSelections.map((selection) => ({
+    skillSelections: snapshot.skillSelections.map((selection) => ({
       ...selection,
       skillProfile: { ...selection.skillProfile },
     })),

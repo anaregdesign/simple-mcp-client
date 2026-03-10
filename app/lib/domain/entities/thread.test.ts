@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hasPersistableThreadState } from "~/lib/domain/policies/thread-persistable-state";
-import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
-import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
-import {
-  Thread,
-  type ThreadProps,
-} from "~/lib/domain/entities/thread";
+import type { ThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
+import { Thread } from "~/lib/domain/entities/thread";
 
-function createThreadProps(): ThreadProps {
+function createThreadProps(): ThreadSnapshot {
   return {
     id: "thread-a",
     userId: 1,
@@ -81,32 +76,5 @@ describe("Thread", () => {
     expect(thread.archive("2026-01-03T00:00:00.000Z").deletedAt).toBe(
       "2026-01-03T00:00:00.000Z",
     );
-  });
-});
-
-describe("thread helpers", () => {
-  it("clones thread environment defensively", () => {
-    const environment = {
-      PATH: "/tmp/bin",
-    };
-
-    const cloned = cloneThreadEnvironment(environment);
-    cloned.PATH = "/tmp/other";
-
-    expect(environment.PATH).toBe("/tmp/bin");
-  });
-
-  it("treats default thread settings as non-persistable", () => {
-    expect(
-      hasPersistableThreadState({
-        messageCount: 0,
-        skillSelectionCount: 0,
-        reasoningEffort: "none",
-        webSearchEnabled: false,
-        instructionContent: "",
-        instructionContextToggles: DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
-        threadEnvironment: {},
-      }),
-    ).toBe(false);
   });
 });

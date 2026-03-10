@@ -4,137 +4,44 @@ import {
   cloneChatAzureConfig,
   type ChatAzureConfig,
 } from "~/lib/domain/value-objects/chat-azure-config";
-import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
-import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
-
-export type ThreadAttachment = {
-  name: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataUrl: string;
-};
-
-export type ThreadSkillReference = {
-  name: string;
-  location: string;
-};
-
-export type ThreadMessageRole = "user" | "assistant";
-
-export type ThreadOperationType = "mcp" | "skill";
-
-export type ThreadSkillProfile = {
-  id: number;
-  userId: number;
-  registryProfileId: number | null;
-  name: string;
-  location: string;
-  source: string;
-};
-
-export type ThreadInstruction = {
-  id: number;
-  threadId: string;
-  content: string;
-};
-
-export type ThreadMessageSkillActivation = {
-  id: string;
-  messageId: string;
-  selectionOrder: number;
-  skillProfileId: number;
-  skillProfile: ThreadSkillProfile;
-};
-
-export type ThreadMessage = {
-  id: string;
-  threadId: string;
-  conversationOrder: number;
-  role: ThreadMessageRole;
-  content: string;
-  createdAt: string;
-  turnId: string;
-  attachments: ThreadAttachment[];
-  skillActivations: ThreadMessageSkillActivation[];
-};
-
-export type ThreadMcpHttpServer = {
-  id: string;
-  threadId: string;
-  selectionOrder: number;
-  name: string;
-  transport: "streamable_http" | "sse";
-  url: string;
-  headers: Record<string, string>;
-  useAzureAuth: boolean;
-  azureAuthScope: string | null;
-  timeoutSeconds: number | null;
-};
-
-export type ThreadMcpStdioServer = {
-  id: string;
-  threadId: string;
-  selectionOrder: number;
-  name: string;
-  transport: "stdio";
-  command: string;
-  args: string[];
-  cwd: string | null;
-  env: Record<string, string>;
-};
-
-export type ThreadMcpServer = ThreadMcpHttpServer | ThreadMcpStdioServer;
-
-export type ThreadOperationLog = {
-  rowId: string;
-  sourceRpcId: string;
-  threadId: string;
-  conversationOrder: number;
-  sequence: number;
-  operationType: ThreadOperationType;
-  serverName: string;
-  method: string;
-  startedAt: string;
-  completedAt: string;
-  request: unknown;
-  response: unknown;
-  isError: boolean;
-  turnId: string;
-};
-
-export type ThreadSkillSelection = {
-  id: string;
-  threadId: string;
-  selectionOrder: number;
-  skillProfileId: number;
-  skillProfile: ThreadSkillProfile;
-};
-
-export type ThreadProps = {
-  id: string;
-  userId: number;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-  reasoningEffort: ReasoningEffort;
-  webSearchEnabled: boolean;
-  chatAzureConfig?: ChatAzureConfig | null;
-  agentConversationId?: string | null;
-  threadEnvironment: ThreadEnvironment;
-  instructionContextToggles: ThreadInstructionContextToggles;
-  instruction: ThreadInstruction | null;
-  messages: ThreadMessage[];
-  mcpServers: ThreadMcpServer[];
-  operationLogs: ThreadOperationLog[];
-  skillSelections: ThreadSkillSelection[];
-};
+import {
+  cloneThreadSnapshot,
+  type ThreadSnapshot,
+} from "~/lib/domain/value-objects/thread-snapshot";
+import {
+  cloneThreadEnvironment,
+  type ThreadEnvironment,
+} from "~/lib/domain/value-objects/thread-environment";
+import {
+  cloneThreadInstructionContextToggles,
+  type ThreadInstructionContextToggles,
+} from "~/lib/domain/value-objects/thread-instruction-context";
+import {
+  cloneThreadInstruction,
+  type ThreadInstruction,
+} from "~/lib/domain/value-objects/thread-instruction";
+import {
+  cloneThreadMessages,
+  type ThreadMessage,
+} from "~/lib/domain/value-objects/thread-message";
+import {
+  cloneThreadMcpServers,
+  type ThreadMcpServer,
+} from "~/lib/domain/value-objects/thread-mcp-server";
+import {
+  cloneThreadOperationLogs,
+  type ThreadOperationLog,
+} from "~/lib/domain/value-objects/thread-operation-log";
+import {
+  cloneThreadSkillSelections,
+  type ThreadSkillSelection,
+} from "~/lib/domain/value-objects/thread-skill";
 
 export class Thread {
-  private readonly props: ThreadProps;
+  private readonly props: ThreadSnapshot;
 
-  constructor(props: ThreadProps) {
-    this.props = cloneThreadProps(props);
+  constructor(props: ThreadSnapshot) {
+    this.props = cloneThreadSnapshot(props);
   }
 
   get id(): string {
@@ -178,17 +85,17 @@ export class Thread {
   }
 
   get threadEnvironment(): ThreadEnvironment {
-    return { ...this.props.threadEnvironment };
+    return cloneThreadEnvironment(this.props.threadEnvironment);
   }
 
   get instructionContextToggles(): ThreadInstructionContextToggles {
-    return {
-      ...this.props.instructionContextToggles,
-    };
+    return cloneThreadInstructionContextToggles(
+      this.props.instructionContextToggles,
+    );
   }
 
   get instruction(): ThreadInstruction | null {
-    return this.props.instruction ? { ...this.props.instruction } : null;
+    return cloneThreadInstruction(this.props.instruction);
   }
 
   get messages(): ThreadMessage[] {
@@ -239,74 +146,4 @@ export class Thread {
       deletedAt: null,
     });
   }
-}
-
-function cloneThreadProps(props: ThreadProps): ThreadProps {
-  return {
-    ...props,
-    chatAzureConfig: cloneChatAzureConfig(props.chatAzureConfig),
-    agentConversationId: props.agentConversationId ?? null,
-    threadEnvironment: { ...props.threadEnvironment },
-    instructionContextToggles: { ...props.instructionContextToggles },
-    instruction: props.instruction ? { ...props.instruction } : null,
-    messages: cloneThreadMessages(props.messages),
-    mcpServers: cloneThreadMcpServers(props.mcpServers),
-    operationLogs: cloneThreadOperationLogs(props.operationLogs),
-    skillSelections: cloneThreadSkillSelections(props.skillSelections),
-  };
-}
-
-function cloneThreadMessages(messages: ThreadMessage[]): ThreadMessage[] {
-  return messages.map((message) => ({
-    ...message,
-    attachments: message.attachments.map((attachment) => ({ ...attachment })),
-    skillActivations: message.skillActivations.map((activation) => ({
-      ...activation,
-      skillProfile: { ...activation.skillProfile },
-    })),
-  }));
-}
-
-function cloneThreadMcpServers(servers: ThreadMcpServer[]): ThreadMcpServer[] {
-  return servers.map((server) =>
-    server.transport === "stdio"
-      ? {
-          ...server,
-          args: [...server.args],
-          env: { ...server.env },
-        }
-      : {
-          ...server,
-          headers: { ...server.headers },
-        },
-  );
-}
-
-function cloneThreadOperationLogs(entries: ThreadOperationLog[]): ThreadOperationLog[] {
-  return entries.map((entry) => ({
-    ...entry,
-    request: cloneJsonCompatibleValue(entry.request),
-    response: cloneJsonCompatibleValue(entry.response),
-  }));
-}
-
-function cloneThreadSkillSelections(
-  selections: ThreadSkillSelection[],
-): ThreadSkillSelection[] {
-  return selections.map((selection) => ({
-    ...selection,
-    skillProfile: { ...selection.skillProfile },
-  }));
-}
-
-function cloneJsonCompatibleValue<T>(value: T): T {
-  if (value === null || value === undefined || typeof value !== "object") {
-    return value;
-  }
-
-  if (typeof structuredClone === "function") {
-    return structuredClone(value);
-  }
-
-  return JSON.parse(JSON.stringify(value)) as T;
 }

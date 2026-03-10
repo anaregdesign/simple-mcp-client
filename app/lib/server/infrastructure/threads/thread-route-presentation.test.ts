@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  Thread,
-  type ThreadProps,
-} from "~/lib/domain/entities/thread";
+import type { ThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
+import { Thread } from "~/lib/domain/entities/thread";
 import {
   buildThreadCollectionMetricsContext,
   buildThreadMutationMetricsContext,
@@ -13,7 +11,7 @@ import {
   presentUpdateThreadResult,
 } from "~/lib/server/infrastructure/threads/thread-route-presentation";
 
-function createThreadProps(threadId = "thread-a"): ThreadProps {
+function createThreadProps(threadId = "thread-a"): ThreadSnapshot {
   return {
     id: threadId,
     userId: 1,

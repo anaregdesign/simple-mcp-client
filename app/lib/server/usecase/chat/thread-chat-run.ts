@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  MCP_DEFAULT_AZURE_AUTH_SCOPE,
+  MCP_DEFAULT_TIMEOUT_SECONDS,
+} from "~/lib/constants/mcp";
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
@@ -7,10 +11,7 @@ import {
 } from "~/lib/contracts/chat/operation-log";
 import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { Thread } from "~/lib/domain/entities/thread";
-import type {
-  ThreadRepository,
-  ThreadSaveInput,
-} from "~/lib/domain/repositories/thread-repository";
+import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   executeChatWithTransientRetry,
@@ -32,6 +33,7 @@ import {
   resolveWorkspaceThreadDirectory,
   resolveWorkspaceUserDirectory,
 } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import { buildThreadSaveInputFromThread } from "~/lib/server/usecase/threads/thread-save-input-mapper";
 
 export type ThreadChatRunRequest = {
   userId: number;
@@ -359,9 +361,8 @@ function mapThreadMcpServerToClientConfig(
     url: server.url,
     headers: { ...server.headers },
     useAzureAuth: server.useAzureAuth,
-    azureAuthScope:
-      server.azureAuthScope ?? "https://cognitiveservices.azure.com/.default",
-    timeoutSeconds: server.timeoutSeconds ?? 30,
+    azureAuthScope: server.azureAuthScope ?? MCP_DEFAULT_AZURE_AUTH_SCOPE,
+    timeoutSeconds: server.timeoutSeconds ?? MCP_DEFAULT_TIMEOUT_SECONDS,
   };
 }
 
@@ -429,7 +430,7 @@ async function persistThreadState(options: {
   operationLogs: ThreadOperationLogEntry[];
   assistantMessage?: ThreadMessage;
 }): Promise<Thread> {
-  const payload = buildThreadSaveInput(options.thread, {
+  const payload = buildThreadSaveInputFromThread(options.thread, {
     agentConversationId: options.agentConversationId,
     threadEnvironment: options.threadEnvironment,
     operationLogs: options.operationLogs,
@@ -441,96 +442,4 @@ async function persistThreadState(options: {
   }
 
   return saved.thread;
-}
-
-function buildThreadSaveInput(
-  thread: Thread,
-  options: {
-    agentConversationId: string;
-    threadEnvironment: Record<string, string>;
-    operationLogs: ThreadOperationLogEntry[];
-    assistantMessage?: ThreadMessage;
-  },
-): ThreadSaveInput {
-  return {
-    id: thread.id,
-    name: thread.name,
-    createdAt: thread.createdAt,
-    reasoningEffort: thread.reasoningEffort,
-    webSearchEnabled: thread.webSearchEnabled,
-    chatAzureConfig: thread.chatAzureConfig,
-    agentConversationId: options.agentConversationId,
-    instructionContent:
-      thread.instruction?.content ?? DEFAULT_AGENT_INSTRUCTION,
-    instructionContextToggles: {
-      ...thread.instructionContextToggles,
-    },
-    threadEnvironment: cloneThreadEnvironment(options.threadEnvironment),
-    messages: [
-      ...thread.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        createdAt: message.createdAt,
-        turnId: message.turnId,
-        attachments: message.attachments.map((attachment) => ({
-          ...attachment,
-        })),
-        skillActivations: message.skillActivations.map((activation) => ({
-          name: activation.skillProfile.name,
-          location: activation.skillProfile.location,
-        })),
-      })),
-      ...(options.assistantMessage
-        ? [
-            {
-              ...options.assistantMessage,
-              attachments: [],
-              skillActivations: [],
-            },
-          ]
-        : []),
-    ],
-    mcpServers: thread.mcpServers.map((server) =>
-      server.transport === "stdio"
-        ? {
-            id: server.id,
-            name: server.name,
-            transport: "stdio" as const,
-            command: server.command,
-            args: [...server.args],
-            ...(server.cwd ? { cwd: server.cwd } : {}),
-            env: { ...server.env },
-          }
-        : {
-            id: server.id,
-            name: server.name,
-            transport: server.transport,
-            url: server.url,
-            headers: { ...server.headers },
-            useAzureAuth: server.useAzureAuth,
-            azureAuthScope:
-              server.azureAuthScope ??
-              "https://cognitiveservices.azure.com/.default",
-            timeoutSeconds: server.timeoutSeconds ?? 30,
-          },
-    ),
-    operationLogs: options.operationLogs.map((entry) => ({
-      id: entry.id,
-      sequence: entry.sequence,
-      operationType: entry.operationType,
-      serverName: entry.serverName,
-      method: entry.method,
-      startedAt: entry.startedAt,
-      completedAt: entry.completedAt,
-      request: entry.request,
-      response: entry.response,
-      isError: entry.isError,
-      turnId: entry.turnId,
-    })),
-    skillSelections: thread.skillSelections.map((selection) => ({
-      name: selection.skillProfile.name,
-      location: selection.skillProfile.location,
-    })),
-  };
 }

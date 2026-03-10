@@ -2,10 +2,8 @@
  * Test module verifying api.threads.$threadId behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  Thread,
-  type ThreadProps,
-} from "~/lib/domain/entities/thread";
+import type { ThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
+import { Thread } from "~/lib/domain/entities/thread";
 
 const {
   readAuthenticatedUser,
@@ -59,7 +57,7 @@ vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-ga
 
 import { action, loader } from "./api.threads.$threadId";
 
-function createThreadProps(threadId = "thread-a"): ThreadProps {
+function createThreadProps(threadId = "thread-a"): ThreadSnapshot {
   return {
     id: threadId,
     userId: 1,

@@ -2,13 +2,11 @@ import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effor
 import type { ChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
 import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
-import type {
-  Thread,
-  ThreadAttachment,
-  ThreadMessageRole,
-  ThreadOperationType,
-  ThreadSkillReference,
-} from "~/lib/domain/entities/thread";
+import type { Thread } from "~/lib/domain/entities/thread";
+import type { ThreadAttachment } from "~/lib/domain/value-objects/thread-attachment";
+import type { ThreadMessageRole } from "~/lib/domain/value-objects/thread-message";
+import type { ThreadOperationType } from "~/lib/domain/value-objects/thread-operation-log";
+import type { ThreadSkillReference } from "~/lib/domain/value-objects/thread-skill";
 
 export type ThreadLifecycleState = {
   deletedAt: string | null;

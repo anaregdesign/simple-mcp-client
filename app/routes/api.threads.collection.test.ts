@@ -3,10 +3,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
-import {
-  Thread,
-  type ThreadProps,
-} from "~/lib/domain/entities/thread";
+import type { ThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
+import { Thread } from "~/lib/domain/entities/thread";
 import type { CreateThreadResult } from "~/lib/server/usecase/threads/thread-service";
 
 const {
@@ -66,7 +64,7 @@ vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
 
 import { action } from "./api.threads";
 
-function createThreadProps(): ThreadProps {
+function createThreadProps(): ThreadSnapshot {
   return {
     id: "thread-a",
     userId: 10,
