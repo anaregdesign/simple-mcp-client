@@ -1,4 +1,7 @@
-import type { MutableRefObject } from "react";
+import type {
+  Dispatch,
+  MutableRefObject,
+} from "react";
 import type {
   AzureDeploymentOption,
   AzurePrincipalProfile,
@@ -8,6 +11,7 @@ import type {
 } from "./parsers";
 import type { ReasoningEffort, ThemeMode } from "~/lib/client/usecase/workspace/view-types";
 import type { AzureProjectsLoadResult } from "./runtime";
+import type { AzureSettingsAction } from "./reducer";
 
 export type AzureProjectCatalogCacheEntry = {
   tenantId: string;
@@ -175,4 +179,52 @@ export type AzureSettingsStatePatch = Partial<AzureSettingsState>;
 
 export type AzureCacheRefs = {
   preferredAzureSelectionRef: MutableRefObject<AzureSelectionPreference | null>;
+};
+
+export type AzureDeploymentTarget = "playground" | "utility";
+
+export type AzureLoadAzureDeploymentsOptions = {
+  force?: boolean;
+};
+
+export type AzureSettingsHandlerDependencies = {
+  options: UseAzureSettingsOptions;
+  dispatch: Dispatch<AzureSettingsAction>;
+  patchState: (patch: Partial<AzureSettingsState>) => void;
+  readState: () => AzureSettingsState;
+  preferredAzureSelectionRef: MutableRefObject<AzureSelectionPreference | null>;
+  azureConnectionsRequestSeqRef: MutableRefObject<number>;
+  playgroundAzureDeploymentRequestSeqRef: MutableRefObject<number>;
+  utilityAzureDeploymentRequestSeqRef: MutableRefObject<number>;
+  workspaceMcpServerProfileLoginRetryTimeoutRef: MutableRefObject<number | null>;
+};
+
+export type AzureSettingsHandlers = {
+  cancelAzureDeploymentLoad: (target: AzureDeploymentTarget) => void;
+  clearWorkspaceMcpServerProfileLoginRetryTimeout: () => void;
+  saveAzureSelectionPreference: (
+    selection: AzureSelectionSaveInput,
+  ) => Promise<void>;
+  saveThemePreference: (
+    nextTheme: AzureSettingsState["theme"],
+  ) => Promise<void>;
+  loadAzureProjects: (
+    options?: LoadAzureProjectsOptions,
+  ) => Promise<LoadAzureProjectsResult>;
+  loadAzureDeployments: (
+    projectId: string,
+    target: AzureDeploymentTarget,
+    options?: AzureLoadAzureDeploymentsOptions,
+  ) => Promise<void>;
+  handleAzureLogin: () => Promise<void>;
+  handleAzureTenantChange: (nextTenantId: string) => Promise<void>;
+  handleAzureLogout: () => Promise<void>;
+  handleReloadAzureCatalog: () => Promise<void>;
+  handleSelectPlaygroundProject: (projectId: string) => void;
+  handleSelectPlaygroundDeployment: (deploymentName: string) => void;
+  handleSelectUtilityProject: (projectId: string) => void;
+  handleSelectUtilityDeployment: (deploymentName: string) => void;
+  handleUtilityReasoningEffortChange: (
+    value: AzureSettingsState["utilityReasoningEffort"],
+  ) => void;
 };
