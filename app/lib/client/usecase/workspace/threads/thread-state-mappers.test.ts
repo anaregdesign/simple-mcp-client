@@ -115,7 +115,22 @@ function createThreadResource(): ThreadResource {
 
 describe("convertThreadResourceToState", () => {
   it("converts a raw thread resource into client thread state", () => {
-    const state = convertThreadResourceToState(createThreadResource());
+    const resource = createThreadResource();
+    resource.messages[0]!.attachmentsJson = JSON.stringify([
+      {
+        name: "spec.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 42,
+        dataUrl: "data:application/pdf;base64,abc",
+      },
+      {
+        name: "",
+        mimeType: "application/pdf",
+        sizeBytes: 10,
+        dataUrl: "data:application/pdf;base64,def",
+      },
+    ]);
+    const state = convertThreadResourceToState(resource);
 
     expect(state.id).toBe("thread-1");
     expect(state.reasoningEffort).toBe("none");
@@ -130,6 +145,14 @@ describe("convertThreadResourceToState", () => {
         location: "/skills/doc-retriever/SKILL.md",
       },
     ]);
+    expect(state.messages[0]?.attachments).toEqual([
+      {
+        name: "spec.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 42,
+        dataUrl: "data:application/pdf;base64,abc",
+      },
+    ]);
     expect(state.mcpServers[0]).toEqual({
       id: "mcp-1",
       name: "Local MCP",
@@ -141,6 +164,20 @@ describe("convertThreadResourceToState", () => {
       azureAuthScope: "https://cognitiveservices.azure.com/.default",
       timeoutSeconds: 30,
     });
+  });
+
+  it("drops persisted operation logs without turnId", () => {
+    const resource = createThreadResource();
+    resource.mcpRpcLogs = [
+      {
+        ...resource.mcpRpcLogs[0]!,
+        turnId: "",
+      },
+    ];
+
+    const state = convertThreadResourceToState(resource);
+
+    expect(state.mcpRpcLogs).toEqual([]);
   });
 });
 

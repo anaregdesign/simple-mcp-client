@@ -6,6 +6,7 @@ import {
   parseSseDataBlock,
   readChatStreamEvent,
   readOperationLogType,
+  readPersistedThreadOperationLogEntryFromUnknown,
   readThreadOperationLogEntryFromUnknown,
   upsertThreadOperationLogEntry,
   type ThreadOperationLogEntry,
@@ -137,6 +138,62 @@ describe("readThreadOperationLogEntryFromUnknown", () => {
 
   it("rejects invalid entries", () => {
     expect(readThreadOperationLogEntryFromUnknown({ id: "", sequence: 1 })).toBeNull();
+  });
+});
+
+describe("readPersistedThreadOperationLogEntryFromUnknown", () => {
+  it("requires a non-empty turnId for persisted entries", () => {
+    expect(
+      readPersistedThreadOperationLogEntryFromUnknown({
+        id: "rpc-2",
+        sequence: 2,
+        operationType: "mcp",
+        serverName: "workiq",
+        method: "tools/list",
+        startedAt: "2026-02-16T00:00:00.000Z",
+        completedAt: "2026-02-16T00:00:01.000Z",
+        request: { jsonrpc: "2.0", id: "rpc-2", method: "tools/list", params: {} },
+        response: { jsonrpc: "2.0", id: "rpc-2", result: {} },
+        isError: false,
+        turnId: " ",
+      }),
+    ).toBeNull();
+  });
+
+  it("honors strict allowed-key validation when requested", () => {
+    expect(
+      readPersistedThreadOperationLogEntryFromUnknown(
+        {
+          id: "rpc-2",
+          sequence: 2,
+          operationType: "mcp",
+          serverName: "workiq",
+          method: "tools/list",
+          startedAt: "2026-02-16T00:00:00.000Z",
+          completedAt: "2026-02-16T00:00:01.000Z",
+          request: { jsonrpc: "2.0", id: "rpc-2", method: "tools/list", params: {} },
+          response: { jsonrpc: "2.0", id: "rpc-2", result: {} },
+          isError: false,
+          turnId: "turn-1",
+          unexpected: true,
+        },
+        {
+          allowedKeys: new Set([
+            "id",
+            "sequence",
+            "operationType",
+            "serverName",
+            "method",
+            "startedAt",
+            "completedAt",
+            "request",
+            "response",
+            "isError",
+            "turnId",
+          ]),
+        },
+      ),
+    ).toBeNull();
   });
 });
 

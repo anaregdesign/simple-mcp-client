@@ -154,10 +154,27 @@ describe("readThreadWritePayloadFromUnknown", () => {
           content: "Hi",
           createdAt: "2026-02-20T00:00:00.000Z",
           turnId: "turn-1",
-          attachments: [],
+          attachments: [
+            {
+              name: "spec.pdf",
+              mimeType: "application/pdf",
+              sizeBytes: 42,
+              dataUrl: "data:application/pdf;base64,abc",
+            },
+            {
+              name: "",
+              mimeType: "application/pdf",
+              sizeBytes: 10,
+              dataUrl: "data:application/pdf;base64,def",
+            },
+          ],
           skillActivations: [
             {
               name: "doc-retriever",
+              location: "/skills/doc-retriever/SKILL.md",
+            },
+            {
+              name: "duplicate-name",
               location: "/skills/doc-retriever/SKILL.md",
             },
           ],
@@ -201,6 +218,20 @@ describe("readThreadWritePayloadFromUnknown", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.instruction.content).toBe("You are concise.");
     expect(parsed?.messages).toHaveLength(1);
+    expect(parsed?.messages[0]?.attachments).toEqual([
+      {
+        name: "spec.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 42,
+        dataUrl: "data:application/pdf;base64,abc",
+      },
+    ]);
+    expect(parsed?.messages[0]?.skillActivations).toEqual([
+      {
+        name: "doc-retriever",
+        location: "/skills/doc-retriever/SKILL.md",
+      },
+    ]);
     expect(parsed?.mcpServers).toHaveLength(1);
   });
 
@@ -222,6 +253,43 @@ describe("readThreadWritePayloadFromUnknown", () => {
         userId: 10,
       }),
     ).toBeNull();
+  });
+
+  it("filters persisted operation logs with empty turnId", () => {
+    const parsed = readThreadWritePayloadFromUnknown({
+      id: "thread-1",
+      name: "Thread 1",
+      createdAt: "2026-02-20T00:00:00.000Z",
+      reasoningEffort: "none",
+      webSearchEnabled: false,
+      instruction: {
+        content: "You are concise.",
+      },
+      instructionContextToggles: {
+        system: true,
+      },
+      threadEnvironment: {},
+      messages: [],
+      mcpServers: [],
+      mcpRpcLogs: [
+        {
+          id: "rpc-1",
+          sequence: 1,
+          operationType: "mcp",
+          serverName: "Local MCP",
+          method: "tools/list",
+          startedAt: "2026-02-20T00:00:01.000Z",
+          completedAt: "2026-02-20T00:00:02.000Z",
+          request: { jsonrpc: "2.0" },
+          response: { jsonrpc: "2.0" },
+          isError: false,
+          turnId: "",
+        },
+      ],
+      skillSelections: [],
+    });
+
+    expect(parsed?.mcpRpcLogs).toEqual([]);
   });
 });
 

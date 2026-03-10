@@ -106,6 +106,17 @@ const checks = [
     ],
   },
   {
+    key: "threadStateMapperDuplicateParsers",
+    description:
+      "Thread state mapper must reuse shared chat attachment and persisted operation-log parsers.",
+    command: "rg",
+    args: [
+      "-n",
+      "function readChatAttachmentList|function readChatAttachmentFromUnknown|function readThreadOperationLogEntryFromUnknown",
+      "app/lib/client/usecase/workspace/threads/thread-state-mappers.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
