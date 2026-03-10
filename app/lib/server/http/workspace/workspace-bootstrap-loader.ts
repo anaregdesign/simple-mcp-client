@@ -12,7 +12,7 @@ import {
   presentAzureSelectionPreferenceResource,
   presentAzureTenantResources,
 } from "~/lib/server/http/azure/azure-presentation";
-import { presentThreadResources } from "~/lib/server/http/threads/thread-resource-presentation";
+import { presentThreadResources } from "~/lib/server/infrastructure/threads/thread-resource-presentation";
 import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { WorkspaceBootstrapService } from "~/lib/server/usecase/workspace/workspace-bootstrap-service";

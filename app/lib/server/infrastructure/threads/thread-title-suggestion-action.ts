@@ -4,13 +4,13 @@ import {
   methodNotAllowedResponse,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   readThreadTitleSuggestionRequest,
-} from "~/lib/server/http/threads/thread-title-suggestion-request";
+} from "~/lib/server/infrastructure/threads/thread-title-suggestion-request";
 import {
   buildThreadTitleUpstreamError,
-} from "~/lib/server/http/threads/thread-title-upstream-error";
+} from "~/lib/server/infrastructure/threads/thread-title-upstream-error";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { ThreadTitleSuggestionService } from "~/lib/server/usecase/threads/thread-title-suggestion-service";
 

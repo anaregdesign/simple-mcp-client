@@ -4,18 +4,18 @@ import {
   readErrorMessage,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   buildThreadCollectionMetricsContext,
   describeUnexpectedThreadFailure,
   presentCreateThreadResult,
   type ThreadRoutePresentation,
-} from "~/lib/server/http/threads/thread-route-presentation";
-import { presentThreadResources } from "~/lib/server/http/threads/thread-resource-presentation";
+} from "~/lib/server/infrastructure/threads/thread-route-presentation";
+import { presentThreadResources } from "~/lib/server/infrastructure/threads/thread-resource-presentation";
 import {
   readThreadWritePayload,
   type ThreadRouteValidationIssue,
-} from "~/lib/server/http/threads/thread-route-parsing";
+} from "~/lib/server/infrastructure/threads/thread-route-parsing";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type {
   ThreadApplicationService,

@@ -1,6 +1,6 @@
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 import type { Thread } from "~/lib/domain/entities/thread";
-import { presentThreadResource } from "~/lib/server/http/threads/thread-resource-presentation";
+import { presentThreadResource } from "~/lib/server/infrastructure/threads/thread-resource-presentation";
 import type {
   CreateThreadResult,
   LogicalDeleteThreadResult,

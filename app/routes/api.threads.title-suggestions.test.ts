@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseThreadTitleReasoningEffort,
-} from "~/lib/server/http/threads/thread-title-suggestion-request";
+} from "~/lib/server/infrastructure/threads/thread-title-suggestion-request";
 import { extractThreadAutoTitle } from "~/lib/server/usecase/threads/thread-title-suggestion-service";
 
 describe("parseThreadTitleReasoningEffort", () => {

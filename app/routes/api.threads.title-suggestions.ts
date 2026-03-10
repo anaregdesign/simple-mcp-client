@@ -8,7 +8,7 @@ import {
 import {
   handleThreadTitleSuggestionAction,
   handleThreadTitleSuggestionLoader,
-} from "~/lib/server/http/threads/thread-title-suggestion-action";
+} from "~/lib/server/infrastructure/threads/thread-title-suggestion-action";
 import {
   createThreadTitleSuggestionServiceWithInfrastructure,
 } from "~/lib/server/infrastructure/threads/thread-service-factory";

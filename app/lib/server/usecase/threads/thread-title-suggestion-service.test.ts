@@ -4,7 +4,7 @@ import {
   createThreadTitleSuggestionService,
   extractThreadAutoTitle,
 } from "./thread-title-suggestion-service";
-import { buildThreadTitleUpstreamError } from "~/lib/server/http/threads/thread-title-upstream-error";
+import { buildThreadTitleUpstreamError } from "~/lib/server/infrastructure/threads/thread-title-upstream-error";
 
 describe("extractThreadAutoTitle", () => {
   it("normalizes plain text title output", () => {

@@ -11,7 +11,7 @@ import {
   presentDeleteThreadResult,
   presentRestoreThreadResult,
   presentUpdateThreadResult,
-} from "~/lib/server/http/threads/thread-route-presentation";
+} from "~/lib/server/infrastructure/threads/thread-route-presentation";
 
 function createThreadProps(threadId = "thread-a"): ThreadProps {
   return {

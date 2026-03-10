@@ -6,7 +6,7 @@ import {
 import {
   presentThreadResource,
   presentThreadResources,
-} from "~/lib/server/http/threads/thread-resource-presentation";
+} from "~/lib/server/infrastructure/threads/thread-resource-presentation";
 
 function createThreadProps(threadId = "thread-a"): ThreadProps {
   return {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseThreadTitleReasoningEffort,
   readThreadTitleSuggestionRequest,
-} from "~/lib/server/http/threads/thread-title-suggestion-request";
+} from "~/lib/server/infrastructure/threads/thread-title-suggestion-request";
 
 describe("parseThreadTitleReasoningEffort", () => {
   it("defaults to high when omitted", () => {

@@ -4,7 +4,7 @@
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,
@@ -12,7 +12,7 @@ import {
 import {
   handleThreadCollectionAction,
   handleThreadCollectionLoader,
-} from "~/lib/server/http/threads/thread-collection-action";
+} from "~/lib/server/infrastructure/threads/thread-collection-action";
 import {
   createThreadServicesWithInfrastructure,
 } from "~/lib/server/infrastructure/threads/thread-service-factory";

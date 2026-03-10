@@ -4,7 +4,7 @@ import {
   readErrorMessage,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   describeUnexpectedThreadFailure,
   presentDeleteThreadResult,
@@ -12,14 +12,14 @@ import {
   presentUpdateThreadResult,
   type ThreadRoutePresentation,
   type ThreadUnexpectedFailureOperation,
-} from "~/lib/server/http/threads/thread-route-presentation";
+} from "~/lib/server/infrastructure/threads/thread-route-presentation";
 import {
   ensureThreadPayloadMatchesPath,
   readThreadIdParam,
   readThreadRestoreRequest,
   readThreadWritePayload,
   type ThreadRouteValidationIssue,
-} from "~/lib/server/http/threads/thread-route-parsing";
+} from "~/lib/server/infrastructure/threads/thread-route-parsing";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { ThreadApplicationService } from "~/lib/server/usecase/threads/thread-service";
 

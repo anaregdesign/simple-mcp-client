@@ -4,12 +4,12 @@
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
-import { handleThreadItemMutationAction } from "~/lib/server/http/threads/thread-item-action";
+import { handleThreadItemMutationAction } from "~/lib/server/infrastructure/threads/thread-item-action";
 import {
   createThreadApplicationServiceWithInfrastructure,
 } from "~/lib/server/infrastructure/threads/thread-service-factory";
