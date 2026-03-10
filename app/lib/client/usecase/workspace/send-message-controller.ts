@@ -8,10 +8,10 @@ import {
 } from "~/lib/client/usecase/workspace/send-message-usecase";
 import {
   findThreadStateById,
-} from "~/lib/client/usecase/workspace/thread-runtime";
+} from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type {
   ThreadOperationPhase,
-} from "~/lib/client/usecase/workspace/thread-operation-phase";
+} from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import type {
   ThreadRequestState,
 } from "~/lib/client/usecase/workspace/types";

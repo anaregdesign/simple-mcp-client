@@ -4,7 +4,7 @@ import {
 import {
   removeThreadMcpServerById,
   toggleThreadMcpServer,
-} from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
 import type { McpProfileFormState } from "~/lib/client/usecase/workspace/mcp-profile-form";
 import {
   deleteWorkspaceMcpServerProfile,

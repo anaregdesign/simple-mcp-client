@@ -9,7 +9,7 @@ import {
 } from "~/lib/contracts/threads/parsers";
 import { buildThreadSaveSignature, upsertThreadState } from "~/lib/contracts/threads/state";
 import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
-import { findThreadStateById } from "~/lib/client/usecase/workspace/thread-runtime";
+import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 
 type ThreadPersistenceLogOptions = {
   category?: string;

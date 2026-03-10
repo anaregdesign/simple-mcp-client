@@ -11,8 +11,8 @@ import {
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import {
   type ThreadManagementSectionProps,
-} from "~/lib/client/usecase/workspace/thread-management/types";
-import { isRenamingThread } from "~/lib/client/usecase/workspace/thread-management/selectors";
+} from "~/lib/client/usecase/workspace/threads/management/types";
+import { isRenamingThread } from "~/lib/client/usecase/workspace/threads/management/selectors";
 
 const { Button, Input, Spinner } = FluentUI;
 

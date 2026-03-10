@@ -2,8 +2,8 @@
  * Tests for thread-management reducer transitions.
  */
 import { describe, expect, it } from "vitest";
-import { threadManagementReducer } from "~/lib/client/usecase/workspace/thread-management/reducer";
-import { initialThreadManagementState } from "~/lib/client/usecase/workspace/thread-management/state";
+import { threadManagementReducer } from "~/lib/client/usecase/workspace/threads/management/reducer";
+import { initialThreadManagementState } from "~/lib/client/usecase/workspace/threads/management/state";
 
 describe("threadManagementReducer", () => {
   it("starts rename mode with the selected thread values", () => {

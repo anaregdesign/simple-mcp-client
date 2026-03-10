@@ -6,15 +6,15 @@ import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import {
   normalizeThreadRenameInput,
   resolveThreadRenameKeyAction,
-} from "~/lib/client/usecase/workspace/thread-management/handlers";
+} from "~/lib/client/usecase/workspace/threads/management/handlers";
 import {
   canSubmitThreadRename,
   doesActiveRenameTargetExist,
   hasActiveThreadRename,
   isRenamingThread,
   selectIsThreadOperationBusy,
-} from "~/lib/client/usecase/workspace/thread-management/selectors";
-import type { ThreadManagementState } from "~/lib/client/usecase/workspace/thread-management/state";
+} from "~/lib/client/usecase/workspace/threads/management/selectors";
+import type { ThreadManagementState } from "~/lib/client/usecase/workspace/threads/management/state";
 
 const renamingState: ThreadManagementState = {
   renamingThreadId: "thread-1",

@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
-vi.mock("~/lib/client/usecase/workspace/thread-loading-operations", () => ({
+vi.mock("~/lib/client/usecase/workspace/threads/thread-loading-operations", () => ({
   loadThreads: vi.fn(async () => {}),
 }));
 
 import {
   loadThreads as loadThreadsOperation,
-} from "~/lib/client/usecase/workspace/thread-loading-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-loading-operations";
 import {
   createThreadLoadingController,
-} from "~/lib/client/usecase/workspace/thread-loading-controller";
+} from "~/lib/client/usecase/workspace/threads/thread-loading-controller";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {

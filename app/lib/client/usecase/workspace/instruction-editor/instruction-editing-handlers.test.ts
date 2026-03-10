@@ -2,7 +2,7 @@ import type { ChangeEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
   createInstructionEditingHandlers,
-} from "~/lib/client/usecase/workspace/instruction-editing-handlers";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-editing-handlers";
 import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
 
 describe("createInstructionEditingHandlers", () => {

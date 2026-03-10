@@ -89,28 +89,28 @@ import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/use-workspace-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
 import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/use-workspace-skill-catalog-effects";
-import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/use-workspace-thread-background-effects";
+import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
 import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/workspace-config-panel-props";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/workspace-playground-panel-props";
 import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/workspace-runtime-logging";
-import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
+import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-editor/instruction-runtime";
 import {
   canTransition,
   canStartThreadOperation,
   transitionThreadOperation,
   type ThreadOperationPhase,
-} from "~/lib/client/usecase/workspace/thread-operation-phase";
+} from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import {
   canSendMessageByGuard,
   isThreadPhaseBlockingSend,
   selectThreadOperationPhaseFlags,
   shouldBlockThreadPersistence,
-} from "~/lib/client/usecase/workspace/thread-guards";
+} from "~/lib/client/usecase/workspace/threads/thread-guards";
 import {
   buildThreadListOptions,
   findThreadStateById,
-} from "~/lib/client/usecase/workspace/thread-runtime";
+} from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import {
   readThreadRequestStateById,
   workspaceInteractionReducer,
@@ -145,7 +145,7 @@ import {
 } from "~/lib/client/usecase/workspace/selectors";
 import {
   createThreadLifecycleHandlers,
-} from "~/lib/client/usecase/workspace/thread-lifecycle-handlers";
+} from "~/lib/client/usecase/workspace/threads/thread-lifecycle-handlers";
 import {
   createChatComposerHandlers,
   resizeChatComposerInput,
@@ -156,10 +156,10 @@ import {
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import {
   createInstructionEditingHandlers,
-} from "~/lib/client/usecase/workspace/instruction-editing-handlers";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-editing-handlers";
 import {
   createInstructionPromptHandlers,
-} from "~/lib/client/usecase/workspace/instruction-prompt-handlers";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
 import {
   createSkillCatalogController,
 } from "~/lib/client/usecase/workspace/skill-catalog-controller";
@@ -168,7 +168,7 @@ import {
 } from "~/lib/client/usecase/workspace/mcp-profile-handlers";
 import {
   connectMcpServerToThread,
-} from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
 import {
   createSkillSelectionHandlers,
 } from "~/lib/client/usecase/workspace/skill-selection-handlers";
@@ -185,13 +185,13 @@ import {
 } from "~/lib/client/usecase/workspace/types";
 import {
   createThreadLoadingController,
-} from "~/lib/client/usecase/workspace/thread-loading-controller";
+} from "~/lib/client/usecase/workspace/threads/thread-loading-controller";
 import {
   createThreadPersistenceController,
-} from "~/lib/client/usecase/workspace/thread-persistence-controller";
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-controller";
 import {
   createThreadTitleController,
-} from "~/lib/client/usecase/workspace/thread-title-controller";
+} from "~/lib/client/usecase/workspace/threads/thread-title-controller";
 import {
   createSendMessageController,
 } from "~/lib/client/usecase/workspace/send-message-controller";

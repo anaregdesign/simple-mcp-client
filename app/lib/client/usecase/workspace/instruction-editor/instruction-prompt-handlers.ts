@@ -20,7 +20,7 @@ import {
   saveInstructionToClientFile,
   validateEnhancedInstructionFormat,
   type SaveInstructionToClientFileResult,
-} from "~/lib/client/usecase/workspace/instruction-document";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-document";
 import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 import type { MainViewTab, ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 

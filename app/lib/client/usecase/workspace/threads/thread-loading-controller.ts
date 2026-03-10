@@ -2,7 +2,7 @@ import type { MutableRefObject } from "react";
 import type { ThreadsApiResponse } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   loadThreads as loadThreadsOperation,
-} from "~/lib/client/usecase/workspace/thread-loading-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-loading-operations";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 type CreateThreadLoadingControllerOptions = {

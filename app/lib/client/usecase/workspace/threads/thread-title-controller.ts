@@ -6,10 +6,10 @@ import type {
 import {
   refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
   type RefreshThreadTitleOptions,
-} from "~/lib/client/usecase/workspace/thread-title-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-title-operations";
 import {
   findThreadStateById,
-} from "~/lib/client/usecase/workspace/thread-runtime";
+} from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type {
   AzureConnectionView,
   ReasoningEffort,

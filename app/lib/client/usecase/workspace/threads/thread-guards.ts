@@ -4,7 +4,7 @@
 import {
   isThreadOperationPhaseBusy,
   type ThreadOperationPhase,
-} from "~/lib/client/usecase/workspace/thread-operation-phase";
+} from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 
 export type ThreadOperationPhaseFlags = {
   isLoadingThreads: boolean;

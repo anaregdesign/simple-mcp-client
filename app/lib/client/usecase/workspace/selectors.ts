@@ -20,7 +20,7 @@ import type {
   DesktopUpdaterActionState,
   DesktopUpdaterStatus,
 } from "~/lib/client/usecase/workspace/desktop-updater";
-import type { ThreadListOption } from "~/lib/client/usecase/workspace/thread-runtime";
+import type { ThreadListOption } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,

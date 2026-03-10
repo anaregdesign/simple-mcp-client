@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
-vi.mock("~/lib/client/usecase/workspace/thread-persistence-operations", () => ({
+vi.mock("~/lib/client/usecase/workspace/threads/thread-persistence-operations", () => ({
   flushActiveThreadState: vi.fn(async () => true),
   saveActiveThreadNameInBackground: vi.fn(async () => {}),
   saveThreadStateSilentlyIfNeeded: vi.fn(async () => {}),
@@ -13,10 +13,10 @@ import {
   saveActiveThreadNameInBackground,
   saveThreadStateSilentlyIfNeeded,
   saveThreadStateToDatabase,
-} from "~/lib/client/usecase/workspace/thread-persistence-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-operations";
 import {
   createThreadPersistenceController,
-} from "~/lib/client/usecase/workspace/thread-persistence-controller";
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-controller";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {

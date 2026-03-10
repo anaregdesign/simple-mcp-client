@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
-vi.mock("~/lib/client/usecase/workspace/thread-title-operations", () => ({
+vi.mock("~/lib/client/usecase/workspace/threads/thread-title-operations", () => ({
   refreshThreadTitleInBackground: vi.fn(async () => {}),
 }));
 
 import {
   refreshThreadTitleInBackground as refreshThreadTitleInBackgroundOperation,
-} from "~/lib/client/usecase/workspace/thread-title-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-title-operations";
 import {
   createThreadTitleController,
-} from "~/lib/client/usecase/workspace/thread-title-controller";
+} from "~/lib/client/usecase/workspace/threads/thread-title-controller";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {

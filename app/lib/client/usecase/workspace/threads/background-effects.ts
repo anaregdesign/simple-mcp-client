@@ -8,9 +8,9 @@ import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { buildThreadSaveSignature, hasThreadInteraction } from "~/lib/contracts/threads/state";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
-import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/thread-operation-phase";
-import { canStartThreadOperation } from "~/lib/client/usecase/workspace/thread-operation-phase";
-import { shouldBlockThreadPersistence } from "~/lib/client/usecase/workspace/thread-guards";
+import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
+import { canStartThreadOperation } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
+import { shouldBlockThreadPersistence } from "~/lib/client/usecase/workspace/threads/thread-guards";
 
 type TitleRefreshReason =
   | "first_message"

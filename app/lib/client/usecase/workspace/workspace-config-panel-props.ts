@@ -6,7 +6,7 @@ import {
 } from "~/lib/constants/mcp";
 import {
   describeInstructionLanguage,
-} from "~/lib/client/usecase/workspace/instruction-document";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-document";
 import {
   buildMcpServersTabProps,
   buildSettingsTabProps,

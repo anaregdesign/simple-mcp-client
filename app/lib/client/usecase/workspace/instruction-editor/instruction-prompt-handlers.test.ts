@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createInstructionPromptHandlers,
-} from "~/lib/client/usecase/workspace/instruction-prompt-handlers";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
 import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 
 function createBaseDependencies(

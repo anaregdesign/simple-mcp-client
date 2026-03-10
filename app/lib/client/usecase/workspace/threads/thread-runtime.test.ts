@@ -7,7 +7,7 @@ import {
   buildThreadListOptions,
   findThreadStateById,
   mergeSkillSelections,
-} from "~/lib/client/usecase/workspace/thread-runtime";
+} from "~/lib/client/usecase/workspace/threads/thread-runtime";
 
 describe("buildThreadListOptions", () => {
   const summaries = [

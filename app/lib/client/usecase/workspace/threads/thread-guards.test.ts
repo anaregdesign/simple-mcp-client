@@ -6,7 +6,7 @@ import {
   canSendMessageByGuard,
   selectThreadOperationPhaseFlags,
   shouldBlockThreadPersistence,
-} from "~/lib/client/usecase/workspace/thread-guards";
+} from "~/lib/client/usecase/workspace/threads/thread-guards";
 
 describe("selectThreadOperationPhaseFlags", () => {
   it("exposes phase booleans from a single selector", () => {

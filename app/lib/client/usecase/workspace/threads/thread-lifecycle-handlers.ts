@@ -20,8 +20,8 @@ import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-cl
 import {
   canStartThreadOperation,
   type ThreadOperationPhase,
-} from "~/lib/client/usecase/workspace/thread-operation-phase";
-import { findThreadStateById } from "~/lib/client/usecase/workspace/thread-runtime";
+} from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
+import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 
 type ThreadLifecycleHandlerDependencies = {

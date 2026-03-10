@@ -10,7 +10,7 @@ import { createId } from "~/lib/client/usecase/workspace/ids";
 import {
   reconcileSavedThreadMcpServer,
   removeThreadMcpServerByConfig,
-} from "~/lib/client/usecase/workspace/thread-mcp-server-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 export const MCP_PROFILE_ARCHIVED_THREAD_ERROR =

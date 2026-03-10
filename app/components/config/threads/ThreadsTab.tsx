@@ -9,10 +9,10 @@ import {
 import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 import {
   useThreadManagement,
-} from "~/lib/client/usecase/workspace/thread-management/use-thread-management";
+} from "~/lib/client/usecase/workspace/threads/management/use-thread-management";
 import type {
   ThreadManagementProps,
-} from "~/lib/client/usecase/workspace/thread-management/types";
+} from "~/lib/client/usecase/workspace/threads/management/types";
 
 type ThreadsTabProps = {
   activeMainTab: MainViewTab;

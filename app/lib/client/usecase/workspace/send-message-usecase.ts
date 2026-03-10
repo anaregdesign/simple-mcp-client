@@ -4,7 +4,7 @@
 import type { ChatApiClientResult } from "~/lib/client/infrastructure/api/chat-api-client";
 import { createThreadMessage } from "~/lib/client/usecase/workspace/chat-session/messages";
 import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
-import { mergeSkillSelections } from "~/lib/client/usecase/workspace/thread-runtime";
+import { mergeSkillSelections } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";

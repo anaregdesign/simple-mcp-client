@@ -9,8 +9,8 @@ import {
   type SendMessageTransportResult,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/send-message-usecase";
-import { isThreadPhaseBlockingSend } from "~/lib/client/usecase/workspace/thread-guards";
-import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/thread-operation-phase";
+import { isThreadPhaseBlockingSend } from "~/lib/client/usecase/workspace/threads/thread-guards";
+import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type {
   AzureConnectionView,

@@ -5,7 +5,7 @@ import {
   saveActiveThreadNameInBackground as saveActiveThreadNameInBackgroundOperation,
   saveThreadStateSilentlyIfNeeded as saveThreadStateSilentlyIfNeededOperation,
   saveThreadStateToDatabase as saveThreadStateToDatabaseOperation,
-} from "~/lib/client/usecase/workspace/thread-persistence-operations";
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-operations";
 import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
 
 type CreateThreadPersistenceControllerOptions = {
