@@ -39,15 +39,15 @@ describe("createThreadLoadingController", () => {
     vi.clearAllMocks();
   });
 
-  it("assembles thread loading deps around the current refs", async () => {
+  it("assembles thread loading deps around the latest readers", async () => {
     const beginLoadingThreadOperation = vi.fn(() => true);
     const endLoadingThreadOperation = vi.fn();
-    const activeWorkspaceUserKeyRef = { current: "tenant::principal" };
+    let activeWorkspaceUserKey = "tenant::principal";
     let threadLoadRequestSeq = 0;
     let isThreadsReady = false;
 
     const controller = createThreadLoadingController({
-      activeWorkspaceUserKeyRef,
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKey,
       readPreferredThreadId: () => "thread-9",
       nextThreadLoadRequestSeq: () => {
         threadLoadRequestSeq += 1;
@@ -72,11 +72,12 @@ describe("createThreadLoadingController", () => {
       logClientError: vi.fn(),
     });
 
+    activeWorkspaceUserKey = "tenant::next-principal";
     await controller.loadThreads();
 
     expect(loadThreadsOperation).toHaveBeenCalledTimes(1);
     const deps = vi.mocked(loadThreadsOperation).mock.calls[0]?.[0];
-    expect(deps?.readActiveWorkspaceUserKey()).toBe("tenant::principal");
+    expect(deps?.readActiveWorkspaceUserKey()).toBe("tenant::next-principal");
     expect(deps?.nextThreadLoadRequestSeq()).toBe(1);
     expect(deps?.readThreadLoadRequestSeq()).toBe(1);
     expect(threadLoadRequestSeq).toBe(1);

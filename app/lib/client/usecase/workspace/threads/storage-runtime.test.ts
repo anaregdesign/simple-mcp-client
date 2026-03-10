@@ -72,12 +72,13 @@ describe("createThreadStorageRuntime", () => {
     const thread = createThreadState();
     const runtime = createThreadStorageRuntime({
       persistence: {
-        activeWorkspaceUserKeyRef: { current: "tenant::principal" },
-        activeThreadIdRef: { current: "thread-1" },
-        threadsRef: { current: [] as ThreadState[] },
+        readActiveWorkspaceUserKey: vi.fn(() => "tenant::principal"),
+        readActiveThreadId: vi.fn(() => "thread-1"),
+        readThreads: vi.fn(() => [] as ThreadState[]),
         readSavedThreadSignature: vi.fn(),
         writeThreadSaveSignature: vi.fn(),
-        threadSaveRequestSeqRef: { current: 0 },
+        nextThreadSaveRequestSeq: vi.fn(() => 1),
+        readThreadSaveRequestSeq: vi.fn(() => 1),
         setIsSavingThread: vi.fn(),
         markAzureAuthRequired: vi.fn(),
         setThreadError: vi.fn(),
@@ -92,7 +93,7 @@ describe("createThreadStorageRuntime", () => {
         logClientError: vi.fn(),
       },
       loading: {
-        activeWorkspaceUserKeyRef: { current: "tenant::principal" },
+        readActiveWorkspaceUserKey: vi.fn(() => "tenant::principal"),
         readPreferredThreadId: vi.fn(() => "thread-1"),
         nextThreadLoadRequestSeq: vi.fn(() => 1),
         readThreadLoadRequestSeq: vi.fn(() => 1),

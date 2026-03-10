@@ -39,18 +39,18 @@ describe("createThreadTitleController", () => {
     vi.clearAllMocks();
   });
 
-  it("assembles title refresh deps around the current refs", async () => {
+  it("assembles title refresh deps around the latest readers", async () => {
     const thread = createThreadState();
-    const activeThreadIdRef = { current: "thread-1" };
-    const activeThreadNameInputRef = { current: "Draft name" };
-    const activeAzureTenantIdRef = { current: "tenant-1" };
-    const threadsRef = { current: [thread] };
+    let latestThreadById = new Map<string, ThreadState>([[thread.id, thread]]);
+    let activeThreadId = "thread-1";
+    let activeThreadNameInput = "Draft name";
+    let activeAzureTenantId = "tenant-1";
 
     const controller = createThreadTitleController({
-      activeThreadIdRef,
-      activeThreadNameInputRef,
-      activeAzureTenantIdRef,
-      threadsRef,
+      readThreadById: (threadId) => latestThreadById.get(threadId),
+      readActiveThreadId: () => activeThreadId,
+      readActiveThreadNameInput: () => activeThreadNameInput,
+      readActiveAzureTenantId: () => activeAzureTenantId,
       isArchivedThread: vi.fn(() => false),
       isChatLocked: false,
       isLoadingUtilityAzureDeployments: false,
@@ -73,6 +73,12 @@ describe("createThreadTitleController", () => {
       logClientError: vi.fn(),
     });
 
+    activeThreadId = "thread-2";
+    activeThreadNameInput = "Next draft name";
+    activeAzureTenantId = "tenant-2";
+    const nextThread = createThreadState({ id: "thread-1", name: "Thread 1 next" });
+    latestThreadById = new Map<string, ThreadState>([[nextThread.id, nextThread]]);
+
     await controller.refreshThreadTitleInBackground({
       threadId: "thread-1",
       reason: "first_message",
@@ -81,10 +87,10 @@ describe("createThreadTitleController", () => {
     expect(refreshThreadTitleInBackgroundOperation).toHaveBeenCalledTimes(1);
     const deps =
       vi.mocked(refreshThreadTitleInBackgroundOperation).mock.calls[0]?.[0];
-    expect(deps?.readActiveThreadId()).toBe("thread-1");
-    expect(deps?.readActiveThreadNameInput()).toBe("Draft name");
-    expect(deps?.readActiveAzureTenantId()).toBe("tenant-1");
-    expect(deps?.readThreadById("thread-1")).toEqual(thread);
+    expect(deps?.readActiveThreadId()).toBe("thread-2");
+    expect(deps?.readActiveThreadNameInput()).toBe("Next draft name");
+    expect(deps?.readActiveAzureTenantId()).toBe("tenant-2");
+    expect(deps?.readThreadById("thread-1")).toEqual(nextThread);
     expect(deps?.readSelectedUtilityAzureDeploymentName()).toBe(
       "utility-deployment",
     );

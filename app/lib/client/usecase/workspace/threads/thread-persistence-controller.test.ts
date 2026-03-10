@@ -45,28 +45,32 @@ describe("createThreadPersistenceController", () => {
     vi.clearAllMocks();
   });
 
-  it("assembles persistence deps around the current refs", async () => {
+  it("assembles persistence deps around the latest readers", async () => {
     const thread = createThreadState();
-    const activeWorkspaceUserKeyRef = { current: "tenant::principal" };
-    const activeThreadIdRef = { current: "thread-1" };
-    const threadsRef = { current: [thread] };
+    let activeWorkspaceUserKey = "tenant::principal";
+    let activeThreadId = "thread-1";
+    let latestThreads = [thread];
     const threadSaveSignatures = new Map<string, string>();
-    const threadSaveRequestSeqRef = { current: 0 };
+    let threadSaveRequestSeq = 0;
 
     const controller = createThreadPersistenceController({
-      activeWorkspaceUserKeyRef,
-      activeThreadIdRef,
-      threadsRef,
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKey,
+      readActiveThreadId: () => activeThreadId,
+      readThreads: () => latestThreads,
       readSavedThreadSignature: (threadId) => threadSaveSignatures.get(threadId),
       writeThreadSaveSignature: (threadId, signature) => {
         threadSaveSignatures.set(threadId, signature);
       },
-      threadSaveRequestSeqRef,
+      nextThreadSaveRequestSeq: () => {
+        threadSaveRequestSeq += 1;
+        return threadSaveRequestSeq;
+      },
+      readThreadSaveRequestSeq: () => threadSaveRequestSeq,
       setIsSavingThread: vi.fn(),
       markAzureAuthRequired: vi.fn(),
       setThreadError: vi.fn(),
       updateThreadsState: vi.fn((updater: (current: ThreadState[]) => ThreadState[]) =>
-        updater(threadsRef.current),
+        updater(latestThreads),
       ),
       setActiveThreadNameInput: vi.fn(),
       buildThreadStateFromCurrentState: vi.fn((base: ThreadState) => base),
@@ -77,17 +81,23 @@ describe("createThreadPersistenceController", () => {
       logClientError: vi.fn(),
     });
 
+    activeWorkspaceUserKey = "tenant::next-principal";
+    activeThreadId = "thread-2";
+    latestThreads = [thread, createThreadState({ id: "thread-2", name: "Thread 2" })];
+
     await controller.saveThreadStateToDatabase(thread);
     expect(saveThreadStateToDatabase).toHaveBeenCalledTimes(1);
     const persistenceDeps = vi.mocked(saveThreadStateToDatabase).mock.calls[0]?.[0];
-    expect(persistenceDeps?.readActiveWorkspaceUserKey()).toBe("tenant::principal");
-    expect(persistenceDeps?.readThreads()).toEqual([thread]);
+    expect(persistenceDeps?.readActiveWorkspaceUserKey()).toBe("tenant::next-principal");
+    expect(persistenceDeps?.readActiveThreadId()).toBe("thread-2");
+    expect(persistenceDeps?.readThreads()).toEqual(latestThreads);
     persistenceDeps?.writeThreadSaveSignature("thread-1", "signature-1");
     expect(
       persistenceDeps?.readSavedThreadSignature("thread-1"),
     ).toBe("signature-1");
     expect(persistenceDeps?.nextThreadSaveRequestSeq()).toBe(1);
-    expect(threadSaveRequestSeqRef.current).toBe(1);
+    expect(persistenceDeps?.readThreadSaveRequestSeq()).toBe(1);
+    expect(threadSaveRequestSeq).toBe(1);
 
     await controller.saveThreadStateSilentlyIfNeeded("thread-1");
     expect(saveThreadStateSilentlyIfNeeded).toHaveBeenCalledTimes(1);
