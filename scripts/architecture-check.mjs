@@ -95,6 +95,17 @@ const checks = [
     ],
   },
   {
+    key: "threadAggregateSubtypeExports",
+    description:
+      "Thread aggregate entity must not own snapshot or nested subtype exports.",
+    command: "rg",
+    args: [
+      "-n",
+      "export type (ThreadSnapshot|ThreadProps|ThreadAttachment|ThreadSkillReference|ThreadMessageRole|ThreadOperationType|ThreadSkillProfile|ThreadInstruction|ThreadMessageSkillActivation|ThreadMessage|ThreadMcpHttpServer|ThreadMcpStdioServer|ThreadMcpServer|ThreadOperationLog|ThreadSkillSelection)",
+      "app/lib/domain/entities/thread.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
