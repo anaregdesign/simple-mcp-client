@@ -118,12 +118,6 @@ import {
 import {
   createInitialWorkspaceInteractionState,
 } from "~/lib/client/usecase/workspace/state";
-import {
-  executeSendMessageTransport,
-} from "~/lib/client/usecase/workspace/send-message-usecase";
-import {
-  sendMessage as sendMessageOperation,
-} from "~/lib/client/usecase/workspace/send-message-operations";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
 import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
@@ -201,6 +195,9 @@ import {
 import {
   createThreadTitleController,
 } from "~/lib/client/usecase/workspace/thread-title-controller";
+import {
+  createSendMessageController,
+} from "~/lib/client/usecase/workspace/send-message-controller";
 
 /**
  * Client runtime controller.
@@ -1331,78 +1328,6 @@ export function useWorkspace() {
     }
   }
 
-  function buildSendMessageOperationDeps() {
-    return {
-      readActiveThreadId: () => activeThreadIdRef.current,
-      readDraft: () => draft,
-      readSelectedPlaygroundAzureDeploymentName: () =>
-        selectedPlaygroundAzureDeploymentName,
-      isArchivedThread,
-      readThreadRequestState,
-      readThreadOperationPhase: () => threadOperationPhase,
-      isChatLocked,
-      readActivePlaygroundAzureConnection: () => activePlaygroundAzureConnection,
-      isAzureAuthRequired,
-      isLoadingPlaygroundAzureDeployments,
-      isSelectedPlaygroundDeploymentAvailable: (deploymentName: string) =>
-        includesAzureDeploymentName(playgroundAzureDeployments, deploymentName),
-      isPlaygroundReasoningEffortSupported,
-      isSelectedPlaygroundReasoningEffortOptionAvailable: (
-        nextReasoningEffort: ReasoningEffort,
-      ) =>
-        effectivePlaygroundReasoningEffortOptions.includes(nextReasoningEffort),
-      readReasoningEffort: () => reasoningEffort,
-      readWebSearchEnabled: () => webSearchEnabled,
-      readBaseThread: (threadId: string) =>
-        findThreadStateById(threadsRef.current, threadId),
-      readDraftAttachments: () => draftAttachments,
-      readMessages: () => messages,
-      readMcpServers: () => mcpServers,
-      readSelectedMessageSkillActivations: () =>
-        selectedMessageSkillActivations,
-      readSelectedThreadSkills: () => selectedThreadSkills,
-      readAgentInstruction: () => agentInstruction,
-      readInstructionContextToggles: () => instructionContextToggles,
-      readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
-      createTurnId: () => createId("turn"),
-      setThreadError,
-      setUiError,
-      setActiveMainTab,
-      appendMessageToThreadState,
-      setDraft,
-      setSelectedMessageSkillActivations,
-      setDraftAttachments,
-      setChatAttachmentError,
-      setSystemNotice,
-      clearAzureSessionStatus,
-      updateThreadRequestState,
-      logClientInfo,
-      logClientError,
-      refreshThreadTitleInBackground,
-      assignThreadSendAbortController,
-      sendMessageTransport: (options: Parameters<
-        typeof executeSendMessageTransport
-      >[1]) =>
-        executeSendMessageTransport(
-          {
-            sendMessage: (payload, sendOptions) =>
-              chatApiClient.sendMessage(payload, sendOptions),
-            markAzureAuthRequired,
-          },
-          options,
-        ),
-      appendThreadProgressMessage,
-      appendThreadOperationLogToThreadState,
-      applyThreadEnvironmentToThreadState,
-      clearThreadSendAbortController,
-      scheduleThreadStateSave: (threadId: string) => {
-        window.setTimeout(() => {
-          void saveThreadStateSilentlyIfNeeded(threadId);
-        }, 0);
-      },
-    };
-  }
-
   function updateThreadStateById(
     threadId: string,
     updater: (current: ThreadState) => ThreadState,
@@ -1579,6 +1504,65 @@ export function useWorkspace() {
     logClientError,
   });
 
+  const sendMessageController = createSendMessageController({
+    activeThreadIdRef,
+    activeAzureTenantIdRef,
+    threadsRef,
+    readDraft: () => draft,
+    readSelectedPlaygroundAzureDeploymentName: () =>
+      selectedPlaygroundAzureDeploymentName,
+    isArchivedThread,
+    readThreadRequestState,
+    readThreadOperationPhase: () => threadOperationPhase,
+    isChatLocked,
+    readActivePlaygroundAzureConnection: () => activePlaygroundAzureConnection,
+    isAzureAuthRequired,
+    isLoadingPlaygroundAzureDeployments,
+    isSelectedPlaygroundDeploymentAvailable: (deploymentName) =>
+      includesAzureDeploymentName(playgroundAzureDeployments, deploymentName),
+    isPlaygroundReasoningEffortSupported,
+    isSelectedPlaygroundReasoningEffortOptionAvailable: (
+      nextReasoningEffort,
+    ) => effectivePlaygroundReasoningEffortOptions.includes(nextReasoningEffort),
+    readReasoningEffort: () => reasoningEffort,
+    readWebSearchEnabled: () => webSearchEnabled,
+    readDraftAttachments: () => draftAttachments,
+    readMessages: () => messages,
+    readMcpServers: () => mcpServers,
+    readSelectedMessageSkillActivations: () =>
+      selectedMessageSkillActivations,
+    readSelectedThreadSkills: () => selectedThreadSkills,
+    readAgentInstruction: () => agentInstruction,
+    readInstructionContextToggles: () => instructionContextToggles,
+    setThreadError,
+    setUiError,
+    setActiveMainTab,
+    appendMessageToThreadState,
+    setDraft,
+    setSelectedMessageSkillActivations,
+    setDraftAttachments,
+    setChatAttachmentError,
+    setSystemNotice,
+    clearAzureSessionStatus,
+    updateThreadRequestState,
+    logClientInfo,
+    logClientError,
+    refreshThreadTitleInBackground,
+    assignThreadSendAbortController,
+    markAzureAuthRequired,
+    sendMessage: (payload, sendOptions) =>
+      chatApiClient.sendMessage(payload, sendOptions),
+    appendThreadProgressMessage,
+    appendThreadOperationLogToThreadState,
+    applyThreadEnvironmentToThreadState,
+    clearThreadSendAbortController,
+    scheduleThreadStateSave: (threadId) => {
+      window.setTimeout(() => {
+        void saveThreadStateSilentlyIfNeeded(threadId);
+      }, 0);
+    },
+  });
+
   // Thread persistence and title-refresh orchestration.
   async function saveThreadStateToDatabase(
     thread: ThreadState,
@@ -1736,7 +1720,7 @@ export function useWorkspace() {
   }
 
   async function sendMessage() {
-    await sendMessageOperation(buildSendMessageOperationDeps());
+    await sendMessageController.sendMessage();
   }
 
   function handleReloadSkills() {
