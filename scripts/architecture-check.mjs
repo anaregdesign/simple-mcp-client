@@ -418,6 +418,50 @@ const checks = [
     ],
   },
   {
+    key: "legacyAzureSettingsRuntimeFile",
+    description:
+      "azure-settings generic runtime.ts owner must stay retired in favor of catalog-state.ts.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/runtime.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/runtime.ts",
+    ],
+  },
+  {
+    key: "legacyMcpProfileFormHookFile",
+    description:
+      "mcp-profiles public Hook file must use the canonical use-mcp-profile-form.ts name.",
+    rootPath: "app/lib/client/usecase/workspace/mcp-profiles/use-form.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/mcp-profiles/use-form.ts",
+    ],
+  },
+  {
+    key: "legacyMcpProfileControllerFile",
+    description:
+      "mcp-profiles generic controller.ts owner must stay split into operation-deps and form-editing modules.",
+    rootPath: "app/lib/client/usecase/workspace/mcp-profiles/controller.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/mcp-profiles/controller.ts",
+    ],
+  },
+  {
+    key: "legacyMcpProfileRuntimeFile",
+    description:
+      "mcp-profiles dead runtime.ts helper owner must stay retired.",
+    rootPath: "app/lib/client/usecase/workspace/mcp-profiles/runtime.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/mcp-profiles/runtime.ts",
+    ],
+  },
+  {
     key: "azureSettingsBrowserAdapterOwnership",
     description:
       "azure-settings browser effects must stay in client/infrastructure/browser instead of touching document/window directly from the usecase Hook.",
