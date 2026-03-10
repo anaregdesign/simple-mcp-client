@@ -56,10 +56,43 @@ const checks = [
     ],
   },
   {
+    key: "domainExternalImports",
+    description: "Domain modules must not import from outside ~/lib/domain.",
+    command: "rg",
+    args: [
+      "-n",
+      "-P",
+      "from ['\\\"]~/(?!lib/domain/)",
+      "app/lib/domain",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
+    ],
+  },
+  {
     key: "domainRepositoryContractImports",
     description: "Domain repository ports must not import transport contracts.",
     command: "rg",
     args: ["-n", "from ['\\\"]~/lib/contracts/", "app/lib/domain/repositories"],
+  },
+  {
+    key: "legacySkillRegistryContract",
+    description: "Legacy skill registry transport contract owner must not exist.",
+    rootPath: "app/lib/contracts/skills/registry.ts",
+    command: "rg",
+    args: ["--files", "app/lib/contracts/skills/registry.ts"],
+  },
+  {
+    key: "threadStateHelpersInContracts",
+    description:
+      "Thread client state, summaries, and state helpers must not live under app/lib/contracts/threads.",
+    command: "rg",
+    args: [
+      "-n",
+      "ThreadState|ThreadSummary|buildThreadSummary|convertThreadResourceToState|convertThreadStateToWritePayload|buildThreadSaveSignature|hasThreadInteraction|hasThreadPersistableState|isThreadArchived|isThreadArchivedById|upsertThreadState|readThreadRuntimeStateById|readThreadStateById|updateThreadStateCollectionById",
+      "app/lib/contracts/threads",
+    ],
   },
   {
     key: "raw405InRoutes",
