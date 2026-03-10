@@ -98,12 +98,7 @@ import { copyTextToClipboard } from "~/lib/client/infrastructure/browser/clipboa
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
-import {
-  getDefaultDesktopUpdaterStatus,
-  readDesktopApi,
-  readDesktopUpdaterStatusFromUnknown,
-  resolveDesktopUpdaterActionState,
-} from "~/lib/client/usecase/workspace/desktop-updater";
+import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/use-workspace-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
@@ -346,10 +341,6 @@ export function useWorkspace() {
   const [isLoadingSkills, setIsLoadingSkills] = useState(false);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [skillsWarning, setSkillsWarning] = useState<string | null>(null);
-  const [desktopUpdaterStatus, setDesktopUpdaterStatus] = useState(
-    getDefaultDesktopUpdaterStatus,
-  );
-  const [isApplyingDesktopUpdate, setIsApplyingDesktopUpdate] = useState(false);
   const {
     layoutRef,
     rightPaneWidth,
@@ -805,6 +796,19 @@ export function useWorkspace() {
     });
   }
 
+  const {
+    desktopUpdaterStatus,
+    desktopUpdaterActionState,
+    isApplyingDesktopUpdate,
+    handleApplyDesktopUpdate,
+    handleCheckDesktopUpdates,
+  } = useWorkspaceDesktopUpdater({
+    setUiError,
+    setSystemNotice,
+    logClientError,
+    logClientWarning,
+  });
+
   // Keep refs synchronized with state to avoid stale closures in async handlers.
   useEffect(() => {
     activeMainTabRef.current = activeMainTab;
@@ -816,49 +820,6 @@ export function useWorkspace() {
         source: "client",
       }),
     );
-  }, []);
-
-  useEffect(() => {
-    const desktopApi = readDesktopApi();
-    if (!desktopApi) {
-      setDesktopUpdaterStatus(getDefaultDesktopUpdaterStatus());
-      return;
-    }
-
-    let isActive = true;
-
-    const applyStatusPayload = (payload: unknown) => {
-      const parsed = readDesktopUpdaterStatusFromUnknown(payload);
-      if (!parsed || !isActive) {
-        return;
-      }
-
-      setDesktopUpdaterStatus(parsed);
-    };
-
-    void desktopApi
-      .getUpdaterStatus()
-      .then((payload) => {
-        applyStatusPayload(payload);
-      })
-      .catch((error) => {
-        logClientWarning(
-          "desktop_updater_status_read_failed",
-          error instanceof Error ? error.message : "Unknown error.",
-          {
-            location: "controller.desktopUpdater",
-          },
-        );
-      });
-
-    const unsubscribe = desktopApi.onUpdaterStatus((payload) => {
-      applyStatusPayload(payload);
-    });
-
-    return () => {
-      isActive = false;
-      unsubscribe();
-    };
   }, []);
 
   useEffect(() => {
@@ -2391,102 +2352,6 @@ export function useWorkspace() {
     logClientError,
   });
 
-  async function handleApplyDesktopUpdate() {
-    const desktopApi = readDesktopApi();
-    if (
-      !desktopApi ||
-      !desktopUpdaterStatus.updateDownloaded ||
-      isApplyingDesktopUpdate
-    ) {
-      return;
-    }
-
-    setIsApplyingDesktopUpdate(true);
-    setUiError(null);
-    try {
-      await desktopApi.quitAndInstallUpdate();
-    } catch (error) {
-      logClientError("desktop_update_apply_failed", error, {
-        action: "desktop_updater.quitAndInstallUpdate",
-        location: "controller.desktopUpdater",
-        context: {
-          availableVersion: desktopUpdaterStatus.availableVersion,
-        },
-      });
-      setUiError(
-        error instanceof Error
-          ? error.message
-          : "Failed to apply desktop update.",
-      );
-      setIsApplyingDesktopUpdate(false);
-    }
-  }
-
-  async function handleCheckDesktopUpdates() {
-    const desktopApi = readDesktopApi();
-    if (
-      !desktopApi ||
-      !desktopUpdaterStatus.supported ||
-      desktopUpdaterStatus.checking
-    ) {
-      return;
-    }
-
-    setUiError(null);
-    try {
-      const payload = await desktopApi.checkForUpdates();
-      const parsed = readDesktopUpdaterStatusFromUnknown(payload);
-      if (!parsed) {
-        setSystemNotice("Update check completed.");
-        return;
-      }
-
-      setDesktopUpdaterStatus(parsed);
-
-      if (parsed.errorMessage) {
-        setUiError(parsed.errorMessage);
-        return;
-      }
-
-      if (parsed.updateDownloaded) {
-        setSystemNotice(
-          parsed.availableVersion
-            ? `Version ${parsed.availableVersion} is downloaded. Use Upgrade to apply it.`
-            : "An update is downloaded. Use Upgrade to apply it.",
-        );
-        return;
-      }
-
-      if (parsed.updateAvailable) {
-        setSystemNotice(
-          parsed.availableVersion
-            ? `Version ${parsed.availableVersion} is available and downloading in the background.`
-            : "A new version is available and downloading in the background.",
-        );
-        return;
-      }
-
-      setSystemNotice(
-        parsed.currentVersion
-          ? `No updates found. Current version is ${parsed.currentVersion}.`
-          : "No updates found.",
-      );
-    } catch (error) {
-      logClientError("desktop_update_check_failed", error, {
-        action: "desktop_updater.checkForUpdates",
-        location: "controller.desktopUpdater",
-        context: {
-          currentVersion: desktopUpdaterStatus.currentVersion,
-        },
-      });
-      setUiError(
-        error instanceof Error
-          ? error.message
-          : "Failed to check desktop updates.",
-      );
-    }
-  }
-
   function handleChatAzureSelectorAction(target: "project" | "deployment") {
     if (
       isSending ||
@@ -2736,8 +2601,7 @@ export function useWorkspace() {
     isSending,
     isThreadReadOnly: isActiveThreadArchived,
     desktopUpdaterStatus,
-    desktopUpdaterActionState:
-      resolveDesktopUpdaterActionState(desktopUpdaterStatus),
+    desktopUpdaterActionState,
     isApplyingDesktopUpdate,
     onCheckDesktopUpdates: () => {
       void handleCheckDesktopUpdates();
