@@ -14,6 +14,7 @@ import { FluentUI } from "~/components/shared/fluent";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
 import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
+import { formatPlaygroundAttachmentSize } from "~/components/playground/rendering/attachment-size";
 import { QuickControlFrame } from "~/components/shared/QuickControlFrame";
 import type {
   AzureConnectionOptionView,
@@ -27,7 +28,6 @@ import type {
   ThreadOperationLogEntryView,
   ThreadSkillView,
 } from "~/lib/client/usecase/workspace/view-types";
-import { formatChatAttachmentSize } from "~/lib/client/chat/attachments";
 import {
   NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
   NO_AVAILABLE_PROJECTS_OPTION_LABEL,
@@ -484,7 +484,7 @@ export function PlaygroundPanel<
                   {attachment.name}
                 </span>
                 <span className="chat-attachment-bubble-size">
-                  {formatChatAttachmentSize(attachment.sizeBytes)}
+                  {formatPlaygroundAttachmentSize(attachment.sizeBytes)}
                 </span>
                 <Button
                   type="button"

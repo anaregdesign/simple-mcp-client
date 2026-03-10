@@ -7,24 +7,27 @@ import rehypeKatex from "rehype-katex";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { CopyableBlock } from "~/components/shared/CopyableBlock";
-import { CopyIconButton } from "~/components/shared/CopyIconButton";
-import { formatChatAttachmentSize } from "~/lib/client/chat/attachments";
-import { buildThreadOperationLogCopyPayload, readOperationLogType } from "~/lib/client/chat/history";
-import { normalizeChatMarkdownMath } from "~/lib/client/chat/math-markdown";
-import {
-  readMarkdownBlockCopyText,
-  type MarkdownBlockNode,
-} from "~/lib/client/chat/markdown-block-copy";
-import type { ThreadMessage } from "~/lib/client/chat/messages";
-import type { JsonToken } from "~/lib/client/chat/json-highlighting";
+import { formatPlaygroundAttachmentSize } from "~/components/playground/rendering/attachment-size";
 import {
   formatJsonForDisplay,
   isJsonCodeClassName,
   parseJsonMessageTokens,
   tokenizeJson,
-} from "~/lib/client/chat/json-highlighting";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
+  type JsonToken,
+} from "~/components/playground/rendering/json-highlighting";
+import { normalizeChatMarkdownMath } from "~/components/playground/rendering/math-markdown";
+import {
+  readMarkdownBlockCopyText,
+  type MarkdownBlockNode,
+} from "~/components/playground/rendering/markdown-block-copy";
+import { CopyableBlock } from "~/components/shared/CopyableBlock";
+import { CopyIconButton } from "~/components/shared/CopyIconButton";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import {
+  buildThreadOperationLogCopyPayload,
+  readOperationLogType,
+  type ThreadOperationLogEntry,
+} from "~/lib/contracts/chat/operation-log";
 
 type JsonHighlightStyle = "default" | "compact";
 type CopyableMarkdownBlockKind =
@@ -159,7 +162,7 @@ export function renderMessageContent(
               <li key={`${message.id}-attachment-${index}`}>
                 <span className="user-message-attachment-name">{attachment.name}</span>
                 <span className="user-message-attachment-size">
-                  {formatChatAttachmentSize(attachment.sizeBytes)}
+                  {formatPlaygroundAttachmentSize(attachment.sizeBytes)}
                 </span>
               </li>
             ))}

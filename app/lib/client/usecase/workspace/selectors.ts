@@ -3,9 +3,9 @@ import type {
   AzureProjectOption,
   AzureTenantOption,
 } from "~/lib/client/usecase/workspace/azure-parsers";
-import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
-import type { ThreadMessage } from "~/lib/client/chat/messages";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
+import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import {
   type WorkspaceMcpServerProfileOption,
 } from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";

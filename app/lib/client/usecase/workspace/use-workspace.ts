@@ -37,18 +37,18 @@ import {
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
 import { isLikelyChatAzureAuthError } from "~/lib/client/usecase/workspace/azure-errors";
-import { buildThreadOperationLogsByTurnId } from "~/lib/client/chat/history";
-import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
+import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   readChatCommandMatchAtCursor,
-} from "~/lib/client/chat/commands";
-import type { ThreadMessage } from "~/lib/client/chat/messages";
+} from "~/lib/client/usecase/workspace/chat-composer/commands";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type {
   ThreadOperationLogEntry,
-} from "~/lib/client/chat/stream";
+} from "~/lib/contracts/chat/operation-log";
 import {
+  buildThreadOperationLogsByTurnId,
   upsertThreadOperationLogEntry,
-} from "~/lib/client/chat/stream";
+} from "~/lib/contracts/chat/operation-log";
 import {
   describeInstructionLanguage,
 } from "~/lib/client/usecase/workspace/instruction-document";

@@ -1,9 +1,7 @@
-import { createThreadMessage, type ThreadMessage } from "~/lib/client/chat/messages";
-import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
 import {
   isWebSearchCompatibleReasoningEffort,
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
+import { createThreadMessage } from "~/lib/client/usecase/workspace/chat-session/messages";
 import {
   applySendResult,
   executeSendMessageTransport,
@@ -19,6 +17,9 @@ import type {
   MainViewTab,
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
+import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";

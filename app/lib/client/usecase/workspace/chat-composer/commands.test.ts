@@ -2,7 +2,10 @@
  * Test module verifying chat command parsing behavior.
  */
 import { describe, expect, it } from "vitest";
-import { readChatCommandMatchAtCursor, replaceChatCommandToken } from "~/lib/client/chat/commands";
+import {
+  readChatCommandMatchAtCursor,
+  replaceChatCommandToken,
+} from "./commands";
 
 describe("readChatCommandMatchAtCursor", () => {
   it("returns null when no trigger keyword exists", () => {

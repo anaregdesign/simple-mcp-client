@@ -1,12 +1,13 @@
 /**
  * Client controller send-message use-case helpers.
  */
-import { createThreadMessage, type ThreadMessage } from "~/lib/client/chat/messages";
-import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
-import type { ThreadOperationLogEntry } from "~/lib/client/chat/stream";
 import type { ChatApiClientResult } from "~/lib/client/infrastructure/api/chat-api-client";
+import { createThreadMessage } from "~/lib/client/usecase/workspace/chat-session/messages";
 import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-runtime";
 import { mergeSkillSelections } from "~/lib/client/usecase/workspace/thread-runtime";
+import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { ChatApiRequestPayload } from "~/lib/contracts/chat/request";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";

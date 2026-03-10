@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
+import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   createChatComposerHandlers,
   type ChatCommandProvider,

@@ -6,15 +6,15 @@ import type {
   SetStateAction,
   SyntheticEvent,
 } from "react";
-import type { DraftChatAttachment } from "~/lib/client/chat/attachments";
+import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   formatChatAttachmentSize,
-  readFileAsDataUrl,
-} from "~/lib/client/chat/attachments";
+} from "~/lib/client/usecase/workspace/chat-composer/attachment-size";
 import {
   replaceChatCommandToken,
   type ChatCommandMatch,
-} from "~/lib/client/chat/commands";
+} from "~/lib/client/usecase/workspace/chat-composer/commands";
+import { readFileAsDataUrl } from "~/lib/client/infrastructure/browser/file-data-url";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import type { ChatCommandSuggestion } from "~/lib/client/usecase/workspace/selectors";
 import type {
