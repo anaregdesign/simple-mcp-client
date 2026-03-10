@@ -376,6 +376,17 @@ export async function deleteThread(
 
     deps.removeThreadRequestState(threadId);
     await deps.loadThreads();
+
+    if (threadId === currentThreadId) {
+      const nextActiveThread =
+        deps.readThreads().find((thread) => thread.deletedAt === null) ?? null;
+      if (nextActiveThread) {
+        deps.applyThreadState(nextActiveThread);
+      } else {
+        deps.clearActiveThreadState();
+      }
+    }
+
     deps.logClientInfo("delete_thread_succeeded", "Thread archived.", {
       action: "delete_thread",
       context: {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   cancelThreadProcessing,
   clearThread,
@@ -10,10 +11,17 @@ import {
 import type {
   ThreadLifecycleHandlerDependencies,
 } from "~/lib/client/usecase/workspace/threads/thread-lifecycle-types";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadResource, ThreadState } from "~/lib/contracts/threads/types";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
 } from "~/lib/contracts/threads/instruction-context";
+
+vi.mock("~/lib/client/infrastructure/api/threads-api-client", () => ({
+  threadsApiClient: {
+    deleteThread: vi.fn(),
+    restoreThread: vi.fn(),
+  },
+}));
 
 function createThread(overrides: Partial<ThreadState> = {}): ThreadState {
   return {
@@ -30,6 +38,36 @@ function createThread(overrides: Partial<ThreadState> = {}): ThreadState {
     agentInstruction: "",
     instructionContextToggles: DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
     threadEnvironment: {},
+    skillSelections: [],
+    ...overrides,
+  };
+}
+
+function createThreadResource(
+  overrides: Partial<ThreadResource> = {},
+): ThreadResource {
+  return {
+    id: "thread-1",
+    userId: 1,
+    name: "Thread 1",
+    createdAt: "2026-03-10T00:00:00.000Z",
+    updatedAt: "2026-03-10T00:00:00.000Z",
+    deletedAt: null,
+    reasoningEffort: "medium",
+    webSearchEnabled: false,
+    chatAzureConfigJson: null,
+    threadEnvironmentJson: "{}",
+    instructionContextTogglesJson: JSON.stringify(
+      DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
+    ),
+    instruction: {
+      id: 1,
+      threadId: "thread-1",
+      content: "",
+    },
+    messages: [],
+    mcpServers: [],
+    mcpRpcLogs: [],
     skillSelections: [],
     ...overrides,
   };
@@ -77,6 +115,8 @@ describe("thread lifecycle operations", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-10T12:00:00.000Z"));
+    vi.mocked(threadsApiClient.deleteThread).mockReset();
+    vi.mocked(threadsApiClient.restoreThread).mockReset();
   });
 
   it("clears active thread messages and applies the snapshot", async () => {
@@ -225,6 +265,54 @@ describe("thread lifecycle operations", () => {
     expect(threads).toEqual([nextThread]);
     expect(deps.applyThreadState).toHaveBeenCalledWith(nextThread);
     expect(deps.clearActiveThreadState).not.toHaveBeenCalled();
+  });
+
+  it("switches to another active thread after archiving a persisted active thread", async () => {
+    const activeThread = createThread();
+    const nextThread = createThread({ id: "thread-2", name: "Thread 2" });
+    let threads = [activeThread, nextThread];
+    vi.mocked(threadsApiClient.deleteThread).mockResolvedValue({
+      thread: createThreadResource({
+        deletedAt: "2026-03-10T12:00:00.000Z",
+      }),
+    });
+    const deps = createDependencies({
+      readThreads: () => threads,
+      hasSavedThreadSignature: vi.fn().mockReturnValue(true),
+      readActiveThreadId: () => "thread-1",
+      loadThreads: vi.fn().mockImplementation(async () => {
+        threads = [nextThread, createThread({ id: "thread-1", deletedAt: "2026-03-10T12:00:00.000Z" })];
+      }),
+    });
+
+    await deleteThread(deps, "thread-1");
+
+    expect(deps.loadThreads).toHaveBeenCalled();
+    expect(deps.applyThreadState).toHaveBeenCalledWith(nextThread);
+    expect(deps.clearActiveThreadState).not.toHaveBeenCalled();
+  });
+
+  it("clears active state after archiving the last persisted active thread", async () => {
+    let threads = [createThread()];
+    vi.mocked(threadsApiClient.deleteThread).mockResolvedValue({
+      thread: createThreadResource({
+        deletedAt: "2026-03-10T12:00:00.000Z",
+      }),
+    });
+    const deps = createDependencies({
+      readThreads: () => threads,
+      hasSavedThreadSignature: vi.fn().mockReturnValue(true),
+      readActiveThreadId: () => "thread-1",
+      loadThreads: vi.fn().mockImplementation(async () => {
+        threads = [createThread({ id: "thread-1", deletedAt: "2026-03-10T12:00:00.000Z" })];
+      }),
+    });
+
+    await deleteThread(deps, "thread-1");
+
+    expect(deps.loadThreads).toHaveBeenCalled();
+    expect(deps.clearActiveThreadState).toHaveBeenCalledTimes(1);
+    expect(deps.applyThreadState).not.toHaveBeenCalled();
   });
 
   it("records a notice when in-progress processing is canceled", () => {
