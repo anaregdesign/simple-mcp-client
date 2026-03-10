@@ -1,5 +1,8 @@
 import type { ChangeEvent } from "react";
 import {
+  openInstructionClientFilePicker,
+} from "~/lib/client/infrastructure/browser/instruction-file-open";
+import {
   INSTRUCTION_ALLOWED_EXTENSIONS,
   INSTRUCTION_MAX_FILE_SIZE_BYTES,
   INSTRUCTION_MAX_FILE_SIZE_LABEL,
@@ -22,6 +25,7 @@ type InstructionEditingLogOptions = {
 type InstructionEditingHandlerDependencies = {
   isArchivedThread: (threadIdRaw: string) => boolean;
   readActiveThreadId: () => string;
+  readInstructionFileInput: () => HTMLInputElement | null;
   setInstructionContextToggles: (
     updater: (
       current: ThreadInstructionContextToggles,
@@ -42,6 +46,7 @@ type InstructionEditingHandlerDependencies = {
     error: unknown,
     options?: InstructionEditingLogOptions,
   ) => void;
+  openInstructionFilePicker?: (input: HTMLInputElement | null) => boolean;
 };
 
 export type InstructionEditingHandlers = {
@@ -50,6 +55,7 @@ export type InstructionEditingHandlers = {
     nextValue: boolean,
   ) => void;
   handleAgentInstructionChange: (value: string) => void;
+  handleOpenInstructionFilePicker: () => void;
   handleClearInstruction: () => void;
   handleInstructionFileChange: (
     event: ChangeEvent<HTMLInputElement>,
@@ -87,6 +93,22 @@ export function createInstructionEditingHandlers(
 
       deps.setAgentInstruction(value);
       resetInstructionMutationStatus();
+    },
+
+    handleOpenInstructionFilePicker() {
+      if (deps.isArchivedThread(deps.readActiveThreadId())) {
+        return;
+      }
+
+      deps.setInstructionFileError(null);
+      const didOpen = (
+        deps.openInstructionFilePicker ?? openInstructionClientFilePicker
+      )(deps.readInstructionFileInput());
+      if (!didOpen) {
+        deps.setInstructionFileError(
+          "Instruction file picker is unavailable right now.",
+        );
+      }
     },
 
     handleClearInstruction() {

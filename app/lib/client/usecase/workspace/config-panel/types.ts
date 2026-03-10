@@ -112,6 +112,7 @@ export type BuildConfigPanelPropsOptions = {
   setInstructionEnhanceSuccess: ValueSetter<string | null>;
   handleInstructionContextToggleChange: ThreadsTabSelectorOptions["onInstructionContextToggleChange"];
   handleAgentInstructionChange: ThreadsTabSelectorOptions["onAgentInstructionChange"];
+  handleOpenInstructionFilePicker: ThreadsTabSelectorOptions["onOpenInstructionFilePicker"];
   handleInstructionFileChange: ThreadsTabSelectorOptions["onInstructionFileChange"];
   handleSaveInstructionPrompt: ThreadsTabSelectorOptions["onSaveInstructionPrompt"];
   handleEnhanceInstruction: ThreadsTabSelectorOptions["onEnhanceInstruction"];

@@ -46,6 +46,7 @@ type InstructionSectionProps = {
     enabled: boolean,
   ) => void;
   onAgentInstructionChange: (value: string) => void;
+  onOpenInstructionFilePicker: () => void;
   onInstructionFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onSaveInstructionPrompt: () => void | Promise<void>;
   onEnhanceInstruction: () => void | Promise<void>;
@@ -79,6 +80,7 @@ export function InstructionSection(props: InstructionSectionProps) {
     onClearInstructionEnhanceSuccess,
     onInstructionContextToggleChange,
     onAgentInstructionChange,
+    onOpenInstructionFilePicker,
     onInstructionFileChange,
     onSaveInstructionPrompt,
     onEnhanceInstruction,
@@ -194,7 +196,7 @@ export function InstructionSection(props: InstructionSectionProps) {
               appearance="secondary"
               size="small"
               title="Load instruction content from a local file."
-              onClick={() => instructionFileInputRef.current?.click()}
+              onClick={onOpenInstructionFilePicker}
               disabled={isSending || isEnhancingInstruction || isThreadReadOnly}
             >
               📂 Load File

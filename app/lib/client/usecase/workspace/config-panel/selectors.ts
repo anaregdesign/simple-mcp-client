@@ -240,6 +240,7 @@ export function buildThreadsTabProps(options: {
   onClearInstructionEnhanceSuccess: Callback;
   onInstructionContextToggleChange: Callback;
   onAgentInstructionChange: Callback;
+  onOpenInstructionFilePicker: Callback;
   onInstructionFileChange: Callback;
   onSaveInstructionPrompt: Callback;
   onEnhanceInstruction: Callback;
@@ -300,6 +301,7 @@ export function buildThreadsTabProps(options: {
       onInstructionContextToggleChange:
         options.onInstructionContextToggleChange,
       onAgentInstructionChange: options.onAgentInstructionChange,
+      onOpenInstructionFilePicker: options.onOpenInstructionFilePicker,
       onInstructionFileChange: options.onInstructionFileChange,
       onSaveInstructionPrompt: options.onSaveInstructionPrompt,
       onEnhanceInstruction: options.onEnhanceInstruction,

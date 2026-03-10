@@ -90,6 +90,7 @@ describe("buildThreadsTabProps", () => {
       onClearInstructionEnhanceSuccess: vi.fn(),
       onInstructionContextToggleChange: vi.fn(),
       onAgentInstructionChange: vi.fn(),
+      onOpenInstructionFilePicker: vi.fn(),
       onInstructionFileChange: vi.fn(),
       onSaveInstructionPrompt: vi.fn(),
       onEnhanceInstruction: vi.fn(),

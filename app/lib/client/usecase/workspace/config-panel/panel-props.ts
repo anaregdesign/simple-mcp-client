@@ -117,6 +117,7 @@ function buildThreadsTabPropsFromOptions(
     onInstructionContextToggleChange:
       handlers.onInstructionContextToggleChange,
     onAgentInstructionChange: handlers.onAgentInstructionChange,
+    onOpenInstructionFilePicker: handlers.onOpenInstructionFilePicker,
     onInstructionFileChange: handlers.onInstructionFileChange,
     onSaveInstructionPrompt: handlers.onSaveInstructionPrompt,
     onEnhanceInstruction: handlers.onEnhanceInstruction,

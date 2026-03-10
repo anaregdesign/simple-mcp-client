@@ -59,6 +59,7 @@ export function createThreadsTabHandlers(
     onInstructionContextToggleChange:
       options.handleInstructionContextToggleChange,
     onAgentInstructionChange: options.handleAgentInstructionChange,
+    onOpenInstructionFilePicker: options.handleOpenInstructionFilePicker,
     onInstructionFileChange: options.handleInstructionFileChange,
     onSaveInstructionPrompt: options.handleSaveInstructionPrompt,
     onEnhanceInstruction: options.handleEnhanceInstruction,

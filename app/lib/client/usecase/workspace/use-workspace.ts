@@ -1123,11 +1123,13 @@ export function useWorkspace() {
   const {
     handleInstructionContextToggleChange,
     handleAgentInstructionChange,
+    handleOpenInstructionFilePicker,
     handleClearInstruction,
     handleInstructionFileChange,
   } = createInstructionEditingHandlers({
     isArchivedThread,
     readActiveThreadId: () => activeThreadIdRef.current,
+    readInstructionFileInput: () => instructionFileInputRef.current,
     setInstructionContextToggles,
     setAgentInstruction,
     setLoadedInstructionFileName,
@@ -1331,6 +1333,7 @@ export function useWorkspace() {
     setInstructionEnhanceSuccess,
     handleInstructionContextToggleChange,
     handleAgentInstructionChange,
+    handleOpenInstructionFilePicker,
     handleInstructionFileChange,
     handleSaveInstructionPrompt,
     handleEnhanceInstruction,

@@ -16,6 +16,7 @@ describe("createInstructionEditingHandlers", () => {
     const handlers = createInstructionEditingHandlers({
       isArchivedThread: () => false,
       readActiveThreadId: () => "thread-1",
+      readInstructionFileInput: () => null,
       setInstructionContextToggles: () => {},
       setAgentInstruction,
       setLoadedInstructionFileName: () => {},
@@ -51,6 +52,7 @@ describe("createInstructionEditingHandlers", () => {
     const handlers = createInstructionEditingHandlers({
       isArchivedThread: () => false,
       readActiveThreadId: () => "thread-1",
+      readInstructionFileInput: () => null,
       setInstructionContextToggles,
       setAgentInstruction,
       setLoadedInstructionFileName,
@@ -86,11 +88,67 @@ describe("createInstructionEditingHandlers", () => {
     expect(input.value).toBe("");
   });
 
+  it("opens the instruction file picker through the browser adapter", () => {
+    const setInstructionFileError = vi.fn();
+    const openInstructionFilePicker = vi.fn(() => true);
+    const input = {} as HTMLInputElement;
+    const handlers = createInstructionEditingHandlers({
+      isArchivedThread: () => false,
+      readActiveThreadId: () => "thread-1",
+      readInstructionFileInput: () => input,
+      setInstructionContextToggles: () => {},
+      setAgentInstruction: () => {},
+      setLoadedInstructionFileName: () => {},
+      setInstructionFileError,
+      setInstructionSaveError: () => {},
+      setInstructionSaveSuccess: () => {},
+      setInstructionEnhanceError: () => {},
+      setInstructionEnhanceSuccess: () => {},
+      setInstructionEnhanceComparison: () => {},
+      logClientError: () => {},
+      openInstructionFilePicker,
+    });
+
+    handlers.handleOpenInstructionFilePicker();
+
+    expect(setInstructionFileError).toHaveBeenCalledWith(null);
+    expect(openInstructionFilePicker).toHaveBeenCalledWith(input);
+  });
+
+  it("surfaces an error when the instruction file picker cannot open", () => {
+    const setInstructionFileError = vi.fn();
+    const handlers = createInstructionEditingHandlers({
+      isArchivedThread: () => false,
+      readActiveThreadId: () => "thread-1",
+      readInstructionFileInput: () => null,
+      setInstructionContextToggles: () => {},
+      setAgentInstruction: () => {},
+      setLoadedInstructionFileName: () => {},
+      setInstructionFileError,
+      setInstructionSaveError: () => {},
+      setInstructionSaveSuccess: () => {},
+      setInstructionEnhanceError: () => {},
+      setInstructionEnhanceSuccess: () => {},
+      setInstructionEnhanceComparison: () => {},
+      logClientError: () => {},
+      openInstructionFilePicker: () => false,
+    });
+
+    handlers.handleOpenInstructionFilePicker();
+
+    expect(setInstructionFileError).toHaveBeenNthCalledWith(1, null);
+    expect(setInstructionFileError).toHaveBeenNthCalledWith(
+      2,
+      "Instruction file picker is unavailable right now.",
+    );
+  });
+
   it("updates instruction context toggles when the thread is editable", () => {
     const setInstructionContextToggles = vi.fn();
     const handlers = createInstructionEditingHandlers({
       isArchivedThread: () => false,
       readActiveThreadId: () => "thread-1",
+      readInstructionFileInput: () => null,
       setInstructionContextToggles,
       setAgentInstruction: () => {},
       setLoadedInstructionFileName: () => {},
