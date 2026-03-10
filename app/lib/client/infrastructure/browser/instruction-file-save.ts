@@ -33,17 +33,27 @@ export async function saveInstructionToClientFile(
 ): Promise<SaveInstructionToClientFileResult> {
   const savePickerWindow = window as WindowWithSaveFilePicker;
   if (typeof savePickerWindow.showSaveFilePicker === "function") {
-    const fileHandle = await savePickerWindow.showSaveFilePicker({
-      suggestedName: suggestedFileName,
-      types: INSTRUCTION_SAVE_FILE_TYPES,
-    });
-    const writable = await fileHandle.createWritable();
-    await writable.write(instruction);
-    await writable.close();
-    return {
-      fileName: fileHandle.name || suggestedFileName,
-      mode: "picker",
-    };
+    try {
+      const fileHandle = await savePickerWindow.showSaveFilePicker({
+        suggestedName: suggestedFileName,
+        types: INSTRUCTION_SAVE_FILE_TYPES,
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(instruction);
+      await writable.close();
+      return {
+        fileName: fileHandle.name || suggestedFileName,
+        mode: "picker",
+      };
+    } catch (error) {
+      if (isInstructionSaveCanceled(error)) {
+        throw error;
+      }
+
+      if (!shouldFallbackToDownload(error)) {
+        throw error;
+      }
+    }
   }
 
   downloadInstructionFile(instruction, suggestedFileName);
@@ -73,7 +83,11 @@ function downloadInstructionFile(instruction: string, fileName: string): void {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(downloadUrl);
+
+  // Delay revoke so browser/webview download pipelines can consume the blob URL.
+  window.setTimeout(() => {
+    URL.revokeObjectURL(downloadUrl);
+  }, 0);
 }
 
 function resolveInstructionMimeType(fileName: string): string {
@@ -96,4 +110,16 @@ function resolveInstructionMimeType(fileName: string): string {
 function getFileExtension(fileName: string): string {
   const parts = fileName.toLowerCase().split(".");
   return parts.length > 1 ? parts[parts.length - 1] : "";
+}
+
+function shouldFallbackToDownload(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return (
+      error.name === "SecurityError" ||
+      error.name === "NotAllowedError" ||
+      error.name === "NotSupportedError"
+    );
+  }
+
+  return error instanceof TypeError;
 }
