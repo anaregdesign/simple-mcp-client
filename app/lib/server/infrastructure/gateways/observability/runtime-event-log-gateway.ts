@@ -2,13 +2,13 @@
  * Server runtime module.
  */
 import {
-  readErrorDetails,
-} from "~/lib/contracts/shared/runtime-event-log";
+  readRuntimeEventLogErrorDetails,
+} from "~/lib/domain/value-objects/runtime-event-log";
 import type {
   RuntimeEventLogInput,
   RuntimeEventLogLevel,
-  RuntimeEventLogReadRecord,
-} from "~/lib/contracts/shared/runtime-event-log";
+  RuntimeEventLogRecord,
+} from "~/lib/domain/value-objects/runtime-event-log";
 import { runtimeEventLogPersistenceRepository } from "~/lib/server/infrastructure/repositories/runtime-event-log-persistence-repository";
 
 type ProcessWithUncaughtMonitor = NodeJS.Process & {
@@ -44,7 +44,7 @@ export function installGlobalServerErrorLogging(): void {
   const monitoredProcess = process as ProcessWithUncaughtMonitor;
 
   monitoredProcess.on("uncaughtExceptionMonitor", (error, origin) => {
-    const details = readErrorDetails(error);
+    const details = readRuntimeEventLogErrorDetails(error);
     void logRuntimeEvent({
       source: "server",
       level: "error",
@@ -62,7 +62,7 @@ export function installGlobalServerErrorLogging(): void {
   });
 
   process.on("unhandledRejection", (reason) => {
-    const details = readErrorDetails(reason);
+    const details = readRuntimeEventLogErrorDetails(reason);
     void logRuntimeEvent({
       source: "server",
       level: "error",
@@ -80,7 +80,7 @@ export function installGlobalServerErrorLogging(): void {
   });
 
   process.on("warning", (warning) => {
-    const details = readErrorDetails(warning);
+    const details = readRuntimeEventLogErrorDetails(warning);
     void logRuntimeEvent({
       source: "server",
       level: "warning",
@@ -104,7 +104,10 @@ export function installGlobalServerErrorLogging(): void {
 }
 
 export async function logServerRouteEvent(input: ServerRouteEventInput): Promise<void> {
-  const details = input.error !== undefined ? readErrorDetails(input.error) : null;
+  const details =
+    input.error !== undefined
+      ? readRuntimeEventLogErrorDetails(input.error)
+      : null;
   const requestPath = input.request ? new URL(input.request.url).pathname : null;
   const message =
     typeof input.message === "string" && input.message.trim()
@@ -145,7 +148,7 @@ export async function readRuntimeEventLogByIdForUser(options: {
   tenantId: string;
   principalId: string;
   userId: number | null;
-}): Promise<RuntimeEventLogReadRecord | null> {
+}): Promise<RuntimeEventLogRecord | null> {
   const eventLogId = options.eventLogId.trim();
   if (!eventLogId) {
     return null;

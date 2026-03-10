@@ -1,21 +1,21 @@
 import {
-  normalizeCategory,
-  normalizeCreatedAt,
-  normalizeEventName,
-  normalizeMessage,
-  normalizeOptionalLabel,
-  normalizeOptionalPath,
-  normalizeOptionalStatusCode,
-  normalizeOptionalTextValue,
-  normalizeOptionalUserId,
+  normalizeRuntimeEventLogCategory,
+  normalizeRuntimeEventLogCreatedAt,
+  normalizeRuntimeEventLogEventName,
+  normalizeRuntimeEventLogLabel,
   normalizeRuntimeEventLogLevel,
+  normalizeRuntimeEventLogMessage,
+  normalizeRuntimeEventLogPath,
   normalizeRuntimeEventLogSource,
-  serializeRuntimeEventContext,
-} from "~/lib/contracts/shared/runtime-event-log";
+  normalizeRuntimeEventLogStatusCode,
+  normalizeRuntimeEventLogText,
+  normalizeRuntimeEventLogUserId,
+  serializeRuntimeEventLogContext,
+} from "~/lib/domain/value-objects/runtime-event-log";
 import type {
   RuntimeEventLogInput,
-  RuntimeEventLogReadRecord,
-} from "~/lib/contracts/shared/runtime-event-log";
+  RuntimeEventLogRecord,
+} from "~/lib/domain/value-objects/runtime-event-log";
 import type {
   RuntimeEventLogRepository,
 } from "~/lib/domain/repositories/runtime-event-log-repository";
@@ -36,24 +36,24 @@ export class RuntimeEventLogPersistenceRepository implements RuntimeEventLogRepo
       await prisma.runtimeEventLog.create({
         data: {
           id: runtimeEventLogId,
-          createdAt: normalizeCreatedAt(input.createdAt),
+          createdAt: normalizeRuntimeEventLogCreatedAt(input.createdAt),
           source: normalizeRuntimeEventLogSource(input.source),
           level: normalizeRuntimeEventLogLevel(input.level),
-          category: normalizeCategory(input.category),
-          eventName: normalizeEventName(input.eventName),
-          message: normalizeMessage(input.message),
-          errorName: normalizeOptionalLabel(input.errorName),
-          location: normalizeOptionalPath(input.location),
-          action: normalizeOptionalLabel(input.action),
-          statusCode: normalizeOptionalStatusCode(input.statusCode),
-          httpMethod: normalizeOptionalLabel(input.httpMethod),
-          httpPath: normalizeOptionalPath(input.httpPath),
-          threadId: normalizeOptionalLabel(input.threadId),
-          tenantId: normalizeOptionalLabel(input.tenantId),
-          principalId: normalizeOptionalLabel(input.principalId),
-          userId: normalizeOptionalUserId(input.userId),
-          stack: normalizeOptionalTextValue(input.stack),
-          contextJson: serializeRuntimeEventContext(input.context),
+          category: normalizeRuntimeEventLogCategory(input.category),
+          eventName: normalizeRuntimeEventLogEventName(input.eventName),
+          message: normalizeRuntimeEventLogMessage(input.message),
+          errorName: normalizeRuntimeEventLogLabel(input.errorName),
+          location: normalizeRuntimeEventLogPath(input.location),
+          action: normalizeRuntimeEventLogLabel(input.action),
+          statusCode: normalizeRuntimeEventLogStatusCode(input.statusCode),
+          httpMethod: normalizeRuntimeEventLogLabel(input.httpMethod),
+          httpPath: normalizeRuntimeEventLogPath(input.httpPath),
+          threadId: normalizeRuntimeEventLogLabel(input.threadId),
+          tenantId: normalizeRuntimeEventLogLabel(input.tenantId),
+          principalId: normalizeRuntimeEventLogLabel(input.principalId),
+          userId: normalizeRuntimeEventLogUserId(input.userId),
+          stack: normalizeRuntimeEventLogText(input.stack),
+          contextJson: serializeRuntimeEventLogContext(input.context),
         },
       });
 
@@ -69,7 +69,7 @@ export class RuntimeEventLogPersistenceRepository implements RuntimeEventLogRepo
     tenantId: string;
     principalId: string;
     userId: number | null;
-  }): Promise<RuntimeEventLogReadRecord | null> {
+  }): Promise<RuntimeEventLogRecord | null> {
     const eventLogId = options.eventLogId.trim();
     if (!eventLogId) {
       return null;
@@ -119,23 +119,23 @@ export class RuntimeEventLogPersistenceRepository implements RuntimeEventLogRepo
 
     return {
       id: record.id,
-      createdAt: record.createdAt,
-      source: record.source,
-      level: record.level,
-      category: record.category,
-      eventName: record.eventName,
-      message: record.message,
-      errorName: record.errorName,
-      location: record.location,
-      action: record.action,
-      statusCode: record.statusCode,
-      httpMethod: record.httpMethod,
-      httpPath: record.httpPath,
-      threadId: record.threadId,
-      tenantId: record.tenantId,
-      principalId: record.principalId,
-      userId: record.userId,
-      stack: record.stack,
+      createdAt: normalizeRuntimeEventLogCreatedAt(record.createdAt),
+      source: normalizeRuntimeEventLogSource(record.source),
+      level: normalizeRuntimeEventLogLevel(record.level),
+      category: normalizeRuntimeEventLogCategory(record.category),
+      eventName: normalizeRuntimeEventLogEventName(record.eventName),
+      message: normalizeRuntimeEventLogMessage(record.message),
+      errorName: normalizeRuntimeEventLogLabel(record.errorName),
+      location: normalizeRuntimeEventLogPath(record.location),
+      action: normalizeRuntimeEventLogLabel(record.action),
+      statusCode: normalizeRuntimeEventLogStatusCode(record.statusCode),
+      httpMethod: normalizeRuntimeEventLogLabel(record.httpMethod),
+      httpPath: normalizeRuntimeEventLogPath(record.httpPath),
+      threadId: normalizeRuntimeEventLogLabel(record.threadId),
+      tenantId: normalizeRuntimeEventLogLabel(record.tenantId),
+      principalId: normalizeRuntimeEventLogLabel(record.principalId),
+      userId: normalizeRuntimeEventLogUserId(record.userId),
+      stack: normalizeRuntimeEventLogText(record.stack),
       context: readRuntimeEventContext(record.contextJson),
     };
   }
