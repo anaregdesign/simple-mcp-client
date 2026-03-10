@@ -484,6 +484,17 @@ const checks = [
     ],
   },
   {
+    key: "workspaceLayoutBrowserAdapterOwnership",
+    description:
+      "workspace layout browser listeners and document body styling must stay in client/infrastructure/browser instead of the usecase Hook.",
+    command: "rg",
+    args: [
+      "-n",
+      "document\\.|window\\.(addEventListener|removeEventListener)",
+      "app/lib/client/usecase/workspace/layout/use-layout.ts",
+    ],
+  },
+  {
     key: "legacyThreadMcpServerOperations",
     description:
       "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
