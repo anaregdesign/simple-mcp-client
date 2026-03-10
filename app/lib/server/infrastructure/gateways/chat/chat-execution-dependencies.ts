@@ -1,13 +1,14 @@
 import {
   createCodeInterpreterContainerWithAttachments,
+  deleteCodeInterpreterContainer,
 } from "~/lib/server/infrastructure/gateways/chat/code-interpreter-attachment-gateway";
 import {
   getAzureBearerTokenForScope,
-  createAzureOpenAIClient,
 } from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
+import { runChatAgent } from "~/lib/server/infrastructure/gateways/chat/chat-agent-runner-gateway";
 import {
-  readProgressEventFromRunStreamEvent,
-} from "~/lib/server/infrastructure/gateways/chat/run-stream-progress";
+  createChatConversationSession,
+} from "~/lib/server/infrastructure/gateways/chat/chat-session-gateway";
 import { buildSystemInstructionContextPayload } from "~/lib/server/infrastructure/gateways/chat/system-instruction-context";
 import {
   buildMcpConnectParams,
@@ -17,6 +18,7 @@ import {
 } from "~/lib/server/infrastructure/gateways/mcp/mcp-session-logging";
 import {
   acquireThreadMcpServerSession,
+  type ThreadMcpServerSession,
 } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
 import {
   buildSkillRuntimeContext,
@@ -36,7 +38,7 @@ import { buildAgentInstructionWithSkills } from "~/lib/server/usecase/chat/skill
 import {
   buildMcpServerSessionConfigKey,
 } from "~/lib/server/usecase/chat/mcp-server-config-normalization";
-import type { ChatExecutionDependencies } from "~/lib/server/usecase/chat/chat-execution";
+import type { ChatExecutionPorts } from "~/lib/server/usecase/chat/chat-execution-ports";
 
 export async function getAzureMcpAuthorizationToken(
   scope: string,
@@ -62,10 +64,19 @@ export function describeMcpServer(config: ClientMcpServerConfig): string {
     : `${config.url} (timeout: ${config.timeoutSeconds}s)`;
 }
 
-export const chatExecutionDependencies: ChatExecutionDependencies = {
-  createAzureOpenAIClient,
+export const chatExecutionDependencies: ChatExecutionPorts = {
   prepareMcpRuntime,
-  acquireThreadMcpServerSession,
+  acquireThreadMcpServerSession: async (options) =>
+    acquireThreadMcpServerSession({
+      threadId: options.threadId,
+      sessionKey: options.sessionKey,
+      refreshState: options.refreshState,
+      idleTtlMs: options.idleTtlMs,
+      createSession: async (refreshState) =>
+        (await options.createSession()) as ThreadMcpServerSession<
+          typeof refreshState
+        >,
+    }),
   buildThreadOperationLogRequestId,
   buildMcpConnectParams,
   buildMcpServerSessionConfigKey,
@@ -80,7 +91,9 @@ export const chatExecutionDependencies: ChatExecutionDependencies = {
   buildSystemInstructionContextPayload,
   buildSkillTools,
   buildAgentInstructionWithSkills,
-  readProgressEventFromRunStreamEvent,
+  createConversationSession: createChatConversationSession,
+  runChatAgent,
   cleanupChatRuntime,
   createCodeInterpreterContainerWithAttachments,
+  deleteCodeInterpreterContainer,
 };

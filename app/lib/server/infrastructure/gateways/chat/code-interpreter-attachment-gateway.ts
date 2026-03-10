@@ -2,6 +2,9 @@ import { toFile } from "openai";
 import {
   CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
 } from "~/lib/constants/chat";
+import {
+  createAzureOpenAIClient,
+} from "~/lib/server/infrastructure/gateways/azure/azure-openai-gateway";
 
 type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -28,9 +31,18 @@ type CodeInterpreterAttachmentClient = {
 };
 
 export async function createCodeInterpreterContainerWithAttachments(
-  attachments: AttachmentInput[],
-  client: CodeInterpreterAttachmentClient,
+  options: {
+    attachments: AttachmentInput[];
+    azureConfig: {
+      baseUrl: string;
+      tenantId: string;
+    };
+  },
 ): Promise<string> {
+  const client = createAzureOpenAIClient(
+    options.azureConfig.baseUrl,
+    options.azureConfig.tenantId,
+  ) as CodeInterpreterAttachmentClient;
   const container = await awaitWithTimeout(
     client.containers.create({
       name: "local-playground-chat",
@@ -45,7 +57,7 @@ export async function createCodeInterpreterContainerWithAttachments(
   }
 
   try {
-    for (const attachment of attachments) {
+    for (const attachment of options.attachments) {
       const parsedAttachmentDataUrl = parseAttachmentDataUrl(
         attachment.dataUrl,
         `attachments[\"${attachment.name}\"].dataUrl`,
@@ -84,6 +96,24 @@ export async function createCodeInterpreterContainerWithAttachments(
       // Best-effort cleanup when attachment upload fails.
     }
     throw error;
+  }
+}
+
+export async function deleteCodeInterpreterContainer(options: {
+  containerId: string;
+  azureConfig: {
+    baseUrl: string;
+    tenantId: string;
+  };
+}): Promise<void> {
+  try {
+    const client = createAzureOpenAIClient(
+      options.azureConfig.baseUrl,
+      options.azureConfig.tenantId,
+    ) as CodeInterpreterAttachmentClient;
+    await client.containers.delete(options.containerId);
+  } catch {
+    // Best-effort cleanup for temporary Code Interpreter containers.
   }
 }
 

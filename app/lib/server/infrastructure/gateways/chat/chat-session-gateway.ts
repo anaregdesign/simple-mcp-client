@@ -3,8 +3,8 @@ import {
   assistant,
   user,
   type AgentInputItem,
-  type Session,
 } from "@openai/agents-core";
+import type { ChatConversationSessionLike } from "~/lib/server/usecase/chat/chat-execution-ports";
 
 export type ChatSessionAttachment = {
   name: string;
@@ -19,11 +19,11 @@ export type ChatSessionHistoryMessage = {
   attachments: ChatSessionAttachment[];
 };
 
-export function createChatMemorySession(options: {
+export function createChatConversationSession(options: {
   sessionId?: string | null;
   history: ChatSessionHistoryMessage[];
   useCodeInterpreter: boolean;
-}): Session {
+}): ChatConversationSessionLike {
   return new MemorySession({
     ...(options.sessionId ? { sessionId: options.sessionId } : {}),
     initialItems: buildChatSessionHistoryItems(
@@ -43,14 +43,14 @@ export function buildChatSessionHistoryItems(
     }
 
     return [
-      buildUserMessageInput(entry.content, entry.attachments, {
+      createChatUserMessageInput(entry.content, entry.attachments, {
         useCodeInterpreter,
       }),
     ];
   });
 }
 
-export function buildUserMessageInput(
+export function createChatUserMessageInput(
   content: string,
   attachments: ChatSessionAttachment[],
   options: {

@@ -28,7 +28,7 @@ import {
 export function buildThreadSaveInputFromThread(
   thread: Thread,
   options: {
-    agentConversationId: string;
+    agentConversationId: string | null;
     threadEnvironment: Record<string, string>;
     operationLogs: ThreadOperationLogEntry[];
     assistantMessage?: ChatThreadMessage;

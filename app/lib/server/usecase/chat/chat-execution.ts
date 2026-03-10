@@ -1,356 +1,37 @@
-import { Agent, run, type MCPServer, type Tool } from "@openai/agents";
-import {
-  OpenAIResponsesModel,
-  codeInterpreterTool,
-  webSearchTool,
-} from "@openai/agents-openai";
-import type { Session } from "@openai/agents-core";
 import {
   CHAT_CLEANUP_TIMEOUT_MS,
-  CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
   CHAT_MAX_RUN_TURNS,
   CHAT_MODEL_RUN_TIMEOUT_MS,
 } from "~/lib/constants/chat";
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
 import { cloneThreadEnvironment, type ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
-import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
-import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
-import {
-  buildUserMessageInput,
-  createChatMemorySession,
-} from "~/lib/server/usecase/chat/chat-session";
 import type {
-  ActiveSkillRuntimeEntry,
-  SkillRuntimeContext,
-} from "~/lib/server/usecase/chat/skill-runtime-types";
+  ChatExecutionEvent,
+  ChatExecutionOptions,
+  ChatExecutionPorts,
+  ChatExecutionResult,
+  ChatMcpRuntimeMetrics,
+  ChatProgressEvent,
+  ClientAttachment,
+  JsonRpcRequestPayload,
+  JsonRpcResponsePayload,
+  McpRequestContext,
+  McpServerSessionRefreshState,
+  SkillToolExecutionContext,
+  ThreadMcpServerSessionLeaseLike,
+  ThreadOperationLogRecord,
+} from "~/lib/server/usecase/chat/chat-execution-ports";
+
+export type {
+  ChatExecutionEvent,
+  ChatExecutionOptions,
+  ChatExecutionResult,
+  ChatMcpRuntimeMetrics,
+  InstructionSystemContextPayload,
+} from "~/lib/server/usecase/chat/chat-execution-ports";
 
 const chatTransientTerminationRetryMaxAttempts = 2;
 const chatTransientTerminationRetryDelayMs = 250;
-
-type ThreadMessageRole = "user" | "assistant";
-
-export type ClientAttachment = {
-  name: string;
-  mimeType: string;
-  sizeBytes: number;
-  dataUrl: string;
-};
-
-export type ClientMessage = {
-  role: ThreadMessageRole;
-  content: string;
-  attachments: ClientAttachment[];
-};
-
-export type ClientSkillSelection = ThreadSkillActivation;
-
-export type ResolvedAzureConfig = {
-  tenantId: string;
-  projectName: string;
-  baseUrl: string;
-  apiVersion: string;
-  deploymentName: string;
-};
-
-export type WebSearchPreviewUserLocation = {
-  city?: string;
-  country?: string;
-  region?: string;
-  timezone?: string;
-};
-
-export type SkillResourceFileEntry = {
-  path: string;
-  sizeBytes: number;
-};
-
-export type ChatExecutionOptions = {
-  threadId: string | null;
-  turnId: string | null;
-  userId: number | null;
-  clientUserAgent: string | null;
-  clientPlatform: string | null;
-  message: string;
-  attachments: ClientAttachment[];
-  history: ClientMessage[];
-  reasoningEffort: ReasoningEffort | null;
-  webSearchEnabled: boolean;
-  webSearchUserLocation: WebSearchPreviewUserLocation | null;
-  temperature: number | null;
-  agentInstruction: string;
-  instructionContextToggles: ThreadInstructionContextToggles;
-  threadEnvironment: ThreadEnvironment;
-  skills: ClientSkillSelection[];
-  explicitSkillLocations: string[];
-  azureConfig: ResolvedAzureConfig;
-  agentConversationId: string | null;
-  conversationSession?: Session;
-  mcpServers: ClientMcpServerConfig[];
-};
-
-export type JsonRpcRequestPayload = {
-  jsonrpc: "2.0";
-  id: string;
-  method: string;
-  params: Record<string, unknown>;
-};
-
-export type JsonRpcResponsePayload =
-  | {
-      jsonrpc: "2.0";
-      id: string;
-      result: unknown;
-    }
-  | {
-      jsonrpc: "2.0";
-      id: string;
-      error: {
-        message: string;
-      };
-    };
-
-export type ThreadOperationLogRecord = {
-  id: string;
-  sequence: number;
-  operationType: "mcp" | "skill";
-  serverName: string;
-  method: string;
-  startedAt: string;
-  completedAt: string;
-  request: JsonRpcRequestPayload;
-  response: JsonRpcResponsePayload;
-  isError: boolean;
-};
-
-export type ChatExecutionEvent =
-  | {
-      type: "progress";
-      message: string;
-      isMcp?: boolean;
-    }
-  | {
-      type: "operation_log";
-      record: ThreadOperationLogRecord;
-    };
-
-type ChatProgressEvent = {
-  message: string;
-  isMcp?: boolean;
-};
-
-export type McpRequestContext = {
-  threadId: string | null;
-  turnId: string | null;
-  clientUserAgent: string | null;
-  clientPlatform: string | null;
-};
-
-export type ChatMcpRuntimeMetrics = {
-  mcpConnectedCount: number;
-  mcpReusedCount: number;
-  mcpEphemeralConnectCount: number;
-  mcpConnectDurationMs: number;
-  mcpSetupDurationMs: number;
-};
-
-export type McpServerSessionRefreshState = {
-  requestContext: McpRequestContext;
-  getAzureAuthorizationToken: (scope: string) => Promise<string>;
-  logHandlers: {
-    nextSequence: () => number;
-    onRecord: (record: ThreadOperationLogRecord) => void;
-  };
-};
-
-export type ChatExecutionResult = {
-  message: string;
-  threadEnvironment: ThreadEnvironment;
-  operationLogCount: number;
-  mcpRuntimeMetrics: ChatMcpRuntimeMetrics;
-  agentConversationId: string;
-};
-
-type InstructionClientOperatingSystemContext = {
-  name: string;
-  version: string | null;
-  source: "sec-ch-ua-platform" | "user-agent" | "unknown";
-};
-
-type InstructionServerOperatingSystemContext = {
-  name: string;
-  platform: NodeJS.Platform;
-  release: string;
-  architecture: string;
-};
-
-export type InstructionSystemContextPayload = {
-  userContext: {
-    userId: number | null;
-    workspaceDirectoryPath: string | null;
-  };
-  threadContext: {
-    threadId: string | null;
-    turnId: string | null;
-  };
-  systemContext: {
-    clientOperatingSystem: InstructionClientOperatingSystemContext;
-    serverOperatingSystem: InstructionServerOperatingSystemContext;
-  };
-  latestThreadName: string | null;
-  azureContext: {
-    principalDisplayName: string | null;
-    principalName: string | null;
-    principalType:
-      | "User"
-      | "Service Principal"
-      | "Managed Identity"
-      | "Unknown";
-    tenantId: string | null;
-    principalId: string | null;
-    playgroundProject: string | null;
-    playgroundProjectId: string | null;
-    playgroundDeployment: string | null;
-    endpoint: string | null;
-    apiVersion: string | null;
-  };
-};
-
-export type SkillToolExecutionContext = {
-  threadEnvironment: ThreadEnvironment;
-};
-
-export type ThreadMcpServerSessionLeaseLike = {
-  server: MCPServer;
-  status: "connected" | "reused";
-  isEphemeral: boolean;
-  release: () => Promise<void>;
-};
-
-export type ThreadMcpServerSessionLike<TRefreshState> = {
-  server: MCPServer;
-  refreshBeforeUse: (refreshState: TRefreshState) => Promise<void>;
-};
-
-export type ChatExecutionDependencies = {
-  createAzureOpenAIClient: (
-    baseUrl: string,
-    tenantId: string,
-  ) => AzureOpenAIClient;
-  prepareMcpRuntime: (options: {
-    serverConfigs: ClientMcpServerConfig[];
-    connectServer: (serverConfig: ClientMcpServerConfig) => Promise<{
-      lease: ThreadMcpServerSessionLeaseLike;
-      server: MCPServer;
-      connectDurationMs: number;
-    }>;
-    releaseLease: (lease: ThreadMcpServerSessionLeaseLike) => Promise<void>;
-  }) => Promise<{
-    leases: ThreadMcpServerSessionLeaseLike[];
-    servers: MCPServer[];
-    metrics: ChatMcpRuntimeMetrics;
-  }>;
-  acquireThreadMcpServerSession: (options: {
-    threadId: string | null;
-    sessionKey: string;
-    refreshState: McpServerSessionRefreshState;
-    idleTtlMs: number;
-    createSession: () => Promise<
-      ThreadMcpServerSessionLike<McpServerSessionRefreshState>
-    >;
-  }) => Promise<ThreadMcpServerSessionLeaseLike>;
-  buildThreadOperationLogRequestId: (
-    serverName: string,
-    sequence: number,
-  ) => string;
-  buildMcpConnectParams: (
-    serverConfig: ClientMcpServerConfig,
-  ) => Record<string, unknown>;
-  buildMcpServerSessionConfigKey: (config: ClientMcpServerConfig) => string;
-  getAzureMcpAuthorizationToken: (
-    scope: string,
-    tenantId: string,
-  ) => Promise<string>;
-  createMcpServerSession: (
-    config: ClientMcpServerConfig,
-  ) => Promise<ThreadMcpServerSessionLike<McpServerSessionRefreshState>>;
-  buildMcpConnectSuccessResponse: (
-    requestId: string,
-    status: "connected" | "reused",
-  ) => JsonRpcResponsePayload;
-  describeMcpServer: (config: ClientMcpServerConfig) => string;
-  prepareSkillRuntime: (options: {
-    loadRuntime: () => Promise<SkillRuntimeContext>;
-    createExecutionContext: (
-      runtime: SkillRuntimeContext,
-    ) => SkillToolExecutionContext | null;
-    emitActivationLogs: (
-      runtime: SkillRuntimeContext,
-      context: SkillToolExecutionContext,
-    ) => void;
-    collectWarnings: (runtime: SkillRuntimeContext) => string[];
-  }) => Promise<{
-    runtime: SkillRuntimeContext;
-    executionContext: SkillToolExecutionContext | null;
-    warnings: string[];
-  }>;
-  buildSkillRuntimeContext: (
-    selectedSkills: ClientSkillSelection[],
-    options: {
-      explicitSkillLocations?: string[];
-    },
-  ) => Promise<SkillRuntimeContext>;
-  emitSkillActivationOperationLogs: (
-    skillRuntime: SkillRuntimeContext,
-    logHandlers: {
-      nextSequence: () => number;
-      onRecord: (record: ThreadOperationLogRecord) => void;
-    },
-    skillExecutionContext: SkillToolExecutionContext,
-  ) => void;
-  collectSkillRuntimeWarnings: (skillRuntime: SkillRuntimeContext) => string[];
-  buildSystemInstructionContextPayload: (
-    options: ChatExecutionOptions,
-  ) => Promise<InstructionSystemContextPayload | null>;
-  buildSkillTools: (
-    activeSkills: ActiveSkillRuntimeEntry[],
-    logHandlers: {
-      nextSequence: () => number;
-      onRecord: (record: ThreadOperationLogRecord) => void;
-    },
-    executionContext: SkillToolExecutionContext,
-  ) => Tool<unknown>[];
-  buildAgentInstructionWithSkills: (
-    agentInstruction: string,
-    skillRuntime: SkillRuntimeContext,
-    options: {
-      instructionContextToggles: ThreadInstructionContextToggles;
-      systemInstructionContext: InstructionSystemContextPayload | null;
-    },
-  ) => string;
-  readProgressEventFromRunStreamEvent: (
-    event: unknown,
-    hasMcpServers: boolean,
-    toolNameByCallId: Map<string, string>,
-  ) => ChatProgressEvent | null;
-  cleanupChatRuntime: (options: {
-    codeInterpreterContainerId: string;
-    deleteCodeInterpreterContainer: (containerId: string) => Promise<void>;
-    mcpServerLeases: ThreadMcpServerSessionLeaseLike[];
-    awaitWithTimeout: <T>(
-      promise: Promise<T>,
-      timeoutMs: number,
-      timeoutMessage: string,
-    ) => Promise<T>;
-    cleanupTimeoutMs: number;
-  }) => Promise<void>;
-  createCodeInterpreterContainerWithAttachments: (
-    attachments: ClientAttachment[],
-    client: AzureOpenAIClient,
-  ) => Promise<string>;
-};
 
 export class ChatCanceledError extends Error {
   constructor(message = "Chat execution was canceled.") {
@@ -361,19 +42,14 @@ export class ChatCanceledError extends Error {
 
 export async function executeChat(
   options: ChatExecutionOptions,
-  dependencies: ChatExecutionDependencies,
+  dependencies: ChatExecutionPorts,
   onEvent?: (event: ChatExecutionEvent) => void,
   abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
   throwIfAborted(abortSignal);
-  const azureOpenAIClient = dependencies.createAzureOpenAIClient(
-    options.azureConfig.baseUrl,
-    options.azureConfig.tenantId,
-  );
-  const connectedMcpServers: MCPServer[] = [];
+  const connectedMcpServers: unknown[] = [];
   const connectedMcpServerLeases: ThreadMcpServerSessionLeaseLike[] = [];
   let codeInterpreterContainerId = "";
-  const toolNameByCallId = new Map<string, string>();
   let operationLogSequence = 0;
   const hasMcpServers = options.mcpServers.length > 0;
   const azureMcpAuthorizationTokenPromiseByScope = new Map<
@@ -568,19 +244,6 @@ export async function executeChat(
       : null;
 
     emitProgress({ message: "Initializing model and agent..." });
-
-    const model = new OpenAIResponsesModel(
-      azureOpenAIClient,
-      options.azureConfig.deploymentName,
-    );
-    const webSearchTools = options.webSearchEnabled
-      ? [
-          webSearchTool({
-            userLocation: options.webSearchUserLocation ?? undefined,
-            searchContextSize: "medium",
-          }),
-        ]
-      : [];
     if (options.webSearchEnabled) {
       emitProgress({ message: "Enabling web search..." });
     }
@@ -596,11 +259,12 @@ export async function executeChat(
           message: `Uploading attachments for Code Interpreter (${nonPdfAttachments.length})...`,
         });
         try {
-          codeInterpreterContainerId =
-            await dependencies.createCodeInterpreterContainerWithAttachments(
-              nonPdfAttachments,
-              azureOpenAIClient,
-            );
+          codeInterpreterContainerId = await dependencies.createCodeInterpreterContainerWithAttachments(
+            {
+              attachments: nonPdfAttachments,
+              azureConfig: options.azureConfig,
+            },
+          );
           codeInterpreterEnabledForRun = true;
         } catch (error) {
           const reason = readErrorMessage(error);
@@ -625,54 +289,11 @@ export async function executeChat(
           skillExecutionContext,
         )
       : [];
-
-    const agent = new Agent({
-      name: "LocalPlaygroundAgent",
-      instructions: dependencies.buildAgentInstructionWithSkills(
-        options.agentInstruction,
-        skillRuntime,
-        {
-          instructionContextToggles: options.instructionContextToggles,
-          systemInstructionContext: implicitSystemInstructionContext,
-        },
-      ),
-      model,
-      modelSettings: {
-        ...(options.temperature !== null
-          ? { temperature: options.temperature }
-          : {}),
-        ...(options.reasoningEffort
-          ? { reasoning: { effort: options.reasoningEffort } }
-          : {}),
-      },
-      tools: [
-        ...webSearchTools,
-        ...(enableCodeInterpreterTool
-          ? [
-              codeInterpreterTool({
-                container: codeInterpreterContainerId,
-              }),
-            ]
-          : []),
-        ...skillTools,
-      ],
-      mcpServers: connectedMcpServers,
+    const conversationSession = dependencies.createConversationSession({
+      sessionId: options.agentConversationId,
+      history: options.history,
+      useCodeInterpreter: enableCodeInterpreterTool,
     });
-    const conversationSession =
-      options.conversationSession ??
-      createChatMemorySession({
-        sessionId: options.agentConversationId,
-        history: options.history,
-        useCodeInterpreter: enableCodeInterpreterTool,
-      });
-    const agentConversationId = await conversationSession.getSessionId();
-    const currentInput = buildUserMessageInput(
-      options.message,
-      options.attachments,
-      {
-        useCodeInterpreter: enableCodeInterpreterTool,
-      },
-    );
 
     emitProgress({ message: "Sending request to Azure OpenAI..." });
     const runTimeoutSeconds = Math.ceil(CHAT_MODEL_RUN_TIMEOUT_MS / 1000);
@@ -680,92 +301,63 @@ export async function executeChat(
       ? `Azure OpenAI request timed out after ${runTimeoutSeconds} seconds while processing file attachments. The selected deployment may not support Code Interpreter.`
       : `Azure OpenAI request timed out after ${runTimeoutSeconds} seconds.`;
 
-    if (onEvent) {
-      const streamedResult = await runAgentWithTimeout(
-        (signal) =>
-          run(agent, [currentInput], {
-            stream: true,
-            signal,
-            maxTurns: CHAT_MAX_RUN_TURNS,
-            session: conversationSession,
-          }),
-        CHAT_MODEL_RUN_TIMEOUT_MS,
-        runTimeoutMessage,
-        abortSignal,
-      );
-      for await (const event of streamedResult) {
-        const progress = dependencies.readProgressEventFromRunStreamEvent(
-          event,
-          hasMcpServers,
-          toolNameByCallId,
-        );
-        if (progress) {
-          emitProgress(progress);
-        }
-      }
-
-      await awaitWithTimeout(
-        streamedResult.completed,
-        CHAT_MODEL_RUN_TIMEOUT_MS,
-        runTimeoutMessage,
-      );
-
-      const assistantMessage = extractAgentFinalOutput(
-        streamedResult.finalOutput,
-      );
-      if (!assistantMessage) {
-        throw new Error("Azure OpenAI returned an empty message.");
-      }
-
-      emitProgress({ message: "Finalizing response..." });
-      const nextThreadEnvironment = skillExecutionContext
-        ? cloneThreadEnvironment(skillExecutionContext.threadEnvironment)
-        : cloneThreadEnvironment(options.threadEnvironment);
-      return {
-        message: assistantMessage,
-        threadEnvironment: nextThreadEnvironment,
-        operationLogCount: operationLogSequence,
-        mcpRuntimeMetrics,
-        agentConversationId,
-      };
-    }
-
-    const result = await runAgentWithTimeout(
-      (signal) =>
-        run(agent, [currentInput], {
-          signal,
-          maxTurns: CHAT_MAX_RUN_TURNS,
-          session: conversationSession,
-        }),
-      CHAT_MODEL_RUN_TIMEOUT_MS,
+    const runResult = await dependencies.runChatAgent({
+      azureConfig: options.azureConfig,
+      webSearchEnabled: options.webSearchEnabled,
+      webSearchUserLocation: options.webSearchUserLocation,
+      enableCodeInterpreterTool,
+      codeInterpreterContainerId,
+      connectedMcpServers,
+      skillTools,
+      agentInstruction: dependencies.buildAgentInstructionWithSkills(
+        options.agentInstruction,
+        skillRuntime,
+        {
+          instructionContextToggles: options.instructionContextToggles,
+          systemInstructionContext: implicitSystemInstructionContext,
+        },
+      ),
+      reasoningEffort: options.reasoningEffort,
+      temperature: options.temperature,
+      conversationSession,
+      message: options.message,
+      attachments: options.attachments,
+      hasMcpServers,
+      maxTurns: CHAT_MAX_RUN_TURNS,
+      runTimeoutMs: CHAT_MODEL_RUN_TIMEOUT_MS,
       runTimeoutMessage,
       abortSignal,
-    );
-    const assistantMessage = extractAgentFinalOutput(result.finalOutput);
-    if (!assistantMessage) {
-      throw new Error("Azure OpenAI returned an empty message.");
+      ...(onEvent
+        ? {
+            onProgressEvent: (event: ChatProgressEvent) => {
+              emitProgress(event);
+            },
+          }
+        : {}),
+    });
+
+    if (onEvent) {
+      emitProgress({ message: "Finalizing response..." });
     }
 
     const nextThreadEnvironment = skillExecutionContext
       ? cloneThreadEnvironment(skillExecutionContext.threadEnvironment)
       : cloneThreadEnvironment(options.threadEnvironment);
     return {
-      message: assistantMessage,
+      message: runResult.assistantMessage,
       threadEnvironment: nextThreadEnvironment,
       operationLogCount: operationLogSequence,
       mcpRuntimeMetrics,
-      agentConversationId,
+      agentConversationId: runResult.agentConversationId,
     };
   } finally {
     await dependencies.cleanupChatRuntime({
       codeInterpreterContainerId,
-      deleteCodeInterpreterContainer: async (containerId) => {
-        try {
-          await azureOpenAIClient.containers.delete(containerId);
-        } catch {
-          // Best-effort cleanup for temporary Code Interpreter containers.
-        }
-      },
+      deleteCodeInterpreterContainer: async (containerId) =>
+        dependencies.deleteCodeInterpreterContainer({
+          containerId,
+          azureConfig: options.azureConfig,
+        }),
       mcpServerLeases: connectedMcpServerLeases,
       awaitWithTimeout,
       cleanupTimeoutMs: CHAT_CLEANUP_TIMEOUT_MS,
@@ -775,7 +367,7 @@ export async function executeChat(
 
 export async function executeChatWithTransientRetry(
   options: ChatExecutionOptions,
-  dependencies: ChatExecutionDependencies,
+  dependencies: ChatExecutionPorts,
   onEvent?: (event: ChatExecutionEvent) => void,
   abortSignal?: AbortSignal,
 ): Promise<ChatExecutionResult> {
@@ -879,23 +471,6 @@ function truncateProgressMessage(message: string): string {
     : `${trimmed.slice(0, maxLength - 1)}...`;
 }
 
-function extractAgentFinalOutput(finalOutput: unknown): string {
-  if (typeof finalOutput === "string") {
-    return finalOutput.trim();
-  }
-  if (typeof finalOutput === "number" || typeof finalOutput === "boolean") {
-    return String(finalOutput);
-  }
-  if (finalOutput && typeof finalOutput === "object") {
-    try {
-      return JSON.stringify(finalOutput);
-    } catch {
-      return "";
-    }
-  }
-  return "";
-}
-
 function buildAttachmentKey(attachment: ClientAttachment): string {
   return `${attachment.name}\u0000${attachment.sizeBytes}\u0000${attachment.dataUrl}`;
 }
@@ -924,50 +499,6 @@ async function awaitWithTimeout<T>(
       clearTimeout(timeoutId);
     }
   }
-}
-
-export async function runAgentWithTimeout<T>(
-  runTask: (signal: AbortSignal) => Promise<T>,
-  timeoutMs: number,
-  timeoutMessage: string,
-  upstreamAbortSignal?: AbortSignal,
-): Promise<T> {
-  const controller = new AbortController();
-  const removeAbortRelay = relayAbortSignal(upstreamAbortSignal, controller);
-  try {
-    return await awaitWithTimeout(
-      runTask(controller.signal),
-      timeoutMs,
-      timeoutMessage,
-    );
-  } catch (error) {
-    controller.abort();
-    throw error;
-  } finally {
-    removeAbortRelay();
-  }
-}
-
-function relayAbortSignal(
-  source: AbortSignal | undefined,
-  target: AbortController,
-): () => void {
-  if (!source) {
-    return () => {};
-  }
-
-  if (source.aborted) {
-    target.abort();
-    return () => {};
-  }
-
-  const onAbort = () => {
-    target.abort();
-  };
-  source.addEventListener("abort", onAbort);
-  return () => {
-    source.removeEventListener("abort", onAbort);
-  };
 }
 
 export function throwIfAborted(signal: AbortSignal | undefined): void {

@@ -15,15 +15,15 @@ import type { ThreadRepository } from "~/lib/domain/repositories/thread-reposito
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   executeChatWithTransientRetry,
-  type ChatExecutionDependencies,
   type ChatExecutionEvent,
   type ChatExecutionResult,
-  type ClientMessage,
-  type ThreadOperationLogRecord,
-  type WebSearchPreviewUserLocation,
-  hasNonPdfAttachments,
 } from "~/lib/server/usecase/chat/chat-execution";
-import { createChatMemorySession } from "~/lib/server/usecase/chat/chat-session";
+import type {
+  ChatExecutionPorts,
+  ClientMessage,
+  ThreadOperationLogRecord,
+  WebSearchPreviewUserLocation,
+} from "~/lib/server/usecase/chat/chat-execution-ports";
 import {
   applyDefaultThreadDirectoryToStdioServers,
   resolveRelativeHttpMcpServerUrls,
@@ -80,7 +80,7 @@ export async function executeThreadChatRun(
   request: ThreadChatRunRequest,
   dependencies: {
     threadRepository: ThreadRepository;
-    chatExecutionDependencies: ChatExecutionDependencies;
+    chatExecutionDependencies: ChatExecutionPorts;
   },
   onEvent?: (event: ChatExecutionEvent) => void,
   abortSignal?: AbortSignal,
@@ -105,12 +105,6 @@ export async function executeThreadChatRun(
   );
   const threadEnvironment = cloneThreadEnvironment(thread.threadEnvironment);
   const history = readHistoryMessages(thread, request.turnId);
-  const useCodeInterpreter =
-    hasNonPdfAttachments(currentUserMessage.attachments) ||
-    history.some(
-      (entry) =>
-        entry.role === "user" && hasNonPdfAttachments(entry.attachments),
-    );
   const operationLogs = thread.operationLogs.map((entry) => ({
     id: entry.rowId,
     sequence: entry.sequence,
@@ -139,12 +133,6 @@ export async function executeThreadChatRun(
     ),
     request.requestOrigin,
   );
-  const conversationSession = createChatMemorySession({
-    sessionId: thread.agentConversationId,
-    history,
-    useCodeInterpreter,
-  });
-  const agentConversationId = await conversationSession.getSessionId();
   const executionOptions = {
     threadId: request.threadId,
     turnId: request.turnId,
@@ -170,8 +158,7 @@ export async function executeThreadChatRun(
       (selection) => selection.location,
     ),
     azureConfig,
-    agentConversationId,
-    conversationSession,
+    agentConversationId: thread.agentConversationId,
     mcpServers,
   } as const;
 
@@ -225,7 +212,7 @@ export async function executeThreadChatRun(
       thread,
       userId: request.userId,
       repository: dependencies.threadRepository,
-      agentConversationId,
+      agentConversationId: thread.agentConversationId ?? null,
       threadEnvironment,
       operationLogs,
     });
@@ -425,7 +412,7 @@ async function persistThreadState(options: {
   thread: Thread;
   userId: number;
   repository: ThreadRepository;
-  agentConversationId: string;
+  agentConversationId: string | null;
   threadEnvironment: Record<string, string>;
   operationLogs: ThreadOperationLogEntry[];
   assistantMessage?: ThreadMessage;

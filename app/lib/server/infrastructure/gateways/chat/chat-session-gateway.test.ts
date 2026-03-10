@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildChatSessionHistoryItems,
-  buildUserMessageInput,
-  createChatMemorySession,
-} from "~/lib/server/usecase/chat/chat-session";
+  createChatConversationSession,
+  createChatUserMessageInput,
+} from "~/lib/server/infrastructure/gateways/chat/chat-session-gateway";
 
-describe("chat-session", () => {
+describe("chat-session-gateway", () => {
   it("builds user input with code-interpreter hints and PDF file items", () => {
     expect(
-      buildUserMessageInput(
+      createChatUserMessageInput(
         "Analyze these files.",
         [
           {
@@ -44,7 +44,7 @@ describe("chat-session", () => {
   });
 
   it("hydrates a memory session from thread history", async () => {
-    const session = createChatMemorySession({
+    const session = createChatConversationSession({
       sessionId: "session-1",
       history: [
         {
@@ -62,7 +62,13 @@ describe("chat-session", () => {
     });
 
     await expect(session.getSessionId()).resolves.toBe("session-1");
-    await expect(session.getItems()).resolves.toEqual(
+    await expect(
+      (
+        session as unknown as {
+          getItems: () => Promise<unknown[]>;
+        }
+      ).getItems(),
+    ).resolves.toEqual(
       buildChatSessionHistoryItems(
         [
           {
