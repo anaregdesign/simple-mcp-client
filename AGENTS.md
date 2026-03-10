@@ -11,8 +11,7 @@
 
 # Architecture Baseline
 
-- Treat [`skills/enforce-react-spa-architecture/SKILL.md`](skills/enforce-react-spa-architecture/SKILL.md) as the default architecture workflow for new work in this repository.
-- Treat [`docs/architecture/client-clean-architecture.md`](docs/architecture/client-clean-architecture.md) as repository context and migration history. If it conflicts with the skill, the skill wins.
+- Treat [`skills/enforce-react-spa-architecture/SKILL.md`](skills/enforce-react-spa-architecture/SKILL.md) as the default architecture workflow and normative architecture source for new work in this repository.
 - Keep dependency direction inward:
   - `app/routes/` and `app/components/` depend on client-facing orchestration, never on Prisma.
   - `app/lib/client/usecase/` depends on `domain` and client adapters.

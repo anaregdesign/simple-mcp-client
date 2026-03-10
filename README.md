@@ -28,7 +28,6 @@ If sign-in is required, complete Azure authentication from the app before using 
 The contributor architecture source of truth is:
 
 - [`AGENTS.md`](AGENTS.md)
-- [`client-clean-architecture.md`](docs/architecture/client-clean-architecture.md)
 
 Stable contributor rules:
 
