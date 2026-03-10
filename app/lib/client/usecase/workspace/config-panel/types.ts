@@ -1,15 +1,15 @@
 import type {
-  buildMcpServersTabProps as selectMcpServersTabProps,
-  buildSettingsTabProps as selectSettingsTabProps,
-  buildSkillsTabProps as selectSkillsTabProps,
-  buildThreadsTabProps as selectThreadsTabProps,
+  selectMcpServersTabViewModel,
+  selectSettingsTabViewModel,
+  selectSkillsTabViewModel,
+  selectThreadsTabViewModel,
 } from "~/lib/client/usecase/workspace/config-panel/selectors";
 import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 
-type SettingsTabSelectorOptions = Parameters<typeof selectSettingsTabProps>[0];
-type McpServersTabSelectorOptions = Parameters<typeof selectMcpServersTabProps>[0];
-type ThreadsTabSelectorOptions = Parameters<typeof selectThreadsTabProps>[0];
-type SkillsTabSelectorOptions = Parameters<typeof selectSkillsTabProps>[0];
+type SettingsTabSelectorOptions = Parameters<typeof selectSettingsTabViewModel>[0];
+type McpServersTabSelectorOptions = Parameters<typeof selectMcpServersTabViewModel>[0];
+type ThreadsTabSelectorOptions = Parameters<typeof selectThreadsTabViewModel>[0];
+type SkillsTabSelectorOptions = Parameters<typeof selectSkillsTabViewModel>[0];
 
 export type ValueSetter<T> = (value: T) => void;
 

@@ -67,3 +67,7 @@ export function useWorkspaceThreads(options: UseWorkspaceThreadsOptions) {
     sendMessage,
   };
 }
+
+export type WorkspaceThreadsController = ReturnType<
+  typeof useWorkspaceThreads
+>;

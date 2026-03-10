@@ -139,3 +139,7 @@ export function useWorkspaceInstructionEditor(
     applyThreadInstructionState: editor.applyThreadInstructionState,
   };
 }
+
+export type WorkspaceInstructionEditorController = ReturnType<
+  typeof useWorkspaceInstructionEditor
+>;

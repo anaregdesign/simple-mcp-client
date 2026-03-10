@@ -219,3 +219,7 @@ export function useWorkspaceDesktopUpdater(
     handleCheckDesktopUpdates,
   };
 }
+
+export type WorkspaceDesktopUpdaterController = ReturnType<
+  typeof useWorkspaceDesktopUpdater
+>;

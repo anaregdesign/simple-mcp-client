@@ -12,7 +12,7 @@ import {
   createPlaygroundControlHandlers,
 } from "~/lib/client/usecase/workspace/playground-panel/handlers";
 import {
-  buildPlaygroundPanelProps,
+  selectPlaygroundPanelViewModel,
   selectPlaygroundComposerViewModel,
   selectPlaygroundOperationLogViewModel,
 } from "~/lib/client/usecase/workspace/playground-panel/selectors";
@@ -20,7 +20,7 @@ import {
   usePlaygroundRuntime,
 } from "~/lib/client/usecase/workspace/playground-panel/use-playground-runtime";
 
-type PlaygroundPanelPropsOptions = Parameters<typeof buildPlaygroundPanelProps>[0];
+type PlaygroundPanelPropsOptions = Parameters<typeof selectPlaygroundPanelViewModel>[0];
 
 type WorkspacePlaygroundPanelBaseOptions = Omit<
   PlaygroundPanelPropsOptions,
@@ -131,7 +131,7 @@ export function selectWorkspacePlaygroundPanelProps(
     ...panelOptions
   } = options;
 
-  return buildPlaygroundPanelProps({
+  return selectPlaygroundPanelViewModel({
     ...panelOptions,
     onCheckDesktopUpdates: () => {
       void handleCheckDesktopUpdates();

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  buildSettingsTabProps,
-  buildThreadsTabProps,
+  selectSettingsTabViewModel,
+  selectThreadsTabViewModel,
 } from "~/lib/client/usecase/workspace/config-panel/selectors";
 import { THREAD_INSTRUCTION_CONTEXT_OPTIONS } from "~/lib/domain/value-objects/thread-instruction-context";
 
-describe("buildSettingsTabProps", () => {
+describe("selectSettingsTabViewModel", () => {
   it("maps utility deployment loading state to utility section props", () => {
     const onThemeChange = vi.fn();
     const onAzureLogin = vi.fn();
@@ -16,7 +16,7 @@ describe("buildSettingsTabProps", () => {
     const onUtilityDeploymentChange = vi.fn();
     const onUtilityReasoningEffortChange = vi.fn();
 
-    const props = buildSettingsTabProps({
+    const props = selectSettingsTabViewModel({
       theme: "light",
       onThemeChange,
       isAzureAuthRequired: false,
@@ -62,9 +62,9 @@ describe("buildSettingsTabProps", () => {
   });
 });
 
-describe("buildThreadsTabProps", () => {
+describe("selectThreadsTabViewModel", () => {
   it("maps instruction context toggles into view-ready options", () => {
-    const props = buildThreadsTabProps({
+    const props = selectThreadsTabViewModel({
       agentInstruction: "System",
       instructionContextToggles: {
         [THREAD_INSTRUCTION_CONTEXT_OPTIONS[0]!.key]: true,

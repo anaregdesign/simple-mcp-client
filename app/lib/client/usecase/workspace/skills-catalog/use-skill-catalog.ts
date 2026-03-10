@@ -216,3 +216,5 @@ export function useSkillCatalog(options: UseSkillCatalogOptions) {
     },
   };
 }
+
+export type SkillCatalogController = ReturnType<typeof useSkillCatalog>;

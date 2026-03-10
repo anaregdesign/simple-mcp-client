@@ -27,7 +27,7 @@ import {
 type Callback = (...args: any[]) => void | Promise<void>;
 type RefLike<T> = { current: T | null };
 
-export function buildSettingsTabProps(options: {
+export function selectSettingsTabViewModel(options: {
   theme: ThemeMode;
   onThemeChange: (nextTheme: ThemeMode) => void;
   isAzureAuthRequired: boolean;
@@ -116,7 +116,7 @@ export function buildSettingsTabProps(options: {
   };
 }
 
-export function buildMcpServersTabProps(options: {
+export function selectMcpServersTabViewModel(options: {
   workspaceMcpServerProfileOptions: WorkspaceMcpServerProfileOption[];
   selectedWorkspaceMcpServerProfileCount: number;
   isSending: boolean;
@@ -218,7 +218,7 @@ export function buildMcpServersTabProps(options: {
   };
 }
 
-export function buildThreadsTabProps(options: {
+export function selectThreadsTabViewModel(options: {
   agentInstruction: string;
   instructionContextToggles: Record<string, boolean>;
   instructionEnhanceComparison: InstructionEnhanceComparison | null;
@@ -331,7 +331,7 @@ export function buildThreadsTabProps(options: {
   };
 }
 
-export function buildSkillsTabProps(options: {
+export function selectSkillsTabViewModel(options: {
   threadSkillOptions: SelectableSkillOption[];
   isLoadingSkills: boolean;
   isSending: boolean;

@@ -52,9 +52,13 @@ export default function Home() {
           }
         >
           <PlaygroundPanel
-            {...screen.playground}
-            renderMessageContent={renderMessageContent}
-            renderTurnOperationLog={renderTurnOperationLog}
+            header={screen.playground.header}
+            conversation={{
+              ...screen.playground.conversation,
+              renderMessageContent,
+              renderTurnOperationLog,
+            }}
+            composer={screen.playground.composer}
           />
 
           <div

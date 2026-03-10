@@ -13,45 +13,44 @@ import { CLIENT_CONFIG_TAB_OPTIONS } from "~/lib/constants/client";
 const { MessageBar, MessageBarBody, Tab, TabList } = FluentUI;
 
 type ConfigPanelProps = {
-  activeMainTab: MainViewTab;
-  onMainTabChange: (nextTab: MainViewTab) => void;
-  isChatLocked: boolean;
-  settingsTabProps: Omit<ComponentProps<typeof SettingsTab>, "activeMainTab">;
-  mcpServersTabProps: Omit<
-    ComponentProps<typeof McpServersTab>,
-    "activeMainTab"
-  >;
-  skillsTabProps: Omit<ComponentProps<typeof SkillsTab>, "activeMainTab">;
-  threadsTabProps: Omit<ComponentProps<typeof ThreadsTab>, "activeMainTab">;
+  chrome: {
+    activeMainTab: MainViewTab;
+    onMainTabChange: (nextTab: MainViewTab) => void;
+    isChatLocked: boolean;
+  };
+  tabs: {
+    settings: Omit<ComponentProps<typeof SettingsTab>, "activeMainTab">;
+    mcpServers: Omit<ComponentProps<typeof McpServersTab>, "activeMainTab">;
+    skills: Omit<ComponentProps<typeof SkillsTab>, "activeMainTab">;
+    threads: Omit<ComponentProps<typeof ThreadsTab>, "activeMainTab">;
+  };
 };
 
 export function ConfigPanel(props: ConfigPanelProps) {
   const {
+    chrome,
+    tabs,
+  } = props;
+  const {
     activeMainTab,
     onMainTabChange,
     isChatLocked,
-    settingsTabProps,
-    mcpServersTabProps,
-    skillsTabProps,
-    threadsTabProps,
-  } = props;
+  } = chrome;
 
   function renderActiveMainTab() {
     if (activeMainTab === "threads") {
-      return <ThreadsTab activeMainTab={activeMainTab} {...threadsTabProps} />;
+      return <ThreadsTab activeMainTab={activeMainTab} {...tabs.threads} />;
     }
 
     if (activeMainTab === "mcp") {
-      return (
-        <McpServersTab activeMainTab={activeMainTab} {...mcpServersTabProps} />
-      );
+      return <McpServersTab activeMainTab={activeMainTab} {...tabs.mcpServers} />;
     }
 
     if (activeMainTab === "skills") {
-      return <SkillsTab activeMainTab={activeMainTab} {...skillsTabProps} />;
+      return <SkillsTab activeMainTab={activeMainTab} {...tabs.skills} />;
     }
 
-    return <SettingsTab activeMainTab={activeMainTab} {...settingsTabProps} />;
+    return <SettingsTab activeMainTab={activeMainTab} {...tabs.settings} />;
   }
 
   return (

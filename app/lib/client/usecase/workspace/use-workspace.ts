@@ -60,8 +60,8 @@ import {
   useConfigPanelState,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
 import {
-  useWorkspaceConfigPanel,
-} from "~/lib/client/usecase/workspace/config-panel/use-workspace-config-panel";
+  useWorkspaceConfigScreen,
+} from "~/lib/client/usecase/workspace/config-panel/use-workspace-config-screen";
 import { useWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/use-runtime-logging";
 import { selectThreadOperationPhaseFlags } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
@@ -107,8 +107,8 @@ import {
   selectThreadViewModel,
 } from "~/lib/client/usecase/workspace/threads/selectors";
 import {
-  useWorkspacePlayground,
-} from "~/lib/client/usecase/workspace/playground-panel/use-workspace-playground";
+  useWorkspacePlaygroundScreen,
+} from "~/lib/client/usecase/workspace/playground-panel/use-workspace-playground-screen";
 import {
   createThreadStorageRuntime,
 } from "~/lib/client/usecase/workspace/threads/storage-runtime";
@@ -317,6 +317,49 @@ export function useWorkspace() {
     activeThreadId,
   );
   const isSending = activeThreadRequestState.isSending;
+  const azureSettings = useAzureSettings({
+    isSending,
+    reasoningEffort,
+    webSearchEnabled,
+    readIsThreadsReady,
+    readIsLoadingThreads: () => isLoadingThreads,
+    setSystemNotice,
+    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+    writeActiveAzureTenantId: (value: string) => {
+      activeAzureTenantIdRef.current = value;
+    },
+    readActiveAzurePrincipalId: () => activeAzurePrincipalIdRef.current,
+    writeActiveAzurePrincipalId: (value: string) => {
+      activeAzurePrincipalIdRef.current = value;
+    },
+    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+    writeActiveWorkspaceUserKey: (value: string) => {
+      activeWorkspaceUserKeyRef.current = value;
+    },
+    readSelectedPlaygroundAzureConnectionId: () =>
+      selectedPlaygroundAzureConnectionIdRef.current,
+    writeSelectedPlaygroundAzureConnectionId: (value: string) => {
+      selectedPlaygroundAzureConnectionIdRef.current = value;
+    },
+    writeSelectedPlaygroundAzureDeploymentName: (value: string) => {
+      selectedPlaygroundAzureDeploymentNameRef.current = value;
+    },
+    readSelectedUtilityAzureConnectionId: () =>
+      selectedUtilityAzureConnectionIdRef.current,
+    writeSelectedUtilityAzureConnectionId: (value: string) => {
+      selectedUtilityAzureConnectionIdRef.current = value;
+    },
+    writeSelectedUtilityAzureDeploymentName: (value: string) => {
+      selectedUtilityAzureDeploymentNameRef.current = value;
+    },
+    clearWorkspaceMcpServerProfilesState,
+    loadWorkspaceMcpServerProfiles,
+    clearThreadsState,
+    showThreadReloadPlaceholder,
+    loadThreads,
+    logClientError,
+    logClientWarning,
+  });
   const {
     theme,
     azureConnections,
@@ -373,49 +416,7 @@ export function useWorkspace() {
     isPlaygroundDeploymentAvailable,
     isUtilityDeploymentAvailable,
     isPlaygroundReasoningEffortOptionAvailable,
-  } = useAzureSettings({
-    isSending,
-    reasoningEffort,
-    webSearchEnabled,
-    readIsThreadsReady,
-    readIsLoadingThreads: () => isLoadingThreads,
-    setSystemNotice,
-    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
-    writeActiveAzureTenantId: (value: string) => {
-      activeAzureTenantIdRef.current = value;
-    },
-    readActiveAzurePrincipalId: () => activeAzurePrincipalIdRef.current,
-    writeActiveAzurePrincipalId: (value: string) => {
-      activeAzurePrincipalIdRef.current = value;
-    },
-    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-    writeActiveWorkspaceUserKey: (value: string) => {
-      activeWorkspaceUserKeyRef.current = value;
-    },
-    readSelectedPlaygroundAzureConnectionId: () =>
-      selectedPlaygroundAzureConnectionIdRef.current,
-    writeSelectedPlaygroundAzureConnectionId: (value: string) => {
-      selectedPlaygroundAzureConnectionIdRef.current = value;
-    },
-    writeSelectedPlaygroundAzureDeploymentName: (value: string) => {
-      selectedPlaygroundAzureDeploymentNameRef.current = value;
-    },
-    readSelectedUtilityAzureConnectionId: () =>
-      selectedUtilityAzureConnectionIdRef.current,
-    writeSelectedUtilityAzureConnectionId: (value: string) => {
-      selectedUtilityAzureConnectionIdRef.current = value;
-    },
-    writeSelectedUtilityAzureDeploymentName: (value: string) => {
-      selectedUtilityAzureDeploymentNameRef.current = value;
-    },
-    clearWorkspaceMcpServerProfilesState,
-    loadWorkspaceMcpServerProfiles,
-    clearThreadsState,
-    showThreadReloadPlaceholder,
-    loadThreads,
-    logClientError,
-    logClientWarning,
-  });
+  } = azureSettings;
   const isChatLocked = isAzureAuthRequired;
   const instructionEditor = useWorkspaceInstructionEditor({
     activeThreadId,
@@ -478,6 +479,19 @@ export function useWorkspace() {
       }),
     [activeThreadId, activeThreadNameInput, threadRequestStateById, threads],
   );
+  const skillCatalog = useSkillCatalog({
+    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+    activeAzurePrincipal,
+    isAzureAuthRequired,
+    markAzureAuthRequired,
+    resolveAzureBackgroundSuccess,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    updateThreadStateById,
+    selectedThreadSkills,
+    selectedMessageSkillActivations,
+    setSelectedMessageSkillActivations,
+    logClientError,
+  });
   const {
     skillRegistryCatalogs,
     isMutatingSkillRegistries,
@@ -499,19 +513,7 @@ export function useWorkspace() {
     handleRemoveMessageSkillActivation,
     handleRemoveThreadSkill,
     handleToggleThreadSkill,
-  } = useSkillCatalog({
-    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-    activeAzurePrincipal,
-    isAzureAuthRequired,
-    markAzureAuthRequired,
-    resolveAzureBackgroundSuccess,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    updateThreadStateById,
-    selectedThreadSkills,
-    selectedMessageSkillActivations,
-    setSelectedMessageSkillActivations,
-    logClientError,
-  });
+  } = skillCatalog;
   const threadStorageRuntime = createThreadStorageRuntime({
     persistence: {
       readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
@@ -582,18 +584,19 @@ export function useWorkspace() {
       },
     },
   ];
+  const desktopUpdater = useWorkspaceDesktopUpdater({
+    setUiError,
+    setSystemNotice,
+    logClientError,
+    logClientWarning,
+  });
   const {
     desktopUpdaterStatus,
     desktopUpdaterActionState,
     isApplyingDesktopUpdate,
     handleApplyDesktopUpdate,
     handleCheckDesktopUpdates,
-  } = useWorkspaceDesktopUpdater({
-    setUiError,
-    setSystemNotice,
-    logClientError,
-    logClientWarning,
-  });
+  } = desktopUpdater;
 
   async function loadThreads(): Promise<void> {
     await threadStorageRuntime.loadThreads();
@@ -778,152 +781,22 @@ export function useWorkspace() {
 
   const {
     configPanelProps,
-  } = useWorkspaceConfigPanel({
+  } = useWorkspaceConfigScreen({
     chrome: {
       activeMainTab,
       setActiveMainTab,
       isChatLocked,
     },
-    settings: {
-      theme,
-      onThemeChange: handleThemeChange,
-      isAzureAuthRequired,
-      isSending,
-      isStartingAzureLogin,
-      onAzureLogin: handleAzureLogin,
-      azureTenants,
-      activeAzureTenantId: activeAzurePrincipal?.tenantId ?? "",
-      isSwitchingAzureTenant,
-      onAzureTenantChange: handleAzureTenantChange,
-      isLoadingAzureConnections,
-      isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
-      isReloadingAzureCatalog,
-      onAzureCatalogReload: handleReloadAzureCatalog,
-      activeAzureConnection: activePlaygroundAzureConnection,
-      activeAzurePrincipal,
-      selectedPlaygroundAzureDeploymentName,
-      isStartingAzureLogout,
-      onAzureLogout: handleAzureLogout,
-      azureTenantSwitchError,
-      azureLogoutError,
-      azureConnectionError,
-      azureConnections,
-      selectedUtilityAzureConnectionId,
-      selectedUtilityAzureDeploymentName,
-      utilityAzureDeployments: utilityAzureDeploymentNames,
-      utilityReasoningEffort: effectiveUtilityReasoningEffort,
-      utilityReasoningEffortOptions: effectiveUtilityReasoningEffortOptions,
-      isUtilityReasoningEffortSupported,
-      utilityAzureDeploymentError,
-      onUtilityProjectChange: instructionEditor.handleUtilityProjectChange,
-      onUtilityDeploymentChange:
-        instructionEditor.handleUtilityDeploymentChange,
-      onUtilityReasoningEffortChange:
-        instructionEditor.handleUtilityReasoningEffortChange,
-      isLoadingUtilityAzureDeployments,
-    },
-    mcpServers: {
-      workspaceMcpServerProfileOptions:
-        mcpProfiles.workspaceMcpServerProfileOptions,
-      selectedWorkspaceMcpServerProfileCount:
-        mcpProfiles.selectedWorkspaceMcpServerProfileCount,
-      isSending,
-      isActiveThreadArchived,
-      isLoadingWorkspaceMcpServerProfiles:
-        mcpProfiles.isLoadingWorkspaceMcpServerProfiles,
-      isMutatingWorkspaceMcpServerProfiles:
-        mcpProfiles.isMutatingWorkspaceMcpServerProfiles,
-      workspaceMcpServerProfileError:
-        mcpProfiles.workspaceMcpServerProfileError,
-      handleToggleWorkspaceMcpServerProfile:
-        mcpProfiles.handleToggleWorkspaceMcpServerProfile,
-      handleEditWorkspaceMcpServerProfile:
-        mcpProfiles.handleEditWorkspaceMcpServerProfile,
-      handleDeleteWorkspaceMcpServerProfile:
-        mcpProfiles.handleDeleteWorkspaceMcpServerProfile,
-      handleReloadWorkspaceMcpServerProfiles:
-        mcpProfiles.handleReloadWorkspaceMcpServerProfiles,
-      isEditingMcpServer: mcpProfiles.isEditingMcpServer,
-      editingMcpServerName: mcpProfiles.editingMcpServerName,
-      mcpNameInput: mcpProfiles.mcpNameInput,
-      setMcpNameInput: mcpProfiles.setMcpNameInput,
-      mcpTransport: mcpProfiles.mcpTransport,
-      setMcpTransport: mcpProfiles.setMcpTransport,
-      setMcpFormError: mcpProfiles.setMcpFormError,
-      mcpCommandInput: mcpProfiles.mcpCommandInput,
-      setMcpCommandInput: mcpProfiles.setMcpCommandInput,
-      mcpArgsInput: mcpProfiles.mcpArgsInput,
-      setMcpArgsInput: mcpProfiles.setMcpArgsInput,
-      mcpCwdInput: mcpProfiles.mcpCwdInput,
-      setMcpCwdInput: mcpProfiles.setMcpCwdInput,
-      mcpEnvInput: mcpProfiles.mcpEnvInput,
-      setMcpEnvInput: mcpProfiles.setMcpEnvInput,
-      mcpUrlInput: mcpProfiles.mcpUrlInput,
-      setMcpUrlInput: mcpProfiles.setMcpUrlInput,
-      mcpHeadersInput: mcpProfiles.mcpHeadersInput,
-      setMcpHeadersInput: mcpProfiles.setMcpHeadersInput,
-      mcpUseAzureAuthInput: mcpProfiles.mcpUseAzureAuthInput,
-      setMcpUseAzureAuthInput: mcpProfiles.setMcpUseAzureAuthInput,
-      mcpAzureAuthScopeInput: mcpProfiles.mcpAzureAuthScopeInput,
-      setMcpAzureAuthScopeInput: mcpProfiles.setMcpAzureAuthScopeInput,
-      mcpTimeoutSecondsInput: mcpProfiles.mcpTimeoutSecondsInput,
-      setMcpTimeoutSecondsInput: mcpProfiles.setMcpTimeoutSecondsInput,
-      handleAddMcpServer: mcpProfiles.handleAddMcpServer,
-      handleCancelMcpServerEdit: mcpProfiles.handleCancelMcpServerEdit,
-      isSavingMcpServer: mcpProfiles.isSavingMcpServer,
-      mcpFormError: mcpProfiles.mcpFormError,
-      mcpFormWarning: mcpProfiles.mcpFormWarning,
-      setMcpFormWarning: mcpProfiles.setMcpFormWarning,
-    },
-    threads: {
-      agentInstruction: instructionEditor.agentInstruction,
-      instructionContextToggles: instructionEditor.instructionContextToggles,
-      instructionEnhanceComparison:
-        instructionEditor.instructionEnhanceComparison,
-      isSending,
-      isActiveThreadArchived,
-      isEnhancingInstruction: instructionEditor.isEnhancingInstruction,
-      isEnhancingInstructionForActiveThread:
-        instructionEditor.isEnhancingInstructionForActiveThread,
-      isSavingInstructionPrompt:
-        instructionEditor.isSavingInstructionPrompt,
-      canSaveAgentInstructionPrompt:
-        instructionEditor.canSaveAgentInstructionPrompt,
-      canEnhanceAgentInstruction:
-        instructionEditor.canEnhanceAgentInstruction,
-      canClearAgentInstruction: instructionEditor.canClearAgentInstruction,
-      loadedInstructionFileName: instructionEditor.loadedInstructionFileName,
-      instructionFileInputRef: instructionEditor.instructionFileInputRef,
-      instructionFileError: instructionEditor.instructionFileError,
-      instructionSaveError: instructionEditor.instructionSaveError,
-      instructionSaveSuccess: instructionEditor.instructionSaveSuccess,
-      instructionEnhanceError: instructionEditor.instructionEnhanceError,
-      instructionEnhanceSuccess:
-        instructionEditor.instructionEnhanceSuccess,
-      clearInstructionSaveSuccess:
-        instructionEditor.clearInstructionSaveSuccess,
-      clearInstructionEnhanceSuccess:
-        instructionEditor.clearInstructionEnhanceSuccess,
-      handleInstructionContextToggleChange:
-        instructionEditor.handleInstructionContextToggleChange,
-      handleAgentInstructionChange:
-        instructionEditor.handleAgentInstructionChange,
-      handleOpenInstructionFilePicker:
-        instructionEditor.handleOpenInstructionFilePicker,
-      handleInstructionFileChange:
-        instructionEditor.handleInstructionFileChange,
-      handleSaveInstructionPrompt:
-        instructionEditor.handleSaveInstructionPrompt,
-      handleEnhanceInstruction:
-        instructionEditor.handleEnhanceInstruction,
-      handleClearInstruction: instructionEditor.handleClearInstruction,
-      handleAdoptEnhancedInstruction:
-        instructionEditor.handleAdoptEnhancedInstruction,
-      handleAdoptOriginalInstruction:
-        instructionEditor.handleAdoptOriginalInstruction,
+    azureSettings,
+    instructionEditor,
+    mcpProfiles,
+    skillCatalog,
+    threadView: {
       activeThreadOptions,
       archivedThreadOptions,
       activeThreadId,
+      isSending,
+      isActiveThreadArchived,
       isLoadingThreads,
       isSwitchingThread,
       isCreatingThread,
@@ -931,6 +804,8 @@ export function useWorkspace() {
       isClearingThread,
       isRestoringThread,
       threadError,
+    },
+    threadHandlers: {
       handleThreadChange,
       handleCreateThread,
       handleThreadRename,
@@ -939,169 +814,69 @@ export function useWorkspace() {
       handleThreadClear,
       handleThreadRestore,
     },
-    skills: {
-      threadSkillOptions,
-      isLoadingSkills,
-      isSending,
-      isActiveThreadArchived,
-      skillsError,
-      skillsWarning,
-      handleReloadSkills,
-      handleToggleThreadSkill,
-      clearSkillsWarning() {
-        setSkillsWarning(null);
-      },
-      skillRegistryGroups,
-      isMutatingSkillRegistries,
-      skillRegistryError,
-      skillRegistryWarning,
-      skillRegistrySuccess,
-      handleToggleRegistrySkill,
-      clearSkillRegistryWarning() {
-        setSkillRegistryWarning(null);
-      },
-      clearSkillRegistrySuccess() {
-        setSkillRegistrySuccess(null);
-      },
-    },
   });
   const {
     playgroundPanelProps,
-  } = useWorkspacePlayground({
+  } = useWorkspacePlaygroundScreen({
     chatCommandProviders,
-    runtime: {
+    session: {
       messages,
-      isSending,
+      mcpRpcLogs,
       sendProgressMessages,
+      activeTurnId,
+      lastErrorTurnId,
       endOfMessagesRef,
       chatInputRef,
       pendingChatCommandCursorIndexRef,
+      messageAttachmentInputRef: chatAttachmentInputRef,
       draft,
+      draftAttachments,
+      chatAttachmentError,
       chatComposerCursorIndex,
       setChatComposerCursorIndex,
       chatCommandHighlightedIndex,
       setChatCommandHighlightedIndex,
-    },
-    operationLogs: {
-      mcpRpcLogs,
-      activeTurnId,
-      lastErrorTurnId,
-    },
-    composerView: {
-      draft,
-      draftAttachments,
-      threadOperationPhase,
-      isSending,
-      isActiveThreadArchived,
-      isChatLocked,
-      isLoadingAzureConnections,
-      isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
-      hasActiveThreadId: activeThreadId.trim().length > 0,
-      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
-      hasSelectedPlaygroundAzureDeploymentName:
-        selectedPlaygroundAzureDeploymentName.trim().length > 0,
-      isSelectedPlaygroundReasoningEffortOptionAvailable,
-      isPlaygroundReasoningEffortWebSearchCompatible,
-    },
-    composerHandlers: {
-      isArchivedThread,
-      readActiveThreadId: () => activeThreadIdRef.current,
-      isChatLocked,
-      isSending,
       isComposing,
-      readDraft: () => draft,
-      readDraftAttachments: () => draftAttachments,
-      readChatAttachmentInput: () => chatAttachmentInputRef.current,
-      setPendingChatCommandCursorIndex: (value) => {
-        pendingChatCommandCursorIndexRef.current = value;
-      },
       setDraft,
-      setChatComposerCursorIndex,
-      setChatCommandHighlightedIndex,
       setChatAttachmentError,
       setDraftAttachments,
-      setThreadError,
-      setActiveMainTab,
-      sendMessage,
-      logClientError,
-    },
-    controlHandlers: {
-      isSending,
-      isStartingAzureLogin,
-      isSwitchingAzureTenant,
-      isStartingAzureLogout,
-      isLoadingAzureConnections,
-      isLoadingPlaygroundAzureDeployments,
-      isAzureAuthRequired,
-      azureConnectionError,
-      hasAzureConnections: azureConnections.length > 0,
-      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
-      hasPlaygroundAzureDeployments: playgroundAzureDeployments.length > 0,
-      hasSelectedPlaygroundAzureDeploymentName:
-        selectedPlaygroundAzureDeploymentName.trim().length > 0,
-      isPlaygroundReasoningEffortSupported,
-      selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
-      effectivePlaygroundReasoningEffortOptions,
+      setIsComposing,
       reasoningEffort,
-      setUiError,
-      setSystemNotice,
-      setActiveMainTab,
-      setReasoningEffort,
-      setWebSearchEnabled,
-      clearAzureSessionStatus,
-      markAzureAuthRequired,
-      handleAzureLogin,
-      handleSelectPlaygroundProject,
-      handleSelectPlaygroundDeployment,
-      loadAzureProjects,
-    },
-    panel: {
-      messages,
-      isSending,
-      isThreadReadOnly: isActiveThreadArchived,
-      desktopUpdaterStatus,
-      desktopUpdaterActionState,
-      isApplyingDesktopUpdate,
-      handleCheckDesktopUpdates,
-      handleApplyDesktopUpdate,
-      activeThreadName: activeThreadNameInput,
-      isThreadOperationBusy,
-      isCreatingThread,
-      handleCreateThread,
-      handleThreadCancel,
-      readActiveThreadId: () => activeThreadIdRef.current,
-      sendProgressMessages,
-      endOfMessagesRef,
+      webSearchEnabled,
       systemNotice,
-      setSystemNotice,
       error,
       azureLoginError,
-      chatInputRef,
-      messageAttachmentInputRef: chatAttachmentInputRef,
-      draft,
-      messageAttachments: draftAttachments,
-      messageAttachmentError: chatAttachmentError,
-      setIsComposing,
-      isChatLocked,
-      isLoadingAzureConnections,
-      isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
-      isAzureAuthRequired,
-      isStartingAzureLogin,
-      isStartingAzureLogout,
-      azureConnections,
-      activeAzureConnectionId: activePlaygroundAzureConnection?.id ?? "",
-      selectedAzureDeploymentName: selectedPlaygroundAzureDeploymentName,
-      azureDeployments: playgroundAzureDeploymentNames,
-      reasoningEffort,
-      reasoningEffortOptions: effectivePlaygroundReasoningEffortOptions,
-      isReasoningEffortSupported: isPlaygroundReasoningEffortSupported,
-      webSearchEnabled,
-      selectedThreadSkills,
+      setReasoningEffort,
+      setWebSearchEnabled,
+      setSystemNotice,
+      setUiError,
+      setActiveMainTab,
       selectedMessageSkillActivations,
-      onRemoveThreadSkill: handleRemoveThreadSkill,
-      onRemoveMessageSkillActivation: handleRemoveMessageSkillActivation,
+      setSelectedMessageSkillActivations,
+      logClientError,
+    },
+    thread: {
+      activeThreadId,
+      activeThreadName: activeThreadNameInput,
+      isSending,
+      isCreatingThread,
+      isThreadOperationBusy,
+      isActiveThreadArchived,
+      threadOperationPhase,
       mcpServers,
-      onRemoveMcpServer: mcpProfiles.handleRemoveMcpServer,
+      selectedThreadSkills,
+    },
+    threadHandlers: {
+      handleCreateThread,
+      handleThreadCancel,
+      sendMessage,
+    },
+    azureSettings,
+    desktopUpdater,
+    mcpProfiles,
+    skillCatalog: {
+      handleRemoveThreadSkill,
+      handleRemoveMessageSkillActivation,
     },
   });
 

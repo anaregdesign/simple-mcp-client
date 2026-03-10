@@ -91,7 +91,7 @@ describe("selectWorkspacePlaygroundPanelProps", () => {
     const options = createOptions();
     const props = selectWorkspacePlaygroundPanelProps(options);
 
-    props.onCancelThreadProcessing();
+    props.composer.onCancelThreadProcessing();
 
     expect(options.readActiveThreadId).toHaveBeenCalledTimes(1);
     expect(options.handleThreadCancel).toHaveBeenCalledWith("thread-1");
@@ -101,8 +101,8 @@ describe("selectWorkspacePlaygroundPanelProps", () => {
     const options = createOptions();
     const props = selectWorkspacePlaygroundPanelProps(options);
 
-    props.onCompositionStart();
-    props.onCompositionEnd();
+    props.composer.onCompositionStart();
+    props.composer.onCompositionEnd();
 
     expect(options.setIsComposing).toHaveBeenNthCalledWith(1, true);
     expect(options.setIsComposing).toHaveBeenNthCalledWith(2, false);

@@ -169,3 +169,7 @@ export function useWorkspaceMcpProfiles(
     ...handlers,
   };
 }
+
+export type WorkspaceMcpProfilesController = ReturnType<
+  typeof useWorkspaceMcpProfiles
+>;

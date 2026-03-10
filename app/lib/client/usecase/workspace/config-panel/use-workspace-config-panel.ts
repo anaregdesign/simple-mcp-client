@@ -14,10 +14,10 @@ import {
   createThreadsTabHandlers,
 } from "~/lib/client/usecase/workspace/config-panel/handlers";
 import {
-  buildMcpServersTabProps as selectMcpServersTabProps,
-  buildSettingsTabProps as selectSettingsTabProps,
-  buildSkillsTabProps as selectSkillsTabProps,
-  buildThreadsTabProps as selectThreadsTabProps,
+  selectMcpServersTabViewModel,
+  selectSettingsTabViewModel,
+  selectSkillsTabViewModel,
+  selectThreadsTabViewModel,
 } from "~/lib/client/usecase/workspace/config-panel/selectors";
 import type {
   UseWorkspaceConfigPanelOptions,
@@ -32,7 +32,7 @@ function buildMcpServersTabProps(
 ) {
   const handlers = createMcpServersTabHandlers(options);
 
-  return selectMcpServersTabProps({
+  return selectMcpServersTabViewModel({
     workspaceMcpServerProfileOptions: options.workspaceMcpServerProfileOptions,
     selectedWorkspaceMcpServerProfileCount:
       options.selectedWorkspaceMcpServerProfileCount,
@@ -95,7 +95,7 @@ function buildThreadsTabProps(
 ) {
   const handlers = createThreadsTabHandlers(options);
 
-  return selectThreadsTabProps({
+  return selectThreadsTabViewModel({
     agentInstruction: options.agentInstruction,
     instructionContextToggles: options.instructionContextToggles,
     instructionEnhanceComparison: options.instructionEnhanceComparison,
@@ -154,7 +154,7 @@ function buildSkillsTabProps(
 ) {
   const handlers = createSkillsTabHandlers(options);
 
-  return selectSkillsTabProps({
+  return selectSkillsTabViewModel({
     threadSkillOptions: options.threadSkillOptions,
     isLoadingSkills: options.isLoadingSkills,
     isSending: options.isSending,
@@ -178,7 +178,7 @@ function buildSkillsTabProps(
 export function selectWorkspaceConfigPanelProps(
   options: UseWorkspaceConfigPanelOptions,
 ) {
-  const settingsTabProps = selectSettingsTabProps({
+  const settingsTabProps = selectSettingsTabViewModel({
     ...options.settings,
     isLoadingAzureDeployments:
       options.settings.isLoadingAzureDeployments ||
@@ -186,13 +186,17 @@ export function selectWorkspaceConfigPanelProps(
   });
 
   return {
-    activeMainTab: options.chrome.activeMainTab,
-    onMainTabChange: options.chrome.setActiveMainTab,
-    isChatLocked: options.chrome.isChatLocked,
-    settingsTabProps,
-    mcpServersTabProps: buildMcpServersTabProps(options.mcpServers),
-    skillsTabProps: buildSkillsTabProps(options.skills),
-    threadsTabProps: buildThreadsTabProps(options.threads),
+    chrome: {
+      activeMainTab: options.chrome.activeMainTab,
+      onMainTabChange: options.chrome.setActiveMainTab,
+      isChatLocked: options.chrome.isChatLocked,
+    },
+    tabs: {
+      settings: settingsTabProps,
+      mcpServers: buildMcpServersTabProps(options.mcpServers),
+      skills: buildSkillsTabProps(options.skills),
+      threads: buildThreadsTabProps(options.threads),
+    },
   };
 }
 
