@@ -517,6 +517,42 @@ const checks = [
     ],
   },
   {
+    key: "workspaceThreadBrowserTimerOwnership",
+    description:
+      "thread background-effects and shell must reuse browser timer adapters instead of using window timeouts inline.",
+    command: "rg",
+    args: [
+      "-n",
+      "window\\.(setTimeout|clearTimeout)",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+      "app/lib/client/usecase/workspace/threads/use-shell.ts",
+    ],
+  },
+  {
+    key: "workspaceThreadTimeoutRefLeakage",
+    description:
+      "thread timeout refs must stay inside use-shell instead of leaking into use-workspace or background-effects.",
+    command: "rg",
+    args: [
+      "-n",
+      "thread(Name|Save|Title)TimeoutRef",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+    ],
+  },
+  {
+    key: "azureSettingsBrowserTimerOwnership",
+    description:
+      "azure-settings timer scheduling must stay in client/infrastructure/browser instead of usecase operations.",
+    command: "rg",
+    args: [
+      "-n",
+      "window\\.(setTimeout|clearTimeout)",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-runtime.ts",
+      "app/lib/client/usecase/workspace/azure-settings/session-operations.ts",
+    ],
+  },
+  {
     key: "legacyThreadMcpServerOperations",
     description:
       "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
