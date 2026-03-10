@@ -491,13 +491,34 @@ export function useWorkspace() {
     readIsThreadsReady,
     readIsLoadingThreads: () => isLoadingThreads,
     setSystemNotice,
-    activeAzureTenantIdRef,
-    activeAzurePrincipalIdRef,
-    activeWorkspaceUserKeyRef,
-    selectedPlaygroundAzureConnectionIdRef,
-    selectedPlaygroundAzureDeploymentNameRef,
-    selectedUtilityAzureConnectionIdRef,
-    selectedUtilityAzureDeploymentNameRef,
+    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+    writeActiveAzureTenantId: (value: string) => {
+      activeAzureTenantIdRef.current = value;
+    },
+    readActiveAzurePrincipalId: () => activeAzurePrincipalIdRef.current,
+    writeActiveAzurePrincipalId: (value: string) => {
+      activeAzurePrincipalIdRef.current = value;
+    },
+    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+    writeActiveWorkspaceUserKey: (value: string) => {
+      activeWorkspaceUserKeyRef.current = value;
+    },
+    readSelectedPlaygroundAzureConnectionId: () =>
+      selectedPlaygroundAzureConnectionIdRef.current,
+    writeSelectedPlaygroundAzureConnectionId: (value: string) => {
+      selectedPlaygroundAzureConnectionIdRef.current = value;
+    },
+    writeSelectedPlaygroundAzureDeploymentName: (value: string) => {
+      selectedPlaygroundAzureDeploymentNameRef.current = value;
+    },
+    readSelectedUtilityAzureConnectionId: () =>
+      selectedUtilityAzureConnectionIdRef.current,
+    writeSelectedUtilityAzureConnectionId: (value: string) => {
+      selectedUtilityAzureConnectionIdRef.current = value;
+    },
+    writeSelectedUtilityAzureDeploymentName: (value: string) => {
+      selectedUtilityAzureDeploymentNameRef.current = value;
+    },
     clearWorkspaceMcpServerProfilesState,
     loadWorkspaceMcpServerProfiles,
     clearThreadsState,
@@ -812,9 +833,10 @@ export function useWorkspace() {
   });
 
   const sendMessageController = createSendMessageController({
-    activeThreadIdRef,
-    activeAzureTenantIdRef,
-    threadsRef,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+    readBaseThread: (threadId) =>
+      findThreadStateById(threadsRef.current, threadId) ?? null,
     readDraft: () => draft,
     readSelectedPlaygroundAzureDeploymentName: () =>
       selectedPlaygroundAzureDeploymentName,

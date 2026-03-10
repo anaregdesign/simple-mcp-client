@@ -64,18 +64,48 @@ function createHarness(
   } = {
     current: null,
   };
+  const runtimeState = {
+    activeAzureTenantId: "",
+    activeAzurePrincipalId: "",
+    activeWorkspaceUserKey: "",
+    selectedPlaygroundAzureConnectionId: "",
+    selectedPlaygroundAzureDeploymentName: "",
+    selectedUtilityAzureConnectionId: "",
+    selectedUtilityAzureDeploymentName: "",
+  };
   const options: UseAzureSettingsOptions = {
     isSending: false,
     readIsThreadsReady: vi.fn(() => false),
     readIsLoadingThreads: vi.fn(() => false),
     setSystemNotice: vi.fn(),
-    activeAzureTenantIdRef: { current: "" },
-    activeAzurePrincipalIdRef: { current: "" },
-    activeWorkspaceUserKeyRef: { current: "" },
-    selectedPlaygroundAzureConnectionIdRef: { current: "" },
-    selectedPlaygroundAzureDeploymentNameRef: { current: "" },
-    selectedUtilityAzureConnectionIdRef: { current: "" },
-    selectedUtilityAzureDeploymentNameRef: { current: "" },
+    readActiveAzureTenantId: () => runtimeState.activeAzureTenantId,
+    writeActiveAzureTenantId: (value: string) => {
+      runtimeState.activeAzureTenantId = value;
+    },
+    readActiveAzurePrincipalId: () => runtimeState.activeAzurePrincipalId,
+    writeActiveAzurePrincipalId: (value: string) => {
+      runtimeState.activeAzurePrincipalId = value;
+    },
+    readActiveWorkspaceUserKey: () => runtimeState.activeWorkspaceUserKey,
+    writeActiveWorkspaceUserKey: (value: string) => {
+      runtimeState.activeWorkspaceUserKey = value;
+    },
+    readSelectedPlaygroundAzureConnectionId: () =>
+      runtimeState.selectedPlaygroundAzureConnectionId,
+    writeSelectedPlaygroundAzureConnectionId: (value: string) => {
+      runtimeState.selectedPlaygroundAzureConnectionId = value;
+    },
+    writeSelectedPlaygroundAzureDeploymentName: (value: string) => {
+      runtimeState.selectedPlaygroundAzureDeploymentName = value;
+    },
+    readSelectedUtilityAzureConnectionId: () =>
+      runtimeState.selectedUtilityAzureConnectionId,
+    writeSelectedUtilityAzureConnectionId: (value: string) => {
+      runtimeState.selectedUtilityAzureConnectionId = value;
+    },
+    writeSelectedUtilityAzureDeploymentName: (value: string) => {
+      runtimeState.selectedUtilityAzureDeploymentName = value;
+    },
     clearWorkspaceMcpServerProfilesState: vi.fn(),
     loadWorkspaceMcpServerProfiles: vi.fn(async () => {}),
     clearThreadsState: vi.fn(),
@@ -111,6 +141,7 @@ function createHarness(
     patchState,
     handlers,
     preferredAzureSelectionRef,
+    runtimeState,
     readState: () => state,
   };
 }
@@ -191,9 +222,7 @@ describe("createAzureSettingsHandlers", () => {
       },
     ]);
     expect(harness.readState().theme).toBe("dark");
-    expect(harness.options.activeWorkspaceUserKeyRef.current).toBe(
-      "tenant-a::principal-a",
-    );
+    expect(harness.runtimeState.activeWorkspaceUserKey).toBe("tenant-a::principal-a");
     expect(harness.options.loadWorkspaceMcpServerProfiles).toHaveBeenCalledTimes(1);
     expect(harness.options.loadThreads).toHaveBeenCalledTimes(1);
   });
@@ -293,8 +322,8 @@ describe("createAzureSettingsHandlers", () => {
 
   it("persists the current theme for the active Azure identity", async () => {
     const harness = createHarness();
-    harness.options.activeAzureTenantIdRef.current = "tenant-a";
-    harness.options.activeAzurePrincipalIdRef.current = "principal-a";
+    harness.runtimeState.activeAzureTenantId = "tenant-a";
+    harness.runtimeState.activeAzurePrincipalId = "principal-a";
     harness.preferredAzureSelectionRef.current = {
       tenantId: "tenant-a",
       principalId: "principal-a",
@@ -388,7 +417,7 @@ describe("createAzureSettingsHandlers", () => {
 
   it("reports pending tenant switch after interactive tenant change", async () => {
     const harness = createHarness();
-    harness.options.activeAzureTenantIdRef.current = "tenant-a";
+    harness.runtimeState.activeAzureTenantId = "tenant-a";
     vi.mocked(azureSessionApiClient.startSession).mockResolvedValue({
       message: "Azure login completed.",
     });

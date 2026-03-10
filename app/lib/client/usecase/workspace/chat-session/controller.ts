@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
 import {
   sendMessage as sendMessageOperation,
@@ -6,9 +5,6 @@ import {
 import {
   executeSendMessageTransport,
 } from "~/lib/client/usecase/workspace/chat-session/send-message-transport";
-import {
-  findThreadStateById,
-} from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type {
   ThreadOperationPhase,
 } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
@@ -43,9 +39,9 @@ type SendMessageTransportOptions = Parameters<
 >[1];
 
 type CreateSendMessageControllerOptions = {
-  activeThreadIdRef: MutableRefObject<string>;
-  activeAzureTenantIdRef: MutableRefObject<string>;
-  threadsRef: MutableRefObject<ThreadState[]>;
+  readActiveThreadId: () => string;
+  readActiveAzureTenantId: () => string;
+  readBaseThread: (threadId: string) => ThreadState | null;
   readDraft: () => string;
   readSelectedPlaygroundAzureDeploymentName: () => string;
   isArchivedThread: (threadIdRaw: string) => boolean;
@@ -127,7 +123,7 @@ export function createSendMessageController(
 ) {
   function buildOperationDeps() {
     return {
-      readActiveThreadId: () => options.activeThreadIdRef.current,
+      readActiveThreadId: options.readActiveThreadId,
       readDraft: options.readDraft,
       readSelectedPlaygroundAzureDeploymentName:
         options.readSelectedPlaygroundAzureDeploymentName,
@@ -148,8 +144,7 @@ export function createSendMessageController(
         options.isSelectedPlaygroundReasoningEffortOptionAvailable,
       readReasoningEffort: options.readReasoningEffort,
       readWebSearchEnabled: options.readWebSearchEnabled,
-      readBaseThread: (threadId: string) =>
-        findThreadStateById(options.threadsRef.current, threadId),
+      readBaseThread: options.readBaseThread,
       readDraftAttachments: options.readDraftAttachments,
       readMessages: options.readMessages,
       readMcpServers: options.readMcpServers,
@@ -158,7 +153,7 @@ export function createSendMessageController(
       readSelectedThreadSkills: options.readSelectedThreadSkills,
       readAgentInstruction: options.readAgentInstruction,
       readInstructionContextToggles: options.readInstructionContextToggles,
-      readActiveAzureTenantId: () => options.activeAzureTenantIdRef.current,
+      readActiveAzureTenantId: options.readActiveAzureTenantId,
       createTurnId: () => createRuntimeId("turn"),
       setThreadError: options.setThreadError,
       setUiError: options.setUiError,

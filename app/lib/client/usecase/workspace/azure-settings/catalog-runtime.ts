@@ -88,9 +88,9 @@ export function createAzureCatalogRuntime(
   }
 
   function clearActiveAzureIdentity(): void {
-    deps.options.activeAzureTenantIdRef.current = "";
-    deps.options.activeAzurePrincipalIdRef.current = "";
-    deps.options.activeWorkspaceUserKeyRef.current = "";
+    deps.options.writeActiveAzureTenantId("");
+    deps.options.writeActiveAzurePrincipalId("");
+    deps.options.writeActiveWorkspaceUserKey("");
     deps.preferredAzureSelectionRef.current = null;
     cancelAzureDeploymentLoads();
     deps.dispatch({ type: "cache/clear_all" });
@@ -107,11 +107,11 @@ export function createAzureCatalogRuntime(
     tenantId: string,
     principalId: string,
   ): string {
-    deps.options.activeAzureTenantIdRef.current = tenantId;
-    deps.options.activeAzurePrincipalIdRef.current = principalId;
+    deps.options.writeActiveAzureTenantId(tenantId);
+    deps.options.writeActiveAzurePrincipalId(principalId);
     const nextWorkspaceUserKey =
       tenantId && principalId ? `${tenantId}::${principalId}` : "";
-    deps.options.activeWorkspaceUserKeyRef.current = nextWorkspaceUserKey;
+    deps.options.writeActiveWorkspaceUserKey(nextWorkspaceUserKey);
     return nextWorkspaceUserKey;
   }
 
@@ -122,7 +122,7 @@ export function createAzureCatalogRuntime(
     deps.options.clearThreadsState();
 
     const nextWorkspaceUserKey =
-      deps.options.activeWorkspaceUserKeyRef.current.trim();
+      deps.options.readActiveWorkspaceUserKey().trim();
     if (!nextWorkspaceUserKey) {
       return;
     }
@@ -146,7 +146,7 @@ export function createAzureCatalogRuntime(
     scheduleWorkspaceMcpServerProfileLoginRetryTimeout(
       deps.workspaceMcpServerProfileLoginRetryTimeoutRef,
       () => {
-        if (deps.options.activeWorkspaceUserKeyRef.current === expectedUserKey) {
+        if (deps.options.readActiveWorkspaceUserKey() === expectedUserKey) {
           void deps.options.loadWorkspaceMcpServerProfiles();
         }
       },
@@ -296,8 +296,8 @@ export function createAzureCatalogRuntime(
   async function saveThemePreference(
     nextTheme: AzureSettingsState["theme"],
   ): Promise<void> {
-    const tenantId = deps.options.activeAzureTenantIdRef.current.trim();
-    const principalId = deps.options.activeAzurePrincipalIdRef.current.trim();
+    const tenantId = deps.options.readActiveAzureTenantId().trim();
+    const principalId = deps.options.readActiveAzurePrincipalId().trim();
     if (!tenantId || !principalId) {
       return;
     }
@@ -353,15 +353,13 @@ export function createAzureCatalogRuntime(
     const defaultProjectId = options.projects[0]?.id ?? "";
     const nextPlaygroundProjectId = resolveInitialAzureProjectId({
       knownProjectIds,
-      currentProjectId:
-        deps.options.selectedPlaygroundAzureConnectionIdRef.current,
+      currentProjectId: deps.options.readSelectedPlaygroundAzureConnectionId(),
       preferredProjectId: preferredPlaygroundProjectId,
       defaultProjectId,
     });
     const nextUtilityProjectId = resolveInitialAzureProjectId({
       knownProjectIds,
-      currentProjectId:
-        deps.options.selectedUtilityAzureConnectionIdRef.current,
+      currentProjectId: deps.options.readSelectedUtilityAzureConnectionId(),
       preferredProjectId: preferredUtilityProjectId,
       fallbackProjectId: nextPlaygroundProjectId,
       defaultProjectId,

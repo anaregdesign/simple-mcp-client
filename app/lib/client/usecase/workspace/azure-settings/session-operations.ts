@@ -120,7 +120,7 @@ export function createAzureSessionOperations(
     }
 
     const nextTenantId = nextTenantIdRaw.trim();
-    const activeTenantId = deps.options.activeAzureTenantIdRef.current.trim();
+    const activeTenantId = deps.options.readActiveAzureTenantId().trim();
     if (!nextTenantId || nextTenantId === activeTenantId) {
       return;
     }
@@ -236,7 +236,7 @@ export function createAzureSessionOperations(
     try {
       deps.dispatch({
         type: "cache/clear_tenant",
-        tenantId: deps.options.activeAzureTenantIdRef.current,
+        tenantId: deps.options.readActiveAzureTenantId(),
       });
       const loadResult = await catalogHandlers.loadAzureProjects({
         force: true,

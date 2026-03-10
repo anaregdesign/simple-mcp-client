@@ -68,10 +68,9 @@ export function createAzureCatalogOperations(
     const preferredSelection = deps.preferredAzureSelectionRef.current;
     const preferredDeploymentName =
       preferredSelection &&
-      preferredSelection.tenantId ===
-        deps.options.activeAzureTenantIdRef.current &&
+      preferredSelection.tenantId === deps.options.readActiveAzureTenantId() &&
       preferredSelection.principalId ===
-        deps.options.activeAzurePrincipalIdRef.current &&
+        deps.options.readActiveAzurePrincipalId() &&
       (target === "playground"
         ? preferredSelection.playground?.projectId === normalizedProjectId
         : preferredSelection.utility?.projectId === normalizedProjectId)
@@ -156,14 +155,14 @@ export function createAzureCatalogOperations(
     try {
       if (useCachedProjectCatalog) {
         const tenantIdForCache =
-          preferredTenantId || deps.options.activeAzureTenantIdRef.current.trim();
+          preferredTenantId || deps.options.readActiveAzureTenantId().trim();
         const cachedCatalog = selectCachedAzureProjectCatalog(
           deps.readState(),
           tenantIdForCache,
         );
         if (cachedCatalog) {
           const previousWorkspaceUserKey =
-            deps.options.activeWorkspaceUserKeyRef.current;
+            deps.options.readActiveWorkspaceUserKey();
           const nextWorkspaceUserKey = runtime.updateActiveAzureIdentity(
             cachedCatalog.tenantId,
             cachedCatalog.principalId,
@@ -280,7 +279,7 @@ export function createAzureCatalogOperations(
             }
           : null);
       const previousWorkspaceUserKey =
-        deps.options.activeWorkspaceUserKeyRef.current;
+        deps.options.readActiveWorkspaceUserKey();
       const nextWorkspaceUserKey = runtime.updateActiveAzureIdentity(
         tenantId,
         principalId,
@@ -429,7 +428,7 @@ export function createAzureCatalogOperations(
     if (!forceReload) {
       const cachedDeployments = selectCachedAzureDeployments(
         deps.readState(),
-        deps.options.activeAzureTenantIdRef.current,
+        deps.options.readActiveAzureTenantId(),
         normalizedProjectId,
       );
       if (cachedDeployments) {
@@ -470,8 +469,8 @@ export function createAzureCatalogOperations(
 
       const selectedProjectId =
         target === "playground"
-          ? deps.options.selectedPlaygroundAzureConnectionIdRef.current.trim()
-          : deps.options.selectedUtilityAzureConnectionIdRef.current.trim();
+          ? deps.options.readSelectedPlaygroundAzureConnectionId().trim()
+          : deps.options.readSelectedUtilityAzureConnectionId().trim();
       if (!selectedProjectId || selectedProjectId !== normalizedProjectId) {
         return;
       }
@@ -482,29 +481,29 @@ export function createAzureCatalogOperations(
         payload.principalId,
       );
       if (tenantIdFromPayload) {
-        deps.options.activeAzureTenantIdRef.current = tenantIdFromPayload;
+        deps.options.writeActiveAzureTenantId(tenantIdFromPayload);
       }
       if (principalIdFromPayload) {
-        deps.options.activeAzurePrincipalIdRef.current = principalIdFromPayload;
+        deps.options.writeActiveAzurePrincipalId(principalIdFromPayload);
       }
       const parsedPrincipal = readAzurePrincipalProfileFromUnknown(
         payload.principal,
-        deps.options.activeAzureTenantIdRef.current,
-        deps.options.activeAzurePrincipalIdRef.current,
+        deps.options.readActiveAzureTenantId(),
+        deps.options.readActiveAzurePrincipalId(),
       );
       if (parsedPrincipal) {
         deps.patchState({
           activeAzurePrincipal: parsedPrincipal,
         });
       } else if (
-        deps.options.activeAzureTenantIdRef.current &&
-        deps.options.activeAzurePrincipalIdRef.current
+        deps.options.readActiveAzureTenantId() &&
+        deps.options.readActiveAzurePrincipalId()
       ) {
         deps.patchState({
           activeAzurePrincipal: {
-            tenantId: deps.options.activeAzureTenantIdRef.current,
-            principalId: deps.options.activeAzurePrincipalIdRef.current,
-            displayName: deps.options.activeAzurePrincipalIdRef.current,
+            tenantId: deps.options.readActiveAzureTenantId(),
+            principalId: deps.options.readActiveAzurePrincipalId(),
+            displayName: deps.options.readActiveAzurePrincipalId(),
             principalName: "",
             principalType: "unknown",
           },
@@ -512,7 +511,7 @@ export function createAzureCatalogOperations(
       }
       deps.dispatch({
         type: "deployment_cache/upsert",
-        tenantId: deps.options.activeAzureTenantIdRef.current,
+        tenantId: deps.options.readActiveAzureTenantId(),
         projectId: normalizedProjectId,
         deployments: parsedDeployments,
       });

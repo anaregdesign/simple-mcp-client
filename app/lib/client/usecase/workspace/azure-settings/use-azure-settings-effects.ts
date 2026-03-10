@@ -1,7 +1,6 @@
 import {
   useEffect,
   useEffectEvent,
-  type MutableRefObject,
 } from "react";
 import {
   applyBrowserTheme,
@@ -30,13 +29,13 @@ type UseAzureSettingsEffectsOptions = {
   activePlaygroundAzureConnection: AzureProjectOption | null;
   activeUtilityAzureConnection: AzureProjectOption | null;
   effectiveUtilityReasoningEffort: AzureSettingsState["utilityReasoningEffort"];
-  preferredAzureSelectionRef: MutableRefObject<AzureSelectionPreference | null>;
-  activeAzureTenantIdRef: MutableRefObject<string>;
-  activeAzurePrincipalIdRef: MutableRefObject<string>;
-  selectedPlaygroundAzureConnectionIdRef: MutableRefObject<string>;
-  selectedPlaygroundAzureDeploymentNameRef: MutableRefObject<string>;
-  selectedUtilityAzureConnectionIdRef: MutableRefObject<string>;
-  selectedUtilityAzureDeploymentNameRef: MutableRefObject<string>;
+  readPreferredAzureSelection: () => AzureSelectionPreference | null;
+  readActiveAzureTenantId: () => string;
+  readActiveAzurePrincipalId: () => string;
+  writeSelectedPlaygroundAzureConnectionId: (value: string) => void;
+  writeSelectedPlaygroundAzureDeploymentName: (value: string) => void;
+  writeSelectedUtilityAzureConnectionId: (value: string) => void;
+  writeSelectedUtilityAzureDeploymentName: (value: string) => void;
   patchState: (patch: Partial<AzureSettingsState>) => void;
   loadAzureProjects: (
     options?: LoadAzureProjectsOptions,
@@ -98,23 +97,27 @@ export function useAzureSettingsEffects(
   }, [options.state.theme]);
 
   useEffect(() => {
-    options.selectedPlaygroundAzureConnectionIdRef.current =
-      options.state.selectedPlaygroundAzureConnectionId;
-    options.selectedPlaygroundAzureDeploymentNameRef.current =
-      options.state.selectedPlaygroundAzureDeploymentName;
-    options.selectedUtilityAzureConnectionIdRef.current =
-      options.state.selectedUtilityAzureConnectionId;
-    options.selectedUtilityAzureDeploymentNameRef.current =
-      options.state.selectedUtilityAzureDeploymentName;
+    options.writeSelectedPlaygroundAzureConnectionId(
+      options.state.selectedPlaygroundAzureConnectionId,
+    );
+    options.writeSelectedPlaygroundAzureDeploymentName(
+      options.state.selectedPlaygroundAzureDeploymentName,
+    );
+    options.writeSelectedUtilityAzureConnectionId(
+      options.state.selectedUtilityAzureConnectionId,
+    );
+    options.writeSelectedUtilityAzureDeploymentName(
+      options.state.selectedUtilityAzureDeploymentName,
+    );
   }, [
-    options.selectedPlaygroundAzureConnectionIdRef,
-    options.selectedPlaygroundAzureDeploymentNameRef,
-    options.selectedUtilityAzureConnectionIdRef,
-    options.selectedUtilityAzureDeploymentNameRef,
     options.state.selectedPlaygroundAzureConnectionId,
     options.state.selectedPlaygroundAzureDeploymentName,
     options.state.selectedUtilityAzureConnectionId,
     options.state.selectedUtilityAzureDeploymentName,
+    options.writeSelectedPlaygroundAzureConnectionId,
+    options.writeSelectedPlaygroundAzureDeploymentName,
+    options.writeSelectedUtilityAzureConnectionId,
+    options.writeSelectedUtilityAzureDeploymentName,
   ]);
 
   useEffect(() => {
@@ -164,8 +167,8 @@ export function useAzureSettingsEffects(
       return;
     }
 
-    const tenantId = options.activeAzureTenantIdRef.current.trim();
-    const principalId = options.activeAzurePrincipalIdRef.current.trim();
+    const tenantId = options.readActiveAzureTenantId().trim();
+    const principalId = options.readActiveAzurePrincipalId().trim();
     const projectId = options.state.selectedPlaygroundAzureConnectionId.trim();
     const deploymentName =
       options.state.selectedPlaygroundAzureDeploymentName.trim();
@@ -186,7 +189,7 @@ export function useAzureSettingsEffects(
       return;
     }
 
-    const preferred = options.preferredAzureSelectionRef.current;
+    const preferred = options.readPreferredAzureSelection();
     if (
       preferred &&
       preferred.tenantId === tenantId &&
@@ -217,8 +220,8 @@ export function useAzureSettingsEffects(
       return;
     }
 
-    const tenantId = options.activeAzureTenantIdRef.current.trim();
-    const principalId = options.activeAzurePrincipalIdRef.current.trim();
+    const tenantId = options.readActiveAzureTenantId().trim();
+    const principalId = options.readActiveAzurePrincipalId().trim();
     const projectId = options.state.selectedUtilityAzureConnectionId.trim();
     const deploymentName =
       options.state.selectedUtilityAzureDeploymentName.trim();
@@ -239,7 +242,7 @@ export function useAzureSettingsEffects(
       return;
     }
 
-    const preferred = options.preferredAzureSelectionRef.current;
+    const preferred = options.readPreferredAzureSelection();
     if (
       preferred &&
       preferred.tenantId === tenantId &&

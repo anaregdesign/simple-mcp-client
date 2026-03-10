@@ -62,10 +62,12 @@ describe("createSendMessageController", () => {
     vi.clearAllMocks();
   });
 
-  it("assembles send-message deps around current refs and transport adapters", async () => {
-    const activeThreadIdRef = { current: "thread-1" };
-    const activeAzureTenantIdRef = { current: "tenant-1" };
-    const threadsRef = { current: [createThreadState()] };
+  it("assembles send-message deps around current readers and transport adapters", async () => {
+    const state = {
+      activeThreadId: "thread-1",
+      activeAzureTenantId: "tenant-1",
+      threads: [createThreadState()],
+    };
     const sendMessageGateway = vi.fn(async () => ({
       response: new Response(null, { status: 200 }),
       payload: {
@@ -87,9 +89,10 @@ describe("createSendMessageController", () => {
     const saveThreadStateToDatabase = vi.fn(async () => true);
 
     const controller = createSendMessageController({
-      activeThreadIdRef,
-      activeAzureTenantIdRef,
-      threadsRef,
+      readActiveThreadId: () => state.activeThreadId,
+      readActiveAzureTenantId: () => state.activeAzureTenantId,
+      readBaseThread: (threadId) =>
+        state.threads.find((thread) => thread.id === threadId) ?? null,
       readDraft: () => "hello",
       readSelectedPlaygroundAzureDeploymentName: () => "gpt-5",
       isArchivedThread: vi.fn(() => false),

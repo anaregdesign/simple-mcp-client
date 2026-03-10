@@ -134,17 +134,17 @@ export function useAzureSettings(
     activePlaygroundAzureConnection,
     activeUtilityAzureConnection,
     effectiveUtilityReasoningEffort,
-    preferredAzureSelectionRef,
-    activeAzureTenantIdRef: options.activeAzureTenantIdRef,
-    activeAzurePrincipalIdRef: options.activeAzurePrincipalIdRef,
-    selectedPlaygroundAzureConnectionIdRef:
-      options.selectedPlaygroundAzureConnectionIdRef,
-    selectedPlaygroundAzureDeploymentNameRef:
-      options.selectedPlaygroundAzureDeploymentNameRef,
-    selectedUtilityAzureConnectionIdRef:
-      options.selectedUtilityAzureConnectionIdRef,
-    selectedUtilityAzureDeploymentNameRef:
-      options.selectedUtilityAzureDeploymentNameRef,
+    readPreferredAzureSelection: () => preferredAzureSelectionRef.current,
+    readActiveAzureTenantId: options.readActiveAzureTenantId,
+    readActiveAzurePrincipalId: options.readActiveAzurePrincipalId,
+    writeSelectedPlaygroundAzureConnectionId:
+      options.writeSelectedPlaygroundAzureConnectionId,
+    writeSelectedPlaygroundAzureDeploymentName:
+      options.writeSelectedPlaygroundAzureDeploymentName,
+    writeSelectedUtilityAzureConnectionId:
+      options.writeSelectedUtilityAzureConnectionId,
+    writeSelectedUtilityAzureDeploymentName:
+      options.writeSelectedUtilityAzureDeploymentName,
     patchState,
     loadAzureProjects,
     loadAzureDeployments,
