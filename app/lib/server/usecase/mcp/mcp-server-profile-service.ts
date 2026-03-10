@@ -3,8 +3,6 @@
  */
 import {
   DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS,
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
 } from "~/lib/constants/mcp";
 import {
@@ -14,6 +12,12 @@ import {
 import {
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
+import {
+  deleteWorkspaceMcpServerProfile as deleteWorkspaceMcpServerProfilePolicy,
+  mergeDefaultWorkspaceMcpServerProfiles as mergeDefaultWorkspaceMcpServerProfilesPolicy,
+  upsertWorkspaceMcpServerProfile as upsertWorkspaceMcpServerProfilePolicy,
+  type DefaultWorkspaceMcpServerProfile,
+} from "~/lib/domain/services/workspace-mcp-server-profile-policy";
 import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import type {
   WorkspaceMcpServerProfile,
@@ -25,29 +29,8 @@ export type McpServerProfilePathResolver = {
   resolveDefaultFilesystemWorkingDirectory(workspaceUserId: number): string;
   resolveLegacyFilesystemWorkingDirectory(): string;
 };
-
-const legacyUnavailableDefaultStdioNpxPackageNameSet = new Set<string>(
-  MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
-);
-
-type DefaultWorkspaceMcpServerProfileRow =
-  (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
-type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
-  DefaultWorkspaceMcpServerProfileRow,
-  { transport: "stdio" }
->;
-
-const defaultMermaidWorkspaceMcpServerProfile =
-  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
-    (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
-      profile.transport === "stdio" && profile.name === "mcp-mermaid",
-  ) ?? null;
-
-const defaultFilesystemWorkspaceMcpServerProfile =
-  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.find(
-    (profile): profile is DefaultWorkspaceMcpServerProfileStdioRow =>
-      profile.transport === "stdio" && profile.name === "filesystem",
-  ) ?? null;
+const defaultWorkspaceMcpServerProfiles =
+  DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS as readonly DefaultWorkspaceMcpServerProfile[];
 
 export class McpServerProfileService {
   constructor(
@@ -80,11 +63,19 @@ export class McpServerProfileService {
     currentProfiles: WorkspaceMcpServerProfile[],
     workspaceUserId: number,
   ): WorkspaceMcpServerProfile[] {
-    return mergeDefaultWorkspaceMcpServerProfiles(
-      currentProfiles,
+    return mergeDefaultWorkspaceMcpServerProfilesPolicy(currentProfiles, {
+      ...createWorkspaceMcpServerProfilePolicyDependencies(),
       workspaceUserId,
-      this.pathResolver,
-    );
+      defaultProfiles: defaultWorkspaceMcpServerProfiles,
+      defaultFilesystemWorkingDirectory:
+        this.pathResolver.resolveDefaultFilesystemWorkingDirectory(
+          workspaceUserId,
+        ),
+      legacyFilesystemWorkingDirectory:
+        this.pathResolver.resolveLegacyFilesystemWorkingDirectory(),
+      legacyUnavailableDefaultStdioNpxPackageNames:
+        MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
+    });
   }
 
   upsertWorkspaceMcpServerProfile(
@@ -96,14 +87,18 @@ export class McpServerProfileService {
     profiles: WorkspaceMcpServerProfile[];
     warning: string | null;
   } {
-    return upsertWorkspaceMcpServerProfile(userId, currentProfiles, incoming);
+    return upsertWorkspaceMcpServerProfilePolicy(currentProfiles, {
+      ...createWorkspaceMcpServerProfilePolicyDependencies(),
+      userId,
+      incoming,
+    });
   }
 
   deleteWorkspaceMcpServerProfile(
     currentProfiles: WorkspaceMcpServerProfile[],
     id: string,
   ): { profiles: WorkspaceMcpServerProfile[]; deleted: boolean } {
-    return deleteWorkspaceMcpServerProfile(currentProfiles, id);
+    return deleteWorkspaceMcpServerProfilePolicy(currentProfiles, id);
   }
 }
 
@@ -159,220 +154,17 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
   workspaceUserId: number,
   pathResolver: McpServerProfilePathResolver,
 ): WorkspaceMcpServerProfile[] {
-  const mergedProfiles = normalizeLegacyDefaultProfiles(
-    currentProfiles,
+  return mergeDefaultWorkspaceMcpServerProfilesPolicy(currentProfiles, {
+    ...createWorkspaceMcpServerProfilePolicyDependencies(),
     workspaceUserId,
-    pathResolver,
-  );
-  const profileKeys = new Set(
-    mergedProfiles
-      .map((profile) => readMcpServerFromWorkspaceProfileResource(profile))
-      .filter((profile): profile is McpServerConfig => profile !== null)
-      .map((profile) => buildMcpServerConfigKey(profile)),
-  );
-
-  const nextProfiles = [...mergedProfiles];
-  for (
-    const profile of buildDefaultMcpServerProfiles(
-      workspaceUserId,
-      pathResolver,
-    )
-  ) {
-    const config = readMcpServerFromWorkspaceProfileResource(profile);
-    if (!config) {
-      continue;
-    }
-
-    const profileKey = buildMcpServerConfigKey(config);
-    if (profileKeys.has(profileKey)) {
-      continue;
-    }
-
-    profileKeys.add(profileKey);
-    nextProfiles.push(profile);
-  }
-
-  return nextProfiles.map((profile, index) =>
-    mapProfileToDatabaseRecord(workspaceUserId, profile, index),
-  );
-}
-
-export async function ensureDefaultMcpServersForUser(
-  repository: WorkspaceMcpServerProfileRepository,
-  userId: number,
-  pathResolver: McpServerProfilePathResolver,
-): Promise<void> {
-  const currentProfiles = await readWorkspaceMcpServerProfiles(
-    repository,
-    userId,
-  );
-  const nextProfiles = mergeDefaultWorkspaceMcpServerProfiles(
-    currentProfiles,
-    userId,
-    pathResolver,
-  );
-  if (nextProfiles.length === currentProfiles.length) {
-    return;
-  }
-
-  await writeWorkspaceMcpServerProfiles(repository, userId, nextProfiles);
-}
-
-function buildDefaultMcpServerProfiles(
-  workspaceUserId: number,
-  pathResolver: McpServerProfilePathResolver,
-): WorkspaceMcpServerProfile[] {
-  const defaultStdioWorkingDirectory =
-    pathResolver.resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
-  return DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS.map((defaultProfile, index) =>
-    defaultProfile.transport === "stdio"
-      ? createWorkspaceMcpServerProfile({
-          id: createRandomId(),
-          userId: workspaceUserId,
-          profileOrder: index,
-          connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
-          name: defaultProfile.name,
-          transport: defaultProfile.transport,
-          command: defaultProfile.command,
-          args: [...defaultProfile.args],
-          cwd:
-            defaultProfile.cwd === "default"
-              ? defaultStdioWorkingDirectory
-              : undefined,
-          env: { ...defaultProfile.env },
-        })
-      : createWorkspaceMcpServerProfile({
-          id: createRandomId(),
-          userId: workspaceUserId,
-          profileOrder: index,
-          connectOnThreadCreate: defaultProfile.connectOnThreadCreate,
-          name: defaultProfile.name,
-          transport: defaultProfile.transport,
-          url: defaultProfile.url,
-          headers: { ...defaultProfile.headers },
-          useAzureAuth: defaultProfile.useAzureAuth,
-          azureAuthScope: defaultProfile.azureAuthScope,
-          timeoutSeconds: defaultProfile.timeoutSeconds,
-        }),
-  );
-}
-
-function normalizeLegacyDefaultProfiles(
-  currentProfiles: WorkspaceMcpServerProfile[],
-  workspaceUserId: number,
-  pathResolver: McpServerProfilePathResolver,
-): WorkspaceMcpServerProfile[] {
-  const defaultWorkingDirectory =
-    pathResolver.resolveDefaultFilesystemWorkingDirectory(workspaceUserId);
-  const legacyDefaultWorkingDirectory =
-    pathResolver.resolveLegacyFilesystemWorkingDirectory();
-  const normalizedProfiles: WorkspaceMcpServerProfile[] = [];
-
-  for (const profile of currentProfiles) {
-    const config = readMcpServerFromWorkspaceProfileResource(profile);
-    if (!config) {
-      continue;
-    }
-
-    if (isLegacyUnavailableDefaultStdioProfile(config)) {
-      continue;
-    }
-
-    if (
-      !isLegacyDefaultMermaidProfile(config, legacyDefaultWorkingDirectory) &&
-      !isLegacyDefaultFilesystemProfile(config, legacyDefaultWorkingDirectory)
-    ) {
-      normalizedProfiles.push(profile);
-      continue;
-    }
-
-    normalizedProfiles.push(
-      config.transport === "stdio"
-        ? createWorkspaceMcpServerProfile({
-            ...config,
-            userId: profile.userId,
-            profileOrder: profile.profileOrder,
-            cwd: defaultWorkingDirectory,
-          })
-        : profile,
-    );
-  }
-
-  return normalizedProfiles;
-}
-
-function isLegacyDefaultMermaidProfile(
-  profile: McpServerConfig,
-  legacyDefaultWorkingDirectory: string,
-): profile is Extract<McpServerConfig, { transport: "stdio" }> {
-  if (profile.transport !== "stdio" || !defaultMermaidWorkspaceMcpServerProfile) {
-    return false;
-  }
-
-  return (
-    profile.command === defaultMermaidWorkspaceMcpServerProfile.command &&
-    profile.args.length === defaultMermaidWorkspaceMcpServerProfile.args.length &&
-    profile.args.every(
-      (arg, index) => arg === defaultMermaidWorkspaceMcpServerProfile.args[index],
-    ) &&
-    Object.keys(profile.env).length === 0 &&
-    isLegacyDefaultWorkingDirectory(profile.cwd, legacyDefaultWorkingDirectory)
-  );
-}
-
-function isLegacyDefaultFilesystemProfile(
-  profile: McpServerConfig,
-  legacyDefaultWorkingDirectory: string,
-): profile is Extract<McpServerConfig, { transport: "stdio" }> {
-  if (
-    profile.transport !== "stdio" ||
-    !defaultFilesystemWorkspaceMcpServerProfile
-  ) {
-    return false;
-  }
-
-  return (
-    profile.command === defaultFilesystemWorkspaceMcpServerProfile.command &&
-    profile.args.length === defaultFilesystemWorkspaceMcpServerProfile.args.length &&
-    profile.args.every(
-      (arg, index) => arg === defaultFilesystemWorkspaceMcpServerProfile.args[index],
-    ) &&
-    Object.keys(profile.env).length === 0 &&
-    isLegacyDefaultWorkingDirectory(profile.cwd, legacyDefaultWorkingDirectory)
-  );
-}
-
-function isLegacyUnavailableDefaultStdioProfile(profile: McpServerConfig): boolean {
-  if (profile.transport !== "stdio") {
-    return false;
-  }
-
-  return (
-    profile.command === "npx" &&
-    profile.args.length === 2 &&
-    profile.args[0] === "-y" &&
-    legacyUnavailableDefaultStdioNpxPackageNameSet.has(profile.args[1]) &&
-    !profile.cwd &&
-    Object.keys(profile.env).length === 0
-  );
-}
-
-function isLegacyDefaultWorkingDirectory(
-  cwd: string | undefined,
-  legacyDefaultWorkingDirectory: string,
-): boolean {
-  if (!cwd) {
-    return true;
-  }
-
-  return (
-    normalizePathForComparison(cwd) ===
-    normalizePathForComparison(legacyDefaultWorkingDirectory)
-  );
-}
-
-function normalizePathForComparison(value: string): string {
-  return value.trim().replaceAll("\\", "/").toLowerCase();
+    defaultProfiles: defaultWorkspaceMcpServerProfiles,
+    defaultFilesystemWorkingDirectory:
+      pathResolver.resolveDefaultFilesystemWorkingDirectory(workspaceUserId),
+    legacyFilesystemWorkingDirectory:
+      pathResolver.resolveLegacyFilesystemWorkingDirectory(),
+    legacyUnavailableDefaultStdioNpxPackageNames:
+      MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
+  });
 }
 
 export function upsertWorkspaceMcpServerProfile(
@@ -384,100 +176,55 @@ export function upsertWorkspaceMcpServerProfile(
   profiles: WorkspaceMcpServerProfile[];
   warning: string | null;
 } {
-  const incomingKey = buildIncomingProfileKey(incoming);
-  const currentConfigs = currentProfiles
-    .map((profile) => ({
-      profile,
-      config: readMcpServerFromWorkspaceProfileResource(profile),
-    }))
-    .filter(
-      (entry): entry is { profile: WorkspaceMcpServerProfile; config: McpServerConfig } =>
-        entry.config !== null,
-    );
-
-  const keyIndex = currentConfigs.findIndex(
-    ({ config }) => buildMcpServerConfigKey(config) === incomingKey,
-  );
-
-  const idIndex =
-    incoming.id === undefined
-      ? -1
-      : currentProfiles.findIndex((profile) => profile.id === incoming.id);
-
-  const index = keyIndex >= 0 ? keyIndex : idIndex;
-  const previousProfile = index >= 0 ? currentProfiles[index] : null;
-  const profileId =
-    index >= 0
-      ? currentProfiles[index].id
-      : incoming.id && !currentProfiles.some((profile) => profile.id === incoming.id)
-        ? incoming.id
-        : createRandomId();
-  const connectOnThreadCreate =
-    incoming.connectOnThreadCreate ??
-    previousProfile?.connectOnThreadCreate ??
-    false;
-
-  const profile = createWorkspaceMcpServerProfile(
-    incoming.transport === "stdio"
-      ? {
-          id: profileId,
-          userId,
-          profileOrder: index >= 0 ? currentProfiles[index].profileOrder : currentProfiles.length,
-          name: incoming.name,
-          connectOnThreadCreate,
-          transport: incoming.transport,
-          command: incoming.command,
-          args: incoming.args,
-          cwd: incoming.cwd,
-          env: incoming.env,
-        }
-      : {
-          id: profileId,
-          userId,
-          profileOrder: index >= 0 ? currentProfiles[index].profileOrder : currentProfiles.length,
-          name: incoming.name,
-          connectOnThreadCreate,
-          transport: incoming.transport,
-          url: incoming.url,
-          headers: incoming.headers,
-          useAzureAuth: incoming.useAzureAuth,
-          azureAuthScope: incoming.azureAuthScope,
-          timeoutSeconds: incoming.timeoutSeconds,
-        },
-  );
-
-  const profiles =
-    index >= 0
-      ? currentProfiles.map((entry, entryIndex) =>
-          entryIndex === index ? profile : entry,
-        )
-      : [...currentProfiles, profile];
-
-  let warning: string | null = null;
-  if (keyIndex >= 0 && previousProfile) {
-    warning =
-      previousProfile.name === incoming.name
-        ? "An MCP server with the same configuration already exists. Reused the existing saved profile."
-        : `An MCP server with the same configuration already exists. Renamed it from "${previousProfile.name}" to "${incoming.name}".`;
-  }
-
-  return {
-    profile,
-    profiles: profiles.map((entry, entryIndex) =>
-      mapProfileToDatabaseRecord(userId, entry, entryIndex),
-    ),
-    warning,
-  };
+  return upsertWorkspaceMcpServerProfilePolicy(currentProfiles, {
+    ...createWorkspaceMcpServerProfilePolicyDependencies(),
+    userId,
+    incoming,
+  });
 }
 
 export function deleteWorkspaceMcpServerProfile(
   currentProfiles: WorkspaceMcpServerProfile[],
   id: string,
 ): { profiles: WorkspaceMcpServerProfile[]; deleted: boolean } {
-  const nextProfiles = currentProfiles.filter((profile) => profile.id !== id);
+  return deleteWorkspaceMcpServerProfilePolicy(currentProfiles, id);
+}
+
+export async function ensureDefaultMcpServersForUser(
+  repository: WorkspaceMcpServerProfileRepository,
+  userId: number,
+  pathResolver: McpServerProfilePathResolver,
+): Promise<void> {
+  const currentProfiles = await readWorkspaceMcpServerProfiles(
+    repository,
+    userId,
+  );
+  const nextProfiles = mergeDefaultWorkspaceMcpServerProfilesPolicy(
+    currentProfiles,
+    {
+      ...createWorkspaceMcpServerProfilePolicyDependencies(),
+      workspaceUserId: userId,
+      defaultProfiles: defaultWorkspaceMcpServerProfiles,
+      defaultFilesystemWorkingDirectory:
+        pathResolver.resolveDefaultFilesystemWorkingDirectory(userId),
+      legacyFilesystemWorkingDirectory:
+        pathResolver.resolveLegacyFilesystemWorkingDirectory(),
+      legacyUnavailableDefaultStdioNpxPackageNames:
+        MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
+    },
+  );
+  if (nextProfiles.length === currentProfiles.length) {
+    return;
+  }
+
+  await writeWorkspaceMcpServerProfiles(repository, userId, nextProfiles);
+}
+
+function createWorkspaceMcpServerProfilePolicyDependencies() {
   return {
-    profiles: nextProfiles,
-    deleted: nextProfiles.length !== currentProfiles.length,
+    readConfig: readMcpServerFromWorkspaceProfileResource,
+    createProfile: createWorkspaceMcpServerProfile,
+    createId: createRandomId,
   };
 }
 
@@ -553,33 +300,6 @@ function createWorkspaceMcpServerProfile(
     cwd: null,
     envJson: null,
   };
-}
-
-function buildIncomingProfileKey(profile: IncomingMcpServerConfig): string {
-  return buildMcpServerConfigKey(
-    profile.transport === "stdio"
-      ? {
-          id: profile.id ?? "",
-          name: profile.name,
-          connectOnThreadCreate: profile.connectOnThreadCreate,
-          transport: profile.transport,
-          command: profile.command,
-          args: profile.args,
-          cwd: profile.cwd,
-          env: profile.env,
-        }
-      : {
-          id: profile.id ?? "",
-          name: profile.name,
-          connectOnThreadCreate: profile.connectOnThreadCreate,
-          transport: profile.transport,
-          url: profile.url,
-          headers: profile.headers,
-          useAzureAuth: profile.useAzureAuth,
-          azureAuthScope: profile.azureAuthScope,
-          timeoutSeconds: profile.timeoutSeconds,
-        },
-  );
 }
 
 export function readErrorMessage(error: unknown): string {
