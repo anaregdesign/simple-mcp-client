@@ -22,7 +22,3 @@ export function buildThreadAutoTitleRequestMessage(options: {
     JSON.stringify(payload),
   ].join("\n");
 }
-
-function truncateByCharacters(value: string, maxCharacters: number): string {
-  return Array.from(value).slice(0, maxCharacters).join("");
-}

@@ -180,15 +180,6 @@ export function serializeRuntimeEventContext(context: unknown): string {
   }
 }
 
-export function createRuntimeEventLogId(): string {
-  const maybeCrypto = globalThis.crypto;
-  if (maybeCrypto && typeof maybeCrypto.randomUUID === "function") {
-    return maybeCrypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-}
-
 export function readClientRuntimeEventLogPayload(
   value: unknown,
 ): ClientRuntimeEventLogPayload | null {

@@ -1,8 +1,8 @@
 import { THREAD_AUTO_TITLE_SYSTEM_PROMPT } from "~/lib/constants/chat";
-import { buildThreadAutoTitleRequestMessage } from "~/lib/contracts/threads/title";
 import type { ThreadTitleGenerationGateway } from "~/lib/domain/repositories/thread-title-generation-gateway";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { normalizeGeneratedThreadTitle } from "~/lib/domain/value-objects/thread-name";
+import { buildThreadAutoTitleRequestMessage } from "~/lib/server/usecase/threads/thread-title-prompt";
 
 export type ResolvedThreadTitleAzureConfig = {
   tenantId: string;

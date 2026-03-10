@@ -31,7 +31,7 @@ describe("RuntimeEventLogPersistenceRepository", () => {
   });
 
   it("writes normalized app event logs to prisma", async () => {
-    await runtimeEventLogPersistenceRepository.create({
+    const runtimeEventLogId = await runtimeEventLogPersistenceRepository.create({
       source: "server",
       level: "error",
       category: "api",
@@ -45,10 +45,12 @@ describe("RuntimeEventLogPersistenceRepository", () => {
       },
     });
 
+    expect(runtimeEventLogId).toBeTruthy();
     expect(ensurePersistenceDatabaseReadyMock).toHaveBeenCalledTimes(1);
     expect(runtimeEventLogCreateMock).toHaveBeenCalledTimes(1);
     const call = runtimeEventLogCreateMock.mock.calls[0]?.[0] as {
       data: {
+        id: string;
         contextJson: string;
         source: string;
         level: string;
@@ -56,6 +58,7 @@ describe("RuntimeEventLogPersistenceRepository", () => {
         eventName: string;
       };
     };
+    expect(call.data.id).toBe(runtimeEventLogId);
     expect(call.data.source).toBe("server");
     expect(call.data.level).toBe("error");
     expect(call.data.category).toBe("api");

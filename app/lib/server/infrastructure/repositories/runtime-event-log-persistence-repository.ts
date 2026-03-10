@@ -1,5 +1,4 @@
 import {
-  createRuntimeEventLogId,
   normalizeCategory,
   normalizeCreatedAt,
   normalizeEventName,
@@ -30,7 +29,7 @@ export class RuntimeEventLogPersistenceRepository implements RuntimeEventLogRepo
     const runtimeEventLogId =
       typeof input.id === "string" && input.id.trim()
         ? input.id.trim()
-        : createRuntimeEventLogId();
+        : buildRuntimeEventLogId();
 
     try {
       await ensurePersistenceDatabaseReady();
@@ -144,6 +143,15 @@ export class RuntimeEventLogPersistenceRepository implements RuntimeEventLogRepo
 
 export const runtimeEventLogPersistenceRepository =
   new RuntimeEventLogPersistenceRepository();
+
+function buildRuntimeEventLogId(): string {
+  const maybeCrypto = globalThis.crypto;
+  if (maybeCrypto && typeof maybeCrypto.randomUUID === "function") {
+    return maybeCrypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
 
 function readRuntimeEventContext(value: string): Record<string, unknown> {
   try {

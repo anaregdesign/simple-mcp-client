@@ -5,7 +5,6 @@ import {
   readOperationLogType,
   readPersistedThreadOperationLogEntryFromUnknown,
   readThreadOperationLogEntryFromUnknown,
-  upsertThreadOperationLogEntry,
   type ThreadOperationLogEntry,
 } from "./operation-log";
 
@@ -191,90 +190,6 @@ describe("readPersistedThreadOperationLogEntryFromUnknown", () => {
         },
       ),
     ).toBeNull();
-  });
-});
-
-describe("upsertThreadOperationLogEntry", () => {
-  it("keeps history sorted by sequence and replaces duplicate ids", () => {
-    const first = {
-      id: "rpc-1",
-      sequence: 2,
-      operationType: "mcp" as const,
-      serverName: "srv",
-      method: "tools/call",
-      startedAt: "2026-02-16T00:00:00.000Z",
-      completedAt: "2026-02-16T00:00:01.000Z",
-      request: {},
-      response: {},
-      isError: false,
-      turnId: "turn-1",
-    };
-    const second = {
-      id: "rpc-0",
-      sequence: 1,
-      operationType: "mcp" as const,
-      serverName: "srv",
-      method: "tools/list",
-      startedAt: "2026-02-16T00:00:00.000Z",
-      completedAt: "2026-02-16T00:00:01.000Z",
-      request: {},
-      response: {},
-      isError: false,
-      turnId: "turn-1",
-    };
-
-    const next = upsertThreadOperationLogEntry([], first);
-    const sorted = upsertThreadOperationLogEntry(next, second);
-    expect(sorted.map((entry) => entry.id)).toEqual(["rpc-0", "rpc-1"]);
-
-    const replaced = upsertThreadOperationLogEntry(sorted, {
-      ...first,
-      method: "tools/call-updated",
-    });
-    expect(replaced.find((entry) => entry.id === "rpc-1")?.method).toBe(
-      "tools/call-updated",
-    );
-  });
-
-  it("repositions existing entries when ordering fields change", () => {
-    const first = {
-      id: "rpc-1",
-      sequence: 1,
-      operationType: "mcp" as const,
-      serverName: "srv",
-      method: "tools/call",
-      startedAt: "2026-02-16T00:00:00.000Z",
-      completedAt: "2026-02-16T00:00:01.000Z",
-      request: {},
-      response: {},
-      isError: false,
-      turnId: "turn-1",
-    };
-    const second = {
-      id: "rpc-2",
-      sequence: 1,
-      operationType: "mcp" as const,
-      serverName: "srv",
-      method: "tools/list",
-      startedAt: "2026-02-16T00:00:02.000Z",
-      completedAt: "2026-02-16T00:00:03.000Z",
-      request: {},
-      response: {},
-      isError: false,
-      turnId: "turn-1",
-    };
-
-    const initial = upsertThreadOperationLogEntry(
-      upsertThreadOperationLogEntry([], first),
-      second,
-    );
-    expect(initial.map((entry) => entry.id)).toEqual(["rpc-1", "rpc-2"]);
-
-    const moved = upsertThreadOperationLogEntry(initial, {
-      ...second,
-      startedAt: "2026-02-15T23:59:59.000Z",
-    });
-    expect(moved.map((entry) => entry.id)).toEqual(["rpc-2", "rpc-1"]);
   });
 });
 

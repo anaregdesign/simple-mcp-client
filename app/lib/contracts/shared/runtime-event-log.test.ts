@@ -3,7 +3,6 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  createRuntimeEventLogId,
   normalizeRuntimeEventLogLevel,
   readClientRuntimeEventLogPayload,
   readErrorDetails,
@@ -98,11 +97,5 @@ describe("serializeRuntimeEventContext", () => {
     const parsed = JSON.parse(serialized) as Record<string, unknown>;
 
     expect(parsed).toHaveProperty("a");
-  });
-});
-
-describe("createRuntimeEventLogId", () => {
-  it("returns a non-empty identifier", () => {
-    expect(createRuntimeEventLogId().trim().length).toBeGreaterThan(0);
   });
 });

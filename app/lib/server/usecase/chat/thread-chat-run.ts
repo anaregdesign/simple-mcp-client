@@ -6,7 +6,6 @@ import {
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
-  upsertThreadOperationLogEntry,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
@@ -33,6 +32,7 @@ import {
   resolveWorkspaceThreadDirectory,
   resolveWorkspaceUserDirectory,
 } from "~/lib/server/infrastructure/config/workspace-storage-paths";
+import { upsertThreadOperationLogEntry } from "~/lib/server/usecase/chat/thread-operation-log-state";
 import { buildThreadSaveInputFromThread } from "~/lib/server/usecase/threads/thread-save-input-mapper";
 
 export type ThreadChatRunRequest = {
