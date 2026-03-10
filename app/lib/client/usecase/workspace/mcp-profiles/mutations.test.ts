@@ -7,7 +7,6 @@ import {
   MCP_PROFILE_NOT_AVAILABLE_ERROR,
   saveWorkspaceMcpServerProfile,
 } from "./mutations";
-import { connectThreadMcpServer } from "~/lib/domain/policies/thread-mcp-server-membership";
 
 function createHttpServer(
   overrides: Partial<McpHttpServerConfig> & {
@@ -104,7 +103,6 @@ function createDependencies(
     resetFormCount: 0,
     warningEvents: [] as string[],
     errorEvents: [] as string[],
-    connectedProfiles: [] as McpServerConfig[],
   };
 
   const deps = {
@@ -149,16 +147,6 @@ function createDependencies(
         profile: server,
         warning: null,
       })),
-    connectMcpServerToActiveThread: (serverToConnect: McpServerConfig) => {
-      state.connectedProfiles.push(serverToConnect);
-      state.activeThread = {
-        ...state.activeThread,
-        mcpServers: connectThreadMcpServer(
-          state.activeThread.mcpServers,
-          serverToConnect,
-        ),
-      };
-    },
     resetMcpServerFormInputs: () => {
       state.resetFormCount += 1;
     },
@@ -275,7 +263,6 @@ describe("mcp-profile-mutation-operations", () => {
 
     await saveWorkspaceMcpServerProfile(deps);
 
-    expect(state.connectedProfiles).toEqual([savedProfile]);
     expect(state.activeThread.mcpServers).toEqual([
       {
         ...existing,

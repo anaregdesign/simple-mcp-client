@@ -20,15 +20,15 @@ import {
   buildThreadsTabProps as selectThreadsTabProps,
 } from "~/lib/client/usecase/workspace/config-panel/selectors";
 import type {
-  BuildConfigPanelPropsOptions,
-  BuildMcpServersTabPropsOptions,
+  UseWorkspaceConfigPanelOptions,
+  WorkspaceConfigPanelMcpServersOptions,
 } from "~/lib/client/usecase/workspace/config-panel/types";
 import {
   useLockedConfigPanelTab,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
 
 function buildMcpServersTabProps(
-  options: BuildMcpServersTabPropsOptions,
+  options: WorkspaceConfigPanelMcpServersOptions,
 ) {
   const handlers = createMcpServersTabHandlers(options);
 
@@ -91,7 +91,7 @@ function buildMcpServersTabProps(
 }
 
 function buildThreadsTabProps(
-  options: BuildConfigPanelPropsOptions,
+  options: UseWorkspaceConfigPanelOptions["threads"],
 ) {
   const handlers = createThreadsTabHandlers(options);
 
@@ -150,7 +150,7 @@ function buildThreadsTabProps(
 }
 
 function buildSkillsTabProps(
-  options: BuildConfigPanelPropsOptions,
+  options: UseWorkspaceConfigPanelOptions["skills"],
 ) {
   const handlers = createSkillsTabHandlers(options);
 
@@ -176,72 +176,33 @@ function buildSkillsTabProps(
 }
 
 export function selectWorkspaceConfigPanelProps(
-  options: BuildConfigPanelPropsOptions,
+  options: UseWorkspaceConfigPanelOptions,
 ) {
   const settingsTabProps = selectSettingsTabProps({
-    theme: options.theme,
-    onThemeChange: options.handleThemeChange,
-    isAzureAuthRequired: options.isAzureAuthRequired,
-    isSending: options.isSending,
-    isStartingAzureLogin: options.isStartingAzureLogin,
-    onAzureLogin: options.handleAzureLogin,
-    azureTenants: options.azureTenants,
-    activeAzureTenantId: options.activeAzureTenantId,
-    isSwitchingAzureTenant: options.isSwitchingAzureTenant,
-    onAzureTenantChange: options.handleAzureTenantChange,
-    isLoadingAzureConnections: options.isLoadingAzureConnections,
+    ...options.settings,
     isLoadingAzureDeployments:
-      options.isLoadingPlaygroundAzureDeployments ||
-      options.isLoadingUtilityAzureDeployments,
-    isReloadingAzureCatalog: options.isReloadingAzureCatalog,
-    onAzureCatalogReload: options.handleReloadAzureCatalog,
-    activeAzureConnection: options.activePlaygroundAzureConnection,
-    activeAzurePrincipal: options.activeAzurePrincipal,
-    selectedPlaygroundAzureDeploymentName:
-      options.selectedPlaygroundAzureDeploymentName,
-    isStartingAzureLogout: options.isStartingAzureLogout,
-    onAzureLogout: options.handleAzureLogout,
-    azureTenantSwitchError: options.azureTenantSwitchError,
-    azureLogoutError: options.azureLogoutError,
-    azureConnectionError: options.azureConnectionError,
-    azureConnections: options.azureConnections,
-    selectedUtilityAzureConnectionId:
-      options.selectedUtilityAzureConnectionId,
-    selectedUtilityAzureDeploymentName:
-      options.selectedUtilityAzureDeploymentName,
-    utilityAzureDeployments: options.utilityAzureDeploymentNames,
-    utilityReasoningEffort: options.effectiveUtilityReasoningEffort,
-    utilityReasoningEffortOptions:
-      options.effectiveUtilityReasoningEffortOptions,
-    isUtilityReasoningEffortSupported:
-      options.isUtilityReasoningEffortSupported,
-    utilityAzureDeploymentError: options.utilityAzureDeploymentError,
-    onUtilityProjectChange: options.handleUtilityProjectChange,
-    onUtilityDeploymentChange: options.handleUtilityDeploymentChange,
-    onUtilityReasoningEffortChange:
-      options.handleUtilityReasoningEffortChange,
-    isLoadingUtilityAzureDeployments:
-      options.isLoadingUtilityAzureDeployments,
+      options.settings.isLoadingAzureDeployments ||
+      options.settings.isLoadingUtilityAzureDeployments,
   });
 
   return {
-    activeMainTab: options.activeMainTab,
-    onMainTabChange: options.setActiveMainTab,
-    isChatLocked: options.isChatLocked,
+    activeMainTab: options.chrome.activeMainTab,
+    onMainTabChange: options.chrome.setActiveMainTab,
+    isChatLocked: options.chrome.isChatLocked,
     settingsTabProps,
-    mcpServersTabProps: buildMcpServersTabProps(options),
-    skillsTabProps: buildSkillsTabProps(options),
-    threadsTabProps: buildThreadsTabProps(options),
+    mcpServersTabProps: buildMcpServersTabProps(options.mcpServers),
+    skillsTabProps: buildSkillsTabProps(options.skills),
+    threadsTabProps: buildThreadsTabProps(options.threads),
   };
 }
 
 export function useWorkspaceConfigPanel(
-  options: BuildConfigPanelPropsOptions,
+  options: UseWorkspaceConfigPanelOptions,
 ) {
   useLockedConfigPanelTab({
-    activeMainTab: options.activeMainTab,
-    isChatLocked: options.isChatLocked,
-    setActiveMainTab: options.setActiveMainTab,
+    activeMainTab: options.chrome.activeMainTab,
+    isChatLocked: options.chrome.isChatLocked,
+    setActiveMainTab: options.chrome.setActiveMainTab,
   });
 
   const configPanelProps = useMemo(

@@ -30,10 +30,6 @@ import type {
   ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import {
-  buildWorkspaceMcpServerProfileOptions,
-  selectWorkspaceMcpProfileViewModel,
-} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
-import {
   isThreadArchivedById,
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
@@ -67,7 +63,6 @@ import {
   useWorkspaceConfigPanel,
 } from "~/lib/client/usecase/workspace/config-panel/use-workspace-config-panel";
 import { useWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/use-runtime-logging";
-import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-instruction-editor";
 import { selectThreadOperationPhaseFlags } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import {
@@ -94,21 +89,14 @@ import {
   type ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import {
-  createInstructionEditingHandlers,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-editing-handlers";
-import {
-  createInstructionPromptHandlers,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
-import {
-  selectInstructionEditorViewModel,
-} from "~/lib/client/usecase/workspace/instruction-editor/selectors";
-import {
-  createMcpProfileHandlers,
-} from "~/lib/client/usecase/workspace/mcp-profiles/handlers";
-import { useMcpProfileForm } from "~/lib/client/usecase/workspace/mcp-profiles/use-mcp-profile-form";
-import {
   type InstructionEnhanceComparison,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
+import {
+  useWorkspaceInstructionEditor,
+} from "~/lib/client/usecase/workspace/instruction-editor/use-workspace-instruction-editor";
+import {
+  useWorkspaceMcpProfiles,
+} from "~/lib/client/usecase/workspace/mcp-profiles/use-workspace-mcp-profiles";
 import {
   useThreadShell,
 } from "~/lib/client/usecase/workspace/threads/use-shell";
@@ -122,8 +110,8 @@ import {
   useWorkspacePlayground,
 } from "~/lib/client/usecase/workspace/playground-panel/use-workspace-playground";
 import {
-  useWorkspaceStorageRuntimes,
-} from "~/lib/client/usecase/workspace/use-workspace-storage-runtimes";
+  createThreadStorageRuntime,
+} from "~/lib/client/usecase/workspace/threads/storage-runtime";
 import {
   useWorkspaceThreads,
 } from "~/lib/client/usecase/workspace/threads/use-workspace-threads";
@@ -174,80 +162,6 @@ export function useWorkspace() {
     activeMainTabRef,
     setActiveMainTab,
   } = useConfigPanelState();
-  const {
-    instructionFileInputRef,
-    agentInstruction,
-    setAgentInstruction,
-    instructionContextToggles,
-    setInstructionContextToggles,
-    loadedInstructionFileName,
-    setLoadedInstructionFileName,
-    instructionFileError,
-    setInstructionFileError,
-    instructionSaveError,
-    setInstructionSaveError,
-    instructionSaveSuccess,
-    setInstructionSaveSuccess,
-    isSavingInstructionPrompt,
-    setIsSavingInstructionPrompt,
-    instructionEnhanceError,
-    setInstructionEnhanceError,
-    instructionEnhanceSuccess,
-    setInstructionEnhanceSuccess,
-    isEnhancingInstruction,
-    setIsEnhancingInstruction,
-    instructionEnhancingThreadId,
-    setInstructionEnhancingThreadId,
-    instructionEnhanceComparison,
-    setInstructionEnhanceComparison,
-    resetInstructionEditor,
-    applyThreadInstructionState,
-  } = useInstructionEditor();
-  const {
-    workspaceMcpServerProfilesRef,
-    workspaceMcpServerProfiles,
-    setWorkspaceMcpServerProfiles,
-    writeWorkspaceMcpServerProfiles,
-    mcpNameInput,
-    setMcpNameInput,
-    mcpUrlInput,
-    setMcpUrlInput,
-    mcpCommandInput,
-    setMcpCommandInput,
-    mcpArgsInput,
-    setMcpArgsInput,
-    mcpCwdInput,
-    setMcpCwdInput,
-    mcpEnvInput,
-    setMcpEnvInput,
-    mcpHeadersInput,
-    setMcpHeadersInput,
-    mcpUseAzureAuthInput,
-    setMcpUseAzureAuthInput,
-    mcpAzureAuthScopeInput,
-    setMcpAzureAuthScopeInput,
-    mcpTimeoutSecondsInput,
-    setMcpTimeoutSecondsInput,
-    mcpTransport,
-    setMcpTransport,
-    editingMcpServerId,
-    setEditingMcpServerId,
-    mcpFormError,
-    setMcpFormError,
-    mcpFormWarning,
-    setMcpFormWarning,
-    workspaceMcpServerProfileError,
-    setWorkspaceMcpServerProfileError,
-    isLoadingWorkspaceMcpServerProfiles,
-    setIsLoadingWorkspaceMcpServerProfiles,
-    isSavingMcpServer,
-    setIsSavingMcpServer,
-    isDeletingWorkspaceMcpServerProfile,
-    setIsDeletingWorkspaceMcpServerProfile,
-    resetMcpServerFormInputs,
-    clearMcpServerEditState,
-    populateMcpServerFormForEdit,
-  } = useMcpProfileForm();
   const [threadRequestStateCollection, dispatchThreadRequestState] = useReducer(
     threadRequestStateReducer,
     undefined,
@@ -314,7 +228,7 @@ export function useWorkspace() {
     threadRequestStateById,
     dispatchThreadRequestState,
     readDefaultThreadMcpServers: () =>
-      workspaceMcpServerProfilesRef.current.filter(
+      mcpProfiles.readWorkspaceMcpServerProfiles().filter(
         (server) => server.connectOnThreadCreate === true,
       ),
     readCurrentThreadDraftState: () => ({
@@ -332,8 +246,8 @@ export function useWorkspace() {
               deploymentName: selectedPlaygroundAzureDeploymentName.trim(),
             }
           : null,
-      agentInstruction,
-      instructionContextToggles,
+      agentInstruction: instructionEditor.agentInstruction,
+      instructionContextToggles: instructionEditor.instructionContextToggles,
       messages,
       mcpServers,
       mcpRpcLogs,
@@ -347,8 +261,12 @@ export function useWorkspace() {
         handleSelectPlaygroundDeployment(thread.chatAzureConfig.deploymentName);
       }
     },
-    resetInstructionEditor,
-    applyThreadInstructionState,
+    resetInstructionEditor: () => {
+      instructionEditor.resetInstructionEditor();
+    },
+    applyThreadInstructionState: (thread) => {
+      instructionEditor.applyThreadInstructionState(thread);
+    },
   });
   const {
     layoutRef,
@@ -499,30 +417,44 @@ export function useWorkspace() {
     logClientWarning,
   });
   const isChatLocked = isAzureAuthRequired;
-  const {
-    canClearAgentInstruction,
-    canSaveAgentInstructionPrompt,
-    canEnhanceAgentInstruction,
-    isEnhancingInstructionForActiveThread,
-  } = useMemo(
-    () =>
-      selectInstructionEditorViewModel({
-        agentInstruction,
-        loadedInstructionFileName,
-        instructionFileError,
-        isEnhancingInstruction,
-        instructionEnhancingThreadId,
-        activeThreadId,
-      }),
-    [
-      activeThreadId,
-      agentInstruction,
-      instructionEnhancingThreadId,
-      instructionFileError,
-      isEnhancingInstruction,
-      loadedInstructionFileName,
-    ],
-  );
+  const instructionEditor = useWorkspaceInstructionEditor({
+    activeThreadId,
+    editing: {
+      isArchivedThread,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      logClientError,
+    },
+    prompt: {
+      isArchivedThread,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      setActiveMainTab,
+      isChatLocked,
+      readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+      readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
+      readSelectedUtilityAzureDeploymentName: () =>
+        selectedUtilityAzureDeploymentName,
+      readUtilityAzureDeployments: () => utilityAzureDeployments,
+      isLoadingUtilityAzureDeployments,
+      isUtilityReasoningEffortSupported,
+      readEffectiveUtilityReasoningEffort: () =>
+        effectiveUtilityReasoningEffort,
+      readEffectiveUtilityReasoningEffortOptions: () =>
+        effectiveUtilityReasoningEffortOptions,
+      handleSelectUtilityProject,
+      handleSelectUtilityDeployment,
+      handleAzureUtilityReasoningEffortChange,
+      requestInstructionEnhancement: (request) =>
+        instructionPatchesApiClient.enhanceInstruction(request, {
+          onAuthRequired: () => {
+            markAzureAuthRequired();
+          },
+        }),
+      refreshThreadTitleInBackground: async (request) => {
+        await workspaceThreads.refreshThreadTitleInBackground(request);
+      },
+      logClientError,
+    },
+  });
   const sendProgressMessages = activeThreadRequestState.sendProgressMessages;
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
@@ -580,6 +512,61 @@ export function useWorkspace() {
     setSelectedMessageSkillActivations,
     logClientError,
   });
+  const threadStorageRuntime = createThreadStorageRuntime({
+    persistence: {
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      readThreads: () => threadsRef.current,
+      readSavedThreadSignature,
+      writeThreadSaveSignature,
+      nextThreadSaveRequestSeq,
+      readThreadSaveRequestSeq,
+      setIsSavingThread,
+      markAzureAuthRequired,
+      setThreadError,
+      updateThreadsState,
+      setActiveThreadNameInput,
+      buildThreadStateFromCurrentState,
+      clearThreadNameSaveTimeout,
+      clearThreadSaveTimeout,
+      logClientInfo,
+      logClientError,
+    },
+    loading: {
+      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+      readPreferredThreadId: () => activeThreadIdRef.current,
+      nextThreadLoadRequestSeq,
+      readThreadLoadRequestSeq,
+      setThreadsReady,
+      clearThreadsState,
+      beginLoadingThreadOperation: () => beginThreadOperation("loading"),
+      endLoadingThreadOperation: () => endThreadOperation("loading"),
+      setThreadError,
+      markAzureAuthRequired,
+      setThreadSaveSignatures,
+      setThreadsState,
+      pruneThreadRequestState: (validThreadIds) => {
+        dispatchThreadRequestState({
+          type: "thread_request_state/prune",
+          validThreadIds,
+        });
+      },
+      applyThreadState,
+      createLocalThreadState,
+      logClientInfo,
+      logClientError,
+    },
+  });
+  const mcpProfiles = useWorkspaceMcpProfiles({
+    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
+    isArchivedThread,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    readActiveThreadMcpServers: () => mcpServers,
+    updateThreadStateById,
+    markAzureAuthRequired,
+    logClientError,
+    logClientWarning,
+  });
   const chatCommandProviders: ChatCommandProvider[] = [
     {
       keyword: "$",
@@ -596,29 +583,6 @@ export function useWorkspace() {
     },
   ];
   const {
-    workspaceMcpServerProfileOptions,
-    selectedWorkspaceMcpServerProfileCount,
-    isEditingMcpServer,
-    editingMcpServerName,
-    isMutatingWorkspaceMcpServerProfiles,
-  } = useMemo(
-    () =>
-      selectWorkspaceMcpProfileViewModel({
-        workspaceMcpServerProfiles,
-        activeMcpServers: mcpServers,
-        editingMcpServerId,
-        isSavingMcpServer,
-        isDeletingWorkspaceMcpServerProfile,
-      }),
-    [
-      editingMcpServerId,
-      isDeletingWorkspaceMcpServerProfile,
-      isSavingMcpServer,
-      mcpServers,
-      workspaceMcpServerProfiles,
-    ],
-  );
-  const {
     desktopUpdaterStatus,
     desktopUpdaterActionState,
     isApplyingDesktopUpdate,
@@ -631,69 +595,6 @@ export function useWorkspace() {
     logClientWarning,
   });
 
-  // Saved MCP / Skills loading flows.
-  const {
-    workspaceMcpProfileStorageRuntime,
-    threadStorageRuntime,
-  } = useWorkspaceStorageRuntimes({
-    workspaceMcpProfile: {
-      readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-      readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
-      writeWorkspaceMcpServerProfiles,
-      setWorkspaceMcpServerProfileError,
-      setIsLoadingWorkspaceMcpServerProfiles,
-      setEditingMcpServerId,
-      setIsDeletingWorkspaceMcpServerProfile,
-      markAzureAuthRequired,
-      logClientError,
-    },
-    threadStorage: {
-      persistence: {
-        readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-        readActiveThreadId: () => activeThreadIdRef.current,
-        readThreads: () => threadsRef.current,
-        readSavedThreadSignature,
-        writeThreadSaveSignature,
-        nextThreadSaveRequestSeq,
-        readThreadSaveRequestSeq,
-        setIsSavingThread,
-        markAzureAuthRequired,
-        setThreadError,
-        updateThreadsState,
-        setActiveThreadNameInput,
-        buildThreadStateFromCurrentState,
-        clearThreadNameSaveTimeout,
-        clearThreadSaveTimeout,
-        logClientInfo,
-        logClientError,
-      },
-      loading: {
-        readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-        readPreferredThreadId: () => activeThreadIdRef.current,
-        nextThreadLoadRequestSeq,
-        readThreadLoadRequestSeq,
-        setThreadsReady,
-        clearThreadsState,
-        beginLoadingThreadOperation: () => beginThreadOperation("loading"),
-        endLoadingThreadOperation: () => endThreadOperation("loading"),
-        setThreadError,
-        markAzureAuthRequired,
-        setThreadSaveSignatures,
-        setThreadsState,
-        pruneThreadRequestState: (validThreadIds) => {
-          dispatchThreadRequestState({
-            type: "thread_request_state/prune",
-            validThreadIds,
-          });
-        },
-        applyThreadState,
-        createLocalThreadState,
-        logClientInfo,
-        logClientError,
-      },
-    },
-  });
-
   async function loadThreads(): Promise<void> {
     await threadStorageRuntime.loadThreads();
   }
@@ -701,27 +602,14 @@ export function useWorkspace() {
   function clearWorkspaceMcpServerProfilesState(
     nextError?: string | null,
   ): void {
-    workspaceMcpProfileStorageRuntime.clearWorkspaceMcpServerProfilesState(
-      nextError,
-    );
+    mcpProfiles.clearWorkspaceMcpServerProfilesState(nextError);
   }
 
   async function loadWorkspaceMcpServerProfiles(): Promise<void> {
-    await workspaceMcpProfileStorageRuntime.loadWorkspaceMcpServerProfiles();
+    await mcpProfiles.loadWorkspaceMcpServerProfiles();
   }
 
-  const {
-    handleCreateThread,
-    handleThreadRename,
-    handleThreadCancel,
-    handleThreadClear,
-    handleThreadLogicalDelete,
-    handleThreadRestore,
-    handleThreadChange,
-    refreshThreadTitleInBackground,
-    sendMessage,
-    connectMcpServerToActiveThread,
-  } = useWorkspaceThreads({
+  const workspaceThreads = useWorkspaceThreads({
     title: {
       readThreadById: (threadId) =>
         findThreadStateById(threadsRef.current, threadId) ?? undefined,
@@ -735,7 +623,7 @@ export function useWorkspace() {
       readSelectedUtilityAzureDeploymentName: () =>
         selectedUtilityAzureDeploymentName,
       isSelectedUtilityDeploymentAvailable: isUtilityDeploymentAvailable,
-      readAgentInstruction: () => agentInstruction,
+      readAgentInstruction: () => instructionEditor.agentInstruction,
       isUtilityReasoningEffortSupported,
       readEffectiveUtilityReasoningEffort: () =>
         effectiveUtilityReasoningEffort,
@@ -776,8 +664,9 @@ export function useWorkspace() {
       readSelectedMessageSkillActivations: () =>
         selectedMessageSkillActivations,
       readSelectedThreadSkills: () => selectedThreadSkills,
-      readAgentInstruction: () => agentInstruction,
-      readInstructionContextToggles: () => instructionContextToggles,
+      readAgentInstruction: () => instructionEditor.agentInstruction,
+      readInstructionContextToggles: () =>
+        instructionEditor.instructionContextToggles,
       setThreadError,
       setUiError,
       setActiveMainTab,
@@ -840,8 +729,8 @@ export function useWorkspace() {
     backgroundEffects: {
       activeThreadId,
       activeThreadNameInput,
-      agentInstruction,
-      instructionContextToggles,
+      agentInstruction: instructionEditor.agentInstruction,
+      instructionContextToggles: instructionEditor.instructionContextToggles,
       isChatLocked,
       isLoadingUtilityAzureDeployments,
       isSending,
@@ -874,275 +763,207 @@ export function useWorkspace() {
       saveActiveThreadNameInBackground:
         threadStorageRuntime.saveActiveThreadNameInBackground,
     },
-    readActiveThreadId: () => activeThreadIdRef.current,
-    updateThreadStateById,
   });
-
   const {
-    handleReloadWorkspaceMcpServerProfiles,
-    handleCancelMcpServerEdit,
-    handleEditWorkspaceMcpServerProfile,
-    handleDeleteWorkspaceMcpServerProfile,
-    handleToggleWorkspaceMcpServerProfile,
-    handleRemoveMcpServer,
-    handleAddMcpServer,
-  } = createMcpProfileHandlers({
-    isArchivedThread,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
-    readActiveThreadMcpServers: () => mcpServers,
-    readEditingMcpServerId: () => editingMcpServerId,
-    isDeletingWorkspaceMcpServerProfile,
-    setWorkspaceMcpServerProfileError,
-    loadWorkspaceMcpServerProfiles,
-    clearMcpServerEditState,
-    setEditingMcpServerId,
-    populateMcpServerFormForEdit,
-    setMcpFormError,
-    setMcpFormWarning,
-    setIsDeletingWorkspaceMcpServerProfile,
-    setIsSavingMcpServer,
-    applyWorkspaceMcpServerProfiles:
-      workspaceMcpProfileStorageRuntime.applyWorkspaceMcpServerProfiles,
-    deleteWorkspaceMcpServerProfileFromConfig:
-      workspaceMcpProfileStorageRuntime.deleteWorkspaceMcpServerProfileFromConfig,
-    saveMcpServerToConfig: workspaceMcpProfileStorageRuntime.saveMcpServerToConfig,
-    connectMcpServerToActiveThread,
-    resetMcpServerFormInputs,
-    updateThreadStateById,
-    logClientError,
-    logClientWarning,
-    mcpFormState: {
-      editingMcpServerId,
-      mcpNameInput,
-      mcpTransport,
-      mcpUrlInput,
-      mcpCommandInput,
-      mcpArgsInput,
-      mcpCwdInput,
-      mcpEnvInput,
-      mcpHeadersInput,
-      mcpUseAzureAuthInput,
-      mcpAzureAuthScopeInput,
-      mcpTimeoutSecondsInput,
-    },
-  });
-
-  const {
-    handleInstructionContextToggleChange,
-    handleAgentInstructionChange,
-    handleOpenInstructionFilePicker,
-    handleClearInstruction,
-    handleInstructionFileChange,
-  } = createInstructionEditingHandlers({
-    isArchivedThread,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    readInstructionFileInput: () => instructionFileInputRef.current,
-    setInstructionContextToggles,
-    setAgentInstruction,
-    setLoadedInstructionFileName,
-    setInstructionFileError,
-    setInstructionSaveError,
-    setInstructionSaveSuccess,
-    setInstructionEnhanceError,
-    setInstructionEnhanceSuccess,
-    setInstructionEnhanceComparison,
-    logClientError,
-  });
-
-  const {
-    handleUtilityProjectChange,
-    handleUtilityDeploymentChange,
-    handleUtilityReasoningEffortChange,
-    handleSaveInstructionPrompt,
-    handleEnhanceInstruction,
-    handleAdoptEnhancedInstruction,
-    handleAdoptOriginalInstruction,
-  } = createInstructionPromptHandlers({
-    isArchivedThread,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    readAgentInstruction: () => agentInstruction,
-    readLoadedInstructionFileName: () => loadedInstructionFileName,
-    readInstructionEnhanceComparison: () => instructionEnhanceComparison,
-    isSavingInstructionPrompt,
-    setIsSavingInstructionPrompt,
-    isEnhancingInstruction,
-    setIsEnhancingInstruction,
-    setInstructionEnhancingThreadId,
-    setLoadedInstructionFileName,
-    setInstructionFileError,
-    setInstructionSaveError,
-    setInstructionSaveSuccess,
-    setInstructionEnhanceError,
-    setInstructionEnhanceSuccess,
-    setInstructionEnhanceComparison,
-    setAgentInstruction,
-    setActiveMainTab,
-    isChatLocked,
-    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
-    readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
-    readSelectedUtilityAzureDeploymentName: () =>
-      selectedUtilityAzureDeploymentName,
-    readUtilityAzureDeployments: () => utilityAzureDeployments,
-    isLoadingUtilityAzureDeployments,
-    isUtilityReasoningEffortSupported,
-    readEffectiveUtilityReasoningEffort: () =>
-      effectiveUtilityReasoningEffort,
-    readEffectiveUtilityReasoningEffortOptions: () =>
-      effectiveUtilityReasoningEffortOptions,
-    handleSelectUtilityProject,
-    handleSelectUtilityDeployment,
-    handleAzureUtilityReasoningEffortChange,
-    requestInstructionEnhancement: (request) =>
-      instructionPatchesApiClient.enhanceInstruction(request, {
-        onAuthRequired: () => {
-          markAzureAuthRequired();
-        },
-      }),
+    handleCreateThread,
+    handleThreadRename,
+    handleThreadCancel,
+    handleThreadClear,
+    handleThreadLogicalDelete,
+    handleThreadRestore,
+    handleThreadChange,
     refreshThreadTitleInBackground,
-    logClientError,
-  });
+    sendMessage,
+  } = workspaceThreads;
 
   const {
     configPanelProps,
   } = useWorkspaceConfigPanel({
-    activeMainTab,
-    setActiveMainTab,
-    isChatLocked,
-    theme,
-    handleThemeChange,
-    isAzureAuthRequired,
-    isSending,
-    isStartingAzureLogin,
-    handleAzureLogin,
-    azureTenants,
-    activeAzureTenantId: activeAzurePrincipal?.tenantId ?? "",
-    isSwitchingAzureTenant,
-    handleAzureTenantChange,
-    isLoadingAzureConnections,
-    isLoadingPlaygroundAzureDeployments,
-    isLoadingUtilityAzureDeployments,
-    isReloadingAzureCatalog,
-    handleReloadAzureCatalog,
-    activePlaygroundAzureConnection,
-    activeAzurePrincipal,
-    selectedPlaygroundAzureDeploymentName,
-    isStartingAzureLogout,
-    handleAzureLogout,
-    azureTenantSwitchError,
-    azureLogoutError,
-    azureConnectionError,
-    azureConnections,
-    selectedUtilityAzureConnectionId,
-    selectedUtilityAzureDeploymentName,
-    utilityAzureDeploymentNames,
-    effectiveUtilityReasoningEffort,
-    effectiveUtilityReasoningEffortOptions,
-    isUtilityReasoningEffortSupported,
-    utilityAzureDeploymentError,
-    handleUtilityProjectChange,
-    handleUtilityDeploymentChange,
-    handleUtilityReasoningEffortChange,
-    workspaceMcpServerProfileOptions,
-    selectedWorkspaceMcpServerProfileCount,
-    isActiveThreadArchived,
-    isLoadingWorkspaceMcpServerProfiles,
-    isMutatingWorkspaceMcpServerProfiles,
-    workspaceMcpServerProfileError,
-    handleToggleWorkspaceMcpServerProfile,
-    handleEditWorkspaceMcpServerProfile,
-    handleDeleteWorkspaceMcpServerProfile,
-    handleReloadWorkspaceMcpServerProfiles,
-    isEditingMcpServer,
-    editingMcpServerName,
-    mcpNameInput,
-    setMcpNameInput,
-    mcpTransport,
-    setMcpTransport,
-    setMcpFormError,
-    mcpCommandInput,
-    setMcpCommandInput,
-    mcpArgsInput,
-    setMcpArgsInput,
-    mcpCwdInput,
-    setMcpCwdInput,
-    mcpEnvInput,
-    setMcpEnvInput,
-    mcpUrlInput,
-    setMcpUrlInput,
-    mcpHeadersInput,
-    setMcpHeadersInput,
-    mcpUseAzureAuthInput,
-    setMcpUseAzureAuthInput,
-    mcpAzureAuthScopeInput,
-    setMcpAzureAuthScopeInput,
-    mcpTimeoutSecondsInput,
-    setMcpTimeoutSecondsInput,
-    handleAddMcpServer,
-    handleCancelMcpServerEdit,
-    isSavingMcpServer,
-    mcpFormError,
-    mcpFormWarning,
-    setMcpFormWarning,
-    agentInstruction,
-    instructionContextToggles,
-    instructionEnhanceComparison,
-    isEnhancingInstruction,
-    isEnhancingInstructionForActiveThread,
-    isSavingInstructionPrompt,
-    canSaveAgentInstructionPrompt,
-    canEnhanceAgentInstruction,
-    canClearAgentInstruction,
-    loadedInstructionFileName,
-    instructionFileInputRef,
-    instructionFileError,
-    instructionSaveError,
-    instructionSaveSuccess,
-    instructionEnhanceError,
-    instructionEnhanceSuccess,
-    setInstructionSaveSuccess,
-    setInstructionEnhanceSuccess,
-    handleInstructionContextToggleChange,
-    handleAgentInstructionChange,
-    handleOpenInstructionFilePicker,
-    handleInstructionFileChange,
-    handleSaveInstructionPrompt,
-    handleEnhanceInstruction,
-    handleClearInstruction,
-    handleAdoptEnhancedInstruction,
-    handleAdoptOriginalInstruction,
-    activeThreadOptions,
-    archivedThreadOptions,
-    activeThreadId,
-    isLoadingThreads,
-    isSwitchingThread,
-    isCreatingThread,
-    isDeletingThread,
-    isClearingThread,
-    isRestoringThread,
-    threadError,
-    handleThreadChange,
-    handleCreateThread,
-    handleThreadRename,
-    handleThreadCancel,
-    handleThreadLogicalDelete,
-    handleThreadClear,
-    handleThreadRestore,
-    threadSkillOptions,
-    isLoadingSkills,
-    skillsError,
-    skillsWarning,
-    handleReloadSkills,
-    handleToggleThreadSkill,
-    setSkillsWarning,
-    skillRegistryGroups,
-    isMutatingSkillRegistries,
-    skillRegistryError,
-    skillRegistryWarning,
-    skillRegistrySuccess,
-    handleToggleRegistrySkill,
-    setSkillRegistryWarning,
-    setSkillRegistrySuccess,
+    chrome: {
+      activeMainTab,
+      setActiveMainTab,
+      isChatLocked,
+    },
+    settings: {
+      theme,
+      onThemeChange: handleThemeChange,
+      isAzureAuthRequired,
+      isSending,
+      isStartingAzureLogin,
+      onAzureLogin: handleAzureLogin,
+      azureTenants,
+      activeAzureTenantId: activeAzurePrincipal?.tenantId ?? "",
+      isSwitchingAzureTenant,
+      onAzureTenantChange: handleAzureTenantChange,
+      isLoadingAzureConnections,
+      isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
+      isReloadingAzureCatalog,
+      onAzureCatalogReload: handleReloadAzureCatalog,
+      activeAzureConnection: activePlaygroundAzureConnection,
+      activeAzurePrincipal,
+      selectedPlaygroundAzureDeploymentName,
+      isStartingAzureLogout,
+      onAzureLogout: handleAzureLogout,
+      azureTenantSwitchError,
+      azureLogoutError,
+      azureConnectionError,
+      azureConnections,
+      selectedUtilityAzureConnectionId,
+      selectedUtilityAzureDeploymentName,
+      utilityAzureDeployments: utilityAzureDeploymentNames,
+      utilityReasoningEffort: effectiveUtilityReasoningEffort,
+      utilityReasoningEffortOptions: effectiveUtilityReasoningEffortOptions,
+      isUtilityReasoningEffortSupported,
+      utilityAzureDeploymentError,
+      onUtilityProjectChange: instructionEditor.handleUtilityProjectChange,
+      onUtilityDeploymentChange:
+        instructionEditor.handleUtilityDeploymentChange,
+      onUtilityReasoningEffortChange:
+        instructionEditor.handleUtilityReasoningEffortChange,
+      isLoadingUtilityAzureDeployments,
+    },
+    mcpServers: {
+      workspaceMcpServerProfileOptions:
+        mcpProfiles.workspaceMcpServerProfileOptions,
+      selectedWorkspaceMcpServerProfileCount:
+        mcpProfiles.selectedWorkspaceMcpServerProfileCount,
+      isSending,
+      isActiveThreadArchived,
+      isLoadingWorkspaceMcpServerProfiles:
+        mcpProfiles.isLoadingWorkspaceMcpServerProfiles,
+      isMutatingWorkspaceMcpServerProfiles:
+        mcpProfiles.isMutatingWorkspaceMcpServerProfiles,
+      workspaceMcpServerProfileError:
+        mcpProfiles.workspaceMcpServerProfileError,
+      handleToggleWorkspaceMcpServerProfile:
+        mcpProfiles.handleToggleWorkspaceMcpServerProfile,
+      handleEditWorkspaceMcpServerProfile:
+        mcpProfiles.handleEditWorkspaceMcpServerProfile,
+      handleDeleteWorkspaceMcpServerProfile:
+        mcpProfiles.handleDeleteWorkspaceMcpServerProfile,
+      handleReloadWorkspaceMcpServerProfiles:
+        mcpProfiles.handleReloadWorkspaceMcpServerProfiles,
+      isEditingMcpServer: mcpProfiles.isEditingMcpServer,
+      editingMcpServerName: mcpProfiles.editingMcpServerName,
+      mcpNameInput: mcpProfiles.mcpNameInput,
+      setMcpNameInput: mcpProfiles.setMcpNameInput,
+      mcpTransport: mcpProfiles.mcpTransport,
+      setMcpTransport: mcpProfiles.setMcpTransport,
+      setMcpFormError: mcpProfiles.setMcpFormError,
+      mcpCommandInput: mcpProfiles.mcpCommandInput,
+      setMcpCommandInput: mcpProfiles.setMcpCommandInput,
+      mcpArgsInput: mcpProfiles.mcpArgsInput,
+      setMcpArgsInput: mcpProfiles.setMcpArgsInput,
+      mcpCwdInput: mcpProfiles.mcpCwdInput,
+      setMcpCwdInput: mcpProfiles.setMcpCwdInput,
+      mcpEnvInput: mcpProfiles.mcpEnvInput,
+      setMcpEnvInput: mcpProfiles.setMcpEnvInput,
+      mcpUrlInput: mcpProfiles.mcpUrlInput,
+      setMcpUrlInput: mcpProfiles.setMcpUrlInput,
+      mcpHeadersInput: mcpProfiles.mcpHeadersInput,
+      setMcpHeadersInput: mcpProfiles.setMcpHeadersInput,
+      mcpUseAzureAuthInput: mcpProfiles.mcpUseAzureAuthInput,
+      setMcpUseAzureAuthInput: mcpProfiles.setMcpUseAzureAuthInput,
+      mcpAzureAuthScopeInput: mcpProfiles.mcpAzureAuthScopeInput,
+      setMcpAzureAuthScopeInput: mcpProfiles.setMcpAzureAuthScopeInput,
+      mcpTimeoutSecondsInput: mcpProfiles.mcpTimeoutSecondsInput,
+      setMcpTimeoutSecondsInput: mcpProfiles.setMcpTimeoutSecondsInput,
+      handleAddMcpServer: mcpProfiles.handleAddMcpServer,
+      handleCancelMcpServerEdit: mcpProfiles.handleCancelMcpServerEdit,
+      isSavingMcpServer: mcpProfiles.isSavingMcpServer,
+      mcpFormError: mcpProfiles.mcpFormError,
+      mcpFormWarning: mcpProfiles.mcpFormWarning,
+      setMcpFormWarning: mcpProfiles.setMcpFormWarning,
+    },
+    threads: {
+      agentInstruction: instructionEditor.agentInstruction,
+      instructionContextToggles: instructionEditor.instructionContextToggles,
+      instructionEnhanceComparison:
+        instructionEditor.instructionEnhanceComparison,
+      isSending,
+      isActiveThreadArchived,
+      isEnhancingInstruction: instructionEditor.isEnhancingInstruction,
+      isEnhancingInstructionForActiveThread:
+        instructionEditor.isEnhancingInstructionForActiveThread,
+      isSavingInstructionPrompt:
+        instructionEditor.isSavingInstructionPrompt,
+      canSaveAgentInstructionPrompt:
+        instructionEditor.canSaveAgentInstructionPrompt,
+      canEnhanceAgentInstruction:
+        instructionEditor.canEnhanceAgentInstruction,
+      canClearAgentInstruction: instructionEditor.canClearAgentInstruction,
+      loadedInstructionFileName: instructionEditor.loadedInstructionFileName,
+      instructionFileInputRef: instructionEditor.instructionFileInputRef,
+      instructionFileError: instructionEditor.instructionFileError,
+      instructionSaveError: instructionEditor.instructionSaveError,
+      instructionSaveSuccess: instructionEditor.instructionSaveSuccess,
+      instructionEnhanceError: instructionEditor.instructionEnhanceError,
+      instructionEnhanceSuccess:
+        instructionEditor.instructionEnhanceSuccess,
+      clearInstructionSaveSuccess:
+        instructionEditor.clearInstructionSaveSuccess,
+      clearInstructionEnhanceSuccess:
+        instructionEditor.clearInstructionEnhanceSuccess,
+      handleInstructionContextToggleChange:
+        instructionEditor.handleInstructionContextToggleChange,
+      handleAgentInstructionChange:
+        instructionEditor.handleAgentInstructionChange,
+      handleOpenInstructionFilePicker:
+        instructionEditor.handleOpenInstructionFilePicker,
+      handleInstructionFileChange:
+        instructionEditor.handleInstructionFileChange,
+      handleSaveInstructionPrompt:
+        instructionEditor.handleSaveInstructionPrompt,
+      handleEnhanceInstruction:
+        instructionEditor.handleEnhanceInstruction,
+      handleClearInstruction: instructionEditor.handleClearInstruction,
+      handleAdoptEnhancedInstruction:
+        instructionEditor.handleAdoptEnhancedInstruction,
+      handleAdoptOriginalInstruction:
+        instructionEditor.handleAdoptOriginalInstruction,
+      activeThreadOptions,
+      archivedThreadOptions,
+      activeThreadId,
+      isLoadingThreads,
+      isSwitchingThread,
+      isCreatingThread,
+      isDeletingThread,
+      isClearingThread,
+      isRestoringThread,
+      threadError,
+      handleThreadChange,
+      handleCreateThread,
+      handleThreadRename,
+      handleThreadCancel,
+      handleThreadLogicalDelete,
+      handleThreadClear,
+      handleThreadRestore,
+    },
+    skills: {
+      threadSkillOptions,
+      isLoadingSkills,
+      isSending,
+      isActiveThreadArchived,
+      skillsError,
+      skillsWarning,
+      handleReloadSkills,
+      handleToggleThreadSkill,
+      clearSkillsWarning() {
+        setSkillsWarning(null);
+      },
+      skillRegistryGroups,
+      isMutatingSkillRegistries,
+      skillRegistryError,
+      skillRegistryWarning,
+      skillRegistrySuccess,
+      handleToggleRegistrySkill,
+      clearSkillRegistryWarning() {
+        setSkillRegistryWarning(null);
+      },
+      clearSkillRegistrySuccess() {
+        setSkillRegistrySuccess(null);
+      },
+    },
   });
   const {
     playgroundPanelProps,
@@ -1280,7 +1101,7 @@ export function useWorkspace() {
       onRemoveThreadSkill: handleRemoveThreadSkill,
       onRemoveMessageSkillActivation: handleRemoveMessageSkillActivation,
       mcpServers,
-      onRemoveMcpServer: handleRemoveMcpServer,
+      onRemoveMcpServer: mcpProfiles.handleRemoveMcpServer,
     },
   });
 

@@ -1,8 +1,3 @@
-import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import {
-  connectThreadMcpServer,
-} from "~/lib/domain/policies/thread-mcp-server-membership";
-import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   useWorkspaceThreadBackgroundEffects,
 } from "~/lib/client/usecase/workspace/threads/background-effects";
@@ -36,11 +31,6 @@ type UseWorkspaceThreadsOptions = {
   sending: SendMessageControllerOptions;
   lifecycle: ThreadLifecycleHandlerDependencies;
   backgroundEffects: WorkspaceThreadBackgroundEffectsOptions;
-  readActiveThreadId: () => string;
-  updateThreadStateById: (
-    threadId: string,
-    updater: (thread: ThreadState) => ThreadState,
-  ) => void;
 };
 
 export function useWorkspaceThreads(options: UseWorkspaceThreadsOptions) {
@@ -71,22 +61,9 @@ export function useWorkspaceThreads(options: UseWorkspaceThreadsOptions) {
     refreshThreadTitleInBackground,
   });
 
-  function connectMcpServerToActiveThread(serverToConnect: McpServerConfig) {
-    const activeThreadId = options.readActiveThreadId().trim();
-    if (!activeThreadId) {
-      return;
-    }
-
-    options.updateThreadStateById(activeThreadId, (thread) => ({
-      ...thread,
-      mcpServers: connectThreadMcpServer(thread.mcpServers, serverToConnect),
-    }));
-  }
-
   return {
     ...createThreadLifecycleHandlers(options.lifecycle),
     refreshThreadTitleInBackground,
     sendMessage,
-    connectMcpServerToActiveThread,
   };
 }

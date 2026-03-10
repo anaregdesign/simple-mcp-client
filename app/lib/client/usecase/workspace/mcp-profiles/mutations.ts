@@ -8,6 +8,7 @@ import {
 import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
 import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import {
+  connectThreadMcpServer,
   reconcileThreadMcpServerProfile,
   removeThreadMcpServerByConfig,
 } from "~/lib/domain/policies/thread-mcp-server-membership";
@@ -54,7 +55,6 @@ export type McpProfileMutationDependencies = {
     profile: McpServerConfig;
     warning: string | null;
   }>;
-  connectMcpServerToActiveThread: (serverToConnect: McpServerConfig) => void;
   resetMcpServerFormInputs: () => void;
   updateThreadStateById: (
     threadId: string,
@@ -212,7 +212,15 @@ export async function saveWorkspaceMcpServerProfile(
         );
       }
     } else {
-      deps.connectMcpServerToActiveThread(savedProfile);
+      const activeId = deps.readActiveThreadId().trim();
+      if (activeId) {
+        deps.updateThreadStateById(activeId, (thread) =>
+          ({
+            ...thread,
+            mcpServers: connectThreadMcpServer(thread.mcpServers, savedProfile),
+          }),
+        );
+      }
     }
 
     deps.setWorkspaceMcpServerProfileError(null);

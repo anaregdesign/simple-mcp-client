@@ -2,12 +2,13 @@ import {
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
 } from "~/lib/constants/mcp";
 import type {
-  BuildConfigPanelPropsOptions,
-  BuildMcpServersTabPropsOptions,
+  WorkspaceConfigPanelMcpServersOptions,
+  WorkspaceConfigPanelSkillsOptions,
+  WorkspaceConfigPanelThreadsOptions,
 } from "~/lib/client/usecase/workspace/config-panel/types";
 
 export function createMcpServersTabHandlers(
-  options: BuildMcpServersTabPropsOptions,
+  options: WorkspaceConfigPanelMcpServersOptions,
 ) {
   return {
     onToggleWorkspaceMcpServerProfile:
@@ -20,7 +21,9 @@ export function createMcpServersTabHandlers(
     onReloadWorkspaceMcpServerProfiles:
       options.handleReloadWorkspaceMcpServerProfiles,
     onMcpNameInputChange: options.setMcpNameInput,
-    onMcpTransportChange(value: BuildMcpServersTabPropsOptions["mcpTransport"]) {
+    onMcpTransportChange(
+      value: WorkspaceConfigPanelMcpServersOptions["mcpTransport"],
+    ) {
       options.setMcpTransport(value);
       options.setMcpFormError(null);
     },
@@ -47,14 +50,14 @@ export function createMcpServersTabHandlers(
 }
 
 export function createThreadsTabHandlers(
-  options: BuildConfigPanelPropsOptions,
+  options: WorkspaceConfigPanelThreadsOptions,
 ) {
   return {
     onClearInstructionSaveSuccess() {
-      options.setInstructionSaveSuccess(null);
+      options.clearInstructionSaveSuccess();
     },
     onClearInstructionEnhanceSuccess() {
-      options.setInstructionEnhanceSuccess(null);
+      options.clearInstructionEnhanceSuccess();
     },
     onInstructionContextToggleChange:
       options.handleInstructionContextToggleChange,
@@ -91,20 +94,20 @@ export function createThreadsTabHandlers(
 }
 
 export function createSkillsTabHandlers(
-  options: BuildConfigPanelPropsOptions,
+  options: WorkspaceConfigPanelSkillsOptions,
 ) {
   return {
     onReloadSkills: options.handleReloadSkills,
     onToggleThreadSkill: options.handleToggleThreadSkill,
     onClearSkillsWarning() {
-      options.setSkillsWarning(null);
+      options.clearSkillsWarning();
     },
     onToggleRegistrySkill: options.handleToggleRegistrySkill,
     onClearSkillRegistryWarning() {
-      options.setSkillRegistryWarning(null);
+      options.clearSkillRegistryWarning();
     },
     onClearSkillRegistrySuccess() {
-      options.setSkillRegistrySuccess(null);
+      options.clearSkillRegistrySuccess();
     },
   };
 }

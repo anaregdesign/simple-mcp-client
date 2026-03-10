@@ -13,46 +13,18 @@ type SkillsTabSelectorOptions = Parameters<typeof selectSkillsTabProps>[0];
 
 export type ValueSetter<T> = (value: T) => void;
 
-export type BuildConfigPanelPropsOptions = {
+export type WorkspaceConfigPanelChromeOptions = {
   activeMainTab: MainViewTab;
   setActiveMainTab: ValueSetter<MainViewTab>;
   isChatLocked: boolean;
-  theme: SettingsTabSelectorOptions["theme"];
-  handleThemeChange: SettingsTabSelectorOptions["onThemeChange"];
-  isAzureAuthRequired: SettingsTabSelectorOptions["isAzureAuthRequired"];
-  isSending: SettingsTabSelectorOptions["isSending"];
-  isStartingAzureLogin: SettingsTabSelectorOptions["isStartingAzureLogin"];
-  handleAzureLogin: SettingsTabSelectorOptions["onAzureLogin"];
-  azureTenants: SettingsTabSelectorOptions["azureTenants"];
-  activeAzureTenantId: SettingsTabSelectorOptions["activeAzureTenantId"];
-  isSwitchingAzureTenant: SettingsTabSelectorOptions["isSwitchingAzureTenant"];
-  handleAzureTenantChange: SettingsTabSelectorOptions["onAzureTenantChange"];
-  isLoadingAzureConnections: SettingsTabSelectorOptions["isLoadingAzureConnections"];
-  isLoadingPlaygroundAzureDeployments: boolean;
-  isLoadingUtilityAzureDeployments: SettingsTabSelectorOptions["isLoadingUtilityAzureDeployments"];
-  isReloadingAzureCatalog: SettingsTabSelectorOptions["isReloadingAzureCatalog"];
-  handleReloadAzureCatalog: SettingsTabSelectorOptions["onAzureCatalogReload"];
-  activePlaygroundAzureConnection: SettingsTabSelectorOptions["activeAzureConnection"];
-  activeAzurePrincipal: SettingsTabSelectorOptions["activeAzurePrincipal"];
-  selectedPlaygroundAzureDeploymentName: SettingsTabSelectorOptions["selectedPlaygroundAzureDeploymentName"];
-  isStartingAzureLogout: SettingsTabSelectorOptions["isStartingAzureLogout"];
-  handleAzureLogout: SettingsTabSelectorOptions["onAzureLogout"];
-  azureTenantSwitchError: SettingsTabSelectorOptions["azureTenantSwitchError"];
-  azureLogoutError: SettingsTabSelectorOptions["azureLogoutError"];
-  azureConnectionError: SettingsTabSelectorOptions["azureConnectionError"];
-  azureConnections: SettingsTabSelectorOptions["azureConnections"];
-  selectedUtilityAzureConnectionId: SettingsTabSelectorOptions["selectedUtilityAzureConnectionId"];
-  selectedUtilityAzureDeploymentName: SettingsTabSelectorOptions["selectedUtilityAzureDeploymentName"];
-  utilityAzureDeploymentNames: SettingsTabSelectorOptions["utilityAzureDeployments"];
-  effectiveUtilityReasoningEffort: SettingsTabSelectorOptions["utilityReasoningEffort"];
-  effectiveUtilityReasoningEffortOptions: SettingsTabSelectorOptions["utilityReasoningEffortOptions"];
-  isUtilityReasoningEffortSupported: SettingsTabSelectorOptions["isUtilityReasoningEffortSupported"];
-  utilityAzureDeploymentError: SettingsTabSelectorOptions["utilityAzureDeploymentError"];
-  handleUtilityProjectChange: SettingsTabSelectorOptions["onUtilityProjectChange"];
-  handleUtilityDeploymentChange: SettingsTabSelectorOptions["onUtilityDeploymentChange"];
-  handleUtilityReasoningEffortChange: SettingsTabSelectorOptions["onUtilityReasoningEffortChange"];
+};
+
+export type WorkspaceConfigPanelSettingsOptions = SettingsTabSelectorOptions;
+
+export type WorkspaceConfigPanelMcpServersOptions = {
   workspaceMcpServerProfileOptions: McpServersTabSelectorOptions["workspaceMcpServerProfileOptions"];
   selectedWorkspaceMcpServerProfileCount: McpServersTabSelectorOptions["selectedWorkspaceMcpServerProfileCount"];
+  isSending: McpServersTabSelectorOptions["isSending"];
   isActiveThreadArchived: McpServersTabSelectorOptions["isThreadReadOnly"];
   isLoadingWorkspaceMcpServerProfiles: McpServersTabSelectorOptions["isLoadingWorkspaceMcpServerProfiles"];
   isMutatingWorkspaceMcpServerProfiles: McpServersTabSelectorOptions["isMutatingWorkspaceMcpServerProfiles"];
@@ -92,9 +64,14 @@ export type BuildConfigPanelPropsOptions = {
   mcpFormError: McpServersTabSelectorOptions["mcpFormError"];
   mcpFormWarning: McpServersTabSelectorOptions["mcpFormWarning"];
   setMcpFormWarning: ValueSetter<string | null>;
+};
+
+export type WorkspaceConfigPanelThreadsOptions = {
   agentInstruction: ThreadsTabSelectorOptions["agentInstruction"];
   instructionContextToggles: ThreadsTabSelectorOptions["instructionContextToggles"];
   instructionEnhanceComparison: ThreadsTabSelectorOptions["instructionEnhanceComparison"];
+  isSending: ThreadsTabSelectorOptions["isSending"];
+  isActiveThreadArchived: ThreadsTabSelectorOptions["isThreadReadOnly"];
   isEnhancingInstruction: ThreadsTabSelectorOptions["isEnhancingInstruction"];
   isEnhancingInstructionForActiveThread: ThreadsTabSelectorOptions["showEnhancingInstructionSpinner"];
   isSavingInstructionPrompt: ThreadsTabSelectorOptions["isSavingInstructionPrompt"];
@@ -108,8 +85,8 @@ export type BuildConfigPanelPropsOptions = {
   instructionSaveSuccess: ThreadsTabSelectorOptions["instructionSaveSuccess"];
   instructionEnhanceError: ThreadsTabSelectorOptions["instructionEnhanceError"];
   instructionEnhanceSuccess: ThreadsTabSelectorOptions["instructionEnhanceSuccess"];
-  setInstructionSaveSuccess: ValueSetter<string | null>;
-  setInstructionEnhanceSuccess: ValueSetter<string | null>;
+  clearInstructionSaveSuccess: () => void;
+  clearInstructionEnhanceSuccess: () => void;
   handleInstructionContextToggleChange: ThreadsTabSelectorOptions["onInstructionContextToggleChange"];
   handleAgentInstructionChange: ThreadsTabSelectorOptions["onAgentInstructionChange"];
   handleOpenInstructionFilePicker: ThreadsTabSelectorOptions["onOpenInstructionFilePicker"];
@@ -132,74 +109,36 @@ export type BuildConfigPanelPropsOptions = {
   handleThreadChange: ThreadsTabSelectorOptions["onActiveThreadChange"];
   handleCreateThread: ThreadsTabSelectorOptions["onCreateThread"];
   handleThreadRename: ThreadsTabSelectorOptions["onThreadRename"];
-  handleThreadCancel: ThreadsTabSelectorOptions["onThreadCancel"];
+  handleThreadCancel: (threadId: string) => void;
   handleThreadLogicalDelete: ThreadsTabSelectorOptions["onThreadDelete"];
   handleThreadClear: ThreadsTabSelectorOptions["onThreadClear"];
   handleThreadRestore: ThreadsTabSelectorOptions["onThreadRestore"];
+};
+
+export type WorkspaceConfigPanelSkillsOptions = {
   threadSkillOptions: SkillsTabSelectorOptions["threadSkillOptions"];
   isLoadingSkills: SkillsTabSelectorOptions["isLoadingSkills"];
+  isSending: SkillsTabSelectorOptions["isSending"];
+  isActiveThreadArchived: SkillsTabSelectorOptions["isThreadReadOnly"];
   skillsError: SkillsTabSelectorOptions["skillsError"];
   skillsWarning: SkillsTabSelectorOptions["skillsWarning"];
   handleReloadSkills: SkillsTabSelectorOptions["onReloadSkills"];
   handleToggleThreadSkill: SkillsTabSelectorOptions["onToggleThreadSkill"];
-  setSkillsWarning: ValueSetter<string | null>;
+  clearSkillsWarning: () => void;
   skillRegistryGroups: SkillsTabSelectorOptions["skillRegistryGroups"];
   isMutatingSkillRegistries: SkillsTabSelectorOptions["isMutatingSkillRegistries"];
   skillRegistryError: SkillsTabSelectorOptions["skillRegistryError"];
   skillRegistryWarning: SkillsTabSelectorOptions["skillRegistryWarning"];
   skillRegistrySuccess: SkillsTabSelectorOptions["skillRegistrySuccess"];
   handleToggleRegistrySkill: SkillsTabSelectorOptions["onToggleRegistrySkill"];
-  setSkillRegistryWarning: ValueSetter<string | null>;
-  setSkillRegistrySuccess: ValueSetter<string | null>;
+  clearSkillRegistryWarning: () => void;
+  clearSkillRegistrySuccess: () => void;
 };
 
-export type BuildMcpServersTabPropsOptions = Pick<
-  BuildConfigPanelPropsOptions,
-  | "workspaceMcpServerProfileOptions"
-  | "selectedWorkspaceMcpServerProfileCount"
-  | "isSending"
-  | "isActiveThreadArchived"
-  | "isLoadingWorkspaceMcpServerProfiles"
-  | "isMutatingWorkspaceMcpServerProfiles"
-  | "workspaceMcpServerProfileError"
-  | "handleToggleWorkspaceMcpServerProfile"
-  | "handleEditWorkspaceMcpServerProfile"
-  | "handleDeleteWorkspaceMcpServerProfile"
-  | "handleReloadWorkspaceMcpServerProfiles"
-  | "isEditingMcpServer"
-  | "editingMcpServerName"
-  | "mcpNameInput"
-  | "setMcpNameInput"
-  | "mcpTransport"
-  | "setMcpTransport"
-  | "setMcpFormError"
-  | "mcpCommandInput"
-  | "setMcpCommandInput"
-  | "mcpArgsInput"
-  | "setMcpArgsInput"
-  | "mcpCwdInput"
-  | "setMcpCwdInput"
-  | "mcpEnvInput"
-  | "setMcpEnvInput"
-  | "mcpUrlInput"
-  | "setMcpUrlInput"
-  | "mcpHeadersInput"
-  | "setMcpHeadersInput"
-  | "mcpUseAzureAuthInput"
-  | "setMcpUseAzureAuthInput"
-  | "mcpAzureAuthScopeInput"
-  | "setMcpAzureAuthScopeInput"
-  | "mcpTimeoutSecondsInput"
-  | "setMcpTimeoutSecondsInput"
-  | "handleAddMcpServer"
-  | "handleCancelMcpServerEdit"
-  | "isSavingMcpServer"
-  | "mcpFormError"
-  | "mcpFormWarning"
-  | "setMcpFormWarning"
->;
-
-export type UseConfigPanelOptions = Omit<
-  BuildConfigPanelPropsOptions,
-  "activeMainTab" | "setActiveMainTab"
->;
+export type UseWorkspaceConfigPanelOptions = {
+  chrome: WorkspaceConfigPanelChromeOptions;
+  settings: WorkspaceConfigPanelSettingsOptions;
+  mcpServers: WorkspaceConfigPanelMcpServersOptions;
+  threads: WorkspaceConfigPanelThreadsOptions;
+  skills: WorkspaceConfigPanelSkillsOptions;
+};

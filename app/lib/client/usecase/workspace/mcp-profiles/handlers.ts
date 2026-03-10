@@ -53,7 +53,6 @@ type McpProfileHandlerDependencies = {
     profile: McpServerConfig;
     warning: string | null;
   }>;
-  connectMcpServerToActiveThread: (serverToConnect: McpServerConfig) => void;
   resetMcpServerFormInputs: () => void;
   updateThreadStateById: (
     threadId: string,

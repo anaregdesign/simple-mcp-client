@@ -261,8 +261,8 @@ export function useMcpProfileForm() {
   }, [state.formState.editingMcpServerId, state.workspaceMcpServerProfiles]);
 
   return {
-    workspaceMcpServerProfilesRef,
     workspaceMcpServerProfiles: state.workspaceMcpServerProfiles,
+    readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
     setWorkspaceMcpServerProfiles: (value: McpServerConfig[]) => {
       dispatch({
         type: "profiles/set",
