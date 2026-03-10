@@ -9,6 +9,7 @@ import {
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import { upsertThreadOperationLogEntry } from "~/lib/domain/value-objects/thread-operation-log";
 import type { Thread } from "~/lib/domain/entities/thread";
 import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
@@ -32,7 +33,6 @@ import {
   resolveWorkspaceThreadDirectory,
   resolveWorkspaceUserDirectory,
 } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { upsertThreadOperationLogEntry } from "~/lib/server/usecase/chat/thread-operation-log-state";
 import { buildThreadSaveInputFromThread } from "~/lib/server/usecase/threads/thread-save-input-mapper";
 
 export type ThreadChatRunRequest = {

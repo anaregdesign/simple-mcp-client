@@ -1,11 +1,11 @@
 import type { MutableRefObject } from "react";
 import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
+import { upsertThreadOperationLogEntry } from "~/lib/domain/value-objects/thread-operation-log";
 import {
   updateThreadStateCollectionById,
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { cloneThreadEnvironment } from "~/lib/client/usecase/workspace/threads/thread-save-state";
-import { upsertThreadOperationLogEntry } from "~/lib/client/usecase/workspace/threads/thread-operation-log-state";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 
