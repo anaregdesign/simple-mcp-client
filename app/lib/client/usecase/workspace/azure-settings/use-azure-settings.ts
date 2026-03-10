@@ -40,7 +40,7 @@ import {
 } from "~/lib/client/usecase/workspace/azure-parsers";
 import {
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
-} from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
+} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 import {
   azureSettingsReducer,
   createInitialAzureSettingsReducerState,

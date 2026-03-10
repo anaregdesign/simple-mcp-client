@@ -4,7 +4,7 @@ import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   loadWorkspaceMcpServerProfiles,
   saveMcpServerToConfig,
-} from "./workspace-mcp-server-profile-operations";
+} from "./operations";
 
 function createMcpServerConfig(id = "srv-1"): McpServerConfig {
   return {

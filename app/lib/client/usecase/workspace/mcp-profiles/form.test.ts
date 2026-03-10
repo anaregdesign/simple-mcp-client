@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMcpServerFromProfileForm } from "./mcp-profile-form";
+import { buildMcpServerFromProfileForm } from "./form";
 
 describe("mcp-profile-form", () => {
   it("builds a stdio MCP server from form input", () => {

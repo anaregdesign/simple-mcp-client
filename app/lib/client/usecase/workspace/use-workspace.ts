@@ -46,7 +46,7 @@ import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
   countSelectedWorkspaceMcpServerProfileOptions,
-} from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
+} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 import {
   installGlobalClientErrorLogging,
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
@@ -88,7 +88,7 @@ import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/use-workspace-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
-import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/use-workspace-skill-catalog-effects";
+import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/skills-catalog/effects";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
 import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/workspace-config-panel-props";
@@ -137,12 +137,14 @@ import {
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import { useAzureSettings } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
+  buildUnauthenticatedPanelProps,
+} from "~/lib/client/usecase/workspace/selectors";
+import {
   buildMessageSkillActivationOptions,
   buildSkillRegistryGroups,
   buildThreadSkillOptions,
-  buildUnauthenticatedPanelProps,
   readSkillCommandSuggestions,
-} from "~/lib/client/usecase/workspace/selectors";
+} from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import {
   createThreadLifecycleHandlers,
 } from "~/lib/client/usecase/workspace/threads/thread-lifecycle-handlers";
@@ -162,23 +164,23 @@ import {
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
 import {
   createSkillCatalogController,
-} from "~/lib/client/usecase/workspace/skill-catalog-controller";
+} from "~/lib/client/usecase/workspace/skills-catalog/controller";
 import {
   createMcpProfileHandlers,
-} from "~/lib/client/usecase/workspace/mcp-profile-handlers";
+} from "~/lib/client/usecase/workspace/mcp-profiles/handlers";
 import {
   connectMcpServerToThread,
 } from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
 import {
   createSkillSelectionHandlers,
-} from "~/lib/client/usecase/workspace/skill-selection-handlers";
+} from "~/lib/client/usecase/workspace/skills-catalog/handlers";
 import {
   applyWorkspaceMcpServerProfiles as applyWorkspaceMcpServerProfilesOperation,
   clearWorkspaceMcpServerProfilesState as clearWorkspaceMcpServerProfilesStateOperation,
   deleteWorkspaceMcpServerProfileFromConfig as deleteWorkspaceMcpServerProfileFromConfigOperation,
   loadWorkspaceMcpServerProfiles as loadWorkspaceMcpServerProfilesOperation,
   saveMcpServerToConfig as saveMcpServerToConfigOperation,
-} from "~/lib/client/usecase/workspace/workspace-mcp-server-profile-operations";
+} from "~/lib/client/usecase/workspace/mcp-profiles/operations";
 import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,

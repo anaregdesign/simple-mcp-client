@@ -6,7 +6,7 @@ import {
   handleReloadSkills,
   loadAvailableSkills,
   updateSkillRegistrySkill,
-} from "./skill-catalog-operations";
+} from "./operations";
 
 function createSkillsCatalogSnapshot(): SkillsCatalogSnapshot {
   return {

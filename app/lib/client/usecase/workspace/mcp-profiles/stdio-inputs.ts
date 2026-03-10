@@ -1,7 +1,7 @@
 /**
  * Client runtime support module.
  */
-import type { ParseResult } from "~/lib/client/usecase/workspace/mcp-http-inputs";
+import type { ParseResult } from "~/lib/client/usecase/workspace/mcp-profiles/http-inputs";
 import { ENV_KEY_PATTERN } from "~/lib/constants/mcp";
 
 export function parseStdioArgsInput(input: string): ParseResult<string[]> {

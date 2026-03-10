@@ -9,7 +9,7 @@ import {
   describeWorkspaceMcpServerProfileDetail,
   resolveMcpTransportBadge,
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
-} from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
+} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 
 describe("shouldScheduleWorkspaceMcpServerProfileLoginRetry", () => {
   it("returns true only when auth has just recovered and key exists", () => {

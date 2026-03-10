@@ -7,7 +7,7 @@ import {
   formatStdioArgsInput,
   parseStdioArgsInput,
   parseStdioEnvInput,
-} from "./mcp-stdio-inputs";
+} from "./stdio-inputs";
 
 describe("parseStdioArgsInput", () => {
   it("parses space-separated args", () => {

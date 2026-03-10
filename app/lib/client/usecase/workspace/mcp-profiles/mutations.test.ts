@@ -6,8 +6,8 @@ import {
   MCP_PROFILE_ARCHIVED_THREAD_ERROR,
   MCP_PROFILE_NOT_AVAILABLE_ERROR,
   saveWorkspaceMcpServerProfile,
-} from "./mcp-profile-mutation-operations";
-import { connectMcpServerToThread } from "./threads/thread-mcp-server-operations";
+} from "./mutations";
+import { connectMcpServerToThread } from "../threads/thread-mcp-server-operations";
 
 function createHttpServer(
   overrides: Partial<McpHttpServerConfig> & {

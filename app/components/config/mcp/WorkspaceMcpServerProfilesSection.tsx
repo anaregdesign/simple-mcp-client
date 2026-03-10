@@ -6,7 +6,7 @@ import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import { SelectableCardList } from "~/components/shared/SelectableCardList";
 import type { ContextActionMenuItem } from "~/components/shared/ContextActionMenu";
-import type { WorkspaceMcpServerProfileOption } from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
+import type { WorkspaceMcpServerProfileOption } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 
 const { Button, Spinner } = FluentUI;
 

@@ -5,13 +5,13 @@ import {
   removeThreadMcpServerById,
   toggleThreadMcpServer,
 } from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
-import type { McpProfileFormState } from "~/lib/client/usecase/workspace/mcp-profile-form";
+import type { McpProfileFormState } from "~/lib/client/usecase/workspace/mcp-profiles/form";
 import {
   deleteWorkspaceMcpServerProfile,
   MCP_PROFILE_ARCHIVED_THREAD_ERROR,
   MCP_PROFILE_NOT_AVAILABLE_ERROR,
   saveWorkspaceMcpServerProfile,
-} from "~/lib/client/usecase/workspace/mcp-profile-mutation-operations";
+} from "~/lib/client/usecase/workspace/mcp-profiles/mutations";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 type McpProfileLogOptions = {

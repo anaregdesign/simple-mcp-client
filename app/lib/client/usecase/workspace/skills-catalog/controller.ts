@@ -5,7 +5,7 @@ import {
   handleReloadSkills as handleReloadSkillsOperation,
   loadAvailableSkills as loadAvailableSkillsOperation,
   updateSkillRegistrySkill as updateSkillRegistrySkillOperation,
-} from "~/lib/client/usecase/workspace/skill-catalog-operations";
+} from "~/lib/client/usecase/workspace/skills-catalog/operations";
 import type { SkillRegistryId } from "~/lib/contracts/skills/registry";
 import type {
   SkillCatalogEntry,

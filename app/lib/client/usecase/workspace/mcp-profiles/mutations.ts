@@ -5,7 +5,7 @@ import {
 import {
   buildMcpServerFromProfileForm,
   type McpProfileFormState,
-} from "~/lib/client/usecase/workspace/mcp-profile-form";
+} from "~/lib/client/usecase/workspace/mcp-profiles/form";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import {
   reconcileSavedThreadMcpServer,

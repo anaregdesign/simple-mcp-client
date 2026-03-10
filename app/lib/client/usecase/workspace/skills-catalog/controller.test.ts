@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SkillsCatalogSnapshot } from "~/lib/client/infrastructure/api/skills-api-client";
 
-vi.mock("~/lib/client/usecase/workspace/skill-catalog-operations", () => ({
+vi.mock("~/lib/client/usecase/workspace/skills-catalog/operations", () => ({
   applySkillsCatalogSnapshot: vi.fn(),
   handleReloadSkills: vi.fn(),
   loadAvailableSkills: vi.fn(async () => {}),
@@ -13,10 +13,10 @@ import {
   handleReloadSkills,
   loadAvailableSkills,
   updateSkillRegistrySkill,
-} from "~/lib/client/usecase/workspace/skill-catalog-operations";
+} from "~/lib/client/usecase/workspace/skills-catalog/operations";
 import {
   createSkillCatalogController,
-} from "~/lib/client/usecase/workspace/skill-catalog-controller";
+} from "~/lib/client/usecase/workspace/skills-catalog/controller";
 
 function createSnapshot(): SkillsCatalogSnapshot {
   return {
