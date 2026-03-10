@@ -128,13 +128,13 @@ const checks = [
     ],
   },
   {
-    key: "contractRuntimeEventLogIdOwnership",
+    key: "contractRuntimeEventLogOwnership",
     description:
-      "contracts/shared/runtime-event-log.ts must not own runtime event id generation.",
+      "contracts/shared/runtime-event-log.ts must stay transport-only and not own runtime event-log value-object helpers.",
     command: "rg",
     args: [
       "-n",
-      "createRuntimeEventLogId",
+      "createRuntimeEventLogId|export type RuntimeEventLog(Input|Record|Source|Level)|export function (normalizeRuntimeEventLogLevel|normalizeRuntimeEventLogSource|readErrorDetails|normalizeCreatedAt|normalizeCategory|normalizeEventName|normalizeMessage|normalizeOptionalStatusCode|normalizeOptionalPath|normalizeOptionalLabel|normalizeOptionalTextValue|normalizeOptionalUserId|serializeRuntimeEventContext)",
       "app/lib/contracts/shared/runtime-event-log.ts",
     ],
   },
