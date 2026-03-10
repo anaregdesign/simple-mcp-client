@@ -3,10 +3,16 @@ import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   applySendResult,
-  executeSendMessageTransport,
+} from "~/lib/client/usecase/workspace/chat-session/send-message-request-state";
+import {
   prepareSendMessageExecution,
+} from "~/lib/client/usecase/workspace/chat-session/send-message-execution";
+import {
+  executeSendMessageTransport,
+} from "~/lib/client/usecase/workspace/chat-session/send-message-transport";
+import {
   validateSendPreconditions,
-} from "~/lib/client/usecase/workspace/chat-session/usecase";
+} from "~/lib/client/usecase/workspace/chat-session/send-message-preconditions";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {

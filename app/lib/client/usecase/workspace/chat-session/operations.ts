@@ -3,11 +3,16 @@ import {
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import {
   applySendResult,
-  executeSendMessageTransport,
+} from "~/lib/client/usecase/workspace/chat-session/send-message-request-state";
+import {
   prepareSendMessageExecution,
+} from "~/lib/client/usecase/workspace/chat-session/send-message-execution";
+import {
   type SendMessageTransportResult,
+} from "~/lib/client/usecase/workspace/chat-session/send-message-transport";
+import {
   validateSendPreconditions,
-} from "~/lib/client/usecase/workspace/chat-session/usecase";
+} from "~/lib/client/usecase/workspace/chat-session/send-message-preconditions";
 import { isThreadPhaseBlockingSend } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";

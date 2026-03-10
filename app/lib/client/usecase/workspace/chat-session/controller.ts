@@ -5,7 +5,7 @@ import {
 } from "~/lib/client/usecase/workspace/chat-session/operations";
 import {
   executeSendMessageTransport,
-} from "~/lib/client/usecase/workspace/chat-session/usecase";
+} from "~/lib/client/usecase/workspace/chat-session/send-message-transport";
 import {
   findThreadStateById,
 } from "~/lib/client/usecase/workspace/threads/thread-runtime";

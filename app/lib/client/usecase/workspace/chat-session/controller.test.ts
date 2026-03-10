@@ -6,7 +6,7 @@ vi.mock("~/lib/client/usecase/workspace/chat-session/operations", () => ({
   sendMessage: vi.fn(async () => {}),
 }));
 
-vi.mock("~/lib/client/usecase/workspace/chat-session/usecase", () => ({
+vi.mock("~/lib/client/usecase/workspace/chat-session/send-message-transport", () => ({
   executeSendMessageTransport: vi.fn(async () => ({
     assistantMessage: {
       id: "assistant-1",
@@ -28,7 +28,7 @@ import {
 } from "~/lib/client/usecase/workspace/chat-session/operations";
 import {
   executeSendMessageTransport,
-} from "~/lib/client/usecase/workspace/chat-session/usecase";
+} from "~/lib/client/usecase/workspace/chat-session/send-message-transport";
 import {
   createSendMessageController,
 } from "~/lib/client/usecase/workspace/chat-session/controller";
