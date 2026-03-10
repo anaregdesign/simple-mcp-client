@@ -226,6 +226,18 @@ const checks = [
     ],
   },
   {
+    key: "threadBackgroundEffectRuntimeOwnership",
+    description:
+      "use-workspace and background-effects must use runtime status readers instead of boolean thread refs.",
+    command: "rg",
+    args: [
+      "-n",
+      "isThreadsReadyRef|isApplyingThreadStateRef|MutableRefObject<boolean>",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
