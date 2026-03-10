@@ -1,10 +1,22 @@
 import {
   CHAT_CLEANUP_TIMEOUT_MS,
-  CHAT_MAX_RUN_TURNS,
-  CHAT_MODEL_RUN_TIMEOUT_MS,
 } from "~/lib/constants/chat";
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
 import { cloneThreadEnvironment, type ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
+import {
+  prepareCodeInterpreterRun,
+} from "~/lib/server/usecase/chat/chat-code-interpreter";
+import {
+  awaitWithTimeout,
+  ChatCanceledError,
+  readErrorMessage,
+  shouldRetryChatExecution,
+  sleep,
+  throwIfAborted,
+} from "~/lib/server/usecase/chat/chat-execution-errors";
+import {
+  runChatAgentExecution,
+} from "~/lib/server/usecase/chat/chat-agent-run";
 import type {
   ChatExecutionEvent,
   ChatExecutionOptions,
@@ -29,16 +41,12 @@ export type {
   ChatMcpRuntimeMetrics,
   InstructionSystemContextPayload,
 } from "~/lib/server/usecase/chat/chat-execution-ports";
+export {
+  ChatCanceledError,
+} from "~/lib/server/usecase/chat/chat-execution-errors";
 
 const chatTransientTerminationRetryMaxAttempts = 2;
 const chatTransientTerminationRetryDelayMs = 250;
-
-export class ChatCanceledError extends Error {
-  constructor(message = "Chat execution was canceled.") {
-    super(message);
-    this.name = "ChatCanceledError";
-  }
-}
 
 export async function executeChat(
   options: ChatExecutionOptions,
@@ -247,38 +255,12 @@ export async function executeChat(
     if (options.webSearchEnabled) {
       emitProgress({ message: "Enabling web search..." });
     }
-    const useCodeInterpreter = shouldEnableCodeInterpreter(options);
-    let codeInterpreterEnabledForRun = false;
-    if (useCodeInterpreter) {
-      emitProgress({
-        message: "Enabling Code Interpreter for non-PDF attachments...",
-      });
-      const nonPdfAttachments = collectNonPdfAttachments(options);
-      if (nonPdfAttachments.length > 0) {
-        emitProgress({
-          message: `Uploading attachments for Code Interpreter (${nonPdfAttachments.length})...`,
-        });
-        try {
-          codeInterpreterContainerId = await dependencies.createCodeInterpreterContainerWithAttachments(
-            {
-              attachments: nonPdfAttachments,
-              azureConfig: options.azureConfig,
-            },
-          );
-          codeInterpreterEnabledForRun = true;
-        } catch (error) {
-          const reason = readErrorMessage(error);
-          emitProgress({
-            message: `Code Interpreter file upload failed (${truncateProgressMessage(reason)}). Continuing without non-PDF file access.`,
-          });
-        }
-      } else {
-        codeInterpreterEnabledForRun = true;
-      }
-    }
-
-    const enableCodeInterpreterTool =
-      codeInterpreterEnabledForRun && codeInterpreterContainerId.length > 0;
+    const codeInterpreter = await prepareCodeInterpreterRun({
+      execution: options,
+      dependencies,
+      emitProgress,
+    });
+    codeInterpreterContainerId = codeInterpreter.codeInterpreterContainerId;
     const skillTools = skillExecutionContext
       ? dependencies.buildSkillTools(
           skillRuntime.activeSkills,
@@ -289,49 +271,21 @@ export async function executeChat(
           skillExecutionContext,
         )
       : [];
-    const conversationSession = dependencies.createConversationSession({
-      sessionId: options.agentConversationId,
-      history: options.history,
-      useCodeInterpreter: enableCodeInterpreterTool,
-    });
-
     emitProgress({ message: "Sending request to Azure OpenAI..." });
-    const runTimeoutSeconds = Math.ceil(CHAT_MODEL_RUN_TIMEOUT_MS / 1000);
-    const runTimeoutMessage = useCodeInterpreter
-      ? `Azure OpenAI request timed out after ${runTimeoutSeconds} seconds while processing file attachments. The selected deployment may not support Code Interpreter.`
-      : `Azure OpenAI request timed out after ${runTimeoutSeconds} seconds.`;
-
-    const runResult = await dependencies.runChatAgent({
-      azureConfig: options.azureConfig,
-      webSearchEnabled: options.webSearchEnabled,
-      webSearchUserLocation: options.webSearchUserLocation,
-      enableCodeInterpreterTool,
-      codeInterpreterContainerId,
+    const { runResult } = await runChatAgentExecution({
+      execution: options,
+      dependencies,
       connectedMcpServers,
+      skillRuntime,
       skillTools,
-      agentInstruction: dependencies.buildAgentInstructionWithSkills(
-        options.agentInstruction,
-        skillRuntime,
-        {
-          instructionContextToggles: options.instructionContextToggles,
-          systemInstructionContext: implicitSystemInstructionContext,
-        },
-      ),
-      reasoningEffort: options.reasoningEffort,
-      temperature: options.temperature,
-      conversationSession,
-      message: options.message,
-      attachments: options.attachments,
+      implicitSystemInstructionContext,
+      enableCodeInterpreterTool: codeInterpreter.enableCodeInterpreterTool,
+      codeInterpreterContainerId,
       hasMcpServers,
-      maxTurns: CHAT_MAX_RUN_TURNS,
-      runTimeoutMs: CHAT_MODEL_RUN_TIMEOUT_MS,
-      runTimeoutMessage,
       abortSignal,
       ...(onEvent
         ? {
-            onProgressEvent: (event: ChatProgressEvent) => {
-              emitProgress(event);
-            },
+            onProgressEvent: emitProgress,
           }
         : {}),
     });
@@ -414,219 +368,4 @@ export function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
     mcpConnectDurationMs: 0,
     mcpSetupDurationMs: 0,
   };
-}
-
-function shouldEnableCodeInterpreter(options: ChatExecutionOptions): boolean {
-  if (hasNonPdfAttachments(options.attachments)) {
-    return true;
-  }
-
-  return options.history.some(
-    (entry) => entry.role === "user" && hasNonPdfAttachments(entry.attachments),
-  );
-}
-
-export function hasNonPdfAttachments(attachments: ClientAttachment[]): boolean {
-  return attachments.some(
-    (attachment) => readFileExtension(attachment.name) !== "pdf",
-  );
-}
-
-function collectNonPdfAttachments(
-  options: ChatExecutionOptions,
-): ClientAttachment[] {
-  const dedupedByKey = new Map<string, ClientAttachment>();
-
-  const register = (attachment: ClientAttachment) => {
-    if (readFileExtension(attachment.name) === "pdf") {
-      return;
-    }
-    dedupedByKey.set(buildAttachmentKey(attachment), attachment);
-  };
-
-  for (const attachment of options.attachments) {
-    register(attachment);
-  }
-  for (const historyEntry of options.history) {
-    if (historyEntry.role !== "user") {
-      continue;
-    }
-    for (const attachment of historyEntry.attachments) {
-      register(attachment);
-    }
-  }
-
-  return [...dedupedByKey.values()];
-}
-
-function truncateProgressMessage(message: string): string {
-  const trimmed = message.trim();
-  if (!trimmed) {
-    return "unknown error";
-  }
-
-  const maxLength = 120;
-  return trimmed.length <= maxLength
-    ? trimmed
-    : `${trimmed.slice(0, maxLength - 1)}...`;
-}
-
-function buildAttachmentKey(attachment: ClientAttachment): string {
-  return `${attachment.name}\u0000${attachment.sizeBytes}\u0000${attachment.dataUrl}`;
-}
-
-function readFileExtension(fileName: string): string {
-  const parts = fileName.toLowerCase().split(".");
-  return parts.length > 1 ? parts[parts.length - 1] : "";
-}
-
-async function awaitWithTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  timeoutMessage: string,
-): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<T>((_resolve, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(timeoutMessage));
-    }, timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
-export function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (!signal || !signal.aborted) {
-    return;
-  }
-
-  throw new ChatCanceledError();
-}
-
-export function isChatCanceledError(error: unknown): boolean {
-  if (error instanceof ChatCanceledError) {
-    return true;
-  }
-
-  return (
-    error instanceof Error &&
-    (error.name === "AbortError" ||
-      error.message === "Chat execution was canceled.")
-  );
-}
-
-export function buildUpstreamErrorMessage(
-  error: unknown,
-  deploymentName: string,
-): string {
-  if (!(error instanceof Error)) {
-    return "Could not connect to Azure OpenAI.";
-  }
-
-  if (isTransientNetworkTerminationError(error)) {
-    return "Connection to Azure OpenAI was interrupted before completion. Please retry.";
-  }
-  if (error.message.includes("Resource not found")) {
-    return `${error.message} Check Azure base URL and deployment name (${deploymentName}).`;
-  }
-  if (error.message.includes("Unavailable model")) {
-    return `${error.message} Check the selected deployment name (${deploymentName}).`;
-  }
-  if (error.message.includes("Model behavior error")) {
-    return `${error.message} Verify your model/deployment supports the selected reasoning effort.`;
-  }
-  if (error.message.includes("repeated Skill operation loop")) {
-    return `${error.message} Review active Skills or reduce repeated Skill tool calls, then retry.`;
-  }
-  if (error.message.includes("excessive Skill operation usage")) {
-    return `${error.message} Review active Skills or simplify the workflow, then retry.`;
-  }
-  if (error.message.includes("too many Skill operation errors")) {
-    return `${error.message} Fix failing Skill scripts or reduce unstable steps, then retry.`;
-  }
-  if (error.message.includes("Max turns (")) {
-    return `${error.message} Try reducing active MCP servers or skills, or retry the request.`;
-  }
-
-  return error.message;
-}
-
-export function isTransientNetworkTerminationError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const normalizedMessage = error.message.trim().toLowerCase();
-  if (
-    normalizedMessage === "terminated" ||
-    normalizedMessage.includes("socket closed")
-  ) {
-    return true;
-  }
-
-  const causeCode =
-    typeof (error as { cause?: unknown }).cause === "object" &&
-    (error as { cause?: { code?: unknown } }).cause !== null
-      ? (error as { cause: { code?: unknown } }).cause.code
-      : null;
-  if (typeof causeCode !== "string") {
-    return false;
-  }
-
-  const normalizedCauseCode = causeCode.toUpperCase();
-  return (
-    normalizedCauseCode === "UND_ERR_SOCKET" ||
-    normalizedCauseCode === "UND_ERR_ABORTED" ||
-    normalizedCauseCode === "ECONNRESET" ||
-    normalizedCauseCode === "EPIPE"
-  );
-}
-
-export function shouldRetryChatExecution(
-  error: unknown,
-  attempt: number,
-  maxAttempts: number,
-): boolean {
-  if (attempt >= maxAttempts) {
-    return false;
-  }
-
-  return isTransientNetworkTerminationError(error);
-}
-
-function isAzureCredentialError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const message = error.message.toLowerCase();
-  return [
-    "defaultazurecredential",
-    "interactivebrowsercredential",
-    "authenticationrequirederror",
-    "automatic authentication has been disabled",
-    "chainedtokencredential",
-    "credentialunavailableerror",
-    "managedidentitycredential",
-    "azure credential failed",
-    "azure credential returned tenant",
-    "requested tenant",
-    "token without tid claim",
-  ].some((pattern) => message.includes(pattern));
-}
-
-function readErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unknown error.";
-}
-
-export function sleep(durationMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, durationMs);
-  });
 }

@@ -1,18 +1,12 @@
 import { randomUUID } from "node:crypto";
-import {
-  MCP_DEFAULT_AZURE_AUTH_SCOPE,
-  MCP_DEFAULT_TIMEOUT_SECONDS,
-} from "~/lib/constants/mcp";
-import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
-  type ThreadOperationLogEntry,
-} from "~/lib/contracts/chat/operation-log";
+  DEFAULT_AGENT_INSTRUCTION,
+} from "~/lib/domain/value-objects/thread-defaults";
 import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import { upsertThreadOperationLogEntry } from "~/lib/domain/value-objects/thread-operation-log";
 import type { Thread } from "~/lib/domain/entities/thread";
 import type { ThreadRepository } from "~/lib/domain/repositories/thread-repository";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
   executeChatWithTransientRetry,
   type ChatExecutionEvent,
@@ -28,12 +22,27 @@ import {
   applyDefaultThreadDirectoryToStdioServers,
   resolveRelativeHttpMcpServerUrls,
 } from "~/lib/server/usecase/chat/mcp-server-config-normalization";
-import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
+import {
+  createAssistantMessage,
+  mapOperationLogRecord,
+  mapThreadMcpServerToClientConfig,
+  mergeThreadSkillSelections,
+  presentDomainThreadMessage,
+  readHistoryMessages,
+} from "~/lib/server/usecase/chat/thread-chat-run-mappers";
+import {
+  persistThreadState,
+} from "~/lib/server/usecase/chat/thread-chat-run-persistence";
+import {
+  loadThreadSnapshot,
+  readCurrentUserMessage,
+  readThreadAzureConfig,
+  validateThreadExecutionConfiguration,
+} from "~/lib/server/usecase/chat/thread-chat-run-validation";
 import {
   resolveWorkspaceThreadDirectory,
   resolveWorkspaceUserDirectory,
 } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { buildThreadSaveInputFromThread } from "~/lib/server/usecase/threads/thread-save-input-mapper";
 
 export type ThreadChatRunRequest = {
   userId: number;
@@ -88,11 +97,16 @@ export async function executeThreadChatRun(
   const thread = await loadThreadSnapshot(
     request,
     dependencies.threadRepository,
+    createThreadChatRunError,
   );
-  const azureConfig = readThreadAzureConfig(thread);
-  validateThreadExecutionConfiguration(thread);
+  const azureConfig = readThreadAzureConfig(thread, createThreadChatRunError);
+  validateThreadExecutionConfiguration(thread, createThreadChatRunError);
 
-  const currentUserMessage = readCurrentUserMessage(thread, request.turnId);
+  const currentUserMessage = readCurrentUserMessage(
+    thread,
+    request.turnId,
+    createThreadChatRunError,
+  );
   const skillSelections = mergeThreadSkillSelections(
     thread.skillSelections.map((selection) => ({
       name: selection.skillProfile.name,
@@ -193,6 +207,8 @@ export async function executeThreadChatRun(
       threadEnvironment: result.threadEnvironment,
       operationLogs,
       assistantMessage,
+      createNotFoundError: () =>
+        createThreadChatRunError(404, "thread_not_found", "Thread not found."),
     });
 
     return {
@@ -215,218 +231,23 @@ export async function executeThreadChatRun(
       agentConversationId: thread.agentConversationId ?? null,
       threadEnvironment,
       operationLogs,
+      createNotFoundError: () =>
+        createThreadChatRunError(404, "thread_not_found", "Thread not found."),
     });
     throw error;
   }
 }
 
-async function loadThreadSnapshot(
-  request: ThreadChatRunRequest,
-  repository: ThreadRepository,
-): Promise<Thread> {
-  const thread = await repository.findByIdForUser(
-    request.userId,
-    request.threadId,
-  );
-  if (!thread) {
-    throw new ThreadChatRunError(404, "thread_not_found", "Thread not found.");
-  }
-  if (thread.isArchived()) {
-    throw new ThreadChatRunError(
-      409,
-      "thread_archived",
-      "Archived thread is read-only.",
-    );
-  }
-
-  return thread;
-}
-
-function readThreadAzureConfig(thread: Thread) {
-  const config = thread.chatAzureConfig;
-  if (!config) {
-    throw new ThreadChatRunError(
-      422,
-      "chat_azure_config_required",
-      "Thread chatAzureConfig is required.",
-    );
-  }
-
-  return config;
-}
-
-function validateThreadExecutionConfiguration(thread: Thread): void {
-  if (thread.webSearchEnabled && thread.reasoningEffort === "minimal") {
-    throw new ThreadChatRunError(
-      422,
-      "web_search_reasoning_effort_not_supported",
-      "Selected Reasoning Effort cannot be used with Web Search.",
-    );
-  }
-
-  if (
-    thread.reasoningEffort === "minimal" &&
-    thread.chatAzureConfig?.deploymentName
-      .trim()
-      .toLowerCase()
-      .startsWith("gpt-5.4")
-  ) {
-    throw new ThreadChatRunError(
-      422,
-      "reasoning_effort_not_supported",
-      "Selected Reasoning Effort is not supported by the thread deployment.",
-    );
-  }
-}
-
-function readCurrentUserMessage(thread: Thread, turnId: string) {
-  const currentUserMessage = [...thread.messages]
-    .reverse()
-    .find((message) => message.turnId === turnId && message.role === "user");
-  if (!currentUserMessage) {
-    throw new ThreadChatRunError(
-      422,
-      "turn_not_found",
-      "`turnId` must reference a persisted user message.",
-    );
-  }
-
-  return currentUserMessage;
-}
-
-function readHistoryMessages(thread: Thread, turnId: string): ClientMessage[] {
-  const currentIndex = thread.messages.findIndex(
-    (message) => message.turnId === turnId && message.role === "user",
-  );
-  const previousMessages =
-    currentIndex <= 0 ? [] : thread.messages.slice(0, currentIndex);
-
-  return previousMessages.map((message) => ({
-    role: message.role,
-    content: message.content,
-    attachments: message.attachments.map((attachment) => ({ ...attachment })),
-  }));
-}
-
-function mergeThreadSkillSelections(
-  threadSkills: ThreadSkillActivation[],
-  messageSkills: ThreadSkillActivation[],
-): ThreadSkillActivation[] {
-  const byLocation = new Map<string, ThreadSkillActivation>();
-  for (const selection of [...threadSkills, ...messageSkills]) {
-    const location = selection.location.trim();
-    if (!location || byLocation.has(location)) {
-      continue;
-    }
-
-    byLocation.set(location, {
-      name: selection.name,
-      location,
-    });
-  }
-
-  return [...byLocation.values()];
-}
-
-function mapThreadMcpServerToClientConfig(
-  server: Thread["mcpServers"][number],
-): ClientMcpServerConfig {
-  if (server.transport === "stdio") {
-    return {
-      name: server.name,
-      transport: "stdio",
-      command: server.command,
-      args: [...server.args],
-      ...(server.cwd ? { cwd: server.cwd } : {}),
-      env: { ...server.env },
-    };
-  }
-
-  return {
-    name: server.name,
-    transport: server.transport,
-    url: server.url,
-    headers: { ...server.headers },
-    useAzureAuth: server.useAzureAuth,
-    azureAuthScope: server.azureAuthScope ?? MCP_DEFAULT_AZURE_AUTH_SCOPE,
-    timeoutSeconds: server.timeoutSeconds ?? MCP_DEFAULT_TIMEOUT_SECONDS,
-  };
-}
-
-function mapOperationLogRecord(
-  record: ThreadOperationLogRecord,
-  turnId: string,
-): ThreadOperationLogEntry {
-  return {
-    id: record.id,
-    sequence: record.sequence,
-    operationType: record.operationType,
-    serverName: record.serverName,
-    method: record.method,
-    startedAt: record.startedAt,
-    completedAt: record.completedAt,
-    request: record.request,
-    response: record.response,
-    isError: record.isError,
-    turnId,
-  };
-}
-
-function createAssistantMessage(
-  turnId: string,
-  content: string,
-): ThreadMessage {
-  return {
-    id: `assistant-${randomUUID()}`,
-    role: "assistant",
-    content,
-    createdAt: new Date().toISOString(),
-    turnId,
-    attachments: [],
-    skillActivations: [],
-  };
-}
-
-function presentDomainThreadMessage(
-  message: Thread["messages"][number] | undefined,
-): ThreadMessage | null {
-  if (!message) {
-    return null;
-  }
-
-  return {
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    createdAt: message.createdAt,
-    turnId: message.turnId,
-    attachments: message.attachments.map((attachment) => ({ ...attachment })),
-    skillActivations: message.skillActivations.map((activation) => ({
-      name: activation.skillProfile.name,
-      location: activation.skillProfile.location,
-    })),
-  };
-}
-
-async function persistThreadState(options: {
-  thread: Thread;
-  userId: number;
-  repository: ThreadRepository;
-  agentConversationId: string | null;
-  threadEnvironment: Record<string, string>;
-  operationLogs: ThreadOperationLogEntry[];
-  assistantMessage?: ThreadMessage;
-}): Promise<Thread> {
-  const payload = buildThreadSaveInputFromThread(options.thread, {
-    agentConversationId: options.agentConversationId,
-    threadEnvironment: options.threadEnvironment,
-    operationLogs: options.operationLogs,
-    assistantMessage: options.assistantMessage,
-  });
-  const saved = await options.repository.save(options.userId, payload);
-  if (!saved) {
-    throw new ThreadChatRunError(404, "thread_not_found", "Thread not found.");
-  }
-
-  return saved.thread;
+function createThreadChatRunError(
+  status: 404 | 409 | 422,
+  code:
+    | "thread_not_found"
+    | "thread_archived"
+    | "chat_azure_config_required"
+    | "turn_not_found"
+    | "reasoning_effort_not_supported"
+    | "web_search_reasoning_effort_not_supported",
+  message: string,
+): ThreadChatRunError {
+  return new ThreadChatRunError(status, code, message);
 }

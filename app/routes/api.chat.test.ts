@@ -9,7 +9,7 @@ import {
 } from "~/lib/server/usecase/chat/chat-execution-log-context";
 import {
   hasNonPdfAttachments,
-} from "~/lib/server/usecase/chat/chat-execution";
+} from "~/lib/server/usecase/chat/chat-code-interpreter";
 import {
   applyDefaultThreadDirectoryToStdioServers,
   buildMcpServerSessionConfigKey,

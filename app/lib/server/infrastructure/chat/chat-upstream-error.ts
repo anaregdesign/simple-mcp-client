@@ -1,7 +1,7 @@
 import {
   buildUpstreamErrorMessage,
   isChatCanceledError,
-} from "~/lib/server/usecase/chat/chat-execution";
+} from "~/lib/server/usecase/chat/chat-execution-errors";
 
 export type ChatUpstreamErrorPayload = {
   code: string;
