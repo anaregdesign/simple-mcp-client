@@ -116,7 +116,6 @@ import {
 } from "~/lib/client/usecase/workspace/state";
 import { chatApiClient } from "~/lib/client/infrastructure/api/chat-api-client";
 import { instructionPatchesApiClient } from "~/lib/client/infrastructure/api/instruction-patches-api-client";
-import { mcpServersApiClient } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import {
   type SkillsCatalogSnapshot,
 } from "~/lib/client/infrastructure/api/skills-api-client";
@@ -153,13 +152,6 @@ import {
   connectMcpServerToThread,
 } from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
 import {
-  applyWorkspaceMcpServerProfiles as applyWorkspaceMcpServerProfilesOperation,
-  clearWorkspaceMcpServerProfilesState as clearWorkspaceMcpServerProfilesStateOperation,
-  deleteWorkspaceMcpServerProfileFromConfig as deleteWorkspaceMcpServerProfileFromConfigOperation,
-  loadWorkspaceMcpServerProfiles as loadWorkspaceMcpServerProfilesOperation,
-  saveMcpServerToConfig as saveMcpServerToConfigOperation,
-} from "~/lib/client/usecase/workspace/mcp-profiles/operations";
-import {
   type InstructionEnhanceComparison,
   type ThreadRequestState,
 } from "~/lib/client/usecase/workspace/types";
@@ -171,7 +163,6 @@ import {
 } from "~/lib/client/usecase/workspace/chat-session/controller";
 import {
   clearMcpServerEditState as clearMcpServerEditStateOperation,
-  createWorkspaceMcpProfileOperationDeps,
   populateMcpServerFormForEdit as populateMcpServerFormForEditOperation,
   resetMcpServerFormInputs as resetMcpServerFormInputsOperation,
 } from "~/lib/client/usecase/workspace/mcp-profiles/controller";
@@ -193,6 +184,9 @@ import {
 import {
   useSkillCatalog,
 } from "~/lib/client/usecase/workspace/skills-catalog/use-skill-catalog";
+import {
+  createWorkspaceMcpProfileStorageRuntime,
+} from "~/lib/client/usecase/workspace/mcp-profiles/storage-runtime";
 
 /**
  * Client runtime controller.
@@ -507,17 +501,8 @@ export function useWorkspace() {
     selectedPlaygroundAzureDeploymentNameRef,
     selectedUtilityAzureConnectionIdRef,
     selectedUtilityAzureDeploymentNameRef,
-    clearWorkspaceMcpServerProfilesState: (nextError) => {
-      clearWorkspaceMcpServerProfilesStateOperation(
-        buildWorkspaceMcpServerProfileOperationDeps(),
-        nextError,
-      );
-    },
-    loadWorkspaceMcpServerProfiles: async () => {
-      await loadWorkspaceMcpServerProfilesOperation(
-        buildWorkspaceMcpServerProfileOperationDeps(),
-      );
-    },
+    clearWorkspaceMcpServerProfilesState,
+    loadWorkspaceMcpServerProfiles,
     clearThreadsState,
     showThreadReloadPlaceholder,
     loadThreads,
@@ -755,8 +740,8 @@ export function useWorkspace() {
   }, [activeMainTab, isChatLocked]);
 
   // Saved MCP / Skills loading flows.
-  const buildWorkspaceMcpServerProfileOperationDeps = () =>
-    createWorkspaceMcpProfileOperationDeps({
+  const workspaceMcpProfileStorageRuntime =
+    createWorkspaceMcpProfileStorageRuntime({
       readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
       nextWorkspaceMcpServerProfileRequestSeq: () => {
         const requestSeq = workspaceMcpServerProfileRequestSeqRef.current + 1;
@@ -772,11 +757,6 @@ export function useWorkspace() {
       setEditingMcpServerId,
       setIsDeletingWorkspaceMcpServerProfile,
       markAzureAuthRequired,
-      loadProfiles: (options) => mcpServersApiClient.loadProfiles(options),
-      saveProfile: (server, options) =>
-        mcpServersApiClient.saveProfile(server, options),
-      deleteProfile: (serverId, options) =>
-        mcpServersApiClient.deleteProfile(serverId, options),
       logClientError,
     });
 
@@ -922,6 +902,18 @@ export function useWorkspace() {
     await threadStorageRuntime.loadThreads();
   }
 
+  function clearWorkspaceMcpServerProfilesState(
+    nextError?: string | null,
+  ): void {
+    workspaceMcpProfileStorageRuntime.clearWorkspaceMcpServerProfilesState(
+      nextError,
+    );
+  }
+
+  async function loadWorkspaceMcpServerProfiles(): Promise<void> {
+    await workspaceMcpProfileStorageRuntime.loadWorkspaceMcpServerProfiles();
+  }
+
   useWorkspaceThreadBackgroundEffects({
     activeThreadId,
     activeThreadNameInput,
@@ -1047,10 +1039,7 @@ export function useWorkspace() {
     readEditingMcpServerId: () => editingMcpServerId,
     isDeletingWorkspaceMcpServerProfile,
     setWorkspaceMcpServerProfileError,
-    loadWorkspaceMcpServerProfiles: async () =>
-      await loadWorkspaceMcpServerProfilesOperation(
-        buildWorkspaceMcpServerProfileOperationDeps(),
-      ),
+    loadWorkspaceMcpServerProfiles,
     clearMcpServerEditState,
     setEditingMcpServerId,
     populateMcpServerFormForEdit,
@@ -1058,23 +1047,11 @@ export function useWorkspace() {
     setMcpFormWarning,
     setIsDeletingWorkspaceMcpServerProfile,
     setIsSavingMcpServer,
-    applyWorkspaceMcpServerProfiles: (profiles) => {
-      applyWorkspaceMcpServerProfilesOperation(
-        buildWorkspaceMcpServerProfileOperationDeps(),
-        profiles,
-      );
-    },
-    deleteWorkspaceMcpServerProfileFromConfig: async (serverId) =>
-      await deleteWorkspaceMcpServerProfileFromConfigOperation(
-        buildWorkspaceMcpServerProfileOperationDeps(),
-        serverId,
-      ),
-    saveMcpServerToConfig: async (server, options) =>
-      await saveMcpServerToConfigOperation(
-        buildWorkspaceMcpServerProfileOperationDeps(),
-        server,
-        options,
-      ),
+    applyWorkspaceMcpServerProfiles:
+      workspaceMcpProfileStorageRuntime.applyWorkspaceMcpServerProfiles,
+    deleteWorkspaceMcpServerProfileFromConfig:
+      workspaceMcpProfileStorageRuntime.deleteWorkspaceMcpServerProfileFromConfig,
+    saveMcpServerToConfig: workspaceMcpProfileStorageRuntime.saveMcpServerToConfig,
     connectMcpServerToActiveThread,
     resetMcpServerFormInputs,
     updateThreadStateById,
