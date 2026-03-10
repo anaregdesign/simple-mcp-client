@@ -22,7 +22,7 @@ import type {
   AzureSettingsState,
 } from "./types";
 
-type AzureCatalogRuntime = {
+export type AzureCatalogRuntime = {
   cancelAzureDeploymentLoad: (target: "playground" | "utility") => void;
   cancelAzureDeploymentLoads: () => void;
   clearActiveAzureIdentity: () => void;
