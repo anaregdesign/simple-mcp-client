@@ -609,6 +609,17 @@ const checks = [
     ],
   },
   {
+    key: "workspaceViewTypeScalarAliases",
+    description:
+      "view-types.ts must not re-export domain scalar aliases such as ThemeMode, ReasoningEffort, or McpTransport.",
+    command: "rg",
+    args: [
+      "-n",
+      "export type \\{ McpTransport, ReasoningEffort \\}|export type ThemeMode =",
+      "app/lib/client/usecase/workspace/view-types.ts",
+    ],
+  },
+  {
     key: "workspaceRuntimeLoggingOwnership",
     description:
       "use-workspace must reuse the runtime-logging Hook instead of installing global client logging inline.",
