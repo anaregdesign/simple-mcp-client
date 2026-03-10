@@ -77,6 +77,8 @@ export type AzureLogOptions = {
 
 export type UseAzureSettingsOptions = {
   isSending: boolean;
+  reasoningEffort: ReasoningEffort;
+  webSearchEnabled: boolean;
   readIsThreadsReady: () => boolean;
   readIsLoadingThreads: () => boolean;
   setSystemNotice: (message: string | null) => void;
@@ -139,6 +141,11 @@ export type AzureSettingsController = {
   azureLoginError: string | null;
   azureTenantSwitchError: string | null;
   azureLogoutError: string | null;
+  effectivePlaygroundReasoningEffortOptions: ReasoningEffort[];
+  isPlaygroundReasoningEffortSupported: boolean;
+  selectedPlaygroundDeploymentCompatibleReasoningEffortOptions: ReasoningEffort[];
+  isSelectedPlaygroundReasoningEffortOptionAvailable: boolean;
+  isPlaygroundReasoningEffortWebSearchCompatible: boolean;
   effectiveUtilityReasoningEffortOptions: ReasoningEffort[];
   effectiveUtilityReasoningEffort: ReasoningEffort;
   isUtilityReasoningEffortSupported: boolean;
@@ -159,6 +166,11 @@ export type AzureSettingsController = {
   loadAzureProjects: (
     options?: LoadAzureProjectsOptions,
   ) => Promise<LoadAzureProjectsResult>;
+  isPlaygroundDeploymentAvailable: (deploymentName: string) => boolean;
+  isUtilityDeploymentAvailable: (deploymentName: string) => boolean;
+  isPlaygroundReasoningEffortOptionAvailable: (
+    nextReasoningEffort: ReasoningEffort,
+  ) => boolean;
 };
 
 export type AzureSelectionSaveInput =

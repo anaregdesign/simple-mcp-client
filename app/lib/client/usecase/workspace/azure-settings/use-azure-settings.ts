@@ -23,6 +23,8 @@ import {
 } from "./reducer";
 import {
   filterReasoningEffortOptionsForDeploymentCompatibility,
+  includesAzureDeploymentName,
+  selectPlaygroundReasoningEffortViewModel,
   resolveEffectiveReasoningEffort,
   resolveSupportedReasoningEffortOptions,
   selectActiveAzureConnection,
@@ -69,6 +71,21 @@ export function useAzureSettings(
     state.azureConnections,
     state.selectedUtilityAzureConnectionId,
   );
+  const {
+    effectivePlaygroundReasoningEffortOptions,
+    isPlaygroundReasoningEffortSupported,
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+    isSelectedPlaygroundReasoningEffortOptionAvailable,
+    isPlaygroundReasoningEffortWebSearchCompatible,
+    isPlaygroundDeploymentAvailable,
+    isPlaygroundReasoningEffortOptionAvailable,
+  } = selectPlaygroundReasoningEffortViewModel({
+    playgroundAzureDeployments: state.playgroundAzureDeployments,
+    selectedPlaygroundAzureDeploymentName:
+      state.selectedPlaygroundAzureDeploymentName,
+    reasoningEffort: options.reasoningEffort,
+    webSearchEnabled: options.webSearchEnabled,
+  });
   const playgroundAzureDeploymentNames = state.playgroundAzureDeployments.map(
     (deployment) => deployment.name,
   );
@@ -245,6 +262,11 @@ export function useAzureSettings(
     azureLoginError: state.azureLoginError,
     azureTenantSwitchError: state.azureTenantSwitchError,
     azureLogoutError: state.azureLogoutError,
+    effectivePlaygroundReasoningEffortOptions,
+    isPlaygroundReasoningEffortSupported,
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+    isSelectedPlaygroundReasoningEffortOptionAvailable,
+    isPlaygroundReasoningEffortWebSearchCompatible,
     effectiveUtilityReasoningEffortOptions,
     effectiveUtilityReasoningEffort,
     isUtilityReasoningEffortSupported,
@@ -291,5 +313,13 @@ export function useAzureSettings(
     handleSelectUtilityDeployment,
     handleUtilityReasoningEffortChange,
     loadAzureProjects,
+    isPlaygroundDeploymentAvailable,
+    isUtilityDeploymentAvailable(deploymentName: string): boolean {
+      return includesAzureDeploymentName(
+        state.utilityAzureDeployments,
+        deploymentName,
+      );
+    },
+    isPlaygroundReasoningEffortOptionAvailable,
   };
 }

@@ -96,6 +96,65 @@ export function resolveEffectiveReasoningEffort(
   return options[0] ?? DEFAULT_REASONING_EFFORT;
 }
 
+export function selectPlaygroundReasoningEffortViewModel(options: {
+  playgroundAzureDeployments: AzureDeploymentOption[];
+  selectedPlaygroundAzureDeploymentName: string;
+  reasoningEffort: ReasoningEffort;
+  webSearchEnabled: boolean;
+}) {
+  const selectedPlaygroundAzureDeployment =
+    options.playgroundAzureDeployments.find(
+      (deployment) =>
+        deployment.name === options.selectedPlaygroundAzureDeploymentName,
+    );
+  const selectedPlaygroundDeploymentReasoningEffortOptions =
+    resolveSupportedReasoningEffortOptions(
+      selectedPlaygroundAzureDeployment?.reasoningEffortOptions ?? [],
+    );
+  const selectedPlaygroundDeploymentCompatibleReasoningEffortOptions =
+    filterReasoningEffortOptionsForDeploymentCompatibility(
+      selectedPlaygroundDeploymentReasoningEffortOptions,
+      options.selectedPlaygroundAzureDeploymentName,
+    );
+  const isPlaygroundReasoningEffortSupported =
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions.length > 0;
+  const effectivePlaygroundReasoningEffortOptions: ReasoningEffort[] =
+    isPlaygroundReasoningEffortSupported
+      ? filterReasoningEffortOptionsForWebSearch(
+          selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+          options.webSearchEnabled,
+        )
+      : ["none"];
+  const isSelectedPlaygroundReasoningEffortOptionAvailable =
+    !isPlaygroundReasoningEffortSupported ||
+    effectivePlaygroundReasoningEffortOptions.includes(options.reasoningEffort);
+  const isPlaygroundReasoningEffortWebSearchCompatible =
+    !options.webSearchEnabled ||
+    !isPlaygroundReasoningEffortSupported ||
+    isWebSearchCompatibleReasoningEffort(options.reasoningEffort);
+
+  return {
+    effectivePlaygroundReasoningEffortOptions,
+    isPlaygroundReasoningEffortSupported,
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+    isSelectedPlaygroundReasoningEffortOptionAvailable,
+    isPlaygroundReasoningEffortWebSearchCompatible,
+    isPlaygroundDeploymentAvailable(deploymentName: string): boolean {
+      return includesAzureDeploymentName(
+        options.playgroundAzureDeployments,
+        deploymentName,
+      );
+    },
+    isPlaygroundReasoningEffortOptionAvailable(
+      nextReasoningEffort: ReasoningEffort,
+    ): boolean {
+      return effectivePlaygroundReasoningEffortOptions.includes(
+        nextReasoningEffort,
+      );
+    },
+  };
+}
+
 export function selectCachedAzureProjectCatalog(
   state: AzureSettingsState,
   tenantIdRaw: string,

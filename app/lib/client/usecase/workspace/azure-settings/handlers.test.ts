@@ -75,6 +75,8 @@ function createHarness(
   };
   const options: UseAzureSettingsOptions = {
     isSending: false,
+    reasoningEffort: "medium",
+    webSearchEnabled: false,
     readIsThreadsReady: vi.fn(() => false),
     readIsLoadingThreads: vi.fn(() => false),
     setSystemNotice: vi.fn(),

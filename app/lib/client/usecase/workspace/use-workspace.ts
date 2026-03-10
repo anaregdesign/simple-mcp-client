@@ -82,8 +82,8 @@ import {
 } from "~/lib/client/infrastructure/api/skills-api-client";
 import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import {
-  useWorkspaceAzure,
-} from "~/lib/client/usecase/workspace/azure-settings/use-workspace-azure";
+  useAzureSettings,
+} from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
   buildUnauthenticatedPanelProps,
 } from "~/lib/client/usecase/workspace/unauthenticated-panel/selectors";
@@ -455,8 +455,10 @@ export function useWorkspace() {
     isPlaygroundDeploymentAvailable,
     isUtilityDeploymentAvailable,
     isPlaygroundReasoningEffortOptionAvailable,
-  } = useWorkspaceAzure({
+  } = useAzureSettings({
     isSending,
+    reasoningEffort,
+    webSearchEnabled,
     readIsThreadsReady,
     readIsLoadingThreads: () => isLoadingThreads,
     setSystemNotice,
@@ -495,8 +497,6 @@ export function useWorkspace() {
     loadThreads,
     logClientError,
     logClientWarning,
-    reasoningEffort,
-    webSearchEnabled,
   });
   const isChatLocked = isAzureAuthRequired;
   const {

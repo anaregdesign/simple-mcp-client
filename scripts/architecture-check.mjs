@@ -554,15 +554,57 @@ const checks = [
   {
     key: "azureSettingsPrivateRuntimeRefOwnership",
     description:
-      "azure-settings internal handlers and runtime modules must use accessor callbacks instead of raw ref dependencies.",
+      "azure-settings internal handlers must use accessor callbacks instead of raw ref dependencies.",
     command: "rg",
     args: [
       "-n",
       "MutableRefObject|preferredAzureSelectionRef|azureConnectionsRequestSeqRef|playgroundAzureDeploymentRequestSeqRef|utilityAzureDeploymentRequestSeqRef|workspaceMcpServerProfileLoginRetryTimeoutRef",
       "app/lib/client/usecase/workspace/azure-settings/types.ts",
-      "app/lib/client/usecase/workspace/azure-settings/catalog-operations.ts",
-      "app/lib/client/usecase/workspace/azure-settings/catalog-runtime.ts",
       "app/lib/client/usecase/workspace/azure-settings/handlers.ts",
+    ],
+  },
+  {
+    key: "legacyAzureSettingsCatalogOperationsFile",
+    description:
+      "azure-settings catalog-operations.ts must stay retired after canonical handler consolidation.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/catalog-operations.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-operations.ts",
+    ],
+  },
+  {
+    key: "legacyAzureSettingsCatalogRuntimeFile",
+    description:
+      "azure-settings catalog-runtime.ts must stay retired after canonical handler consolidation.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/catalog-runtime.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-runtime.ts",
+    ],
+  },
+  {
+    key: "legacyAzureSettingsSessionOperationsFile",
+    description:
+      "azure-settings session-operations.ts must stay retired after canonical handler consolidation.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/session-operations.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/session-operations.ts",
+    ],
+  },
+  {
+    key: "legacyWorkspaceAzureHookFile",
+    description:
+      "workspace-level azure wrapper Hook must stay retired in favor of the canonical use-azure-settings owner.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/use-workspace-azure.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/use-workspace-azure.ts",
     ],
   },
   {
@@ -854,8 +896,9 @@ const checks = [
     args: [
       "-n",
       "window\\.(setTimeout|clearTimeout)",
-      "app/lib/client/usecase/workspace/azure-settings/catalog-runtime.ts",
-      "app/lib/client/usecase/workspace/azure-settings/session-operations.ts",
+      "app/lib/client/usecase/workspace/azure-settings",
+      "--glob",
+      "!**/*.test.ts",
     ],
   },
   {
