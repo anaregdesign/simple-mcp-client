@@ -5,11 +5,9 @@ import {
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { cloneThreadEnvironment } from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import { upsertThreadOperationLogEntry } from "~/lib/client/usecase/workspace/threads/thread-operation-log-state";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import {
-  type ThreadOperationLogEntry,
-  upsertThreadOperationLogEntry,
-} from "~/lib/contracts/chat/operation-log";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 
 type CreateThreadStateUpdatersOptions = {
   threadsRef: MutableRefObject<ThreadState[]>;

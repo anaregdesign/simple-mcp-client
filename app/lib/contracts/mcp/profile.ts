@@ -268,32 +268,6 @@ export function readMcpServerFromWorkspaceProfileResource(
   );
 }
 
-export function upsertMcpServer(
-  current: McpServerConfig[],
-  profile: McpServerConfig,
-): McpServerConfig[] {
-  const existingIndex = current.findIndex((entry) => entry.id === profile.id);
-  if (existingIndex < 0) {
-    return [...current, profile];
-  }
-
-  return current.map((entry, index) => (index === existingIndex ? profile : entry));
-}
-
-export function formatMcpServerOption(server: McpServerConfig): string {
-  if (server.transport === "stdio") {
-    return `${server.name} (stdio: ${server.command})`;
-  }
-
-  const headerCount = Object.keys(server.headers).length;
-  const azureAuthLabel = server.useAzureAuth ? `, Azure auth (${server.azureAuthScope})` : "";
-  const timeoutLabel = `, timeout ${server.timeoutSeconds}s`;
-  if (headerCount > 0) {
-    return `${server.name} (${server.transport}, +${headerCount} headers${azureAuthLabel}${timeoutLabel})`;
-  }
-  return `${server.name} (${server.transport}${azureAuthLabel}${timeoutLabel})`;
-}
-
 function readHttpHeadersFromUnknown(value: unknown): Record<string, string> | null {
   if (value === undefined || value === null) {
     return {};

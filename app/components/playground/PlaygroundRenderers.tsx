@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { formatPlaygroundAttachmentSize } from "~/components/playground/rendering/attachment-size";
+import { buildThreadOperationLogCopyPayload } from "~/components/playground/rendering/operation-log-copy";
 import {
   formatJsonForDisplay,
   isJsonCodeClassName,
@@ -24,7 +25,6 @@ import { CopyableBlock } from "~/components/shared/CopyableBlock";
 import { CopyIconButton } from "~/components/shared/CopyIconButton";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
-  buildThreadOperationLogCopyPayload,
   readOperationLogType,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";

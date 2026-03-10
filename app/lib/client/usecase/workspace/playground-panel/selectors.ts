@@ -12,13 +12,11 @@ import type {
 } from "~/lib/client/usecase/workspace/view-types";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import {
-  buildThreadOperationLogsByTurnId,
-  type ThreadOperationLogEntry,
-} from "~/lib/contracts/chat/operation-log";
+import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { getFileExtension } from "~/lib/client/usecase/workspace/files";
+import { buildThreadOperationLogsByTurnId } from "~/lib/client/usecase/workspace/playground-panel/operation-log-grouping";
 import { canSendMessageByGuard } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 

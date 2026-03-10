@@ -8,9 +8,7 @@ import type {
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
 import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-save-state";
-import {
-  buildThreadAutoTitlePlaygroundContent,
-} from "~/lib/contracts/threads/title";
+import { buildThreadAutoTitlePlaygroundContent } from "~/lib/client/usecase/workspace/threads/thread-title-content";
 import { normalizeGeneratedThreadTitle } from "~/lib/domain/value-objects/thread-name";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {

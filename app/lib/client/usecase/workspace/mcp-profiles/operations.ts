@@ -1,9 +1,7 @@
 import { ClientApiError, mapApiError } from "~/lib/client/infrastructure/api/api-client";
 import type { McpServersSnapshot } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
-import {
-  type McpServerConfig,
-  upsertMcpServer,
-} from "~/lib/contracts/mcp/profile";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import { upsertMcpServer } from "~/lib/client/usecase/workspace/mcp-profiles/mcp-server-collection";
 
 type WorkspaceMcpServerProfileLogOptions = {
   category?: string;
