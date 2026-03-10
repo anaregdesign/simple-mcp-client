@@ -935,7 +935,6 @@ export function useWorkspace() {
     webSearchEnabled,
     readIsThreadsReady,
     readIsApplyingThreadState,
-    activeThreadIdRef,
     clearThreadNameSaveTimeout,
     clearThreadSaveTimeout,
     clearThreadTitleRefreshTimeout,

@@ -342,6 +342,17 @@ const checks = [
     ],
   },
   {
+    key: "threadBackgroundEffectActiveThreadOwnership",
+    description:
+      "thread background-effects must use the activeThread value instead of a leaked activeThreadId ref.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|activeThreadIdRef",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+    ],
+  },
+  {
     key: "threadControllerReaderOwnership",
     description:
       "Thread controller adapters must use reader callbacks instead of raw refs.",

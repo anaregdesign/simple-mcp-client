@@ -1,7 +1,6 @@
 import {
   useEffect,
   useEffectEvent,
-  type MutableRefObject,
 } from "react";
 import { THREAD_DEFAULT_NAME } from "~/lib/domain/value-objects/thread-defaults";
 import { normalizeThreadName } from "~/lib/domain/value-objects/thread-name";
@@ -43,7 +42,6 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
   webSearchEnabled: boolean;
   readIsThreadsReady: () => boolean;
   readIsApplyingThreadState: () => boolean;
-  activeThreadIdRef: MutableRefObject<string>;
   clearThreadNameSaveTimeout: () => void;
   clearThreadSaveTimeout: () => void;
   clearThreadTitleRefreshTimeout: () => void;
@@ -121,7 +119,7 @@ export function useWorkspaceThreadBackgroundEffects(
       return;
     }
 
-    const currentThreadId = options.activeThreadIdRef.current.trim();
+    const currentThreadId = options.activeThreadId.trim();
     if (!currentThreadId) {
       return;
     }
@@ -177,7 +175,7 @@ export function useWorkspaceThreadBackgroundEffects(
       return;
     }
 
-    const currentThreadId = options.activeThreadIdRef.current.trim();
+    const currentThreadId = options.activeThreadId.trim();
     if (!currentThreadId) {
       return;
     }
@@ -231,7 +229,7 @@ export function useWorkspaceThreadBackgroundEffects(
       return;
     }
 
-    const currentThreadId = options.activeThreadIdRef.current.trim();
+    const currentThreadId = options.activeThreadId.trim();
     if (!currentThreadId || options.isArchivedThread(currentThreadId)) {
       return;
     }
@@ -284,7 +282,7 @@ export function useWorkspaceThreadBackgroundEffects(
       return;
     }
 
-    const currentThreadId = options.activeThreadIdRef.current.trim();
+    const currentThreadId = options.activeThreadId.trim();
     if (!currentThreadId || options.isArchivedThread(currentThreadId)) {
       return;
     }
