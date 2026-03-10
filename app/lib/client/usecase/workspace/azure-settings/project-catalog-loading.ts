@@ -12,7 +12,6 @@ import {
   isLikelyChatAzureAuthError,
 } from "./errors";
 import {
-  readAzureDeploymentList,
   readAzurePrincipalProfileFromUnknown,
   readAzureProjectList,
   readAzureTenantList,
@@ -28,46 +27,25 @@ import {
 import {
   loadAzureSelectionPreference,
   resolveProjectSelection,
-  saveAzureSelectionPreference,
-  saveThemePreference,
 } from "./catalog-preferences";
 import {
-  applyAzureDeployments,
-  cancelAzureDeploymentLoad,
   cancelAzureDeploymentLoads,
 } from "./deployment-selection";
 import {
   clearActiveAzureIdentity,
-  clearWorkspaceMcpServerProfileLoginRetry,
   syncWorkspaceStateForLoadedIdentity,
   updateActiveAzureIdentity,
 } from "./catalog-identity";
 import {
-  selectCachedAzureDeployments,
   selectCachedAzureProjectCatalog,
 } from "./selectors";
 import type {
-  AzureDeploymentTarget,
-  AzureLoadAzureDeploymentsOptions,
-  AzureSelectionSaveInput,
   AzureSettingsHandlerDependencies,
-  AzureSettingsHandlers,
-  AzureSettingsState,
   LoadAzureProjectsOptions,
   LoadAzureProjectsResult,
 } from "./types";
 
-export type AzureCatalogLoadingHandlers = Pick<
-  AzureSettingsHandlers,
-  | "cancelAzureDeploymentLoad"
-  | "clearWorkspaceMcpServerProfileLoginRetryTimeout"
-  | "saveAzureSelectionPreference"
-  | "saveThemePreference"
-  | "loadAzureProjects"
-  | "loadAzureDeployments"
->;
-
-async function loadAzureProjects(
+export async function loadAzureProjects(
   deps: AzureSettingsHandlerDependencies,
   loadOptions: LoadAzureProjectsOptions = {},
 ): Promise<LoadAzureProjectsResult> {
@@ -335,184 +313,4 @@ async function loadAzureProjects(
       });
     }
   }
-}
-
-async function loadAzureDeployments(
-  deps: AzureSettingsHandlerDependencies,
-  projectId: string,
-  target: AzureDeploymentTarget,
-  loadOptions: AzureLoadAzureDeploymentsOptions = {},
-): Promise<void> {
-  const normalizedProjectId = projectId.trim();
-  const forceReload = loadOptions.force !== false;
-  if (!normalizedProjectId) {
-    deps.patchState(
-      target === "playground"
-        ? {
-            playgroundAzureDeployments: [],
-            selectedPlaygroundAzureDeploymentName: "",
-            playgroundAzureDeploymentError: null,
-          }
-        : {
-            utilityAzureDeployments: [],
-            selectedUtilityAzureDeploymentName: "",
-            utilityAzureDeploymentError: null,
-          },
-    );
-    return;
-  }
-
-  if (!forceReload) {
-    const cachedDeployments = selectCachedAzureDeployments(
-      deps.readState(),
-      deps.options.readActiveAzureTenantId(),
-      normalizedProjectId,
-    );
-    if (cachedDeployments) {
-      applyAzureDeployments(
-        deps,
-        target,
-        normalizedProjectId,
-        cachedDeployments,
-      );
-      return;
-    }
-  }
-
-  const requestSeq = deps.nextAzureDeploymentRequestSeq(target);
-  if (target === "playground") {
-    deps.patchState({
-      isLoadingPlaygroundAzureDeployments: true,
-      playgroundAzureDeploymentError: null,
-    });
-  } else {
-    deps.patchState({
-      isLoadingUtilityAzureDeployments: true,
-      utilityAzureDeploymentError: null,
-    });
-  }
-
-  try {
-    const payload = await azureProjectsApiClient.loadDeployments(
-      normalizedProjectId,
-    );
-    const activeRequestSeq = deps.readAzureDeploymentRequestSeq(target);
-    if (requestSeq !== activeRequestSeq) {
-      return;
-    }
-
-    const selectedProjectId =
-      target === "playground"
-        ? deps.options.readSelectedPlaygroundAzureConnectionId().trim()
-        : deps.options.readSelectedUtilityAzureConnectionId().trim();
-    if (!selectedProjectId || selectedProjectId !== normalizedProjectId) {
-      return;
-    }
-
-    const parsedDeployments = readAzureDeploymentList(payload.deployments);
-    const tenantIdFromPayload = readTenantIdFromUnknown(payload.tenantId);
-    const principalIdFromPayload = readPrincipalIdFromUnknown(
-      payload.principalId,
-    );
-    if (tenantIdFromPayload) {
-      deps.options.writeActiveAzureTenantId(tenantIdFromPayload);
-    }
-    if (principalIdFromPayload) {
-      deps.options.writeActiveAzurePrincipalId(principalIdFromPayload);
-    }
-    const parsedPrincipal = readAzurePrincipalProfileFromUnknown(
-      payload.principal,
-      deps.options.readActiveAzureTenantId(),
-      deps.options.readActiveAzurePrincipalId(),
-    );
-    if (parsedPrincipal) {
-      deps.patchState({
-        activeAzurePrincipal: parsedPrincipal,
-      });
-    } else if (
-      deps.options.readActiveAzureTenantId() &&
-      deps.options.readActiveAzurePrincipalId()
-    ) {
-      deps.patchState({
-        activeAzurePrincipal: {
-          tenantId: deps.options.readActiveAzureTenantId(),
-          principalId: deps.options.readActiveAzurePrincipalId(),
-          displayName: deps.options.readActiveAzurePrincipalId(),
-          principalName: "",
-          principalType: "unknown",
-        },
-      });
-    }
-    deps.dispatch({
-      type: "deployment_cache/upsert",
-      tenantId: deps.options.readActiveAzureTenantId(),
-      projectId: normalizedProjectId,
-      deployments: parsedDeployments,
-    });
-    applyAzureDeployments(deps, target, normalizedProjectId, parsedDeployments);
-  } catch (loadError) {
-    const activeRequestSeq = deps.readAzureDeploymentRequestSeq(target);
-    if (requestSeq !== activeRequestSeq) {
-      return;
-    }
-
-    deps.options.logClientError("load_azure_deployments_failed", loadError, {
-      action: "load_azure_deployments",
-      context: {
-        target,
-        projectId: normalizedProjectId,
-      },
-    });
-    const errorMessage = mapApiError(
-      loadError,
-      "Failed to load Azure deployments.",
-    );
-    deps.patchState(
-      target === "playground"
-        ? {
-            playgroundAzureDeployments: [],
-            selectedPlaygroundAzureDeploymentName: "",
-            playgroundAzureDeploymentError: errorMessage,
-          }
-        : {
-            utilityAzureDeployments: [],
-            selectedUtilityAzureDeploymentName: "",
-            utilityAzureDeploymentError: errorMessage,
-          },
-    );
-  } finally {
-    const activeRequestSeq = deps.readAzureDeploymentRequestSeq(target);
-    if (requestSeq === activeRequestSeq) {
-      deps.patchState(
-        target === "playground"
-          ? { isLoadingPlaygroundAzureDeployments: false }
-          : { isLoadingUtilityAzureDeployments: false },
-      );
-    }
-  }
-}
-
-export function createAzureCatalogLoadingHandlers(
-  deps: AzureSettingsHandlerDependencies,
-): AzureCatalogLoadingHandlers {
-  return {
-    cancelAzureDeploymentLoad(target) {
-      cancelAzureDeploymentLoad(deps, target);
-    },
-    clearWorkspaceMcpServerProfileLoginRetryTimeout() {
-      clearWorkspaceMcpServerProfileLoginRetry(deps);
-    },
-    saveAzureSelectionPreference(selection: AzureSelectionSaveInput) {
-      return saveAzureSelectionPreference(deps, selection);
-    },
-    saveThemePreference(nextTheme: AzureSettingsState["theme"]) {
-      return saveThemePreference(deps, nextTheme);
-    },
-    loadAzureProjects(loadOptions) {
-      return loadAzureProjects(deps, loadOptions);
-    },
-    loadAzureDeployments(projectId, target, loadOptions) {
-      return loadAzureDeployments(deps, projectId, target, loadOptions);
-    },
-  };
 }
