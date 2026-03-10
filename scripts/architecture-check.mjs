@@ -168,6 +168,26 @@ const checks = [
     ],
   },
   {
+    key: "legacyThreadOperationLogStateClient",
+    description:
+      "Client thread operation-log state owner must not reappear outside the domain value-object.",
+    rootPath:
+      "app/lib/client/usecase/workspace/threads/thread-operation-log-state.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/threads/thread-operation-log-state.ts",
+    ],
+  },
+  {
+    key: "legacyThreadOperationLogStateServer",
+    description:
+      "Server thread operation-log state owner must not reappear outside the domain value-object.",
+    rootPath: "app/lib/server/usecase/chat/thread-operation-log-state.ts",
+    command: "rg",
+    args: ["--files", "app/lib/server/usecase/chat/thread-operation-log-state.ts"],
+  },
+  {
     key: "threadStateHelpersInContracts",
     description:
       "Thread client state, summaries, and state helpers must not live under app/lib/contracts/threads.",
@@ -343,6 +363,61 @@ const checks = [
       "-n",
       "activeThreadNameInputRef|threadSaveRequestSeqRef",
       "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
+    key: "legacyThreadMcpServerOperations",
+    description:
+      "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
+    rootPath:
+      "app/lib/client/usecase/workspace/threads/thread-mcp-server-operations.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/threads/thread-mcp-server-operations.ts",
+    ],
+  },
+  {
+    key: "legacyAzureOpenAIUrlOwner",
+    description:
+      "Azure OpenAI baseUrl normalization must not live under server/usecase/azure.",
+    rootPath: "app/lib/server/usecase/azure/azure-openai-url.ts",
+    command: "rg",
+    args: ["--files", "app/lib/server/usecase/azure/azure-openai-url.ts"],
+  },
+  {
+    key: "azureCapabilityHelperDuplication",
+    description:
+      "Azure deployment capability helpers must stay in the domain value-object instead of server/usecase/azure.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (buildModelCapabilitiesMap|isAgentsSdkCompatibleDeployment|resolveDeploymentReasoningEffortOptions|resolveReasoningEffortOptionsByModelName|parseReasoningEffortOptionsFromString|mergeReasoningEffortOptions|isDeploymentSucceeded|createModelKey)|const (buildModelCapabilitiesMap|isAgentsSdkCompatibleDeployment|resolveDeploymentReasoningEffortOptions|resolveReasoningEffortOptionsByModelName|parseReasoningEffortOptionsFromString|mergeReasoningEffortOptions|isDeploymentSucceeded|createModelKey)\\s*=",
+      "app/lib/server/usecase/azure",
+      "--glob",
+      "!**/*.test.ts",
+    ],
+  },
+  {
+    key: "skillFrontmatterInfraScalarValidationOwnership",
+    description:
+      "Skill frontmatter infra validation must reuse the domain scalar invariant owner instead of inline name/description rules.",
+    command: "rg",
+    args: [
+      "-n",
+      "AGENT_SKILL_NAME_PATTERN|AGENT_SKILL_NAME_MAX_LENGTH|AGENT_SKILL_DESCRIPTION_MAX_LENGTH",
+      "app/lib/server/infrastructure/gateways/skills/skill-frontmatter-validation.ts",
+    ],
+  },
+  {
+    key: "mcpServerProfileServicePolicyDuplication",
+    description:
+      "MCP server profile service must not redefine extracted pure default/legacy/upsert policy helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "function (buildDefaultMcpServerProfiles|normalizeLegacyDefaultProfiles|isLegacyDefaultMermaidProfile|isLegacyDefaultFilesystemProfile|isLegacyUnavailableDefaultStdioProfile|isLegacyDefaultWorkingDirectory|buildIncomingProfileKey)",
+      "app/lib/server/usecase/mcp/mcp-server-profile-service.ts",
     ],
   },
   {

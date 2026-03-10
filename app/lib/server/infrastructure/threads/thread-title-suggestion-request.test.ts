@@ -70,6 +70,7 @@ describe("readThreadTitleSuggestionRequest", () => {
         reasoningEffort: "medium",
         azureConfig: {
           tenantId: "tenant-a",
+          projectId: "",
           projectName: "project-a",
           baseUrl: "https://sample.openai.azure.com/openai/v1/",
           apiVersion: "v1",
