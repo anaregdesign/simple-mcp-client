@@ -1,11 +1,11 @@
 import {
   structuredAuthRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   handleWorkspaceSkillProfilesAction,
   handleWorkspaceSkillProfilesLoader,
-} from "~/lib/server/http/skills/workspace-skill-profile-action";
+} from "~/lib/server/infrastructure/skills/workspace-skill-profile-action";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,

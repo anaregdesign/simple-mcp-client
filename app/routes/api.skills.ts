@@ -1,11 +1,11 @@
 /**
  * API route module for /api/skills.
  */
-import { handleSkillsCollectionLoader } from "~/lib/server/http/skills/skill-discovery-loader";
+import { handleSkillsCollectionLoader } from "~/lib/server/infrastructure/skills/skill-discovery-loader";
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,

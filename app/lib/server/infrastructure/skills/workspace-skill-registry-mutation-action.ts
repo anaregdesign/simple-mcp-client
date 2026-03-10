@@ -4,8 +4,8 @@ import {
   methodNotAllowedResponse,
   readErrorMessage,
   validationErrorResponse,
-} from "~/lib/server/http";
-import { parseSkillRegistryMutationPath } from "~/lib/server/http/skills/workspace-skill-request";
+} from "~/lib/server/infrastructure/http/route-transport";
+import { parseSkillRegistryMutationPath } from "~/lib/server/infrastructure/skills/workspace-skill-request";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type {

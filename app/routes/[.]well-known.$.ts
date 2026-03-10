@@ -4,7 +4,7 @@
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
-import { methodNotAllowedResponse } from "~/lib/server/http";
+import { methodNotAllowedResponse } from "~/lib/server/infrastructure/http/route-transport";
 
 const unsupportedMetadataResponse = {
   error: "OAuth metadata is not configured for this Local Playground endpoint.",

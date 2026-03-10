@@ -6,7 +6,7 @@ import {
   parseSkillRegistryMutationPath,
   readSkillRegistryRefreshQueryFlag,
   readWorkspaceSkillProfileReconcilePayloadFromUnknown,
-} from "~/lib/server/http/skills/workspace-skill-request";
+} from "~/lib/server/infrastructure/skills/workspace-skill-request";
 
 describe("parseSkillRegistryMutationPath", () => {
   it("parses a valid skill mutation request", () => {

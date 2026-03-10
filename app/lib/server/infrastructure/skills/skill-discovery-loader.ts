@@ -1,8 +1,8 @@
-import { readSkillRegistryRefreshQueryFlag } from "~/lib/server/http/skills/workspace-skill-request";
+import { readSkillRegistryRefreshQueryFlag } from "~/lib/server/infrastructure/skills/workspace-skill-request";
 import {
   errorResponse,
   readErrorMessage,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { WorkspaceSkillService } from "~/lib/server/usecase/skills/workspace-skill-service";
 
