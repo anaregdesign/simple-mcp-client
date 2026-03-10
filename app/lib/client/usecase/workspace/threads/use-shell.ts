@@ -4,8 +4,10 @@ import {
   DEFAULT_WEB_SEARCH_ENABLED,
 } from "~/lib/domain/value-objects/thread-defaults";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import { isThreadArchivedById } from "~/lib/contracts/threads/state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import {
+  isThreadArchivedById,
+  type ThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type { WorkspaceInteractionAction } from "~/lib/client/usecase/workspace/reducer";

@@ -2,7 +2,7 @@ import {
   buildMcpServerKey,
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 export function connectMcpServerToThread(
   thread: ThreadState,

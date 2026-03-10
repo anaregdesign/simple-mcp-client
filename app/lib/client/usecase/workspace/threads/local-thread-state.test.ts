@@ -6,7 +6,7 @@ import {
   setThreadSaveSignatures,
   shouldPersistThreadState,
 } from "~/lib/client/usecase/workspace/threads/local-thread-state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 describe("threads/local-thread-state", () => {
   it("creates a local thread with default MCP connections", () => {

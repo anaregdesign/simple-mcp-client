@@ -1,9 +1,13 @@
 import { ClientApiError, mapApiError } from "~/lib/client/infrastructure/api/api-client";
 import type { ThreadsApiResponse } from "~/lib/client/infrastructure/api/threads-api-client";
+import {
+  readThreadStateListFromResources,
+} from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
+import {
+  type ThreadState,
+  upsertThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
 import { DEFAULT_AGENT_INSTRUCTION } from "~/lib/domain/value-objects/thread-defaults";
-import { readThreadStateListFromResources } from "~/lib/contracts/threads/parsers";
-import { upsertThreadState } from "~/lib/contracts/threads/state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
 
 type ThreadLoadingLogOptions = {
   category?: string;

@@ -11,7 +11,7 @@ import {
   reconcileSavedThreadMcpServer,
   removeThreadMcpServerByConfig,
 } from "~/lib/client/usecase/workspace/threads/thread-mcp-server-operations";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 export const MCP_PROFILE_ARCHIVED_THREAD_ERROR =
   "Archived thread is read-only. Restore it from Archives to edit MCP servers.";

@@ -27,7 +27,7 @@ import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type SendMessageLogOptions = {
   category?: string;

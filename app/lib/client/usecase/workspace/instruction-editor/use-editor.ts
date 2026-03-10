@@ -4,8 +4,8 @@ import {
 } from "react";
 import {
   cloneThreadInstructionContexts,
-} from "~/lib/contracts/threads/state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+} from "~/lib/client/usecase/workspace/threads/thread-state";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   createInitialInstructionEditorState,
   type InstructionEditorState,

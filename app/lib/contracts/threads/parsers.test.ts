@@ -3,8 +3,6 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  buildThreadSummary,
-  convertThreadResourceToState,
   readThreadResourceFromUnknown,
   readThreadResourceList,
   readThreadWritePayloadFromUnknown,
@@ -132,37 +130,6 @@ describe("readThreadResourceFromUnknown", () => {
   });
 });
 
-describe("convertThreadResourceToState", () => {
-  it("converts a raw thread resource into client thread state", () => {
-    const state = convertThreadResourceToState(createThreadResource());
-
-    expect(state.id).toBe("thread-1");
-    expect(state.reasoningEffort).toBe("none");
-    expect(state.webSearchEnabled).toBe(false);
-    expect(state.agentInstruction).toBe("You are concise.");
-    expect(state.threadEnvironment).toEqual({
-      VIRTUAL_ENV: "/tmp/thread-1/.venv",
-    });
-    expect(state.messages[0]?.skillActivations).toEqual([
-      {
-        name: "doc-retriever",
-        location: "/skills/doc-retriever/SKILL.md",
-      },
-    ]);
-    expect(state.mcpServers[0]).toEqual({
-      id: "mcp-1",
-      name: "Local MCP",
-      connectOnThreadCreate: false,
-      transport: "streamable_http",
-      url: "https://example.com/mcp",
-      headers: {},
-      useAzureAuth: false,
-      azureAuthScope: "https://cognitiveservices.azure.com/.default",
-      timeoutSeconds: 30,
-    });
-  });
-});
-
 describe("readThreadWritePayloadFromUnknown", () => {
   it("parses a valid thin thread write payload", () => {
     const parsed = readThreadWritePayloadFromUnknown({
@@ -273,48 +240,5 @@ describe("readThreadResourceList", () => {
 
     expect(list).toHaveLength(1);
     expect(list[0]?.name).toBe("Thread 1");
-  });
-});
-
-describe("buildThreadSummary", () => {
-  it("builds summary counts", () => {
-    const summary = buildThreadSummary({
-      id: "thread-1",
-      name: "Thread 1",
-      createdAt: "2026-02-20T00:00:00.000Z",
-      updatedAt: "2026-02-20T00:00:00.000Z",
-      deletedAt: null,
-      messages: [
-        {
-          id: "message-1",
-          role: "assistant",
-          content: "Hello",
-          createdAt: "2026-02-20T00:00:00.000Z",
-          turnId: "turn-1",
-          attachments: [],
-          skillActivations: [],
-        },
-      ],
-      mcpServers: [
-        {
-          id: "mcp-1",
-          name: "Local MCP",
-          transport: "stdio",
-          command: "npx",
-          args: ["-y"],
-          env: {},
-        },
-      ],
-    });
-
-    expect(summary).toEqual({
-      id: "thread-1",
-      name: "Thread 1",
-      createdAt: "2026-02-20T00:00:00.000Z",
-      updatedAt: "2026-02-20T00:00:00.000Z",
-      deletedAt: null,
-      messageCount: 1,
-      mcpServerCount: 1,
-    });
   });
 });

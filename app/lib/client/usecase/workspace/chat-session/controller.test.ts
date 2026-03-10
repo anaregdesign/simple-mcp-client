@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 vi.mock("~/lib/client/usecase/workspace/chat-session/operations", () => ({
   sendMessage: vi.fn(async () => {}),

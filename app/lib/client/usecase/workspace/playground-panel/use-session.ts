@@ -7,7 +7,7 @@ import {
   DEFAULT_WEB_SEARCH_ENABLED,
 } from "~/lib/domain/value-objects/thread-defaults";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type {
   ReasoningEffort,

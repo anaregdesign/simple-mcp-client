@@ -56,14 +56,14 @@ import {
   hasThreadPersistableState,
   isThreadArchivedById,
   updateThreadStateCollectionById,
-} from "~/lib/contracts/threads/state";
+  type ThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
   type ThreadInstructionContextToggleKey,
 } from "~/lib/domain/value-objects/thread-instruction-context";
-import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   type SkillRegistryId,
 } from "~/lib/domain/value-objects/skill-registry";

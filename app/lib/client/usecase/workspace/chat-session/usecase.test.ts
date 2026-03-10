@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   applySendResult,
   executeSendMessageTransport,

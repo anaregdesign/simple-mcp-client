@@ -5,10 +5,14 @@ import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import {
   convertThreadResourceToState,
   convertThreadStateToWritePayload,
-  readThreadResourceFromUnknown,
-} from "~/lib/contracts/threads/parsers";
-import { buildThreadSaveSignature, upsertThreadState } from "~/lib/contracts/threads/state";
-import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
+} from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
+import {
+  buildThreadSaveSignature,
+  type ThreadState,
+  upsertThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
+import { readThreadResourceFromUnknown } from "~/lib/contracts/threads/parsers";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import { findThreadStateById } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 
 type ThreadPersistenceLogOptions = {

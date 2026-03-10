@@ -1,5 +1,5 @@
 /**
- * Test module verifying thread state helper behavior.
+ * Test module verifying client thread state helper behavior.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -10,7 +10,7 @@ import {
   readThreadRuntimeStateById,
   readThreadStateById,
   updateThreadStateCollectionById,
-} from "~/lib/contracts/threads/state";
+} from "~/lib/client/usecase/workspace/threads/thread-state";
 
 describe("hasThreadInteraction", () => {
   it("returns false for threads without messages", () => {

@@ -12,7 +12,7 @@ import {
   MCP_PROFILE_NOT_AVAILABLE_ERROR,
   saveWorkspaceMcpServerProfile,
 } from "~/lib/client/usecase/workspace/mcp-profiles/mutations";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type McpProfileLogOptions = {
   category?: string;

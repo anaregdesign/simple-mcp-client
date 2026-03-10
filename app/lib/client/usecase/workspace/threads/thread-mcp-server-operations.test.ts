@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { McpHttpServerConfig, McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   connectMcpServerToThread,
   reconcileSavedThreadMcpServer,

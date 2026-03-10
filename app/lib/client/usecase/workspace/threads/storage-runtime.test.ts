@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 const mockPersistenceController = {
   saveThreadStateToDatabase: vi.fn(async () => true),

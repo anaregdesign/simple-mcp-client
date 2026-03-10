@@ -6,7 +6,7 @@ import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type {
   ThreadState,
   ThreadSummary,
-} from "~/lib/contracts/threads/types";
+} from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 
 export type ThreadListOption = {

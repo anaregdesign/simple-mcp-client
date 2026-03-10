@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   selectThreadViewModel,
 } from "~/lib/client/usecase/workspace/threads/selectors";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {

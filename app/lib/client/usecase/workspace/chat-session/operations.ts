@@ -19,10 +19,10 @@ import type {
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import { buildThreadSaveSignature } from "~/lib/contracts/threads/state";
+import { buildThreadSaveSignature } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import type { ThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 

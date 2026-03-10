@@ -27,7 +27,7 @@ import type {
   SkillRegistryCatalog,
   ThreadSkillActivation,
 } from "~/lib/contracts/skills/types";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type ActiveAzurePrincipal = {
   tenantId: string;

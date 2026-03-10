@@ -11,7 +11,8 @@ import {
 import type {
   ThreadLifecycleHandlerDependencies,
 } from "~/lib/client/usecase/workspace/threads/thread-lifecycle-types";
-import type { ThreadResource, ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadResource } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
 } from "~/lib/domain/value-objects/thread-instruction-context";

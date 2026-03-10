@@ -6,7 +6,8 @@ import {
   saveThreadStateSilentlyIfNeeded as saveThreadStateSilentlyIfNeededOperation,
   saveThreadStateToDatabase as saveThreadStateToDatabaseOperation,
 } from "~/lib/client/usecase/workspace/threads/thread-persistence-operations";
-import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type CreateThreadPersistenceControllerOptions = {
   activeWorkspaceUserKeyRef: MutableRefObject<string>;

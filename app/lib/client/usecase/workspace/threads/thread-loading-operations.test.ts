@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ClientApiError } from "~/lib/client/infrastructure/api/api-client";
 import type {
   ThreadResource,
-  ThreadState,
 } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { loadThreads } from "./thread-loading-operations";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {

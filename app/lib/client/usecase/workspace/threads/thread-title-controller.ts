@@ -14,7 +14,7 @@ import type {
   AzureConnectionView,
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type CreateThreadTitleControllerOptions = {
   activeThreadIdRef: MutableRefObject<string>;

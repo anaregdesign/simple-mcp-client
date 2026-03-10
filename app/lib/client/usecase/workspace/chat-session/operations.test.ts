@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { sendMessage as sendMessageOperation } from "./operations";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {

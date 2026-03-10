@@ -7,7 +7,7 @@ import {
 import {
   createThreadPersistenceController,
 } from "~/lib/client/usecase/workspace/threads/thread-persistence-controller";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type ThreadPersistenceControllerOptions =
   Parameters<typeof createThreadPersistenceController>[0];

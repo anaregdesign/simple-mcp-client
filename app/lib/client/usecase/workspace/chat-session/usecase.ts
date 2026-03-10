@@ -21,8 +21,8 @@ import {
   cloneThreadInstructionContexts,
   cloneThreadOperationLogs,
   cloneThreadSkillActivations,
-} from "~/lib/contracts/threads/state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+} from "~/lib/client/usecase/workspace/threads/thread-state";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type {
   AzureConnectionView,

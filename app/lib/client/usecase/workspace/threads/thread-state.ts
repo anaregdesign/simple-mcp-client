@@ -1,15 +1,29 @@
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { hasPersistableThreadState as hasPersistableThreadSnapshot } from "~/lib/domain/policies/thread-persistable-state";
 import { cloneChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
 import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import { cloneThreadInstructionContextToggles } from "~/lib/domain/value-objects/thread-instruction-context";
-import type {
-  ThreadState,
-  ThreadWritePayload,
-} from "~/lib/contracts/threads/types";
+
+export type ThreadState = Omit<ThreadWritePayload, "instruction"> & {
+  updatedAt: string;
+  deletedAt: string | null;
+  agentConversationId?: string | null;
+  agentInstruction: string;
+};
+
+export type ThreadSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  messageCount: number;
+  mcpServerCount: number;
+};
 
 export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
   return value.map((message) => ({

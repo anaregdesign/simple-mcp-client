@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { hasPersistableThreadState } from "~/lib/domain/policies/thread-persistable-state";
 import { cloneThreadEnvironment } from "~/lib/domain/value-objects/thread-environment";
 import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
-import { hasThreadPersistableState } from "~/lib/contracts/threads/state";
 import {
   Thread,
   type ThreadProps,
@@ -98,10 +98,12 @@ describe("thread helpers", () => {
 
   it("treats default thread settings as non-persistable", () => {
     expect(
-      hasThreadPersistableState({
-        messages: [],
+      hasPersistableThreadState({
+        messageCount: 0,
+        skillSelectionCount: 0,
         reasoningEffort: "none",
         webSearchEnabled: false,
+        instructionContent: "",
         instructionContextToggles: DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
         threadEnvironment: {},
       }),

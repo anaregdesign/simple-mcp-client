@@ -3,8 +3,8 @@ import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thr
 import {
   cloneThreadEnvironment,
   updateThreadStateCollectionById,
-} from "~/lib/contracts/threads/state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+  type ThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
   type ThreadOperationLogEntry,

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ClientApiError } from "~/lib/client/infrastructure/api/api-client";
 import type { ThreadTitleSuggestionRequest } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { refreshThreadTitleInBackground } from "./thread-title-operations";
 
 function createThreadMessage(

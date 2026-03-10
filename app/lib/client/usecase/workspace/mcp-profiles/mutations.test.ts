@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { McpHttpServerConfig, McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   deleteWorkspaceMcpServerProfile,
   MCP_PROFILE_ARCHIVED_THREAD_ERROR,

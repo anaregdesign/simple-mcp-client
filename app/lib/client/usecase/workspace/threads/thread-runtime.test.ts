@@ -2,7 +2,7 @@
  * Tests for Client controller thread runtime helpers.
  */
 import { describe, expect, it } from "vitest";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   buildThreadListOptions,
   findThreadStateById,

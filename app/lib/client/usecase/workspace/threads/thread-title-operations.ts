@@ -7,12 +7,12 @@ import type {
   AzureConnectionView,
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
-import { hasThreadInteraction } from "~/lib/contracts/threads/state";
+import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   buildThreadAutoTitlePlaygroundContent,
   normalizeThreadAutoTitle,
 } from "~/lib/contracts/threads/title";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type ThreadTitleLogOptions = {
   category?: string;

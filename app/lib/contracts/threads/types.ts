@@ -112,20 +112,3 @@ export type ThreadWritePayload = {
   mcpRpcLogs: ThreadOperationLogEntry[];
   skillSelections: ThreadSkillActivation[];
 };
-
-export type ThreadState = Omit<ThreadWritePayload, "instruction"> & {
-  updatedAt: string;
-  deletedAt: string | null;
-  agentConversationId?: string | null;
-  agentInstruction: string;
-};
-
-export type ThreadSummary = {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string | null;
-  messageCount: number;
-  mcpServerCount: number;
-};

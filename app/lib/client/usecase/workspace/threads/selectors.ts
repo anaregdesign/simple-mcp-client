@@ -1,10 +1,10 @@
 import { INITIAL_THREAD_MESSAGES } from "~/lib/constants/client";
-import { buildThreadSummary } from "~/lib/contracts/threads/parsers";
 import {
   isThreadArchived,
   readThreadRuntimeStateById,
-} from "~/lib/contracts/threads/state";
-import type { ThreadState } from "~/lib/contracts/threads/types";
+  type ThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
+import { buildThreadSummary } from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import {
   buildThreadListOptions,
