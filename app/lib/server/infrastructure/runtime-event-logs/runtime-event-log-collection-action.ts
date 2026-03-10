@@ -11,7 +11,7 @@ import {
   methodNotAllowedResponse,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 
 const APP_EVENT_LOGS_ALLOWED_METHODS = ["POST"] as const;
 const RUNTIME_EVENT_LOGS_COLLECTION_ROUTE_PATH = "/api/runtime/event-logs";

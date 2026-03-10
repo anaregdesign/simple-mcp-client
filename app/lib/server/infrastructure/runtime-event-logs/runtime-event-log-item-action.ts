@@ -3,7 +3,7 @@ import {
   errorResponse,
   methodNotAllowedResponse,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   installGlobalServerErrorLogging,
   logServerRouteEvent,

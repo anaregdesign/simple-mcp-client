@@ -4,7 +4,7 @@
 import {
   handleRuntimeEventLogCollectionAction,
   handleRuntimeEventLogCollectionLoader,
-} from "~/lib/server/http/runtime-event-logs/runtime-event-log-collection-action";
+} from "~/lib/server/infrastructure/runtime-event-logs/runtime-event-log-collection-action";
 
 export function loader() {
   return handleRuntimeEventLogCollectionLoader();

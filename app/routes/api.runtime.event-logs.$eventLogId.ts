@@ -4,7 +4,7 @@
 import {
   handleRuntimeEventLogItemAction,
   handleRuntimeEventLogItemLoader,
-} from "~/lib/server/http/runtime-event-logs/runtime-event-log-item-action";
+} from "~/lib/server/infrastructure/runtime-event-logs/runtime-event-log-item-action";
 import {
   createRuntimeEventLogServiceWithInfrastructure,
 } from "~/lib/server/infrastructure/runtime-event-logs/runtime-event-log-service-factory";
