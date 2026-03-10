@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import type { SkillsCatalogSnapshot } from "~/lib/client/infrastructure/api/skills-api-client";
 import {
   applySkillsCatalogSnapshot as applySkillsCatalogSnapshotOperation,
@@ -21,9 +20,11 @@ type SkillCatalogLogOptions = {
 };
 
 type CreateSkillCatalogControllerOptions = {
-  activeWorkspaceUserKeyRef: MutableRefObject<string>;
-  skillsRequestSeqRef: MutableRefObject<number>;
-  lastManualSkillsReloadAtRef: MutableRefObject<number>;
+  readActiveWorkspaceUserKey: () => string;
+  nextSkillsRequestSeq: () => number;
+  readSkillsRequestSeq: () => number;
+  readLastManualReloadAt: () => number;
+  setLastManualReloadAt: (value: number) => void;
   markAzureAuthRequired: () => void;
   resolveAzureBackgroundSuccess: () => void;
   setAvailableSkills: (value: SkillCatalogEntry[]) => void;
@@ -57,18 +58,11 @@ export function createSkillCatalogController(
 ) {
   function buildOperationDeps() {
     return {
-      readActiveWorkspaceUserKey: () =>
-        options.activeWorkspaceUserKeyRef.current,
-      nextSkillsRequestSeq: () => {
-        const requestSeq = options.skillsRequestSeqRef.current + 1;
-        options.skillsRequestSeqRef.current = requestSeq;
-        return requestSeq;
-      },
-      readSkillsRequestSeq: () => options.skillsRequestSeqRef.current,
-      readLastManualReloadAt: () => options.lastManualSkillsReloadAtRef.current,
-      setLastManualReloadAt: (value: number) => {
-        options.lastManualSkillsReloadAtRef.current = value;
-      },
+      readActiveWorkspaceUserKey: options.readActiveWorkspaceUserKey,
+      nextSkillsRequestSeq: options.nextSkillsRequestSeq,
+      readSkillsRequestSeq: options.readSkillsRequestSeq,
+      readLastManualReloadAt: options.readLastManualReloadAt,
+      setLastManualReloadAt: options.setLastManualReloadAt,
       markAzureAuthRequired: options.markAzureAuthRequired,
       resolveAzureBackgroundSuccess: options.resolveAzureBackgroundSuccess,
       setAvailableSkills: options.setAvailableSkills,

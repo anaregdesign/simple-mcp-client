@@ -3,7 +3,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type { MutableRefObject } from "react";
 import {
   createSkillCatalogController,
 } from "~/lib/client/usecase/workspace/skills-catalog/controller";
@@ -35,7 +34,7 @@ type ActiveAzurePrincipal = {
 } | null;
 
 type UseSkillCatalogOptions = {
-  activeWorkspaceUserKeyRef: MutableRefObject<string>;
+  readActiveWorkspaceUserKey: () => string;
   activeAzurePrincipal: ActiveAzurePrincipal;
   isAzureAuthRequired: boolean;
   markAzureAuthRequired: () => void;
@@ -90,9 +89,17 @@ export function useSkillCatalog(options: UseSkillCatalogOptions) {
   const [skillsWarning, setSkillsWarning] = useState<string | null>(null);
 
   const controller = createSkillCatalogController({
-    activeWorkspaceUserKeyRef: options.activeWorkspaceUserKeyRef,
-    skillsRequestSeqRef,
-    lastManualSkillsReloadAtRef,
+    readActiveWorkspaceUserKey: options.readActiveWorkspaceUserKey,
+    nextSkillsRequestSeq: () => {
+      const requestSeq = skillsRequestSeqRef.current + 1;
+      skillsRequestSeqRef.current = requestSeq;
+      return requestSeq;
+    },
+    readSkillsRequestSeq: () => skillsRequestSeqRef.current,
+    readLastManualReloadAt: () => lastManualSkillsReloadAtRef.current,
+    setLastManualReloadAt: (value: number) => {
+      lastManualSkillsReloadAtRef.current = value;
+    },
     markAzureAuthRequired: options.markAzureAuthRequired,
     resolveAzureBackgroundSuccess: options.resolveAzureBackgroundSuccess,
     setAvailableSkills,

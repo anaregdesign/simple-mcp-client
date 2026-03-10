@@ -578,7 +578,7 @@ export function useWorkspace() {
     handleRemoveThreadSkill,
     handleToggleThreadSkill,
   } = useSkillCatalog({
-    activeWorkspaceUserKeyRef,
+    readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
     activeAzurePrincipal,
     isAzureAuthRequired,
     markAzureAuthRequired,

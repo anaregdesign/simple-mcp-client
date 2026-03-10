@@ -35,15 +35,24 @@ describe("createSkillCatalogController", () => {
     vi.clearAllMocks();
   });
 
-  it("assembles skill catalog deps around the current refs", async () => {
-    const activeWorkspaceUserKeyRef = { current: "tenant::principal" };
-    const skillsRequestSeqRef = { current: 0 };
-    const lastManualSkillsReloadAtRef = { current: 0 };
+  it("assembles skill catalog deps around the current readers", async () => {
+    const state = {
+      activeWorkspaceUserKey: "tenant::principal",
+      skillsRequestSeq: 0,
+      lastManualSkillsReloadAt: 0,
+    };
 
     const controller = createSkillCatalogController({
-      activeWorkspaceUserKeyRef,
-      skillsRequestSeqRef,
-      lastManualSkillsReloadAtRef,
+      readActiveWorkspaceUserKey: () => state.activeWorkspaceUserKey,
+      nextSkillsRequestSeq: () => {
+        state.skillsRequestSeq += 1;
+        return state.skillsRequestSeq;
+      },
+      readSkillsRequestSeq: () => state.skillsRequestSeq,
+      readLastManualReloadAt: () => state.lastManualSkillsReloadAt,
+      setLastManualReloadAt: (value: number) => {
+        state.lastManualSkillsReloadAt = value;
+      },
       markAzureAuthRequired: vi.fn(),
       resolveAzureBackgroundSuccess: vi.fn(),
       setAvailableSkills: vi.fn(),
@@ -66,7 +75,7 @@ describe("createSkillCatalogController", () => {
     expect(loadDeps?.readActiveWorkspaceUserKey()).toBe("tenant::principal");
     expect(loadDeps?.nextSkillsRequestSeq()).toBe(1);
     expect(loadDeps?.readSkillsRequestSeq()).toBe(1);
-    expect(skillsRequestSeqRef.current).toBe(1);
+    expect(state.skillsRequestSeq).toBe(1);
 
     controller.applySkillsCatalogSnapshot(createSnapshot());
     expect(applySkillsCatalogSnapshot).toHaveBeenCalledTimes(1);
@@ -82,7 +91,7 @@ describe("createSkillCatalogController", () => {
     expect(handleReloadSkills).toHaveBeenCalledTimes(1);
     const reloadDeps = vi.mocked(handleReloadSkills).mock.calls[0]?.[0];
     reloadDeps?.setLastManualReloadAt(123);
-    expect(lastManualSkillsReloadAtRef.current).toBe(123);
+    expect(state.lastManualSkillsReloadAt).toBe(123);
     expect(reloadDeps?.readLastManualReloadAt()).toBe(123);
   });
 });
