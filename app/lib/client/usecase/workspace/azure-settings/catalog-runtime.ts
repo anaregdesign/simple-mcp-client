@@ -19,7 +19,7 @@ import {
 } from "./parsers";
 import {
   resolveInitialAzureProjectId,
-} from "./runtime";
+} from "./catalog-state";
 import type {
   AzureSelectionSaveInput,
   AzureSettingsHandlerDependencies,

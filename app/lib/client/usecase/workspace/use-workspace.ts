@@ -131,7 +131,7 @@ import {
 import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profiles/handlers";
-import { useMcpProfileForm } from "~/lib/client/usecase/workspace/mcp-profiles/use-form";
+import { useMcpProfileForm } from "~/lib/client/usecase/workspace/mcp-profiles/use-mcp-profile-form";
 import {
   connectThreadMcpServer,
 } from "~/lib/domain/policies/thread-mcp-server-membership";
@@ -145,11 +145,6 @@ import {
 import {
   createSendMessageController,
 } from "~/lib/client/usecase/workspace/chat-session/controller";
-import {
-  clearMcpServerEditState as clearMcpServerEditStateOperation,
-  populateMcpServerFormForEdit as populateMcpServerFormForEditOperation,
-  resetMcpServerFormInputs as resetMcpServerFormInputsOperation,
-} from "~/lib/client/usecase/workspace/mcp-profiles/controller";
 import {
   createThreadRequestStateController,
 } from "~/lib/client/usecase/workspace/threads/request-state";

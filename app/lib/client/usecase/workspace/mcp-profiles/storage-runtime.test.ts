@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { McpHttpServerConfig } from "~/lib/contracts/mcp/profile";
 
-vi.mock("~/lib/client/usecase/workspace/mcp-profiles/controller", () => ({
+vi.mock("~/lib/client/usecase/workspace/mcp-profiles/operation-deps", () => ({
   createWorkspaceMcpProfileOperationDeps: vi.fn((options) => options),
 }));
 
@@ -37,7 +37,7 @@ import {
 } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import {
   createWorkspaceMcpProfileOperationDeps,
-} from "~/lib/client/usecase/workspace/mcp-profiles/controller";
+} from "~/lib/client/usecase/workspace/mcp-profiles/operation-deps";
 import {
   applyWorkspaceMcpServerProfiles,
   clearWorkspaceMcpServerProfilesState,

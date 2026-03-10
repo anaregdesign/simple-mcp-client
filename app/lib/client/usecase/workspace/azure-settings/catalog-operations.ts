@@ -26,7 +26,7 @@ import {
   resolveAzureAuthRequiredState,
   resolveAzureTenantOptions,
   shouldUseCachedAzureProjectCatalog,
-} from "./runtime";
+} from "./catalog-state";
 import type { AzureCatalogRuntime } from "./catalog-runtime";
 import type {
   AzureDeploymentTarget,

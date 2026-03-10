@@ -6,7 +6,7 @@ import {
 } from "~/lib/client/infrastructure/browser/azure-settings";
 import {
   isAzureProjectsLoadReady,
-} from "./runtime";
+} from "./catalog-state";
 import type {
   AzureSettingsHandlerDependencies,
   AzureSettingsHandlers,

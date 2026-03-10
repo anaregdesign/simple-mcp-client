@@ -3,7 +3,7 @@ import {
 } from "~/lib/client/infrastructure/api/mcp-servers-api-client";
 import {
   createWorkspaceMcpProfileOperationDeps,
-} from "~/lib/client/usecase/workspace/mcp-profiles/controller";
+} from "~/lib/client/usecase/workspace/mcp-profiles/operation-deps";
 import {
   applyWorkspaceMcpServerProfiles,
   clearWorkspaceMcpServerProfilesState,

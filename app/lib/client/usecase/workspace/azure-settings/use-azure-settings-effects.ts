@@ -17,7 +17,7 @@ import {
 } from "./selectors";
 import {
   isAzureProjectsLoadReady,
-} from "./runtime";
+} from "./catalog-state";
 import type {
   AzureSelectionSaveInput,
   AzureSettingsState,

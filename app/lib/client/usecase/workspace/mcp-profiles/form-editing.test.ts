@@ -1,36 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   clearMcpServerEditState,
-  createWorkspaceMcpProfileOperationDeps,
   populateMcpServerFormForEdit,
   resetMcpServerFormInputs,
-} from "~/lib/client/usecase/workspace/mcp-profiles/controller";
+} from "~/lib/client/usecase/workspace/mcp-profiles/form-editing";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 
-describe("mcp-profiles/controller", () => {
-  it("builds operation deps without changing callbacks", () => {
-    const readActiveWorkspaceUserKey = vi.fn(() => "user");
-    const deps = createWorkspaceMcpProfileOperationDeps({
-      readActiveWorkspaceUserKey,
-      nextWorkspaceMcpServerProfileRequestSeq: vi.fn(() => 2),
-      readWorkspaceMcpServerProfileRequestSeq: vi.fn(() => 2),
-      readWorkspaceMcpServerProfiles: vi.fn(() => []),
-      writeWorkspaceMcpServerProfiles: vi.fn(),
-      setWorkspaceMcpServerProfileError: vi.fn(),
-      setIsLoadingWorkspaceMcpServerProfiles: vi.fn(),
-      setEditingMcpServerId: vi.fn(),
-      setIsDeletingWorkspaceMcpServerProfile: vi.fn(),
-      markAzureAuthRequired: vi.fn(),
-      loadProfiles: vi.fn(),
-      saveProfile: vi.fn(),
-      deleteProfile: vi.fn(),
-      logClientError: vi.fn(),
-    });
-
-    expect(deps.readActiveWorkspaceUserKey()).toBe("user");
-    expect(readActiveWorkspaceUserKey).toHaveBeenCalledTimes(1);
-  });
-
+describe("mcp-profiles/form-editing", () => {
   it("resets the form to defaults when clearing edit state", () => {
     const setMcpTransport = vi.fn();
     const setMcpAzureAuthScopeInput = vi.fn();

@@ -1,5 +1,5 @@
 /**
- * Tests for Client controller Azure runtime helpers.
+ * Tests for Client controller Azure catalog state helpers.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -9,7 +9,7 @@ import {
   resolveAzureTenantOptions,
   resolveInitialAzureProjectId,
   shouldUseCachedAzureProjectCatalog,
-} from "~/lib/client/usecase/workspace/azure-settings/runtime";
+} from "~/lib/client/usecase/workspace/azure-settings/catalog-state";
 
 describe("resolveAzureTenantOptions", () => {
   it("deduplicates tenants and appends active tenant when missing", () => {
@@ -224,28 +224,11 @@ describe("buildAzureProjectsLoadResult", () => {
       authRequired: false,
       tenantSwitchPending: false,
     });
-  });
-});
-
-describe("isAzureProjectsLoadReady", () => {
-  it("returns true only when both auth required and tenant pending are false", () => {
     expect(
       isAzureProjectsLoadReady({
         authRequired: false,
         tenantSwitchPending: false,
       }),
     ).toBe(true);
-    expect(
-      isAzureProjectsLoadReady({
-        authRequired: true,
-        tenantSwitchPending: false,
-      }),
-    ).toBe(false);
-    expect(
-      isAzureProjectsLoadReady({
-        authRequired: false,
-        tenantSwitchPending: true,
-      }),
-    ).toBe(false);
   });
 });

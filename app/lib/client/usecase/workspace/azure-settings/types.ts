@@ -10,7 +10,7 @@ import type {
   AzureTenantOption,
 } from "./parsers";
 import type { ReasoningEffort, ThemeMode } from "~/lib/client/usecase/workspace/view-types";
-import type { AzureProjectsLoadResult } from "./runtime";
+import type { AzureProjectsLoadResult } from "./catalog-state";
 import type { AzureSettingsAction } from "./reducer";
 
 export type AzureProjectCatalogCacheEntry = {

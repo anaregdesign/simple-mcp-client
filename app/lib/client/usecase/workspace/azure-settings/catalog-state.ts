@@ -1,5 +1,5 @@
 /**
- * Client controller Azure runtime helpers.
+ * Client controller Azure catalog state helpers.
  */
 import type {
   AzureDeploymentOption,
@@ -95,7 +95,6 @@ export function shouldUseCachedAzureProjectCatalog(options: {
     return false;
   }
 
-  // When auth is required we must revalidate against the server to avoid stale cache-based unlocks.
   return !options.isAzureAuthRequired;
 }
 

@@ -7,7 +7,7 @@ import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types"
 import {
   readAzureDeploymentCacheKey,
   readAzureTenantCacheKey,
-} from "./runtime";
+} from "./catalog-state";
 import type { AzureSettingsState } from "./types";
 
 export function selectActiveAzureConnection(

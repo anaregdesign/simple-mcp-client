@@ -3,12 +3,12 @@ import {
   useReducer,
   useRef,
 } from "react";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   clearMcpServerEditState as clearMcpServerEditStateOperation,
   populateMcpServerFormForEdit as populateMcpServerFormForEditOperation,
   resetMcpServerFormInputs as resetMcpServerFormInputsOperation,
-} from "./controller";
-import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+} from "./form-editing";
 import {
   createInitialMcpProfileState,
   type McpProfileState,

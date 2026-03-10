@@ -9,7 +9,7 @@ import {
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import {
   resolveAzureAuthRequiredState,
-} from "./runtime";
+} from "./catalog-state";
 import type {
   AzureSelectionPreference,
 } from "./parsers";
