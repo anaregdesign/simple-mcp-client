@@ -10,6 +10,9 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-persistence-plan";
 import { upsertThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
+  applyThreadNameChange,
+} from "~/lib/client/usecase/workspace/threads/thread-name-mutation";
+import {
   ClientApiError,
   mapApiError,
 } from "~/lib/client/infrastructure/api/api-client";
@@ -128,17 +131,10 @@ export async function renameThread(
   }
 
   deps.setThreadError(null);
-  deps.updateThreadStateById(threadId, (thread) => ({
-    ...thread,
-    updatedAt: new Date().toISOString(),
-    name: normalizedName,
-  }));
-
-  if (threadId === deps.readActiveThreadId().trim()) {
-    deps.setActiveThreadNameInput(normalizedName);
-  }
-
-  const renamedThread = findThreadStateById(deps.readThreads(), threadId);
+  const renamedThread = applyThreadNameChange(deps, {
+    threadId,
+    nextName: normalizedName,
+  });
   if (!renamedThread) {
     return;
   }

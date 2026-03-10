@@ -87,7 +87,12 @@ function createDependencies(
     beginThreadOperation: vi.fn().mockReturnValue(true),
     endThreadOperation: vi.fn(),
     readThreadRequestState: vi.fn().mockReturnValue({ isSending: false }),
-    updateThreadStateById: vi.fn(),
+    updateThreadStateById: vi.fn((threadId, updater) => {
+      const index = threads.findIndex((thread) => thread.id === threadId);
+      if (index >= 0) {
+        threads[index] = updater(threads[index]!);
+      }
+    }),
     updateThreadsState: vi.fn((updater) => updater(threads)),
     readSavedThreadSignature: vi.fn().mockReturnValue(undefined),
     setThreadsReady: vi.fn(),

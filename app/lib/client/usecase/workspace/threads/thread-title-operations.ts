@@ -13,6 +13,10 @@ import {
   normalizeThreadAutoTitle,
 } from "~/lib/contracts/threads/title";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
+import {
+  applyThreadNameChange,
+  type ThreadNameMutationDependencies,
+} from "~/lib/client/usecase/workspace/threads/thread-name-mutation";
 
 type ThreadTitleLogOptions = {
   category?: string;
@@ -33,7 +37,7 @@ export type RefreshThreadTitleOptions = {
   instructionOverride?: string;
 };
 
-type ThreadTitleOperationDependencies = {
+type ThreadTitleOperationDependencies = ThreadNameMutationDependencies & {
   isArchivedThread: (threadIdRaw: string) => boolean;
   isChatLocked: boolean;
   isLoadingUtilityAzureDeployments: boolean;
@@ -50,11 +54,6 @@ type ThreadTitleOperationDependencies = {
   generateTitle: (
     request: ThreadTitleSuggestionRequest,
   ) => Promise<ThreadTitleApiResponse>;
-  updateThreadStateById: (
-    threadId: string,
-    updater: (current: ThreadState) => ThreadState,
-  ) => void;
-  setActiveThreadNameInput: (value: string) => void;
   saveActiveThreadNameInBackground: (
     threadId: string,
     name: string,
@@ -156,17 +155,18 @@ export async function refreshThreadTitleInBackground(
       return;
     }
 
-    deps.updateThreadStateById(normalizedThreadId, (thread) => ({
-      ...thread,
-      updatedAt: new Date().toISOString(),
-      name: nextTitle,
-    }));
-
-    if (normalizedThreadId === activeThreadId) {
-      deps.setActiveThreadNameInput(nextTitle);
+    const renamedThread = applyThreadNameChange(deps, {
+      threadId: normalizedThreadId,
+      nextName: nextTitle,
+    });
+    if (!renamedThread) {
+      return;
     }
 
-    await deps.saveActiveThreadNameInBackground(normalizedThreadId, nextTitle);
+    await deps.saveActiveThreadNameInBackground(
+      renamedThread.id,
+      renamedThread.name,
+    );
   } catch (threadTitleError) {
     if (
       threadTitleError instanceof ClientApiError &&
