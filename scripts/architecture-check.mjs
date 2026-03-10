@@ -530,6 +530,22 @@ const checks = [
     args: ["--files", "app/lib/client/usecase/workspace/ids.ts"],
   },
   {
+    key: "legacyWorkspaceTypesFile",
+    description:
+      "workspace generic types.ts bucket must stay retired in favor of feature-local type owners.",
+    rootPath: "app/lib/client/usecase/workspace/types.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/types.ts"],
+  },
+  {
+    key: "legacyThreadRequestStateControllerFile",
+    description:
+      "threads generic request-state.ts file must use the explicit thread-request-state-controller.ts owner name.",
+    rootPath: "app/lib/client/usecase/workspace/threads/request-state.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/threads/request-state.ts"],
+  },
+  {
     key: "legacyDesktopUpdaterRuntimeFile",
     description:
       "desktop-updater browser adapter must not live under client/usecase/workspace/desktop-updater/runtime.ts.",
@@ -571,6 +587,21 @@ const checks = [
       "-n",
       "from ['\\\"]~/lib/client/usecase/workspace/(files|numbers|ids)['\\\"]",
       "app/lib/client/usecase/workspace",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
+    ],
+  },
+  {
+    key: "workspaceLegacyTypesImports",
+    description:
+      "workspace features must not import the retired generic workspace/types.ts bucket.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/client/usecase/workspace/types['\\\"]",
+      "app",
       "--glob",
       "!**/*.test.ts",
       "--glob",
