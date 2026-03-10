@@ -5,7 +5,7 @@ import {
   buildMcpServerFromProfileForm,
   type McpProfileFormState,
 } from "~/lib/client/usecase/workspace/mcp-profiles/form";
-import { createId } from "~/lib/client/usecase/workspace/ids";
+import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
 import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import {
   reconcileThreadMcpServerProfile,
@@ -165,7 +165,7 @@ export async function saveWorkspaceMcpServerProfile(
   deps.setMcpFormError(null);
   deps.setMcpFormWarning(null);
 
-  const serverId = isEditing ? editingServerId : createId("mcp");
+  const serverId = isEditing ? editingServerId : createRuntimeId("mcp");
   const buildResult = buildMcpServerFromProfileForm({
     serverId,
     formState: deps.mcpFormState,

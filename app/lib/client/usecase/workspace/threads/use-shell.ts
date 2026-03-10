@@ -13,7 +13,7 @@ import {
   isThreadArchivedById,
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
-import { createId } from "~/lib/client/usecase/workspace/ids";
+import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type { WorkspaceInteractionAction } from "~/lib/client/usecase/workspace/reducer";
 import {
@@ -247,7 +247,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     return createLocalThreadStateOperation({
       ...createOptions,
       defaultThreadMcpServers: options.readDefaultThreadMcpServers(),
-      createThreadId: () => createId("thread"),
+      createThreadId: () => createRuntimeId("thread"),
     });
   }
 

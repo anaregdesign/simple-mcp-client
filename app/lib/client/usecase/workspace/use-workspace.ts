@@ -61,7 +61,6 @@ import {
   type SkillRegistryId,
 } from "~/lib/domain/value-objects/skill-registry";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import { createId } from "~/lib/client/usecase/workspace/ids";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
 import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/threads/background-effects";

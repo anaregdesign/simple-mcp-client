@@ -11,7 +11,6 @@ import {
   deriveActiveChatCommandMenuState,
   type ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
-import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 
 type UsePlaygroundRuntimeOptions = {
@@ -28,6 +27,19 @@ type UsePlaygroundRuntimeOptions = {
   setChatCommandHighlightedIndex: Dispatch<SetStateAction<number>>;
   chatCommandProviders: readonly ChatCommandProvider[];
 };
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) {
+    return min;
+  }
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+}
 
 export function usePlaygroundRuntime(options: UsePlaygroundRuntimeOptions) {
   const effectiveChatComposerCursorIndex =

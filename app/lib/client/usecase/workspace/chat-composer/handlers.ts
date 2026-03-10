@@ -21,7 +21,7 @@ import {
   type ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import { readFileAsDataUrl } from "~/lib/client/infrastructure/browser/file-data-url";
-import { createId } from "~/lib/client/usecase/workspace/ids";
+import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
 import type {
   ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
@@ -29,7 +29,6 @@ import type {
   ChatCommandMenuView,
   MainViewTab,
 } from "~/lib/client/usecase/workspace/view-types";
-import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_FILES,
@@ -101,6 +100,11 @@ export type ChatComposerHandlers = {
   ) => Promise<void>;
   handleRemoveDraftAttachment: (id: string) => void;
 };
+
+function readFileExtension(fileName: string): string {
+  const parts = fileName.toLowerCase().split(".");
+  return parts.length > 1 ? parts[parts.length - 1] : "";
+}
 
 export function createChatComposerHandlers(
   deps: ChatComposerHandlerDependencies,
@@ -304,7 +308,7 @@ export function createChatComposerHandlers(
           break;
         }
 
-        const extension = getFileExtension(normalizedName);
+        const extension = readFileExtension(normalizedName);
         if (!CHAT_ATTACHMENT_ALLOWED_EXTENSIONS.has(extension)) {
           validationError = `Attachment "${normalizedName}" is not supported. Only ${deps.chatAttachmentFormatHint} files can be attached.`;
           break;
@@ -341,7 +345,7 @@ export function createChatComposerHandlers(
         try {
           const dataUrl = await readFileAsDataUrl(file);
           nextAttachments.push({
-            id: createId("attachment"),
+            id: createRuntimeId("attachment"),
             name: normalizedName,
             mimeType: normalizedMimeType || "application/octet-stream",
             sizeBytes: file.size,

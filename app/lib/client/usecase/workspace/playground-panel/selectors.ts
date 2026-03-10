@@ -17,13 +17,17 @@ import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import { buildThreadOperationLogsByTurnId } from "~/lib/client/usecase/workspace/playground-panel/operation-log-grouping";
 import { canSendMessageByGuard } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 
 type Callback = (...args: any[]) => void | Promise<void>;
 type RefLike<T> = { current: T | null };
+
+function readFileExtension(fileName: string): string {
+  const parts = fileName.toLowerCase().split(".");
+  return parts.length > 1 ? parts[parts.length - 1] : "";
+}
 
 export function selectPlaygroundOperationLogViewModel(options: {
   mcpRpcLogs: ThreadOperationLogEntry[];
@@ -67,7 +71,9 @@ export function selectPlaygroundComposerViewModel(options: {
   const draftPdfAttachmentTotalSizeBytes = options.draftAttachments.reduce(
     (sum, attachment) =>
       sum +
-      (getFileExtension(attachment.name) === "pdf" ? attachment.sizeBytes : 0),
+      (readFileExtension(attachment.name) === "pdf"
+        ? attachment.sizeBytes
+        : 0),
     0,
   );
 

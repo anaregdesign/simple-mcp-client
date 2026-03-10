@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import { createId } from "~/lib/client/usecase/workspace/ids";
+import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
 import {
   sendMessage as sendMessageOperation,
 } from "~/lib/client/usecase/workspace/chat-session/operations";
@@ -159,7 +159,7 @@ export function createSendMessageController(
       readAgentInstruction: options.readAgentInstruction,
       readInstructionContextToggles: options.readInstructionContextToggles,
       readActiveAzureTenantId: () => options.activeAzureTenantIdRef.current,
-      createTurnId: () => createId("turn"),
+      createTurnId: () => createRuntimeId("turn"),
       setThreadError: options.setThreadError,
       setUiError: options.setUiError,
       setActiveMainTab: options.setActiveMainTab,

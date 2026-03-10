@@ -13,9 +13,21 @@ import {
   CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
 } from "~/lib/constants/client";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/layout/main-splitter";
-import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 
 const DEFAULT_RIGHT_PANE_WIDTH_PX = 420;
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) {
+    return min;
+  }
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+}
 
 export function useWorkspaceLayout() {
   const layoutRef = useRef<HTMLDivElement | null>(null);

@@ -11,7 +11,6 @@ import type {
   ThreadInstructionContextToggles,
   ThreadInstructionContextToggleKey,
 } from "~/lib/domain/value-objects/thread-instruction-context";
-import { getFileExtension } from "~/lib/client/usecase/workspace/files";
 import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 
 type InstructionEditingLogOptions = {
@@ -61,6 +60,11 @@ export type InstructionEditingHandlers = {
     event: ChangeEvent<HTMLInputElement>,
   ) => Promise<void>;
 };
+
+function readFileExtension(fileName: string): string {
+  const parts = fileName.toLowerCase().split(".");
+  return parts.length > 1 ? parts[parts.length - 1] : "";
+}
 
 export function createInstructionEditingHandlers(
   deps: InstructionEditingHandlerDependencies,
@@ -138,7 +142,7 @@ export function createInstructionEditingHandlers(
 
       deps.setInstructionFileError(null);
 
-      const extension = getFileExtension(file.name);
+      const extension = readFileExtension(file.name);
       if (!INSTRUCTION_ALLOWED_EXTENSIONS.has(extension)) {
         deps.setInstructionFileError(
           "Only .md, .txt, .xml, and .json files are supported.",
