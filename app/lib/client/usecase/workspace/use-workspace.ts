@@ -195,6 +195,24 @@ import {
 import {
   createSendMessageController,
 } from "~/lib/client/usecase/workspace/send-message-controller";
+import {
+  clearMcpServerEditState as clearMcpServerEditStateOperation,
+  createWorkspaceMcpProfileOperationDeps,
+  populateMcpServerFormForEdit as populateMcpServerFormForEditOperation,
+  resetMcpServerFormInputs as resetMcpServerFormInputsOperation,
+} from "~/lib/client/usecase/workspace/mcp-profiles/controller";
+import {
+  buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
+  createLocalThreadState as createLocalThreadStateOperation,
+  setThreadSaveSignatures as setThreadSaveSignaturesOperation,
+  shouldPersistThreadState as shouldPersistThreadStateOperation,
+} from "~/lib/client/usecase/workspace/threads/local-thread-state";
+import {
+  createThreadRequestStateController,
+} from "~/lib/client/usecase/workspace/threads/request-state";
+import {
+  createThreadStateUpdaters,
+} from "~/lib/client/usecase/workspace/threads/state-updaters";
 
 /**
  * Client runtime controller.
@@ -699,14 +717,6 @@ export function useWorkspace() {
     logClientWarning,
   });
 
-  useWorkspaceSkillCatalogEffects({
-    activeAzurePrincipal,
-    isAzureAuthRequired,
-    skillRegistryError,
-    skillsError,
-    loadAvailableSkills,
-  });
-
   // Keep refs synchronized with state to avoid stale closures in async handlers.
   useEffect(() => {
     activeMainTabRef.current = activeMainTab;
@@ -811,8 +821,8 @@ export function useWorkspace() {
   }, [threads]);
 
   // Saved MCP / Skills loading flows.
-  function buildWorkspaceMcpServerProfileOperationDeps() {
-    return {
+  const buildWorkspaceMcpServerProfileOperationDeps = () =>
+    createWorkspaceMcpProfileOperationDeps({
       readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
       nextWorkspaceMcpServerProfileRequestSeq: () => {
         const requestSeq = workspaceMcpServerProfileRequestSeqRef.current + 1;
@@ -831,84 +841,61 @@ export function useWorkspace() {
       setEditingMcpServerId,
       setIsDeletingWorkspaceMcpServerProfile,
       markAzureAuthRequired,
-      loadProfiles: (options: { onAuthRequired?: () => void }) =>
-        mcpServersApiClient.loadProfiles(options),
-      saveProfile: (
-        server: McpServerConfig,
-        options: {
-          isUpdate?: boolean;
-          onAuthRequired?: () => void;
-        },
-      ) => mcpServersApiClient.saveProfile(server, options),
-      deleteProfile: (
-        serverId: string,
-        options: {
-          onAuthRequired?: () => void;
-        },
-      ) => mcpServersApiClient.deleteProfile(serverId, options),
+      loadProfiles: (options) => mcpServersApiClient.loadProfiles(options),
+      saveProfile: (server, options) =>
+        mcpServersApiClient.saveProfile(server, options),
+      deleteProfile: (serverId, options) =>
+        mcpServersApiClient.deleteProfile(serverId, options),
       logClientError,
-    };
-  }
+    });
 
-  function resetMcpServerFormInputs() {
-    setMcpNameInput("");
-    setMcpUrlInput("");
-    setMcpCommandInput("");
-    setMcpArgsInput("");
-    setMcpCwdInput("");
-    setMcpEnvInput("");
-    setMcpHeadersInput("");
-    setMcpUseAzureAuthInput(false);
-    setMcpAzureAuthScopeInput(MCP_DEFAULT_AZURE_AUTH_SCOPE);
-    setMcpTimeoutSecondsInput(String(MCP_DEFAULT_TIMEOUT_SECONDS));
-    setMcpTransport(DEFAULT_MCP_TRANSPORT);
-  }
+  const resetMcpServerFormInputs = () =>
+    resetMcpServerFormInputsOperation({
+      setMcpNameInput,
+      setMcpTransport,
+      setMcpUrlInput,
+      setMcpCommandInput,
+      setMcpArgsInput,
+      setMcpCwdInput,
+      setMcpEnvInput,
+      setMcpHeadersInput,
+      setMcpUseAzureAuthInput,
+      setMcpAzureAuthScopeInput,
+      setMcpTimeoutSecondsInput,
+    });
 
-  function clearMcpServerEditState() {
-    setEditingMcpServerId("");
-    resetMcpServerFormInputs();
-    setMcpFormError(null);
-    setMcpFormWarning(null);
-  }
+  const clearMcpServerEditState = () =>
+    clearMcpServerEditStateOperation({
+      setEditingMcpServerId,
+      setMcpFormError,
+      setMcpFormWarning,
+      setMcpNameInput,
+      setMcpTransport,
+      setMcpUrlInput,
+      setMcpCommandInput,
+      setMcpArgsInput,
+      setMcpCwdInput,
+      setMcpEnvInput,
+      setMcpHeadersInput,
+      setMcpUseAzureAuthInput,
+      setMcpAzureAuthScopeInput,
+      setMcpTimeoutSecondsInput,
+    });
 
-  function populateMcpServerFormForEdit(server: McpServerConfig) {
-    setMcpNameInput(server.name);
-    setMcpTransport(server.transport);
-    if (server.transport === "stdio") {
-      setMcpCommandInput(server.command);
-      setMcpArgsInput(
-        server.args.length > 0 ? JSON.stringify(server.args) : "",
-      );
-      setMcpCwdInput(server.cwd ?? "");
-      setMcpEnvInput(
-        Object.entries(server.env)
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([key, value]) => `${key}=${value}`)
-          .join("\n"),
-      );
-      setMcpUrlInput("");
-      setMcpHeadersInput("");
-      setMcpUseAzureAuthInput(false);
-      setMcpAzureAuthScopeInput(MCP_DEFAULT_AZURE_AUTH_SCOPE);
-      setMcpTimeoutSecondsInput(String(MCP_DEFAULT_TIMEOUT_SECONDS));
-      return;
-    }
-
-    setMcpUrlInput(server.url);
-    setMcpHeadersInput(
-      Object.entries(server.headers)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, value]) => `${key}=${value}`)
-        .join("\n"),
-    );
-    setMcpUseAzureAuthInput(server.useAzureAuth);
-    setMcpAzureAuthScopeInput(server.azureAuthScope);
-    setMcpTimeoutSecondsInput(String(server.timeoutSeconds));
-    setMcpCommandInput("");
-    setMcpArgsInput("");
-    setMcpCwdInput("");
-    setMcpEnvInput("");
-  }
+  const populateMcpServerFormForEdit = (server: McpServerConfig) =>
+    populateMcpServerFormForEditOperation(server, {
+      setMcpNameInput,
+      setMcpTransport,
+      setMcpUrlInput,
+      setMcpCommandInput,
+      setMcpArgsInput,
+      setMcpCwdInput,
+      setMcpEnvInput,
+      setMcpHeadersInput,
+      setMcpUseAzureAuthInput,
+      setMcpAzureAuthScopeInput,
+      setMcpTimeoutSecondsInput,
+    });
 
   function clearThreadNameSaveTimeout() {
     const timeoutId = threadNameSaveTimeoutRef.current;
@@ -934,19 +921,17 @@ export function useWorkspace() {
     }
   }
 
-  function setThreadsState(nextThreads: ThreadState[]): void {
-    threadsRef.current = nextThreads;
-    setThreads(nextThreads);
-  }
-
-  function updateThreadsState(
-    updater: (current: ThreadState[]) => ThreadState[],
-  ): ThreadState[] {
-    const nextThreads = updater(threadsRef.current);
-    threadsRef.current = nextThreads;
-    setThreads(nextThreads);
-    return nextThreads;
-  }
+  const {
+    setThreadsState,
+    updateThreadsState,
+    updateThreadStateById,
+    appendMessageToThreadState,
+    appendThreadOperationLogToThreadState,
+    applyThreadEnvironmentToThreadState,
+  } = createThreadStateUpdaters({
+    threadsRef,
+    setThreads,
+  });
 
   function clearThreadsState(nextError: string | null = null) {
     clearThreadTitleRefreshTimeout();
@@ -1037,140 +1022,22 @@ export function useWorkspace() {
     );
   }
 
-  // Thread request-state helpers.
-  function readThreadRequestState(threadId: string): ThreadRequestState {
-    return readThreadRequestStateById(
-      {
-        threadRequestStateById: threadRequestStateByIdRef.current,
-      },
-      threadId,
-    );
-  }
-
-  function updateThreadRequestState(
-    threadId: string,
-    updater: (current: ThreadRequestState) => ThreadRequestState,
-  ): void {
-    if (!threadId) {
-      return;
-    }
-
-    dispatchWorkspaceInteraction({
-      type: "thread_request_state/set",
-      threadId,
-      nextState: updater(readThreadRequestState(threadId)),
-    });
-  }
-
-  function assignThreadSendAbortController(
-    threadId: string,
-    abortController: AbortController,
-  ): void {
-    const normalizedThreadId = threadId.trim();
-    if (!normalizedThreadId) {
-      return;
-    }
-
-    threadSendAbortControllerByIdRef.current.set(
-      normalizedThreadId,
-      abortController,
-    );
-  }
-
-  function clearThreadSendAbortController(
-    threadId: string,
-    abortController?: AbortController,
-  ): void {
-    const normalizedThreadId = threadId.trim();
-    if (!normalizedThreadId) {
-      return;
-    }
-
-    if (abortController) {
-      const current =
-        threadSendAbortControllerByIdRef.current.get(normalizedThreadId);
-      if (current !== abortController) {
-        return;
-      }
-    }
-
-    threadSendAbortControllerByIdRef.current.delete(normalizedThreadId);
-  }
-
-  function cancelThreadInProgressProcessing(threadIdRaw: string): boolean {
-    const threadId = threadIdRaw.trim();
-    if (!threadId) {
-      return false;
-    }
-
-    const currentState = readThreadRequestState(threadId);
-    if (!currentState.isSending) {
-      return false;
-    }
-
-    const abortController =
-      threadSendAbortControllerByIdRef.current.get(threadId);
-    if (abortController) {
-      abortController.abort();
-      threadSendAbortControllerByIdRef.current.delete(threadId);
-    }
-
-    updateThreadRequestState(threadId, (current) => ({
-      ...current,
-      isSending: false,
-      sendProgressMessages: [],
-      activeTurnId: null,
-      lastErrorTurnId: null,
-      error: null,
-    }));
-    return true;
-  }
-
-  function appendThreadProgressMessage(
-    threadId: string,
-    message: string,
-  ): void {
-    const trimmed = message.trim();
-    if (!threadId || !trimmed) {
-      return;
-    }
-
-    updateThreadRequestState(threadId, (current) => {
-      if (
-        current.sendProgressMessages[
-          current.sendProgressMessages.length - 1
-        ] === trimmed
-      ) {
-        return current;
-      }
-
-      const nextMessages = [...current.sendProgressMessages, trimmed].slice(-8);
-      return {
-        ...current,
-        sendProgressMessages: nextMessages,
-      };
-    });
-  }
+  const {
+    readThreadRequestState,
+    updateThreadRequestState,
+    assignThreadSendAbortController,
+    clearThreadSendAbortController,
+    cancelThreadInProgressProcessing,
+    appendThreadProgressMessage,
+  } = createThreadRequestStateController({
+    threadRequestStateByIdRef,
+    threadSendAbortControllerByIdRef,
+    dispatchWorkspaceInteraction,
+  });
 
   // Thread snapshot mutation helpers.
   function isArchivedThread(threadIdRaw: string): boolean {
     return isThreadArchivedById(threadsRef.current, threadIdRaw);
-  }
-
-  function resolveThreadNameForSave(
-    baseName: string,
-    includeDraftName: boolean,
-  ): string {
-    if (!includeDraftName) {
-      return baseName;
-    }
-
-    const draftName = activeThreadNameInput.trim();
-    if (!draftName) {
-      return baseName;
-    }
-
-    return draftName.slice(0, THREAD_NAME_MAX_LENGTH);
   }
 
   function shouldPersistThreadState(
@@ -1185,11 +1052,10 @@ export function useWorkspace() {
     > &
       Partial<Pick<ThreadState, "skillSelections">>,
   ): boolean {
-    if (hasThreadPersistableState(thread)) {
-      return true;
-    }
-
-    return threadSaveSignatureByIdRef.current.has(thread.id);
+    return shouldPersistThreadStateOperation(
+      thread,
+      threadSaveSignatureByIdRef.current,
+    );
   }
 
   function createLocalThreadState(
@@ -1197,34 +1063,13 @@ export function useWorkspace() {
       name?: string;
     } = {},
   ): ThreadState {
-    const now = new Date().toISOString();
-    const normalizedName = (options.name ?? "")
-      .trim()
-      .slice(0, THREAD_NAME_MAX_LENGTH);
-    const name = normalizedName || THREAD_DEFAULT_NAME;
-    const defaultThreadMcpServers =
-      workspaceMcpServerProfilesRef.current.filter(
+    return createLocalThreadStateOperation({
+      ...options,
+      defaultThreadMcpServers: workspaceMcpServerProfilesRef.current.filter(
         (server) => server.connectOnThreadCreate === true,
-      );
-
-    return {
-      id: createId("thread"),
-      name,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      reasoningEffort: DEFAULT_REASONING_EFFORT,
-      webSearchEnabled: DEFAULT_WEB_SEARCH_ENABLED,
-      agentInstruction: DEFAULT_AGENT_INSTRUCTION,
-      instructionContextToggles: cloneThreadInstructionContexts(
-        DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
       ),
-      threadEnvironment: {},
-      messages: [],
-      mcpServers: cloneMcpServers(defaultThreadMcpServers),
-      mcpRpcLogs: [],
-      skillSelections: [],
-    };
+      createThreadId: () => createId("thread"),
+    });
   }
 
   function buildThreadStateFromCurrentState(
@@ -1233,92 +1078,25 @@ export function useWorkspace() {
       includeDraftName?: boolean;
     } = {},
   ): ThreadState {
-    const includeDraftName = options.includeDraftName === true;
-    return {
-      ...base,
-      name: resolveThreadNameForSave(base.name, includeDraftName),
-      updatedAt: new Date().toISOString(),
+    return buildThreadStateFromCurrentStateOperation(base, {
+      includeDraftName: options.includeDraftName,
+      activeThreadNameInput,
       reasoningEffort,
       webSearchEnabled,
       agentInstruction,
-      instructionContextToggles: cloneThreadInstructionContexts(
-        instructionContextToggles,
-      ),
-      threadEnvironment: cloneThreadEnvironment(base.threadEnvironment),
-      messages: cloneMessages(messages),
-      mcpServers: cloneMcpServers(mcpServers),
-      mcpRpcLogs: cloneThreadOperationLogs(mcpRpcLogs),
-      skillSelections: cloneThreadSkillActivations(selectedThreadSkills),
-    };
+      instructionContextToggles,
+      messages,
+      mcpServers,
+      mcpRpcLogs,
+      selectedThreadSkills,
+    });
   }
 
   function setThreadSaveSignatures(nextThreads: ThreadState[]) {
-    const signatureMap = threadSaveSignatureByIdRef.current;
-    signatureMap.clear();
-    for (const thread of nextThreads) {
-      signatureMap.set(thread.id, buildThreadSaveSignature(thread));
-    }
-  }
-
-  function updateThreadStateById(
-    threadId: string,
-    updater: (current: ThreadState) => ThreadState,
-  ): void {
-    if (!threadId) {
-      return;
-    }
-
-    updateThreadsState((current) =>
-      updateThreadStateCollectionById(current, threadId, updater),
+    setThreadSaveSignaturesOperation(
+      threadSaveSignatureByIdRef.current,
+      nextThreads,
     );
-  }
-
-  function appendMessageToThreadState(
-    threadId: string,
-    message: ThreadMessage,
-  ): void {
-    const clonedMessage: ThreadMessage = {
-      ...message,
-      attachments: message.attachments.map((attachment) => ({ ...attachment })),
-      skillActivations: message.skillActivations.map((selection) => ({
-        ...selection,
-      })),
-    };
-
-    updateThreadStateById(threadId, (thread) => ({
-      ...thread,
-      updatedAt: new Date().toISOString(),
-      messages: [...thread.messages, clonedMessage],
-    }));
-  }
-
-  function appendThreadOperationLogToThreadState(
-    threadId: string,
-    entry: ThreadOperationLogEntry,
-  ): void {
-    const clonedEntry: ThreadOperationLogEntry = { ...entry };
-
-    updateThreadStateById(threadId, (thread) => ({
-      ...thread,
-      updatedAt: new Date().toISOString(),
-      mcpRpcLogs: upsertThreadOperationLogEntry(thread.mcpRpcLogs, clonedEntry),
-    }));
-  }
-
-  function applyThreadEnvironmentToThreadState(
-    threadId: string,
-    environmentValue: unknown,
-  ): void {
-    if (!threadId) {
-      return;
-    }
-
-    const nextEnvironment = readThreadEnvironmentFromUnknown(environmentValue);
-    updateThreadStateById(threadId, (thread) => ({
-      ...thread,
-      updatedAt: new Date().toISOString(),
-      threadEnvironment: cloneThreadEnvironment(nextEnvironment),
-    }));
   }
 
   function applyThreadState(thread: ThreadState) {
@@ -1515,6 +1293,14 @@ export function useWorkspace() {
     logClientError,
   });
 
+  useWorkspaceSkillCatalogEffects({
+    activeAzurePrincipal,
+    isAzureAuthRequired,
+    skillRegistryError,
+    skillsError,
+    loadAvailableSkills: skillCatalogController.loadAvailableSkills,
+  });
+
   // Thread persistence and title-refresh orchestration.
   async function saveThreadStateToDatabase(
     thread: ThreadState,
@@ -1560,27 +1346,6 @@ export function useWorkspace() {
     instructionOverride?: string;
   }): Promise<void> {
     await threadTitleController.refreshThreadTitleInBackground(options);
-  }
-
-  async function loadAvailableSkills(
-    options: {
-      clearStatus?: boolean;
-      forceRefresh?: boolean;
-    } = {},
-  ): Promise<void> {
-    await skillCatalogController.loadAvailableSkills(options);
-  }
-
-  function applySkillsCatalogSnapshot(snapshot: SkillsCatalogSnapshot) {
-    skillCatalogController.applySkillsCatalogSnapshot(snapshot);
-  }
-
-  async function updateSkillRegistrySkill(options: {
-    action: "install_registry_skill" | "delete_registry_skill";
-    registryId: SkillRegistryId;
-    skillName: string;
-  }): Promise<void> {
-    await skillCatalogController.updateSkillRegistrySkill(options);
   }
 
   useWorkspaceThreadBackgroundEffects({
@@ -1714,7 +1479,7 @@ export function useWorkspace() {
     updateThreadStateById,
     setSelectedMessageSkillActivations,
     setSkillsError,
-    updateSkillRegistrySkill,
+    updateSkillRegistrySkill: skillCatalogController.updateSkillRegistrySkill,
   });
 
   const {
