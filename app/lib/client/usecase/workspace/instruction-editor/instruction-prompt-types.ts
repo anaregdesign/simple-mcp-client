@@ -10,7 +10,7 @@ import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspac
 import type { MainViewTab, ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import type {
   SaveInstructionToClientFileResult,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-document";
+} from "~/lib/client/infrastructure/browser/instruction-file-save";
 
 export type InstructionPromptLogOptions = {
   category?: string;

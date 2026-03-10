@@ -1,17 +1,21 @@
 import { INSTRUCTION_ENHANCE_SYSTEM_PROMPT } from "~/lib/constants/instruction";
+import {
+  isInstructionSaveCanceled,
+  saveInstructionToClientFile,
+} from "~/lib/client/infrastructure/browser/instruction-file-save";
 import { includesAzureDeploymentName } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import {
   applyInstructionUnifiedDiffPatch,
+  normalizeInstructionDiffPatchResponse,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-diff-patch";
+import {
   buildInstructionEnhanceMessage,
   buildInstructionSuggestedFileName,
   detectInstructionLanguage,
-  isInstructionSaveCanceled,
-  normalizeInstructionDiffPatchResponse,
   resolveInstructionFormatExtension,
   resolveInstructionSourceFileName,
-  saveInstructionToClientFile,
   validateEnhancedInstructionFormat,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-document";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-format";
 import type {
   InstructionPromptHandlerDependencies,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-types";
