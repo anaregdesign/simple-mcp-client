@@ -1,7 +1,7 @@
 import nodeOs from "node:os";
+import type { AzurePrincipalType } from "~/lib/domain/value-objects/azure-principal-type";
 import {
   readAzureArmUserContext,
-  type AzurePrincipalType,
 } from "~/lib/server/infrastructure/auth/azure-arm-user-context";
 import {
   readLatestThreadNameForInstruction,

@@ -1,11 +1,10 @@
 /**
  * Server runtime module.
  */
+import type { AzurePrincipalType } from "~/lib/domain/value-objects/azure-principal-type";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import { AZURE_ARM_SCOPE } from "~/lib/constants/azure";
-
-export type AzurePrincipalType = "user" | "servicePrincipal" | "managedIdentity" | "unknown";
 
 export type AzureUserIdentity = {
   tenantId: string;

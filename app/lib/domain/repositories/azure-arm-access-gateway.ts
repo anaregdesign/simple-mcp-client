@@ -1,8 +1,4 @@
-export type AzurePrincipalType =
-  | "user"
-  | "servicePrincipal"
-  | "managedIdentity"
-  | "unknown";
+import type { AzurePrincipalType } from "~/lib/domain/value-objects/azure-principal-type";
 
 export type AzurePrincipalProfile = {
   tenantId: string;

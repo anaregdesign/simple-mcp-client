@@ -1,4 +1,4 @@
-import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/constants/chat";
+import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/domain/value-objects/thread-name";
 
 export function buildThreadAutoTitleRequestMessage(options: {
   playgroundContent: string;

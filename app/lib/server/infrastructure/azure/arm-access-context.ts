@@ -7,12 +7,12 @@ import {
   AZURE_GRAPH_SCOPE,
 } from "~/lib/constants/azure";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import type { AzurePrincipalType } from "~/lib/domain/value-objects/azure-principal-type";
 import type { AzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
 import type {
   ArmAccessTokenResult,
   AzureArmAccessGateway,
   AzurePrincipalProfile,
-  AzurePrincipalType,
 } from "~/lib/domain/repositories/azure-arm-access-gateway";
 
 const AZURE_PROJECTS_ROUTE = "/api/azure/projects";

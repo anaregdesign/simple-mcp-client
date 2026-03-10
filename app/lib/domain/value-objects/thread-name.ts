@@ -1,6 +1,5 @@
-import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/constants/chat";
-
 export const THREAD_NAME_MAX_LENGTH = 80;
+export const THREAD_AUTO_TITLE_MAX_LENGTH = 20;
 
 export function truncateThreadNameInput(value: string): string {
   return truncateByCharacters(value, THREAD_NAME_MAX_LENGTH);

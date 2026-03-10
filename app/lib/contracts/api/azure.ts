@@ -1,4 +1,4 @@
-import type { AzurePrincipalType } from "~/lib/domain/repositories/azure-arm-access-gateway";
+import type { AzurePrincipalType } from "~/lib/domain/value-objects/azure-principal-type";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 

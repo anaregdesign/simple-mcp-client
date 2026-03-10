@@ -3,6 +3,8 @@
  * These constants are shared across chat runtime validation and client UI validation.
  * Changing them affects what requests are accepted and what values users can set.
  */
+import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/domain/value-objects/thread-name";
+
 export const TEMPERATURE_MIN = 0;
 export const TEMPERATURE_MAX = 2;
 export const CHAT_MAX_MCP_SERVERS = 8;
@@ -62,7 +64,6 @@ export const REASONING_EFFORT_OPTIONS = [
   "xhigh",
 ] as const;
 export const DEFAULT_UTILITY_REASONING_EFFORT = "high" as const;
-export const THREAD_AUTO_TITLE_MAX_LENGTH = 20;
 export const THREAD_AUTO_TITLE_SYSTEM_PROMPT = [
   "<thread_auto_title_policy>",
   "  <objective>",
