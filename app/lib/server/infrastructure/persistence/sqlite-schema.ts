@@ -233,6 +233,8 @@ async function ensureThreadSchema(prisma: PrismaClient): Promise<void> {
       "deletedAt" TEXT,
       "reasoningEffort" TEXT NOT NULL DEFAULT 'none',
       "webSearchEnabled" BOOLEAN NOT NULL DEFAULT false,
+      "chatAzureConfigJson" TEXT,
+      "agentConversationId" TEXT,
       "threadEnvironmentJson" TEXT NOT NULL DEFAULT '{}',
       "instructionContextTogglesJson" TEXT NOT NULL DEFAULT '{"system":true}',
       FOREIGN KEY ("userId") REFERENCES "WorkspaceUser" ("id") ON DELETE CASCADE
@@ -251,6 +253,30 @@ async function ensureThreadSchema(prisma: PrismaClient): Promise<void> {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "Thread"
       ADD COLUMN "instructionContextTogglesJson" TEXT NOT NULL DEFAULT '{"system":true}'
+    `);
+  }
+
+  const hasChatAzureConfigColumn = threadColumns.some(
+    (column) =>
+      typeof column.name === "string" &&
+      column.name.trim().toLowerCase() === "chatazureconfigjson",
+  );
+  if (!hasChatAzureConfigColumn) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "Thread"
+      ADD COLUMN "chatAzureConfigJson" TEXT
+    `);
+  }
+
+  const hasAgentConversationIdColumn = threadColumns.some(
+    (column) =>
+      typeof column.name === "string" &&
+      column.name.trim().toLowerCase() === "agentconversationid",
+  );
+  if (!hasAgentConversationIdColumn) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "Thread"
+      ADD COLUMN "agentConversationId" TEXT
     `);
   }
 

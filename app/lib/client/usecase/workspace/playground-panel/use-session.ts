@@ -54,7 +54,10 @@ export function usePlaygroundSession() {
   }
 
   function applyThreadPlaygroundState(
-    thread: Pick<ThreadState, "reasoningEffort" | "webSearchEnabled">,
+    thread: Pick<
+      ThreadState,
+      "reasoningEffort" | "webSearchEnabled" | "chatAzureConfig"
+    >,
   ) {
     setSelectedMessageSkillActivations([]);
     setReasoningEffort(thread.reasoningEffort);

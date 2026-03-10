@@ -81,7 +81,15 @@ describe("readChatStreamEvent", () => {
     const event = readChatStreamEvent(
       JSON.stringify({
         type: "final",
-        message: "done",
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          content: "done",
+          createdAt: "2026-02-16T00:00:02.000Z",
+          turnId: "turn-1",
+          attachments: [],
+          skillActivations: [],
+        },
         threadEnvironment: {
           VIRTUAL_ENV: "/tmp/.venv",
         },
@@ -90,7 +98,15 @@ describe("readChatStreamEvent", () => {
 
     expect(event).toEqual({
       type: "final",
-      message: "done",
+      assistantMessage: {
+        id: "assistant-1",
+        role: "assistant",
+        content: "done",
+        createdAt: "2026-02-16T00:00:02.000Z",
+        turnId: "turn-1",
+        attachments: [],
+        skillActivations: [],
+      },
       threadEnvironment: {
         VIRTUAL_ENV: "/tmp/.venv",
       },

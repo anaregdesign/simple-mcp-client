@@ -3,11 +3,13 @@ import { MCP_DEFAULT_AZURE_AUTH_SCOPE } from "~/lib/constants/mcp";
 import {
   applyDefaultThreadDirectoryToStdioServers,
   buildMcpServerSessionConfigKey,
+  resolveRelativeHttpMcpServerUrls,
 } from "~/lib/server/usecase/chat/mcp-server-config-normalization";
 
 describe("applyDefaultThreadDirectoryToStdioServers", () => {
   it("applies thread workspace directory path only to stdio servers without explicit cwd", () => {
-    const defaultPath = "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
+    const defaultPath =
+      "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
     const result = applyDefaultThreadDirectoryToStdioServers(
       [
         {
@@ -69,7 +71,8 @@ describe("applyDefaultThreadDirectoryToStdioServers", () => {
   });
 
   it("de-duplicates equivalent stdio servers after default cwd is applied", () => {
-    const defaultPath = "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
+    const defaultPath =
+      "/Users/hiroki/.foundry_local_playground/users/1/threads/thread-a";
     const result = applyDefaultThreadDirectoryToStdioServers(
       [
         {
@@ -152,5 +155,36 @@ describe("buildMcpServerSessionConfigKey", () => {
     });
 
     expect(first).not.toBe(second);
+  });
+});
+
+describe("resolveRelativeHttpMcpServerUrls", () => {
+  it("resolves relative HTTP MCP URLs against the request origin", () => {
+    expect(
+      resolveRelativeHttpMcpServerUrls(
+        [
+          {
+            name: "cmd",
+            transport: "streamable_http",
+            url: "/mcp/cmd",
+            headers: {},
+            useAzureAuth: false,
+            azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
+            timeoutSeconds: 30,
+          },
+        ],
+        "http://localhost:5173",
+      ),
+    ).toEqual([
+      {
+        name: "cmd",
+        transport: "streamable_http",
+        url: "http://localhost:5173/mcp/cmd",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: MCP_DEFAULT_AZURE_AUTH_SCOPE,
+        timeoutSeconds: 30,
+      },
+    ]);
   });
 });

@@ -13,6 +13,8 @@ function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
     deletedAt: null,
     reasoningEffort: "high",
     webSearchEnabled: false,
+    chatAzureConfig: null,
+    agentConversationId: null,
     agentInstruction: "Instruction",
     instructionContextToggles: {
       system: true,
@@ -22,6 +24,21 @@ function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
     mcpServers: [],
     mcpRpcLogs: [],
     skillSelections: [],
+    ...overrides,
+  };
+}
+
+function createAssistantMessage(
+  overrides: Partial<ThreadMessage> = {},
+): ThreadMessage {
+  return {
+    id: "assistant-1",
+    role: "assistant",
+    content: "assistant response",
+    createdAt: "2026-01-01T00:00:02.000Z",
+    turnId: "turn-1",
+    attachments: [],
+    skillActivations: [],
     ...overrides,
   };
 }
@@ -39,6 +56,10 @@ function createThreadRequestState(): ThreadRequestState {
 function createDependencies(
   overrides: {
     isChatLocked?: boolean;
+    saveThreadStateToDatabase?: (
+      thread: ThreadState,
+      signature: string,
+    ) => Promise<boolean>;
     assignThreadSendAbortController?: (
       threadId: string,
       controller: AbortController,
@@ -46,7 +67,7 @@ function createDependencies(
     sendMessageTransport?: (options: {
       signal: AbortSignal;
     }) => Promise<{
-      assistantMessage: string;
+      assistantMessage: ThreadMessage;
       threadEnvironment: Record<string, string>;
       operationLogCount: number;
       usedEventStream: boolean;
@@ -59,6 +80,7 @@ function createDependencies(
     selectedPlaygroundAzureDeploymentName: "gpt-5",
     threadOperationPhase: "idle" as const,
     activePlaygroundAzureConnection: {
+      id: "project-1",
       projectName: "Playground",
       baseUrl: "https://example.openai.azure.com",
       apiVersion: "2026-01-01-preview",
@@ -104,18 +126,31 @@ function createDependencies(
     operationLogTurnIds: [] as string[],
     clearedControllers: 0,
     scheduledThreadSaves: [] as string[],
+    flow: [] as string[],
+    savedSnapshots: [] as ThreadState[],
   };
 
   const sendMessageTransport =
     overrides.sendMessageTransport ??
     vi.fn(async () => ({
-      assistantMessage: "assistant response",
+      assistantMessage: createAssistantMessage(),
       threadEnvironment: {
         FOO: "bar",
       },
       operationLogCount: 2,
       usedEventStream: false,
     }));
+
+  const saveThreadStateToDatabase =
+    overrides.saveThreadStateToDatabase ??
+    vi.fn(async (thread: ThreadState) => {
+      state.flow.push("save");
+      state.savedSnapshots.push(thread);
+      state.baseThread = thread;
+      state.messages = [...thread.messages];
+      state.threadMessages = [...thread.messages];
+      return true;
+    });
 
   const deps = {
     readActiveThreadId: () => state.activeThreadId,
@@ -207,9 +242,12 @@ function createDependencies(
     },
     assignThreadSendAbortController:
       overrides.assignThreadSendAbortController ?? vi.fn(),
-    sendMessageTransport: (options: {
-      signal: AbortSignal;
-    }) => sendMessageTransport(options),
+    saveThreadStateToDatabase: async (thread: ThreadState, signature: string) =>
+      saveThreadStateToDatabase(thread, signature),
+    sendMessageTransport: async (options: { signal: AbortSignal }) => {
+      state.flow.push("send");
+      return await sendMessageTransport(options);
+    },
     appendThreadProgressMessage: (_threadId: string, message: string) => {
       state.progressMessages.push(message);
     },
@@ -233,21 +271,31 @@ function createDependencies(
     },
   };
 
-  return { deps, state, sendMessageTransport };
+  return {
+    deps,
+    state,
+    saveThreadStateToDatabase,
+    sendMessageTransport,
+  };
 }
 
 describe("send-message-operations", () => {
-  it("executes the send flow and settles success state", async () => {
-    const { deps, state, sendMessageTransport } = createDependencies();
+  it("persists the thread snapshot before sending and applies the server message", async () => {
+    const { deps, state, saveThreadStateToDatabase, sendMessageTransport } =
+      createDependencies();
 
     await sendMessageOperation(deps);
 
+    expect(saveThreadStateToDatabase).toHaveBeenCalledTimes(1);
     expect(sendMessageTransport).toHaveBeenCalledTimes(1);
+    expect(state.flow).toEqual(["save", "send"]);
+    expect(state.savedSnapshots[0]?.messages.map((message) => message.role)).toEqual([
+      "user",
+    ]);
     expect(state.threadMessages.map((message) => message.role)).toEqual([
       "user",
       "assistant",
     ]);
-    expect(state.threadMessages[1]?.content).toBe("assistant response");
     expect(state.draft).toBe("");
     expect(state.chatAttachmentError).toBeNull();
     expect(state.systemNotice).toBeNull();
@@ -270,6 +318,20 @@ describe("send-message-operations", () => {
     expect(state.scheduledThreadSaves).toEqual(["thread-1"]);
   });
 
+  it("does not start transport when the pre-send save fails", async () => {
+    const { deps, state, sendMessageTransport } = createDependencies({
+      saveThreadStateToDatabase: vi.fn(async () => false),
+    });
+
+    await sendMessageOperation(deps);
+
+    expect(sendMessageTransport).not.toHaveBeenCalled();
+    expect(state.draft).toBe("hello from the workspace");
+    expect(state.threadMessages).toEqual([]);
+    expect(state.infoEvents).toEqual([]);
+    expect(state.requestState).toEqual(createThreadRequestState());
+  });
+
   it("maps precondition violations to UI state without sending", async () => {
     const { deps, state, sendMessageTransport } = createDependencies({
       isChatLocked: true,
@@ -283,10 +345,9 @@ describe("send-message-operations", () => {
     );
     expect(state.activeMainTab).toBe("settings");
     expect(state.threadMessages).toEqual([]);
-    expect(state.infoEvents).toEqual([]);
   });
 
-  it("handles aborted requests as cancellation", async () => {
+  it("handles aborted requests as cancellation after the snapshot is saved", async () => {
     const { deps, state, sendMessageTransport } = createDependencies({
       assignThreadSendAbortController: (_threadId, controller) => {
         controller.abort();

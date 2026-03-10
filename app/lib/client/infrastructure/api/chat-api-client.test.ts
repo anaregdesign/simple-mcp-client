@@ -1,10 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import {
   ChatApiClient,
 } from "~/lib/client/infrastructure/api/chat-api-client";
 
+function createAssistantMessage(
+  overrides: Partial<ThreadMessage> = {},
+): ThreadMessage {
+  return {
+    id: "assistant-1",
+    role: "assistant",
+    content: "assistant response",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    turnId: "turn-1",
+    attachments: [],
+    skillActivations: [],
+    ...overrides,
+  };
+}
+
 describe("ChatApiClient", () => {
-  it("posts chat request payloads and returns JSON responses", async () => {
+  it("posts thin chat run payloads and returns JSON responses", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("/api/chat");
       expect(init?.method).toBe("POST");
@@ -12,30 +28,15 @@ describe("ChatApiClient", () => {
         JSON.stringify({
           threadId: "thread-1",
           turnId: "turn-1",
-          message: "hello",
-          attachments: [],
-          history: [],
-          azureConfig: {
-            tenantId: "tenant-a",
-            projectName: "project-a",
-            baseUrl: "https://example.openai.azure.com",
-            apiVersion: "v1",
-            deploymentName: "gpt-5",
-          },
-          supportsReasoningEffort: false,
-          webSearchEnabled: false,
-          agentInstruction: "instruction",
-          instructionContextToggles: { system: true },
-          threadEnvironment: {},
-          skills: [],
-          explicitSkillLocations: [],
-          mcpServers: [],
         }),
       );
 
       return new Response(
         JSON.stringify({
-          message: "assistant response",
+          assistantMessage: createAssistantMessage(),
+          threadEnvironment: {
+            FOO: "bar",
+          },
         }),
         {
           status: 200,
@@ -51,31 +52,16 @@ describe("ChatApiClient", () => {
       {
         threadId: "thread-1",
         turnId: "turn-1",
-        message: "hello",
-        attachments: [],
-        history: [],
-        azureConfig: {
-          tenantId: "tenant-a",
-          projectName: "project-a",
-          baseUrl: "https://example.openai.azure.com",
-          apiVersion: "v1",
-          deploymentName: "gpt-5",
-        },
-        supportsReasoningEffort: false,
-        webSearchEnabled: false,
-        agentInstruction: "instruction",
-        instructionContextToggles: { system: true },
-        threadEnvironment: {},
-        skills: [],
-        explicitSkillLocations: [],
-        mcpServers: [],
       },
       { fetchImpl },
     );
 
     expect(result.response.ok).toBe(true);
     expect(result.payload).toEqual({
-      message: "assistant response",
+      assistantMessage: createAssistantMessage(),
+      threadEnvironment: {
+        FOO: "bar",
+      },
     });
     expect(result.isEventStream).toBe(false);
     expect(result.operationLogCount).toBe(0);
@@ -91,7 +77,15 @@ describe("ChatApiClient", () => {
           "",
           'data: {"type":"operation_log","record":{"id":"op-1","sequence":1,"operationType":"mcp","serverName":"debug","method":"tools/call","startedAt":"2026-01-01T00:00:00.000Z","completedAt":"2026-01-01T00:00:01.000Z","request":{},"response":{},"isError":false}}',
           "",
-          'data: {"type":"final","message":"done","threadEnvironment":{"foo":"bar"}}',
+          `data: ${JSON.stringify({
+            type: "final",
+            assistantMessage: createAssistantMessage({
+              content: "done",
+            }),
+            threadEnvironment: {
+              foo: "bar",
+            },
+          })}`,
           "",
           "",
         ].join("\n"),
@@ -109,24 +103,6 @@ describe("ChatApiClient", () => {
       {
         threadId: "thread-1",
         turnId: "turn-1",
-        message: "hello",
-        attachments: [],
-        history: [],
-        azureConfig: {
-          tenantId: "tenant-a",
-          projectName: "project-a",
-          baseUrl: "https://example.openai.azure.com",
-          apiVersion: "v1",
-          deploymentName: "gpt-5",
-        },
-        supportsReasoningEffort: false,
-        webSearchEnabled: false,
-        agentInstruction: "instruction",
-        instructionContextToggles: { system: true },
-        threadEnvironment: {},
-        skills: [],
-        explicitSkillLocations: [],
-        mcpServers: [],
       },
       {
         fetchImpl,
@@ -136,7 +112,9 @@ describe("ChatApiClient", () => {
     );
 
     expect(result.payload).toEqual({
-      message: "done",
+      assistantMessage: createAssistantMessage({
+        content: "done",
+      }),
       threadEnvironment: {
         foo: "bar",
       },

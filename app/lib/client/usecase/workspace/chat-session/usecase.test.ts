@@ -1,15 +1,12 @@
-/**
- * Tests for send-message use-case helpers.
- */
 import { describe, expect, it, vi } from "vitest";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import type { ThreadState } from "~/lib/contracts/threads/types";
 import {
   applySendResult,
-  buildChatRequestPayload,
   executeSendMessageTransport,
   prepareSendMessageExecution,
   validateSendPreconditions,
 } from "~/lib/client/usecase/workspace/chat-session/usecase";
-import type { ThreadState } from "~/lib/contracts/threads/types";
 
 function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
   return {
@@ -20,6 +17,8 @@ function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
     deletedAt: null,
     reasoningEffort: "high",
     webSearchEnabled: false,
+    chatAzureConfig: null,
+    agentConversationId: null,
     agentInstruction: "Instruction",
     instructionContextToggles: {
       system: true,
@@ -29,6 +28,21 @@ function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
     mcpServers: [],
     mcpRpcLogs: [],
     skillSelections: [],
+    ...overrides,
+  };
+}
+
+function createAssistantMessage(
+  overrides: Partial<ThreadMessage> = {},
+): ThreadMessage {
+  return {
+    id: "assistant-1",
+    role: "assistant",
+    content: "assistant response",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    turnId: "turn-1",
+    attachments: [],
+    skillActivations: [],
     ...overrides,
   };
 }
@@ -83,48 +97,8 @@ describe("validateSendPreconditions", () => {
   });
 });
 
-describe("buildChatRequestPayload", () => {
-  const basePayload = {
-    threadId: "thread-1",
-    turnId: "turn-1",
-    message: "hello",
-    attachments: [],
-    history: [{ role: "assistant" as const, content: "hi" }],
-    azureConfig: {
-      tenantId: "tenant-a",
-      projectName: "project-a",
-      baseUrl: "https://example.test/openai/v1/",
-      apiVersion: "2026-01-01",
-      deploymentName: "gpt-5",
-    },
-    supportsReasoningEffort: false,
-    reasoningEffort: "medium" as const,
-    webSearchEnabled: false,
-    agentInstruction: "instruction",
-    instructionContextToggles: { system: true },
-    threadEnvironment: { foo: "bar" },
-    skills: [{ name: "Skill A", location: "/skills/a" }],
-    explicitSkillLocations: ["/skills/a"],
-    mcpServers: [],
-  };
-
-  it("omits reasoningEffort when deployment does not support it", () => {
-    const payload = buildChatRequestPayload(basePayload);
-    expect(payload).not.toHaveProperty("reasoningEffort");
-  });
-
-  it("includes reasoningEffort when deployment supports it", () => {
-    const payload = buildChatRequestPayload({
-      ...basePayload,
-      supportsReasoningEffort: true,
-      reasoningEffort: "high",
-    });
-    expect(payload.reasoningEffort).toBe("high");
-  });
-});
-
 describe("prepareSendMessageExecution", () => {
-  it("builds request payload and optimistic user message from runtime state", () => {
+  it("builds a thin request and a persisted thread snapshot", () => {
     const prepared = prepareSendMessageExecution({
       threadId: "thread-1",
       turnId: "turn-1",
@@ -139,31 +113,11 @@ describe("prepareSendMessageExecution", () => {
         },
       ],
       messages: [
-        {
-          id: "assistant-1",
-          role: "assistant",
+        createAssistantMessage({
+          id: "assistant-0",
+          turnId: "turn-0",
           content: "Previous response",
-          createdAt: "2026-01-01T00:00:00.000Z",
-          turnId: "turn-0",
-          attachments: [],
-          skillActivations: [],
-        },
-        {
-          id: "user-1",
-          role: "user",
-          content: "Existing attachment message",
-          createdAt: "2026-01-01T00:00:01.000Z",
-          turnId: "turn-0",
-          attachments: [
-            {
-              name: "history.txt",
-              mimeType: "text/plain",
-              sizeBytes: 5,
-              dataUrl: "data:text/plain;base64,aGlzdG9yeQ==",
-            },
-          ],
-          skillActivations: [],
-        },
+        }),
       ],
       mcpServers: [
         {
@@ -190,13 +144,18 @@ describe("prepareSendMessageExecution", () => {
           location: "/skills/thread",
         },
       ],
-      baseThread: createThreadState(),
+      baseThread: createThreadState({
+        threadEnvironment: {
+          FOO: "bar",
+        },
+      }),
       agentInstruction: "Use concise wording.",
       instructionContextToggles: {
         system: true,
       },
       activeAzureTenantId: "tenant-1",
       activePlaygroundAzureConnection: {
+        id: "project-1",
         projectName: "Playground Project",
         baseUrl: "https://example.openai.azure.com",
         apiVersion: "2026-01-01-preview",
@@ -207,33 +166,10 @@ describe("prepareSendMessageExecution", () => {
       webSearchEnabled: false,
     });
 
-    expect(prepared.requestPayload).toEqual(
-      expect.objectContaining({
-        threadId: "thread-1",
-        turnId: "turn-1",
-        message: "Explain the refactor plan.",
-        reasoningEffort: "high",
-        explicitSkillLocations: ["/skills/thread", "/skills/message"],
-      }),
-    );
-    expect(prepared.requestPayload.history).toEqual([
-      {
-        role: "assistant",
-        content: "Previous response",
-      },
-      {
-        role: "user",
-        content: "Existing attachment message",
-        attachments: [
-          {
-            name: "history.txt",
-            mimeType: "text/plain",
-            sizeBytes: 5,
-            dataUrl: "data:text/plain;base64,aGlzdG9yeQ==",
-          },
-        ],
-      },
-    ]);
+    expect(prepared.requestPayload).toEqual({
+      threadId: "thread-1",
+      turnId: "turn-1",
+    });
     expect(prepared.userMessage).toEqual(
       expect.objectContaining({
         role: "user",
@@ -249,15 +185,25 @@ describe("prepareSendMessageExecution", () => {
         ],
       }),
     );
-    expect(prepared.requestMcpServers).toEqual([
-      expect.objectContaining({
-        name: "Filesystem",
-      }),
+    expect(prepared.threadSnapshot.chatAzureConfig).toEqual({
+      tenantId: "tenant-1",
+      projectId: "project-1",
+      projectName: "Playground Project",
+      baseUrl: "https://example.openai.azure.com",
+      apiVersion: "2026-01-01-preview",
+      deploymentName: "gpt-5",
+    });
+    expect(prepared.threadSnapshot.messages.map((message) => message.role)).toEqual([
+      "assistant",
+      "user",
     ]);
     expect(prepared.requestSkillSelections).toEqual([
       { name: "thread-skill", location: "/skills/thread" },
       { name: "message-skill", location: "/skills/message" },
     ]);
+    expect(prepared.requestThreadEnvironment).toEqual({
+      FOO: "bar",
+    });
     expect(prepared.shouldRefreshThreadTitleOnFirstMessage).toBe(true);
   });
 });
@@ -316,14 +262,6 @@ describe("applySendResult", () => {
       lastErrorTurnId: "turn-2",
       error: "network failed",
     });
-
-    expect(
-      applySendResult(baseState, {
-        status: "failed",
-        turnId: "turn-2",
-        error: "unknown",
-      }).error,
-    ).toBe("Could not reach the server.");
   });
 });
 
@@ -331,36 +269,26 @@ describe("executeSendMessageTransport", () => {
   const baseRequestPayload = {
     threadId: "thread-1",
     turnId: "turn-1",
-    message: "hello",
-    attachments: [],
-    history: [],
-    azureConfig: {
-      tenantId: "tenant-a",
-      projectName: "project-a",
-      baseUrl: "https://example.openai.azure.com",
-      apiVersion: "v1",
-      deploymentName: "gpt-5",
-    },
-    supportsReasoningEffort: false,
-    webSearchEnabled: false,
-    agentInstruction: "instruction",
-    instructionContextToggles: { system: true },
-    threadEnvironment: {},
-    skills: [],
-    explicitSkillLocations: [],
-    mcpServers: [],
   };
 
   it("returns validated transport results", async () => {
     const sendMessage = vi.fn(async () => ({
-      response: new Response(JSON.stringify({ message: "assistant response" }), {
-        status: 200,
-        headers: {
-          "content-type": "application/json",
+      response: new Response(
+        JSON.stringify({
+          assistantMessage: createAssistantMessage(),
+          threadEnvironment: {
+            FOO: "bar",
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
         },
-      }),
+      ),
       payload: {
-        message: "assistant response",
+        assistantMessage: createAssistantMessage(),
         threadEnvironment: {
           FOO: "bar",
         },
@@ -386,7 +314,7 @@ describe("executeSendMessageTransport", () => {
     );
 
     expect(result).toEqual({
-      assistantMessage: "assistant response",
+      assistantMessage: createAssistantMessage(),
       threadEnvironment: {
         FOO: "bar",
       },

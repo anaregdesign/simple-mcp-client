@@ -7,7 +7,7 @@ import {
 } from "~/lib/constants/mcp";
 import type {
   ClientMcpServerConfig,
-} from "~/lib/server/infrastructure/gateways/chat/request-parser";
+} from "~/lib/server/usecase/chat/mcp-server-config-types";
 
 export type McpRequestContext = {
   threadId: string | null;

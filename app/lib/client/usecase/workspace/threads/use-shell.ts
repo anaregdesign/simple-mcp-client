@@ -1,37 +1,22 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-} from "react";
+import { useEffect, useRef, useState, type Dispatch } from "react";
 import {
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
 } from "~/lib/constants/chat";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import {
-  isThreadArchivedById,
-} from "~/lib/contracts/threads/state";
+import { isThreadArchivedById } from "~/lib/contracts/threads/state";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 import { createId } from "~/lib/client/usecase/workspace/ids";
-import type {
-  ThreadRequestState,
-} from "~/lib/client/usecase/workspace/types";
-import type {
-  WorkspaceInteractionAction,
-} from "~/lib/client/usecase/workspace/reducer";
+import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
+import type { WorkspaceInteractionAction } from "~/lib/client/usecase/workspace/reducer";
 import {
   buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
   createLocalThreadState as createLocalThreadStateOperation,
   setThreadSaveSignatures as setThreadSaveSignaturesOperation,
   shouldPersistThreadState as shouldPersistThreadStateOperation,
 } from "./local-thread-state";
-import {
-  createThreadRequestStateController,
-} from "./request-state";
-import {
-  createThreadStateUpdaters,
-} from "./state-updaters";
+import { createThreadRequestStateController } from "./request-state";
+import { createThreadStateUpdaters } from "./state-updaters";
 import {
   canTransition,
   transitionThreadOperation,
@@ -45,6 +30,7 @@ type UseThreadShellOptions = {
   readCurrentThreadDraftState: () => {
     reasoningEffort: ThreadState["reasoningEffort"];
     webSearchEnabled: boolean;
+    chatAzureConfig: ThreadState["chatAzureConfig"];
     agentInstruction: string;
     instructionContextToggles: ThreadState["instructionContextToggles"];
     messages: ThreadState["messages"];
@@ -54,7 +40,10 @@ type UseThreadShellOptions = {
   };
   resetPlaygroundSession: () => void;
   applyThreadPlaygroundState: (
-    thread: Pick<ThreadState, "reasoningEffort" | "webSearchEnabled">,
+    thread: Pick<
+      ThreadState,
+      "reasoningEffort" | "webSearchEnabled" | "chatAzureConfig"
+    >,
   ) => void;
   resetInstructionEditor: () => void;
   applyThreadInstructionState: (
@@ -62,9 +51,7 @@ type UseThreadShellOptions = {
   ) => void;
 };
 
-export function useThreadShell(
-  options: UseThreadShellOptions,
-) {
+export function useThreadShell(options: UseThreadShellOptions) {
   const [threads, setThreads] = useState<ThreadState[]>([]);
   const [activeThreadId, setActiveThreadId] = useState("");
   const [activeThreadNameInput, setActiveThreadNameInput] = useState("");
@@ -235,6 +222,8 @@ export function useThreadShell(
       | "messages"
       | "reasoningEffort"
       | "webSearchEnabled"
+      | "chatAzureConfig"
+      | "agentInstruction"
       | "instructionContextToggles"
       | "threadEnvironment"
     > &
@@ -270,6 +259,7 @@ export function useThreadShell(
       activeThreadNameInput,
       reasoningEffort: snapshot.reasoningEffort,
       webSearchEnabled: snapshot.webSearchEnabled,
+      chatAzureConfig: snapshot.chatAzureConfig,
       agentInstruction: snapshot.agentInstruction,
       instructionContextToggles: snapshot.instructionContextToggles,
       messages: snapshot.messages,

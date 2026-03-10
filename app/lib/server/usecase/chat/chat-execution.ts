@@ -1,37 +1,28 @@
+import { Agent, run, type MCPServer, type Tool } from "@openai/agents";
 import {
-  Agent,
-  assistant,
-  run,
-  user,
-  type AgentInputItem,
-  type MCPServer,
-  type OpenAIResponsesCompactionAwareSession,
-  type Tool,
-} from "@openai/agents";
-import {
-  OpenAIResponsesCompactionSession,
   OpenAIResponsesModel,
   codeInterpreterTool,
+  webSearchTool,
 } from "@openai/agents-openai";
+import type { Session } from "@openai/agents-core";
 import {
   CHAT_CLEANUP_TIMEOUT_MS,
   CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS,
   CHAT_MAX_RUN_TURNS,
   CHAT_MODEL_RUN_TIMEOUT_MS,
-  CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS,
 } from "~/lib/constants/chat";
 import { THREAD_MCP_SERVER_SESSION_IDLE_TTL_MS } from "~/lib/constants/mcp";
-import {
-  cloneThreadEnvironment,
-} from "~/lib/contracts/threads/environment";
-import type {
-  ThreadSkillActivation,
-} from "~/lib/contracts/skills/types";
+import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
 import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
+import {
+  buildUserMessageInput,
+  createChatMemorySession,
+} from "~/lib/server/usecase/chat/chat-session";
 import type {
   ActiveSkillRuntimeEntry,
   SkillRuntimeContext,
@@ -39,8 +30,6 @@ import type {
 
 const chatTransientTerminationRetryMaxAttempts = 2;
 const chatTransientTerminationRetryDelayMs = 250;
-const WEB_SEARCH_PREVIEW_TOOL_NAME = "web_search_preview";
-const WEB_SEARCH_PREVIEW_CONTEXT_SIZE = "medium";
 
 type ThreadMessageRole = "user" | "assistant";
 
@@ -98,6 +87,8 @@ export type ChatExecutionOptions = {
   skills: ClientSkillSelection[];
   explicitSkillLocations: string[];
   azureConfig: ResolvedAzureConfig;
+  agentConversationId: string | null;
+  conversationSession?: Session;
   mcpServers: ClientMcpServerConfig[];
 };
 
@@ -180,12 +171,7 @@ export type ChatExecutionResult = {
   threadEnvironment: ThreadEnvironment;
   operationLogCount: number;
   mcpRuntimeMetrics: ChatMcpRuntimeMetrics;
-};
-
-export type CodeInterpreterAttachmentAvailabilityCache = {
-  supported: boolean;
-  checkedAt: number;
-  reason: string;
+  agentConversationId: string;
 };
 
 type InstructionClientOperatingSystemContext = {
@@ -256,16 +242,12 @@ export type ChatExecutionDependencies = {
   ) => AzureOpenAIClient;
   prepareMcpRuntime: (options: {
     serverConfigs: ClientMcpServerConfig[];
-    connectServer: (
-      serverConfig: ClientMcpServerConfig,
-    ) => Promise<{
+    connectServer: (serverConfig: ClientMcpServerConfig) => Promise<{
       lease: ThreadMcpServerSessionLeaseLike;
       server: MCPServer;
       connectDurationMs: number;
     }>;
-    releaseLease: (
-      lease: ThreadMcpServerSessionLeaseLike,
-    ) => Promise<void>;
+    releaseLease: (lease: ThreadMcpServerSessionLeaseLike) => Promise<void>;
   }) => Promise<{
     leases: ThreadMcpServerSessionLeaseLike[];
     servers: MCPServer[];
@@ -287,9 +269,7 @@ export type ChatExecutionDependencies = {
   buildMcpConnectParams: (
     serverConfig: ClientMcpServerConfig,
   ) => Record<string, unknown>;
-  buildMcpServerSessionConfigKey: (
-    config: ClientMcpServerConfig,
-  ) => string;
+  buildMcpServerSessionConfigKey: (config: ClientMcpServerConfig) => string;
   getAzureMcpAuthorizationToken: (
     scope: string,
     tenantId: string,
@@ -331,9 +311,7 @@ export type ChatExecutionDependencies = {
     },
     skillExecutionContext: SkillToolExecutionContext,
   ) => void;
-  collectSkillRuntimeWarnings: (
-    skillRuntime: SkillRuntimeContext,
-  ) => string[];
+  collectSkillRuntimeWarnings: (skillRuntime: SkillRuntimeContext) => string[];
   buildSystemInstructionContextPayload: (
     options: ChatExecutionOptions,
   ) => Promise<InstructionSystemContextPayload | null>;
@@ -353,11 +331,6 @@ export type ChatExecutionDependencies = {
       systemInstructionContext: InstructionSystemContextPayload | null;
     },
   ) => string;
-  buildAgentRunContext: <TInput>(options: {
-    historyInput: TInput[];
-    currentInput: TInput;
-    compactionSession: unknown | null;
-  }) => { runInput: TInput[] };
   readProgressEventFromRunStreamEvent: (
     event: unknown,
     hasMcpServers: boolean,
@@ -386,9 +359,6 @@ export class ChatCanceledError extends Error {
     this.name = "ChatCanceledError";
   }
 }
-
-let codeInterpreterAttachmentAvailabilityCache: CodeInterpreterAttachmentAvailabilityCache | null =
-  null;
 
 export async function executeChat(
   options: ChatExecutionOptions,
@@ -454,11 +424,10 @@ export async function executeChat(
         });
 
         const connectSequence = nextThreadOperationLogSequence();
-        const connectRequestId =
-          dependencies.buildThreadOperationLogRequestId(
-            serverConfig.name,
-            connectSequence,
-          );
+        const connectRequestId = dependencies.buildThreadOperationLogRequestId(
+          serverConfig.name,
+          connectSequence,
+        );
         const connectStartedAtMs = Date.now();
         const connectStartedAt = new Date(connectStartedAtMs).toISOString();
         const connectRequest: JsonRpcRequestPayload = {
@@ -471,9 +440,8 @@ export async function executeChat(
         try {
           const lease = await dependencies.acquireThreadMcpServerSession({
             threadId: options.threadId,
-            sessionKey: dependencies.buildMcpServerSessionConfigKey(
-              serverConfig,
-            ),
+            sessionKey:
+              dependencies.buildMcpServerSessionConfigKey(serverConfig),
             refreshState: {
               requestContext: mcpRequestContext,
               getAzureAuthorizationToken: (scope) => {
@@ -571,9 +539,7 @@ export async function executeChat(
       createExecutionContext: (skillRuntime) =>
         skillRuntime.activeSkills.length > 0
           ? {
-              threadEnvironment: cloneThreadEnvironment(
-                options.threadEnvironment,
-              ),
+              threadEnvironment: options.threadEnvironment,
             }
           : null,
       emitActivationLogs: (skillRuntime, skillExecutionContext) => {
@@ -609,10 +575,15 @@ export async function executeChat(
       options.azureConfig.deploymentName,
     );
     const webSearchTools = options.webSearchEnabled
-      ? [buildWebSearchPreviewTool(options.webSearchUserLocation)]
+      ? [
+          webSearchTool({
+            userLocation: options.webSearchUserLocation ?? undefined,
+            searchContextSize: "medium",
+          }),
+        ]
       : [];
     if (options.webSearchEnabled) {
-      emitProgress({ message: "Enabling web-search-preview tool..." });
+      emitProgress({ message: "Enabling web search..." });
     }
     const useCodeInterpreter = shouldEnableCodeInterpreter(options);
     let codeInterpreterEnabledForRun = false;
@@ -622,32 +593,21 @@ export async function executeChat(
       });
       const nonPdfAttachments = collectNonPdfAttachments(options);
       if (nonPdfAttachments.length > 0) {
-        const cachedAvailability =
-          readCodeInterpreterAttachmentAvailabilityCache();
-        if (cachedAvailability && !cachedAvailability.supported) {
+        emitProgress({
+          message: `Uploading attachments for Code Interpreter (${nonPdfAttachments.length})...`,
+        });
+        try {
+          codeInterpreterContainerId =
+            await dependencies.createCodeInterpreterContainerWithAttachments(
+              nonPdfAttachments,
+              azureOpenAIClient,
+            );
+          codeInterpreterEnabledForRun = true;
+        } catch (error) {
+          const reason = readErrorMessage(error);
           emitProgress({
-            message:
-              "Code Interpreter file upload is temporarily unavailable; continuing without non-PDF file access.",
+            message: `Code Interpreter file upload failed (${truncateProgressMessage(reason)}). Continuing without non-PDF file access.`,
           });
-        } else {
-          emitProgress({
-            message: `Uploading attachments for Code Interpreter (${nonPdfAttachments.length})...`,
-          });
-          try {
-            codeInterpreterContainerId =
-              await dependencies.createCodeInterpreterContainerWithAttachments(
-                nonPdfAttachments,
-                azureOpenAIClient,
-              );
-            codeInterpreterEnabledForRun = true;
-            markCodeInterpreterAttachmentAvailabilitySupported();
-          } catch (error) {
-            const reason = readErrorMessage(error);
-            markCodeInterpreterAttachmentAvailabilityUnavailable(reason);
-            emitProgress({
-              message: `Code Interpreter file upload failed (${truncateProgressMessage(reason)}). Continuing without non-PDF file access.`,
-            });
-          }
         }
       } else {
         codeInterpreterEnabledForRun = true;
@@ -699,14 +659,14 @@ export async function executeChat(
       ],
       mcpServers: connectedMcpServers,
     });
-
-    const historyInput = options.history.map((entry) =>
-      entry.role === "user"
-        ? buildUserMessageInput(entry.content, entry.attachments, {
-            useCodeInterpreter: enableCodeInterpreterTool,
-          })
-        : assistant(entry.content),
-    );
+    const conversationSession =
+      options.conversationSession ??
+      createChatMemorySession({
+        sessionId: options.agentConversationId,
+        history: options.history,
+        useCodeInterpreter: enableCodeInterpreterTool,
+      });
+    const agentConversationId = await conversationSession.getSessionId();
     const currentInput = buildUserMessageInput(
       options.message,
       options.attachments,
@@ -714,22 +674,6 @@ export async function executeChat(
         useCodeInterpreter: enableCodeInterpreterTool,
       },
     );
-    const compactionSession = await initializeCompactionSession({
-      client: azureOpenAIClient,
-      deploymentName: options.azureConfig.deploymentName,
-      historyInput,
-      onCompactionUnavailable: () => {
-        emitProgress({
-          message:
-            "Automatic context compaction is unavailable for this deployment; continuing without it.",
-        });
-      },
-    });
-    const { runInput } = dependencies.buildAgentRunContext({
-      historyInput,
-      currentInput,
-      compactionSession,
-    });
 
     emitProgress({ message: "Sending request to Azure OpenAI..." });
     const runTimeoutSeconds = Math.ceil(CHAT_MODEL_RUN_TIMEOUT_MS / 1000);
@@ -740,11 +684,11 @@ export async function executeChat(
     if (onEvent) {
       const streamedResult = await runAgentWithTimeout(
         (signal) =>
-          run(agent, runInput, {
+          run(agent, [currentInput], {
             stream: true,
             signal,
             maxTurns: CHAT_MAX_RUN_TURNS,
-            ...(compactionSession ? { session: compactionSession } : {}),
+            session: conversationSession,
           }),
         CHAT_MODEL_RUN_TIMEOUT_MS,
         runTimeoutMessage,
@@ -783,15 +727,16 @@ export async function executeChat(
         threadEnvironment: nextThreadEnvironment,
         operationLogCount: operationLogSequence,
         mcpRuntimeMetrics,
+        agentConversationId,
       };
     }
 
     const result = await runAgentWithTimeout(
       (signal) =>
-        run(agent, runInput, {
+        run(agent, [currentInput], {
           signal,
           maxTurns: CHAT_MAX_RUN_TURNS,
-          ...(compactionSession ? { session: compactionSession } : {}),
+          session: conversationSession,
         }),
       CHAT_MODEL_RUN_TIMEOUT_MS,
       runTimeoutMessage,
@@ -810,6 +755,7 @@ export async function executeChat(
       threadEnvironment: nextThreadEnvironment,
       operationLogCount: operationLogSequence,
       mcpRuntimeMetrics,
+      agentConversationId,
     };
   } finally {
     await dependencies.cleanupChatRuntime({
@@ -879,21 +825,6 @@ export function createInitialChatMcpRuntimeMetrics(): ChatMcpRuntimeMetrics {
   };
 }
 
-function buildWebSearchPreviewTool(
-  userLocation: WebSearchPreviewUserLocation | null,
-): Tool<unknown> {
-  return {
-    type: "hosted_tool" as const,
-    name: WEB_SEARCH_PREVIEW_TOOL_NAME,
-    providerData: {
-      type: "web_search_preview",
-      name: WEB_SEARCH_PREVIEW_TOOL_NAME,
-      search_context_size: WEB_SEARCH_PREVIEW_CONTEXT_SIZE,
-      ...(userLocation ? { user_location: userLocation } : {}),
-    },
-  } as Tool<unknown>;
-}
-
 function shouldEnableCodeInterpreter(options: ChatExecutionOptions): boolean {
   if (hasNonPdfAttachments(options.attachments)) {
     return true;
@@ -904,9 +835,7 @@ function shouldEnableCodeInterpreter(options: ChatExecutionOptions): boolean {
   );
 }
 
-export function hasNonPdfAttachments(
-  attachments: ClientAttachment[],
-): boolean {
+export function hasNonPdfAttachments(attachments: ClientAttachment[]): boolean {
   return attachments.some(
     (attachment) => readFileExtension(attachment.name) !== "pdf",
   );
@@ -939,41 +868,6 @@ function collectNonPdfAttachments(
   return [...dedupedByKey.values()];
 }
 
-function readCodeInterpreterAttachmentAvailabilityCache(): CodeInterpreterAttachmentAvailabilityCache | null {
-  const cache = codeInterpreterAttachmentAvailabilityCache;
-  if (!cache) {
-    return null;
-  }
-
-  if (
-    Date.now() - cache.checkedAt >
-    CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS
-  ) {
-    codeInterpreterAttachmentAvailabilityCache = null;
-    return null;
-  }
-
-  return cache;
-}
-
-function markCodeInterpreterAttachmentAvailabilitySupported(): void {
-  codeInterpreterAttachmentAvailabilityCache = {
-    supported: true,
-    checkedAt: Date.now(),
-    reason: "",
-  };
-}
-
-function markCodeInterpreterAttachmentAvailabilityUnavailable(
-  reason: string,
-): void {
-  codeInterpreterAttachmentAvailabilityCache = {
-    supported: false,
-    checkedAt: Date.now(),
-    reason: reason.trim(),
-  };
-}
-
 function truncateProgressMessage(message: string): string {
   const trimmed = message.trim();
   if (!trimmed) {
@@ -984,56 +878,6 @@ function truncateProgressMessage(message: string): string {
   return trimmed.length <= maxLength
     ? trimmed
     : `${trimmed.slice(0, maxLength - 1)}...`;
-}
-
-function buildUserMessageInput(
-  content: string,
-  attachments: ClientAttachment[],
-  options: {
-    useCodeInterpreter: boolean;
-  },
-) {
-  if (attachments.length === 0) {
-    return user(content);
-  }
-
-  const pdfAttachments = attachments.filter(
-    (attachment) => readFileExtension(attachment.name) === "pdf",
-  );
-  const codeInterpreterAttachmentNames = attachments
-    .filter((attachment) => readFileExtension(attachment.name) !== "pdf")
-    .filter(() => options.useCodeInterpreter)
-    .map((attachment) => attachment.name);
-
-  if (
-    pdfAttachments.length === 0 &&
-    codeInterpreterAttachmentNames.length === 0
-  ) {
-    return user(content);
-  }
-
-  const textWithAttachmentHint =
-    codeInterpreterAttachmentNames.length > 0
-      ? [
-          content,
-          "",
-          "Files available in Code Interpreter:",
-          ...codeInterpreterAttachmentNames.map((name) => `- ${name}`),
-        ].join("\n")
-      : content;
-
-  const inputContent = [
-    {
-      type: "input_text" as const,
-      text: textWithAttachmentHint,
-    },
-    ...pdfAttachments.map((attachment) => ({
-      type: "input_file" as const,
-      file: attachment.dataUrl,
-      filename: attachment.name,
-    })),
-  ];
-  return user(inputContent);
 }
 
 function extractAgentFinalOutput(finalOutput: unknown): string {
@@ -1051,72 +895,6 @@ function extractAgentFinalOutput(finalOutput: unknown): string {
     }
   }
   return "";
-}
-
-async function initializeCompactionSession(options: {
-  client: AzureOpenAIClient;
-  deploymentName: string;
-  historyInput: AgentInputItem[];
-  onCompactionUnavailable: () => void;
-}): Promise<OpenAIResponsesCompactionAwareSession | null> {
-  let session: OpenAIResponsesCompactionSession;
-  try {
-    session = new OpenAIResponsesCompactionSession({
-      client: options.client,
-      model: options.deploymentName,
-    });
-  } catch {
-    options.onCompactionUnavailable();
-    return null;
-  }
-
-  const resilientSession = createResilientCompactionSession(
-    session,
-    options.onCompactionUnavailable,
-  );
-
-  try {
-    if (options.historyInput.length > 0) {
-      await resilientSession.addItems(options.historyInput);
-    }
-  } catch {
-    options.onCompactionUnavailable();
-    return null;
-  }
-
-  return resilientSession;
-}
-
-function createResilientCompactionSession(
-  baseSession: OpenAIResponsesCompactionSession,
-  onCompactionUnavailable: () => void,
-): OpenAIResponsesCompactionAwareSession {
-  let compactionEnabled = true;
-  let hasNotifiedFailure = false;
-
-  return {
-    getSessionId: () => baseSession.getSessionId(),
-    getItems: (limit) => baseSession.getItems(limit),
-    addItems: (items) => baseSession.addItems(items),
-    popItem: () => baseSession.popItem(),
-    clearSession: () => baseSession.clearSession(),
-    runCompaction: async (args) => {
-      if (!compactionEnabled) {
-        return null;
-      }
-
-      try {
-        return await baseSession.runCompaction(args);
-      } catch {
-        compactionEnabled = false;
-        if (!hasNotifiedFailure) {
-          hasNotifiedFailure = true;
-          onCompactionUnavailable();
-        }
-        return null;
-      }
-    },
-  };
 }
 
 function buildAttachmentKey(attachment: ClientAttachment): string {

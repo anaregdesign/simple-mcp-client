@@ -1,60 +1,25 @@
-import type {
-  ChatExecutionEvent,
-  ChatExecutionOptions,
-  ChatExecutionResult,
-  ThreadOperationLogRecord,
-} from "~/lib/server/usecase/chat/chat-execution";
-import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
-import {
-  CHAT_MAX_RUN_TURNS,
-} from "~/lib/constants/chat";
-import {
-  logServerRouteEvent,
-} from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
+import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   errorResponse,
   invalidJsonResponse,
   methodNotAllowedResponse,
   validationErrorResponse,
 } from "~/lib/server/infrastructure/http/route-transport";
-import {
-  buildChatUpstreamErrorPayload,
-} from "~/lib/server/infrastructure/chat/chat-upstream-error";
-import {
-  chatExecutionDependencies,
-} from "~/lib/server/infrastructure/gateways/chat/chat-execution-dependencies";
-import {
-  createJsonEventStreamResponse,
-} from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
+import { buildChatUpstreamErrorPayload } from "~/lib/server/infrastructure/chat/chat-upstream-error";
+import { chatExecutionDependencies } from "~/lib/server/infrastructure/gateways/chat/chat-execution-dependencies";
+import { createJsonEventStreamResponse } from "~/lib/server/infrastructure/gateways/chat/json-event-stream";
 import {
   readOptionalRequestHeaderValue,
   readWebSearchUserLocationFromRequest,
   wantsEventStream,
 } from "~/lib/server/infrastructure/gateways/chat/request-metadata";
+import { parseChatRequest } from "~/lib/server/infrastructure/gateways/chat/request-parser";
+import { logChatRequestValidationError } from "~/lib/server/infrastructure/gateways/chat/request-validation-log";
+import { createThreadPersistenceRepository } from "~/lib/server/infrastructure/repositories/thread-persistence-repository";
 import {
-  parseChatRequest,
-} from "~/lib/server/infrastructure/gateways/chat/request-parser";
-import {
-  logChatRequestValidationError,
-} from "~/lib/server/infrastructure/gateways/chat/request-validation-log";
-import {
-  resolveThreadDirectoryContext,
-} from "~/lib/server/infrastructure/gateways/chat/thread-directory-context";
-import {
-  registerThreadMcpServerSessionPoolShutdownHooks,
-} from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool-shutdown";
-import {
-  buildChatExecutionLogContext,
-  buildChatExecutionSuccessLogContext,
-} from "~/lib/server/usecase/chat/chat-execution-log-context";
-import {
-  applyDefaultThreadDirectoryToStdioServers,
-} from "~/lib/server/usecase/chat/mcp-server-config-normalization";
-import {
-  executeChat as executeChatUsecase,
-  executeChatWithTransientRetry as executeChatWithTransientRetryUsecase,
-  isChatCanceledError,
-} from "~/lib/server/usecase/chat/chat-execution";
+  executeThreadChatRun,
+  isThreadChatRunError,
+} from "~/lib/server/usecase/chat/thread-chat-run";
 
 const CHAT_ALLOWED_METHODS = ["POST"] as const;
 const CHAT_ROUTE_PATH = "/api/chat";
@@ -67,12 +32,12 @@ type ChatStreamPayload =
     }
   | {
       type: "operation_log";
-      record: ThreadOperationLogRecord;
+      record: unknown;
     }
   | {
       type: "final";
-      message: string;
-      threadEnvironment: ThreadEnvironment;
+      assistantMessage: unknown;
+      threadEnvironment: Record<string, string>;
     }
   | {
       type: "error";
@@ -80,16 +45,17 @@ type ChatStreamPayload =
       errorCode?: "azure_login_required";
     };
 
-registerThreadMcpServerSessionPoolShutdownHooks();
-
 export function handleChatLoader(): Response {
   return methodNotAllowedResponse(CHAT_ALLOWED_METHODS);
 }
 
 export async function handleChatAction(options: {
   request: Request;
+  user: {
+    id: number;
+  };
 }): Promise<Response> {
-  const { request } = options;
+  const { request, user } = options;
 
   if (request.method !== "POST") {
     return methodNotAllowedResponse(CHAT_ALLOWED_METHODS);
@@ -108,61 +74,7 @@ export async function handleChatAction(options: {
     );
   }
 
-  const {
-    threadId,
-    turnId,
-    message,
-    history,
-    attachments,
-    reasoningEffort,
-    webSearchEnabled,
-    temperature,
-    agentInstruction,
-    instructionContextToggles,
-    threadEnvironment,
-    skills,
-    explicitSkillLocations,
-    azureConfig,
-    mcpServers: requestMcpServers,
-  } = requestParseResult.value;
-  const webSearchUserLocation = webSearchEnabled
-    ? readWebSearchUserLocationFromRequest(request)
-    : null;
-  const threadDirectoryContext = await resolveThreadDirectoryContext({
-    threadId,
-    tenantId: azureConfig.tenantId,
-  });
-  const mcpServers = applyDefaultThreadDirectoryToStdioServers(
-    requestMcpServers,
-    threadDirectoryContext?.threadDirectoryPath ?? null,
-    threadDirectoryContext?.userDirectoryPath ?? null,
-  );
-
-  const executionOptions: ChatExecutionOptions = {
-    threadId,
-    turnId,
-    userId: threadDirectoryContext?.userId ?? null,
-    clientUserAgent: readOptionalRequestHeaderValue(request, "user-agent"),
-    clientPlatform: readOptionalRequestHeaderValue(
-      request,
-      "sec-ch-ua-platform",
-    ),
-    message,
-    attachments,
-    history,
-    reasoningEffort,
-    webSearchEnabled,
-    webSearchUserLocation,
-    temperature,
-    agentInstruction,
-    instructionContextToggles,
-    threadEnvironment,
-    skills,
-    explicitSkillLocations,
-    azureConfig,
-    mcpServers,
-  };
-  const logContext = buildChatExecutionLogContext(executionOptions);
+  const { threadId, turnId } = requestParseResult.value;
   const streamRequested = wantsEventStream(request);
   await logServerRouteEvent({
     request,
@@ -175,15 +87,40 @@ export async function handleChatAction(options: {
     statusCode: 200,
     message: "Chat request received.",
     threadId,
-    context: logContext,
+    userId: user.id,
+    context: {
+      turnId,
+    },
   });
 
   if (streamRequested) {
-    return streamChatResponse(executionOptions);
+    return streamChatResponse({
+      request,
+      userId: user.id,
+      threadId,
+      turnId,
+    });
   }
 
   try {
-    const result = await executeChatWithTransientRetry(executionOptions);
+    const result = await executeThreadChatRun(
+      {
+        userId: user.id,
+        threadId,
+        turnId,
+        requestOrigin: new URL(request.url).origin,
+        clientUserAgent: readOptionalRequestHeaderValue(request, "user-agent"),
+        clientPlatform: readOptionalRequestHeaderValue(
+          request,
+          "sec-ch-ua-platform",
+        ),
+        webSearchUserLocation: readWebSearchUserLocationFromRequest(request),
+      },
+      {
+        threadRepository: createThreadPersistenceRepository(),
+        chatExecutionDependencies,
+      },
+    );
     await logServerRouteEvent({
       request,
       route: CHAT_ROUTE_PATH,
@@ -193,17 +130,43 @@ export async function handleChatAction(options: {
       statusCode: 200,
       message: "Chat request completed.",
       threadId,
-      context: buildChatExecutionSuccessLogContext(executionOptions, result),
+      userId: user.id,
+      context: {
+        turnId,
+        operationLogCount: result.operationLogCount,
+      },
     });
     return Response.json({
-      message: result.message,
+      assistantMessage: result.assistantMessage,
       threadEnvironment: result.threadEnvironment,
     });
   } catch (error) {
-    const upstreamError = buildChatUpstreamErrorPayload(
-      error,
-      azureConfig.deploymentName,
-    );
+    if (isThreadChatRunError(error)) {
+      await logServerRouteEvent({
+        request,
+        route: CHAT_ROUTE_PATH,
+        eventName: error.code,
+        action: "execute_chat",
+        level: error.status === 404 ? "info" : "warning",
+        statusCode: error.status,
+        message: error.message,
+        threadId,
+        userId: user.id,
+        context: {
+          turnId,
+        },
+      });
+
+      return error.status === 422
+        ? validationErrorResponse(error.code, error.message)
+        : errorResponse({
+            status: error.status,
+            code: error.code,
+            error: error.message,
+          });
+    }
+
+    const upstreamError = buildChatUpstreamErrorPayload(error, "unknown");
     await logServerRouteEvent({
       request,
       route: CHAT_ROUTE_PATH,
@@ -212,9 +175,9 @@ export async function handleChatAction(options: {
       statusCode: upstreamError.status,
       error,
       threadId,
+      userId: user.id,
       context: {
-        ...logContext,
-        maxRunTurns: CHAT_MAX_RUN_TURNS,
+        turnId,
       },
     });
 
@@ -231,33 +194,12 @@ export async function handleChatAction(options: {
   }
 }
 
-async function executeChat(
-  options: ChatExecutionOptions,
-  onEvent?: (event: ChatExecutionEvent) => void,
-  abortSignal?: AbortSignal,
-): Promise<ChatExecutionResult> {
-  return executeChatUsecase(
-    options,
-    chatExecutionDependencies,
-    onEvent,
-    abortSignal,
-  );
-}
-
-async function executeChatWithTransientRetry(
-  options: ChatExecutionOptions,
-  onEvent?: (event: ChatExecutionEvent) => void,
-  abortSignal?: AbortSignal,
-): Promise<ChatExecutionResult> {
-  return executeChatWithTransientRetryUsecase(
-    options,
-    chatExecutionDependencies,
-    onEvent,
-    abortSignal,
-  );
-}
-
-function streamChatResponse(options: ChatExecutionOptions): Response {
+function streamChatResponse(options: {
+  request: Request;
+  userId: number;
+  threadId: string;
+  turnId: string;
+}): Response {
   return createJsonEventStreamResponse(async ({ send, signal }) => {
     const sendPayload = (payload: ChatStreamPayload) => {
       send(payload);
@@ -269,8 +211,28 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         message: "Preparing request...",
       });
 
-      const result = await executeChatWithTransientRetry(
-        options,
+      const result = await executeThreadChatRun(
+        {
+          userId: options.userId,
+          threadId: options.threadId,
+          turnId: options.turnId,
+          requestOrigin: new URL(options.request.url).origin,
+          clientUserAgent: readOptionalRequestHeaderValue(
+            options.request,
+            "user-agent",
+          ),
+          clientPlatform: readOptionalRequestHeaderValue(
+            options.request,
+            "sec-ch-ua-platform",
+          ),
+          webSearchUserLocation: readWebSearchUserLocationFromRequest(
+            options.request,
+          ),
+        },
+        {
+          threadRepository: createThreadPersistenceRepository(),
+          chatExecutionDependencies,
+        },
         (event) => {
           if (event.type === "progress") {
             sendPayload({
@@ -291,7 +253,7 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
 
       sendPayload({
         type: "final",
-        message: result.message,
+        assistantMessage: result.assistantMessage,
         threadEnvironment: result.threadEnvironment,
       });
       await logServerRouteEvent({
@@ -302,27 +264,22 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         statusCode: 200,
         message: "Chat stream completed.",
         threadId: options.threadId,
-        context: buildChatExecutionSuccessLogContext(options, result),
+        userId: options.userId,
+        context: {
+          turnId: options.turnId,
+          operationLogCount: result.operationLogCount,
+        },
       });
     } catch (error) {
-      if (signal.aborted || isChatCanceledError(error)) {
-        await logServerRouteEvent({
-          route: CHAT_ROUTE_PATH,
-          eventName: "chat_stream_canceled",
-          action: "stream_chat",
-          level: "info",
-          statusCode: 200,
-          message: "Chat stream canceled by client disconnect.",
-          threadId: options.threadId,
-          context: buildChatExecutionLogContext(options),
+      if (isThreadChatRunError(error)) {
+        sendPayload({
+          type: "error",
+          error: error.message,
         });
         return;
       }
 
-      const upstreamError = buildChatUpstreamErrorPayload(
-        error,
-        options.azureConfig.deploymentName,
-      );
+      const upstreamError = buildChatUpstreamErrorPayload(error, "unknown");
       await logServerRouteEvent({
         route: CHAT_ROUTE_PATH,
         eventName: "chat_stream_execution_failed",
@@ -330,9 +287,9 @@ function streamChatResponse(options: ChatExecutionOptions): Response {
         statusCode: upstreamError.status,
         error,
         threadId: options.threadId,
+        userId: options.userId,
         context: {
-          ...buildChatExecutionLogContext(options),
-          maxRunTurns: CHAT_MAX_RUN_TURNS,
+          turnId: options.turnId,
         },
       });
 

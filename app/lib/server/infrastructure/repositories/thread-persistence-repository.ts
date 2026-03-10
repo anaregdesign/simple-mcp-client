@@ -1,13 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import {
-  DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
-  hasNonDefaultThreadInstructionContextToggles,
-} from "~/lib/contracts/threads/instruction-context";
-import {
-  DEFAULT_REASONING_EFFORT,
-  DEFAULT_WEB_SEARCH_ENABLED,
-  THREAD_DEFAULT_NAME,
-} from "~/lib/constants/chat";
+import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/contracts/threads/instruction-context";
+import { THREAD_DEFAULT_NAME } from "~/lib/constants/chat";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import { SKILL_REGISTRY_OPTIONS } from "~/lib/domain/value-objects/skill-registry";
 import {
@@ -15,7 +8,12 @@ import {
   type ThreadSkillReference,
   type ThreadProps,
 } from "~/lib/domain/entities/thread";
-import { reasoningEffortValues, type ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import { readChatAzureConfigFromUnknown } from "~/lib/domain/value-objects/chat-azure-config";
+import { hasPersistableThreadState } from "~/lib/domain/policies/thread-persistable-state";
+import {
+  reasoningEffortValues,
+  type ReasoningEffort,
+} from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   ThreadLifecycleState,
   ThreadRepository,
@@ -149,7 +147,7 @@ export class ThreadPersistenceRepository implements ThreadRepository {
     });
 
     if (!existing) {
-      if (!hasPersistableThreadState(payload)) {
+      if (!hasPersistableThreadSnapshot(payload)) {
         return null;
       }
       created = true;
@@ -169,6 +167,10 @@ export class ThreadPersistenceRepository implements ThreadRepository {
             deletedAt: null,
             reasoningEffort: payload.reasoningEffort,
             webSearchEnabled: payload.webSearchEnabled,
+            chatAzureConfigJson: payload.chatAzureConfig
+              ? JSON.stringify(payload.chatAzureConfig)
+              : null,
+            agentConversationId: payload.agentConversationId ?? null,
             threadEnvironmentJson: JSON.stringify(payload.threadEnvironment),
             instructionContextTogglesJson: JSON.stringify(
               payload.instructionContextToggles,
@@ -208,6 +210,14 @@ export class ThreadPersistenceRepository implements ThreadRepository {
           updatedAt,
           reasoningEffort: payload.reasoningEffort,
           webSearchEnabled: payload.webSearchEnabled,
+          chatAzureConfigJson: payload.chatAzureConfig
+            ? JSON.stringify(payload.chatAzureConfig)
+            : null,
+          ...(payload.agentConversationId !== undefined
+            ? {
+                agentConversationId: payload.agentConversationId,
+              }
+            : {}),
           threadEnvironmentJson: JSON.stringify(payload.threadEnvironment),
           instructionContextTogglesJson: JSON.stringify(
             payload.instructionContextToggles,
@@ -340,7 +350,9 @@ export class ThreadPersistenceRepository implements ThreadRepository {
       if (payload.skillSelections.length > 0) {
         await transaction.threadSkillActivation.createMany({
           data: payload.skillSelections.map((selection, index) => {
-            const skillProfileId = skillProfileIdsByLocation.get(selection.location);
+            const skillProfileId = skillProfileIdsByLocation.get(
+              selection.location,
+            );
             if (!skillProfileId) {
               throw new Error(
                 `Skill profile is not available for location: ${selection.location}`,
@@ -367,7 +379,9 @@ export class ThreadPersistenceRepository implements ThreadRepository {
 
       const messageSkillActivations = payload.messages.flatMap((message) =>
         message.skillActivations.map((selection, index) => {
-          const skillProfileId = skillProfileIdsByLocation.get(selection.location);
+          const skillProfileId = skillProfileIdsByLocation.get(
+            selection.location,
+          );
           if (!skillProfileId) {
             throw new Error(
               `Skill profile is not available for location: ${selection.location}`,
@@ -436,9 +450,7 @@ function mapThreadRowToEntity(record: PersistedThreadRow): Thread {
   return new Thread(mapThreadRowToProps(record));
 }
 
-function mapThreadRowToProps(
-  record: PersistedThreadRow,
-): ThreadProps {
+function mapThreadRowToProps(record: PersistedThreadRow): ThreadProps {
   return {
     id: record.id,
     userId: record.userId,
@@ -448,6 +460,10 @@ function mapThreadRowToProps(
     deletedAt: record.deletedAt,
     reasoningEffort: readReasoningEffort(record.reasoningEffort),
     webSearchEnabled: record.webSearchEnabled,
+    chatAzureConfig: readChatAzureConfigFromUnknown(
+      readJsonValue(record.chatAzureConfigJson, null),
+    ),
+    agentConversationId: normalizeOptionalLabel(record.agentConversationId),
     threadEnvironment: readJsonValue(record.threadEnvironmentJson, {}),
     instructionContextToggles: readJsonValue(
       record.instructionContextTogglesJson,
@@ -529,6 +545,15 @@ function mapThreadRowToProps(
   };
 }
 
+function normalizeOptionalLabel(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 async function upsertThreadSkillProfiles(options: {
   transaction: Pick<
     typeof prisma,
@@ -558,7 +583,9 @@ async function upsertThreadSkillProfiles(options: {
     uniqueSelections.set(location, {
       name,
       location,
-      source: registryOption ? "app_data" : readSkillSourceFromLocation(location),
+      source: registryOption
+        ? "app_data"
+        : readSkillSourceFromLocation(location),
       registryOption,
     });
   }
@@ -614,30 +641,32 @@ async function upsertThreadSkillProfiles(options: {
       ? (registryProfileIdByRegistryId.get(selection.registryOption.id) ?? null)
       : null;
 
-    const skillProfile = await options.transaction.workspaceSkillProfile.upsert({
-      where: {
-        userId_location: {
+    const skillProfile = await options.transaction.workspaceSkillProfile.upsert(
+      {
+        where: {
+          userId_location: {
+            userId: options.userId,
+            location: selection.location,
+          },
+        },
+        create: {
           userId: options.userId,
+          registryProfileId,
+          name: selection.name,
           location: selection.location,
+          source: selection.source,
+        },
+        update: {
+          registryProfileId,
+          name: selection.name,
+          source: selection.source,
+        },
+        select: {
+          id: true,
+          location: true,
         },
       },
-      create: {
-        userId: options.userId,
-        registryProfileId,
-        name: selection.name,
-        location: selection.location,
-        source: selection.source,
-      },
-      update: {
-        registryProfileId,
-        name: selection.name,
-        source: selection.source,
-      },
-      select: {
-        id: true,
-        location: true,
-      },
-    });
+    );
 
     skillProfileIdByLocation.set(skillProfile.location, skillProfile.id);
   }
@@ -708,19 +737,17 @@ function normalizeThreadName(value: string): string {
   return value.trim().slice(0, THREAD_NAME_MAX_LENGTH);
 }
 
-function hasPersistableThreadState(payload: ThreadSaveInput): boolean {
-  if (payload.messages.length > 0 || payload.skillSelections.length > 0) {
-    return true;
-  }
-
-  return (
-    payload.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
-    payload.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
-    hasNonDefaultThreadInstructionContextToggles(
-      payload.instructionContextToggles,
-    ) ||
-    Object.keys(payload.threadEnvironment).length > 0
-  );
+function hasPersistableThreadSnapshot(payload: ThreadSaveInput): boolean {
+  return hasPersistableThreadState({
+    messageCount: payload.messages.length,
+    skillSelectionCount: payload.skillSelections.length,
+    reasoningEffort: payload.reasoningEffort,
+    webSearchEnabled: payload.webSearchEnabled,
+    chatAzureConfig: payload.chatAzureConfig,
+    instructionContent: payload.instructionContent,
+    instructionContextToggles: payload.instructionContextToggles,
+    threadEnvironment: payload.threadEnvironment,
+  });
 }
 
 function readJsonValue<T>(value: string | null, fallback: T): T {

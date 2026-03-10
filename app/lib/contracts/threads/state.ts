@@ -2,16 +2,14 @@ import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import { hasPersistableThreadState as hasPersistableThreadSnapshot } from "~/lib/domain/policies/thread-persistable-state";
+import { cloneChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
 import { cloneThreadEnvironment } from "~/lib/contracts/threads/environment";
-import {
-  cloneThreadInstructionContextToggles,
-  hasNonDefaultThreadInstructionContextToggles,
-} from "~/lib/contracts/threads/instruction-context";
-import {
-  DEFAULT_REASONING_EFFORT,
-  DEFAULT_WEB_SEARCH_ENABLED,
-} from "~/lib/constants/chat";
-import type { ThreadState, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import { cloneThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import type {
+  ThreadState,
+  ThreadWritePayload,
+} from "~/lib/contracts/threads/types";
 
 export function cloneMessages(value: ThreadMessage[]): ThreadMessage[] {
   return value.map((message) => ({
@@ -69,6 +67,7 @@ export function buildThreadSaveSignature(
     name: snapshot.name,
     reasoningEffort: snapshot.reasoningEffort,
     webSearchEnabled: snapshot.webSearchEnabled,
+    chatAzureConfig: cloneChatAzureConfig(snapshot.chatAzureConfig),
     instruction:
       "instruction" in snapshot
         ? snapshot.instruction
@@ -99,23 +98,27 @@ export function hasThreadPersistableState(
     | "messages"
     | "reasoningEffort"
     | "webSearchEnabled"
+    | "chatAzureConfig"
     | "instructionContextToggles"
     | "threadEnvironment"
   > &
-    Partial<Pick<ThreadWritePayload, "skillSelections">>,
+    Partial<Pick<ThreadWritePayload, "instruction" | "skillSelections">> &
+    Partial<Pick<ThreadState, "agentInstruction">>,
 ): boolean {
-  if (hasThreadInteraction(snapshot)) {
-    return true;
-  }
-
-  return (
-    snapshot.reasoningEffort !== DEFAULT_REASONING_EFFORT ||
-    snapshot.webSearchEnabled !== DEFAULT_WEB_SEARCH_ENABLED ||
-    hasNonDefaultThreadInstructionContextToggles(
-      snapshot.instructionContextToggles,
-    ) ||
-    Object.keys(snapshot.threadEnvironment).length > 0
-  );
+  return hasPersistableThreadSnapshot({
+    messageCount: snapshot.messages.length,
+    skillSelectionCount: snapshot.skillSelections?.length ?? 0,
+    reasoningEffort: snapshot.reasoningEffort,
+    webSearchEnabled: snapshot.webSearchEnabled,
+    chatAzureConfig: snapshot.chatAzureConfig,
+    instructionContent:
+      ("instruction" in snapshot && snapshot.instruction
+        ? snapshot.instruction.content
+        : undefined) ??
+      ("agentInstruction" in snapshot ? snapshot.agentInstruction : undefined),
+    instructionContextToggles: snapshot.instructionContextToggles,
+    threadEnvironment: snapshot.threadEnvironment,
+  });
 }
 
 export function isThreadArchived(

@@ -1,7 +1,6 @@
 import {
   isWebSearchCompatibleReasoningEffort,
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
-import { createThreadMessage } from "~/lib/client/usecase/workspace/chat-session/messages";
 import {
   applySendResult,
   executeSendMessageTransport,
@@ -20,11 +19,12 @@ import type {
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
+import { buildThreadSaveSignature } from "~/lib/contracts/threads/state";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import type { ThreadState } from "~/lib/contracts/threads/types";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 
 type SendMessageLogOptions = {
   category?: string;
@@ -94,6 +94,10 @@ type SendMessageOperationDependencies = {
     threadId: string,
     controller: AbortController,
   ) => void;
+  saveThreadStateToDatabase: (
+    thread: ThreadState,
+    signature: string,
+  ) => Promise<boolean>;
   sendMessageTransport: (options: {
     requestPayload: ReturnType<typeof prepareSendMessageExecution>["requestPayload"];
     requestThreadEnvironment: ThreadEnvironment;
@@ -177,6 +181,12 @@ export async function sendMessage(
     return;
   }
 
+  const baseThread = deps.readBaseThread(threadId);
+  if (!baseThread) {
+    deps.setThreadError("Selected thread is not available.");
+    return;
+  }
+
   const turnId = deps.createTurnId();
   const preparedSend = prepareSendMessageExecution({
     threadId,
@@ -187,7 +197,7 @@ export async function sendMessage(
     mcpServers: deps.readMcpServers(),
     selectedMessageSkillActivations: deps.readSelectedMessageSkillActivations(),
     selectedThreadSkills: deps.readSelectedThreadSkills(),
-    baseThread: deps.readBaseThread(threadId),
+    baseThread,
     agentInstruction: deps.readAgentInstruction(),
     instructionContextToggles: deps.readInstructionContextToggles(),
     activeAzureTenantId: deps.readActiveAzureTenantId(),
@@ -199,7 +209,14 @@ export async function sendMessage(
     webSearchEnabled,
   });
 
-  deps.appendMessageToThreadState(threadId, preparedSend.userMessage);
+  const saved = await deps.saveThreadStateToDatabase(
+    preparedSend.threadSnapshot,
+    buildThreadSaveSignature(preparedSend.threadSnapshot),
+  );
+  if (!saved) {
+    return;
+  }
+
   deps.setDraft("");
   deps.setSelectedMessageSkillActivations([]);
   deps.setDraftAttachments([]);
@@ -219,8 +236,7 @@ export async function sendMessage(
       threadId,
       turnId,
       messageLength: content.length,
-      historyCount: preparedSend.requestPayload.history.length,
-      attachmentCount: preparedSend.requestPayload.attachments.length,
+      attachmentCount: preparedSend.userMessage.attachments.length,
       mcpServerCount: preparedSend.requestMcpServers.length,
       skillSelectionCount: preparedSend.requestSkillSelections.length,
     },
@@ -257,11 +273,7 @@ export async function sendMessage(
     );
     deps.appendMessageToThreadState(
       threadId,
-      createThreadMessage(
-        "assistant",
-        transportResult.assistantMessage,
-        turnId,
-      ),
+      transportResult.assistantMessage,
     );
     deps.updateThreadRequestState(threadId, (current) =>
       applySendResult(current, {
@@ -276,7 +288,7 @@ export async function sendMessage(
         context: {
           threadId,
           turnId,
-          responseLength: transportResult.assistantMessage.length,
+          responseLength: transportResult.assistantMessage.content.length,
           operationLogCount: transportResult.operationLogCount,
           usedEventStream: transportResult.usedEventStream,
         },
@@ -309,7 +321,7 @@ export async function sendMessage(
         threadId,
         turnId,
         messageLength: content.length,
-        attachmentCount: preparedSend.requestPayload.attachments.length,
+        attachmentCount: preparedSend.userMessage.attachments.length,
         skillSelectionCount: preparedSend.requestSkillSelections.length,
       },
     });

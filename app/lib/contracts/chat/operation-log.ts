@@ -1,8 +1,12 @@
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
+import {
+  readThreadMessageFromUnknown,
+  type ThreadMessage,
+} from "~/lib/contracts/chat/messages";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 
-export type ChatApiResponse = {
-  message?: string;
+export type ChatRunResponse = {
+  assistantMessage?: ThreadMessage;
   threadEnvironment?: Record<string, string>;
   error?: string;
   errorCode?: "azure_login_required";
@@ -31,7 +35,7 @@ type ChatStreamProgressEvent = {
 
 type ChatStreamFinalEvent = {
   type: "final";
-  message?: unknown;
+  assistantMessage?: unknown;
   threadEnvironment?: unknown;
 };
 
@@ -67,7 +71,11 @@ export function parseSseDataBlock(block: string): string | null {
 
 export function readChatStreamEvent(data: string): (
   | { type: "progress"; message: string }
-  | { type: "final"; message: string; threadEnvironment: Record<string, string> }
+  | {
+      type: "final";
+      assistantMessage: ThreadMessage;
+      threadEnvironment: Record<string, string>;
+    }
   | { type: "error"; error: string; errorCode?: "azure_login_required" }
   | { type: "operation_log"; record: ThreadOperationLogEntry }
 ) | null {
@@ -94,13 +102,13 @@ export function readChatStreamEvent(data: string): (
   }
 
   if (parsed.type === "final") {
-    const message = typeof parsed.message === "string" ? parsed.message : "";
-    if (!message) {
+    const assistantMessage = readThreadMessageFromUnknown(parsed.assistantMessage);
+    if (!assistantMessage) {
       return null;
     }
     return {
       type: "final",
-      message,
+      assistantMessage,
       threadEnvironment: readThreadEnvironmentFromUnknown(parsed.threadEnvironment),
     };
   }

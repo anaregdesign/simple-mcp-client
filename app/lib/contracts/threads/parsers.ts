@@ -1,12 +1,19 @@
 import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
-import type { ThreadMessage } from "~/lib/contracts/chat/messages";
+import {
+  readThreadMessageFromUnknown,
+  type ThreadMessage,
+} from "~/lib/contracts/chat/messages";
 import {
   readThreadOperationLogEntryFromUnknown as readThreadOperationLogEntryFromStream,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import { readMcpServerFromUnknown, type McpServerConfig } from "~/lib/contracts/mcp/profile";
 import { readThreadSkillActivationList } from "~/lib/contracts/skills/parsers";
+import {
+  cloneChatAzureConfig,
+  readChatAzureConfigFromUnknown,
+} from "~/lib/domain/value-objects/chat-azure-config";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
 import { readThreadInstructionContextTogglesFromUnknown } from "~/lib/contracts/threads/instruction-context";
@@ -22,6 +29,7 @@ const threadWritePayloadAllowedKeys = new Set([
   "createdAt",
   "reasoningEffort",
   "webSearchEnabled",
+  "chatAzureConfig",
   "instruction",
   "instructionContextToggles",
   "threadEnvironment",
@@ -89,6 +97,9 @@ export function readThreadResourceFromUnknown(value: unknown): ThreadResource | 
     !("deletedAt" in value) ||
     typeof value.reasoningEffort !== "string" ||
     typeof value.webSearchEnabled !== "boolean" ||
+    ("chatAzureConfigJson" in value &&
+      value.chatAzureConfigJson !== null &&
+      typeof value.chatAzureConfigJson !== "string") ||
     typeof value.threadEnvironmentJson !== "string" ||
     typeof value.instructionContextTogglesJson !== "string" ||
     !Array.isArray(value.messages) ||
@@ -99,7 +110,13 @@ export function readThreadResourceFromUnknown(value: unknown): ThreadResource | 
     return null;
   }
 
-  return value as ThreadResource;
+  return {
+    ...value,
+    chatAzureConfigJson:
+      typeof value.chatAzureConfigJson === "string"
+        ? value.chatAzureConfigJson
+        : null,
+  } as ThreadResource;
 }
 
 export function convertThreadResourceToState(
@@ -117,6 +134,9 @@ export function convertThreadResourceToState(
     deletedAt: resource.deletedAt,
     reasoningEffort,
     webSearchEnabled: resource.webSearchEnabled === true,
+    chatAzureConfig: readChatAzureConfigFromUnknown(
+      readJsonValue(resource.chatAzureConfigJson, null),
+    ),
     agentInstruction: readThreadInstructionContent(resource, options.fallbackInstruction),
     instructionContextToggles: readThreadInstructionContextTogglesFromUnknown(
       readJsonValue(resource.instructionContextTogglesJson, null),
@@ -138,6 +158,7 @@ export function convertThreadStateToWritePayload(state: ThreadState): ThreadWrit
     createdAt: state.createdAt,
     reasoningEffort: state.reasoningEffort,
     webSearchEnabled: state.webSearchEnabled,
+    chatAzureConfig: cloneChatAzureConfig(state.chatAzureConfig),
     instruction: {
       content: state.agentInstruction,
     },
@@ -180,6 +201,11 @@ export function readThreadWritePayloadFromUnknown(
     return null;
   }
 
+  const chatAzureConfig = readChatAzureConfigFromUnknown(value.chatAzureConfig);
+  if (value.chatAzureConfig !== undefined && value.chatAzureConfig !== null && !chatAzureConfig) {
+    return null;
+  }
+
   const instruction = readThreadInstructionWritePayload(value.instruction, options.fallbackInstruction);
   if (!instruction) {
     return null;
@@ -198,6 +224,7 @@ export function readThreadWritePayloadFromUnknown(
     createdAt,
     reasoningEffort,
     webSearchEnabled,
+    chatAzureConfig,
     instruction,
     instructionContextToggles,
     threadEnvironment: readThreadEnvironmentFromUnknown(value.threadEnvironment),
@@ -290,31 +317,6 @@ function readThreadMessageList(value: unknown): ThreadMessage[] {
   }
 
   return messages;
-}
-
-function readThreadMessageFromUnknown(value: unknown): ThreadMessage | null {
-  if (!isRecord(value) || !hasOnlyAllowedKeys(value, threadMessageAllowedKeys)) {
-    return null;
-  }
-
-  const id = readTrimmedString(value.id);
-  const role = value.role;
-  const content = typeof value.content === "string" ? value.content : "";
-  const createdAt = readTrimmedString(value.createdAt);
-  const turnId = readTrimmedString(value.turnId);
-  if (!id || (role !== "user" && role !== "assistant") || !createdAt || !turnId) {
-    return null;
-  }
-
-  return {
-    id,
-    role,
-    content,
-    createdAt,
-    turnId,
-    attachments: readChatAttachmentList(value.attachments),
-    skillActivations: readThreadSkillActivationList(value.skillActivations),
-  };
 }
 
 function readChatAttachmentList(value: unknown): ChatAttachment[] {
@@ -490,7 +492,7 @@ function cloneMcpServerConfig(server: McpServerConfig): McpServerConfig {
       };
 }
 
-function readJsonValue<T>(value: string | null, fallback: T): T {
+function readJsonValue<T>(value: string | null | undefined, fallback: T): T {
   if (typeof value !== "string") {
     return fallback;
   }

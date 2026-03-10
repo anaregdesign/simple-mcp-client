@@ -1,5 +1,5 @@
 import type {
-  ChatApiResponse,
+  ChatRunResponse,
   ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import {
@@ -7,7 +7,7 @@ import {
   readChatStreamEvent,
 } from "~/lib/contracts/chat/operation-log";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
-import type { ChatApiRequestPayload } from "~/lib/contracts/chat/request";
+import type { ChatRunRequest } from "~/lib/contracts/chat/request";
 
 type ChatApiClientOptions = {
   signal?: AbortSignal;
@@ -18,14 +18,14 @@ type ChatApiClientOptions = {
 
 export type ChatApiClientResult = {
   response: Response;
-  payload: ChatApiResponse;
+  payload: ChatRunResponse;
   isEventStream: boolean;
   operationLogCount: number;
 };
 
 export class ChatApiClient {
   async sendMessage(
-    payload: ChatApiRequestPayload,
+    payload: ChatRunRequest,
     options: ChatApiClientOptions = {},
   ): Promise<ChatApiClientResult> {
     const fetchImpl = options.fetchImpl ?? fetch;
@@ -59,7 +59,7 @@ export async function consumeChatApiResponse(options: {
   onProgress?: (message: string) => void;
   onOperationLogRecord?: (entry: ThreadOperationLogEntry) => void;
 }): Promise<{
-  payload: ChatApiResponse;
+  payload: ChatRunResponse;
   isEventStream: boolean;
   operationLogCount: number;
 }> {
@@ -86,7 +86,7 @@ export async function consumeChatApiResponse(options: {
   }
 
   return {
-    payload: await readJsonPayload<ChatApiResponse>(options.response, "chat"),
+    payload: await readJsonPayload<ChatRunResponse>(options.response, "chat"),
     isEventStream: false,
     operationLogCount: 0,
   };
@@ -98,7 +98,7 @@ async function readChatEventStreamPayload(
     onProgress: (message: string) => void;
     onOperationLogRecord: (entry: ThreadOperationLogEntry) => void;
   },
-): Promise<ChatApiResponse> {
+): Promise<ChatRunResponse> {
   if (!response.body) {
     return {
       error: "The server returned an empty stream.",
@@ -108,7 +108,7 @@ async function readChatEventStreamPayload(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let finalPayload: ChatApiResponse = {};
+  let finalPayload: ChatRunResponse = {};
 
   const readChunk = (chunk: string) => {
     buffer += chunk;
@@ -129,7 +129,7 @@ async function readChatEventStreamPayload(
             handlers.onOperationLogRecord(event.record);
           } else if (event.type === "final") {
             finalPayload = {
-              message: event.message,
+              assistantMessage: event.assistantMessage,
               threadEnvironment: event.threadEnvironment,
             };
           } else if (event.type === "error") {
@@ -159,7 +159,7 @@ async function readChatEventStreamPayload(
     readChunk(tail);
   }
 
-  return finalPayload.message || finalPayload.error
+  return finalPayload.assistantMessage || finalPayload.error
     ? finalPayload
     : { error: "The server returned an empty stream response." };
 }

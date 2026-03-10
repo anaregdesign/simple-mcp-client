@@ -20,11 +20,13 @@ export function buildStdioSpawnEnvironment(
   const pathKey = readPathEnvironmentKeyFromMap(process.env);
   const configuredPath = readPathEnvironmentValue(base);
   const processPath = readPathEnvironmentValue(process.env);
-  const mergedPathEntries = dedupePathEntries([
+  let mergedPathEntries = dedupePathEntries([
     ...splitPathEntries(configuredPath),
     ...splitPathEntries(processPath),
-    ...resolveRuntimeExecutablePathEntries(),
   ]);
+  if (mergedPathEntries.length === 0) {
+    mergedPathEntries = dedupePathEntries(resolveRuntimeExecutablePathEntries());
+  }
   if (mergedPathEntries.length === 0) {
     return base;
   }

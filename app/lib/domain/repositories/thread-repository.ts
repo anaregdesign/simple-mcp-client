@@ -1,4 +1,5 @@
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
 import type {
   Thread,
   ThreadAttachment,
@@ -70,6 +71,8 @@ export type ThreadSaveInput = {
   createdAt: string;
   reasoningEffort: ReasoningEffort;
   webSearchEnabled: boolean;
+  chatAzureConfig: ChatAzureConfig | null;
+  agentConversationId?: string | null;
   instructionContent: string;
   instructionContextToggles: ThreadInstructionContextToggles;
   threadEnvironment: ThreadEnvironment;

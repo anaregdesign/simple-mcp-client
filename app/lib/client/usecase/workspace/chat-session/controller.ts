@@ -101,6 +101,10 @@ type CreateSendMessageControllerOptions = {
     threadId: string,
     controller: AbortController,
   ) => void;
+  saveThreadStateToDatabase: (
+    thread: ThreadState,
+    signature: string,
+  ) => Promise<boolean>;
   markAzureAuthRequired: () => void;
   sendMessage: SendMessageGateway;
   appendThreadProgressMessage: (threadId: string, message: string) => void;
@@ -174,6 +178,7 @@ export function createSendMessageController(
       refreshThreadTitleInBackground: options.refreshThreadTitleInBackground,
       assignThreadSendAbortController:
         options.assignThreadSendAbortController,
+      saveThreadStateToDatabase: options.saveThreadStateToDatabase,
       sendMessageTransport: (transportOptions: SendMessageTransportOptions) =>
         executeSendMessageTransport(
           {

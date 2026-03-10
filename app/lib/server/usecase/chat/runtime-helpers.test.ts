@@ -7,7 +7,6 @@ import {
   prepareMcpRuntime,
   type RuntimeMcpLease,
 } from "~/lib/server/usecase/chat/chat-mcp-runtime";
-import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-context";
 import { prepareSkillRuntime } from "~/lib/server/usecase/chat/chat-skill-runtime-preparation";
 
 type TestLease = RuntimeMcpLease & {
@@ -108,28 +107,6 @@ describe("prepareSkillRuntime", () => {
       executionContext: { env: { A: "1" } },
       warnings: ["warn-a"],
     });
-  });
-});
-
-describe("buildAgentRunContext", () => {
-  it("keeps only current input when compaction session exists", () => {
-    const result = buildAgentRunContext({
-      historyInput: ["h1", "h2"],
-      currentInput: "current",
-      compactionSession: {},
-    });
-
-    expect(result.runInput).toEqual(["current"]);
-  });
-
-  it("concatenates history and current input when compaction session is absent", () => {
-    const result = buildAgentRunContext({
-      historyInput: ["h1", "h2"],
-      currentInput: "current",
-      compactionSession: null,
-    });
-
-    expect(result.runInput).toEqual(["h1", "h2", "current"]);
   });
 });
 

@@ -219,7 +219,7 @@ export function useWorkspace() {
     selectedMessageSkillActivations,
     setSelectedMessageSkillActivations,
     resetPlaygroundSession,
-    applyThreadPlaygroundState,
+    applyThreadPlaygroundState: applyPlaygroundSessionState,
   } = usePlaygroundSession();
   const {
     activeMainTab,
@@ -368,6 +368,18 @@ export function useWorkspace() {
     readCurrentThreadDraftState: () => ({
       reasoningEffort,
       webSearchEnabled,
+      chatAzureConfig:
+        activePlaygroundAzureConnection &&
+        selectedPlaygroundAzureDeploymentName.trim()
+          ? {
+              tenantId: activeAzureTenantIdRef.current,
+              projectId: activePlaygroundAzureConnection.id,
+              projectName: activePlaygroundAzureConnection.projectName,
+              baseUrl: activePlaygroundAzureConnection.baseUrl,
+              apiVersion: activePlaygroundAzureConnection.apiVersion,
+              deploymentName: selectedPlaygroundAzureDeploymentName.trim(),
+            }
+          : null,
       agentInstruction,
       instructionContextToggles,
       messages,
@@ -376,7 +388,13 @@ export function useWorkspace() {
       selectedThreadSkills,
     }),
     resetPlaygroundSession,
-    applyThreadPlaygroundState,
+    applyThreadPlaygroundState: (thread) => {
+      applyPlaygroundSessionState(thread);
+      if (thread.chatAzureConfig) {
+        handleSelectPlaygroundProject(thread.chatAzureConfig.projectId);
+        handleSelectPlaygroundDeployment(thread.chatAzureConfig.deploymentName);
+      }
+    },
     resetInstructionEditor,
     applyThreadInstructionState,
   });
@@ -859,6 +877,7 @@ export function useWorkspace() {
     logClientError,
     refreshThreadTitleInBackground,
     assignThreadSendAbortController,
+    saveThreadStateToDatabase: threadStorageRuntime.saveThreadStateToDatabase,
     markAzureAuthRequired,
     sendMessage: (payload, sendOptions) =>
       chatApiClient.sendMessage(payload, sendOptions),

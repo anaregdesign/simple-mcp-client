@@ -1,5 +1,9 @@
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { DomainError } from "~/lib/domain/entities/domain-error";
+import {
+  cloneChatAzureConfig,
+  type ChatAzureConfig,
+} from "~/lib/domain/value-objects/chat-azure-config";
 
 export type ThreadAttachment = {
   name: string;
@@ -119,6 +123,8 @@ export type ThreadProps = {
   deletedAt: string | null;
   reasoningEffort: ReasoningEffort;
   webSearchEnabled: boolean;
+  chatAzureConfig?: ChatAzureConfig | null;
+  agentConversationId?: string | null;
   threadEnvironment: ThreadEnvironment;
   instructionContextToggles: ThreadInstructionContextToggles;
   instruction: ThreadInstruction | null;
@@ -165,6 +171,14 @@ export class Thread {
 
   get webSearchEnabled(): boolean {
     return this.props.webSearchEnabled;
+  }
+
+  get chatAzureConfig(): ChatAzureConfig | null {
+    return cloneChatAzureConfig(this.props.chatAzureConfig);
+  }
+
+  get agentConversationId(): string | null {
+    return this.props.agentConversationId ?? null;
   }
 
   get threadEnvironment(): ThreadEnvironment {
@@ -246,6 +260,8 @@ export class Thread {
 function cloneThreadProps(props: ThreadProps): ThreadProps {
   return {
     ...props,
+    chatAzureConfig: cloneChatAzureConfig(props.chatAzureConfig),
+    agentConversationId: props.agentConversationId ?? null,
     threadEnvironment: { ...props.threadEnvironment },
     instructionContextToggles: { ...props.instructionContextToggles },
     instruction: props.instruction ? { ...props.instruction } : null,

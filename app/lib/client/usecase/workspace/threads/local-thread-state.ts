@@ -34,6 +34,7 @@ type BuildThreadStateFromCurrentStateOptions = {
   activeThreadNameInput: string;
   reasoningEffort: ThreadState["reasoningEffort"];
   webSearchEnabled: ThreadState["webSearchEnabled"];
+  chatAzureConfig?: ThreadState["chatAzureConfig"];
   agentInstruction: ThreadState["agentInstruction"];
   instructionContextToggles: ThreadState["instructionContextToggles"];
   messages: ThreadMessage[];
@@ -67,6 +68,8 @@ export function shouldPersistThreadState(
     | "messages"
     | "reasoningEffort"
     | "webSearchEnabled"
+    | "chatAzureConfig"
+    | "agentInstruction"
     | "instructionContextToggles"
     | "threadEnvironment"
   > &
@@ -97,6 +100,7 @@ export function createLocalThreadState(
     deletedAt: null,
     reasoningEffort: DEFAULT_REASONING_EFFORT,
     webSearchEnabled: DEFAULT_WEB_SEARCH_ENABLED,
+    chatAzureConfig: null,
     agentInstruction: DEFAULT_AGENT_INSTRUCTION,
     instructionContextToggles: cloneThreadInstructionContexts(
       DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,
@@ -124,6 +128,11 @@ export function buildThreadStateFromCurrentState(
     updatedAt: (options.now ?? (() => new Date().toISOString()))(),
     reasoningEffort: options.reasoningEffort,
     webSearchEnabled: options.webSearchEnabled,
+    chatAzureConfig: options.chatAzureConfig
+      ? { ...options.chatAzureConfig }
+      : base.chatAzureConfig
+        ? { ...base.chatAzureConfig }
+        : null,
     agentInstruction: options.agentInstruction,
     instructionContextToggles: cloneThreadInstructionContexts(
       options.instructionContextToggles,

@@ -28,10 +28,9 @@ import {
 import {
   emitSkillActivationOperationLogs,
 } from "~/lib/server/infrastructure/gateways/skills/skill-operation-records";
-import type { ClientMcpServerConfig } from "~/lib/server/infrastructure/gateways/chat/request-parser";
+import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
 import { cleanupChatRuntime } from "~/lib/server/usecase/chat/chat-runtime-cleanup";
 import { prepareMcpRuntime } from "~/lib/server/usecase/chat/chat-mcp-runtime";
-import { buildAgentRunContext } from "~/lib/server/usecase/chat/agent-run-context";
 import { prepareSkillRuntime } from "~/lib/server/usecase/chat/chat-skill-runtime-preparation";
 import { buildAgentInstructionWithSkills } from "~/lib/server/usecase/chat/skill-instruction-builder";
 import {
@@ -81,7 +80,6 @@ export const chatExecutionDependencies: ChatExecutionDependencies = {
   buildSystemInstructionContextPayload,
   buildSkillTools,
   buildAgentInstructionWithSkills,
-  buildAgentRunContext,
   readProgressEventFromRunStreamEvent,
   cleanupChatRuntime,
   createCodeInterpreterContainerWithAttachments,

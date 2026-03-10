@@ -5,6 +5,7 @@ import type { WorkspaceSkillProfileResource } from "~/lib/contracts/skills/works
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import type { ThreadEnvironment } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
+import type { ChatAzureConfig } from "~/lib/domain/value-objects/chat-azure-config";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 export type ThreadInstructionResource = {
@@ -84,6 +85,7 @@ export type ThreadResource = {
   deletedAt: string | null;
   reasoningEffort: string;
   webSearchEnabled: boolean;
+  chatAzureConfigJson?: string | null;
   threadEnvironmentJson: string;
   instructionContextTogglesJson: string;
   instruction: ThreadInstructionResource | null;
@@ -99,6 +101,7 @@ export type ThreadWritePayload = {
   createdAt: string;
   reasoningEffort: ReasoningEffort;
   webSearchEnabled: boolean;
+  chatAzureConfig?: ChatAzureConfig | null;
   instruction: {
     content: string;
   };
@@ -113,6 +116,7 @@ export type ThreadWritePayload = {
 export type ThreadState = Omit<ThreadWritePayload, "instruction"> & {
   updatedAt: string;
   deletedAt: string | null;
+  agentConversationId?: string | null;
   agentInstruction: string;
 };
 

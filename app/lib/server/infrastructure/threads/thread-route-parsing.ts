@@ -67,6 +67,7 @@ export function readThreadWritePayload(
         createdAt: thread.createdAt,
         reasoningEffort: thread.reasoningEffort,
         webSearchEnabled: thread.webSearchEnabled,
+        chatAzureConfig: thread.chatAzureConfig ?? null,
         instructionContent: thread.instruction.content,
         instructionContextToggles: thread.instructionContextToggles,
         threadEnvironment: thread.threadEnvironment,

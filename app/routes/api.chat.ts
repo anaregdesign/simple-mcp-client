@@ -3,6 +3,12 @@
  */
 import type { Route } from "./+types/api.chat";
 import {
+  readAuthenticatedWorkspaceUser,
+} from "~/lib/server/infrastructure/auth/read-authenticated-user";
+import {
+  authRequiredResponse,
+} from "~/lib/server/infrastructure/http/route-transport";
+import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
@@ -17,7 +23,14 @@ export function loader({}: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
   installGlobalServerErrorLogging();
+
+  const user = await readAuthenticatedWorkspaceUser();
+  if (!user) {
+    return authRequiredResponse();
+  }
+
   return handleChatAction({
     request,
+    user,
   });
 }

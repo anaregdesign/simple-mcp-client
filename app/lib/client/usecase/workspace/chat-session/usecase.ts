@@ -3,12 +3,11 @@
  */
 import type { ChatApiClientResult } from "~/lib/client/infrastructure/api/chat-api-client";
 import { createThreadMessage } from "~/lib/client/usecase/workspace/chat-session/messages";
-import { serializeMcpServersForChatRequest } from "~/lib/client/usecase/workspace/mcp-profiles/runtime";
 import { mergeSkillSelections } from "~/lib/client/usecase/workspace/threads/thread-runtime";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";
-import type { ChatApiRequestPayload } from "~/lib/contracts/chat/request";
+import type { ChatRunRequest } from "~/lib/contracts/chat/request";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import {
@@ -17,8 +16,10 @@ import {
 } from "~/lib/contracts/threads/environment";
 import type { ThreadInstructionContextToggles } from "~/lib/contracts/threads/instruction-context";
 import {
+  cloneMessages,
   cloneMcpServers,
   cloneThreadInstructionContexts,
+  cloneThreadOperationLogs,
   cloneThreadSkillActivations,
 } from "~/lib/contracts/threads/state";
 import type { ThreadState } from "~/lib/contracts/threads/types";
@@ -142,38 +143,11 @@ export function validateSendPreconditions(options: {
   return null;
 }
 
-export function buildChatRequestPayload(
-  options: Omit<ChatApiRequestPayload, "reasoningEffort"> & {
-    reasoningEffort: ReasoningEffort;
-  },
-): ChatApiRequestPayload {
-  return {
-    threadId: options.threadId,
-    turnId: options.turnId,
-    message: options.message,
-    attachments: options.attachments,
-    history: options.history,
-    azureConfig: options.azureConfig,
-    supportsReasoningEffort: options.supportsReasoningEffort,
-    ...(options.supportsReasoningEffort
-      ? {
-          reasoningEffort: options.reasoningEffort,
-        }
-      : {}),
-    webSearchEnabled: options.webSearchEnabled,
-    agentInstruction: options.agentInstruction,
-    instructionContextToggles: options.instructionContextToggles,
-    threadEnvironment: options.threadEnvironment,
-    skills: options.skills,
-    explicitSkillLocations: options.explicitSkillLocations,
-    mcpServers: options.mcpServers,
-  };
-}
-
 export type PreparedSendMessageExecution = {
   userMessage: ThreadMessage;
+  threadSnapshot: ThreadState;
   requestThreadEnvironment: ThreadEnvironment;
-  requestPayload: ChatApiRequestPayload;
+  requestPayload: ChatRunRequest;
   requestMcpServers: McpServerConfig[];
   requestSkillSelections: ThreadSkillActivation[];
   shouldRefreshThreadTitleOnFirstMessage: boolean;
@@ -188,7 +162,7 @@ export function prepareSendMessageExecution(options: {
   mcpServers: McpServerConfig[];
   selectedMessageSkillActivations: ThreadSkillActivation[];
   selectedThreadSkills: ThreadSkillActivation[];
-  baseThread: ThreadState | null;
+  baseThread: ThreadState;
   agentInstruction: string;
   instructionContextToggles: ThreadInstructionContextToggles;
   activeAzureTenantId: string;
@@ -209,12 +183,6 @@ export function prepareSendMessageExecution(options: {
     options.selectedThreadSkills,
     requestMessageSkillActivations,
   );
-  const requestThreadEnvironment = options.baseThread
-    ? cloneThreadEnvironment(options.baseThread.threadEnvironment)
-    : {};
-  const requestExplicitSkillLocations = requestSkillSelections.map(
-    (selection) => selection.location,
-  );
   const requestInstructionContextToggles = cloneThreadInstructionContexts(
     options.instructionContextToggles,
   );
@@ -225,60 +193,49 @@ export function prepareSendMessageExecution(options: {
     requestAttachments,
     requestMessageSkillActivations,
   );
-  const history = options.messages.map(
-    ({ role, content: previousContent, attachments }) => {
-      if (role === "user" && attachments.length > 0) {
-        return {
-          role,
-          content: previousContent,
-          attachments,
-        };
-      }
-
-      return {
-        role,
-        content: previousContent,
-      };
-    },
+  const requestThreadEnvironment = cloneThreadEnvironment(
+    options.baseThread.threadEnvironment,
   );
+  const threadSnapshot: ThreadState = {
+    ...options.baseThread,
+    updatedAt: new Date().toISOString(),
+    reasoningEffort: options.reasoningEffort,
+    webSearchEnabled: options.webSearchEnabled,
+    chatAzureConfig: {
+      tenantId: options.activeAzureTenantId,
+      projectId: options.activePlaygroundAzureConnection.id ?? "",
+      projectName: options.activePlaygroundAzureConnection.projectName,
+      baseUrl: options.activePlaygroundAzureConnection.baseUrl,
+      apiVersion: options.activePlaygroundAzureConnection.apiVersion,
+      deploymentName: options.deploymentName,
+    },
+    agentInstruction: options.agentInstruction,
+    instructionContextToggles: requestInstructionContextToggles,
+    threadEnvironment: requestThreadEnvironment,
+    messages: [...cloneMessages(options.messages), userMessage],
+    mcpServers: requestMcpServers,
+    mcpRpcLogs: cloneThreadOperationLogs(options.baseThread.mcpRpcLogs),
+    skillSelections: cloneThreadSkillActivations(options.selectedThreadSkills),
+  };
 
   return {
     userMessage,
+    threadSnapshot,
     requestThreadEnvironment,
-    requestPayload: buildChatRequestPayload({
+    requestPayload: {
       threadId: options.threadId,
       turnId: options.turnId,
-      message: options.content,
-      attachments: requestAttachments,
-      history,
-      azureConfig: {
-        tenantId: options.activeAzureTenantId,
-        projectName: options.activePlaygroundAzureConnection.projectName,
-        baseUrl: options.activePlaygroundAzureConnection.baseUrl,
-        apiVersion: options.activePlaygroundAzureConnection.apiVersion,
-        deploymentName: options.deploymentName,
-      },
-      supportsReasoningEffort: options.isPlaygroundReasoningEffortSupported,
-      reasoningEffort: options.reasoningEffort,
-      webSearchEnabled: options.webSearchEnabled,
-      agentInstruction: options.agentInstruction,
-      instructionContextToggles: requestInstructionContextToggles,
-      threadEnvironment: requestThreadEnvironment,
-      skills: requestSkillSelections,
-      explicitSkillLocations: requestExplicitSkillLocations,
-      mcpServers: serializeMcpServersForChatRequest(requestMcpServers),
-    }),
+    },
     requestMcpServers,
     requestSkillSelections,
     shouldRefreshThreadTitleOnFirstMessage:
-      options.baseThread !== null &&
       options.baseThread.deletedAt === null &&
       options.baseThread.messages.length === 0,
   };
 }
 
 export type SendMessageTransportResult = {
-  assistantMessage: string;
+  assistantMessage: ThreadMessage;
   threadEnvironment: ThreadEnvironment;
   operationLogCount: number;
   usedEventStream: boolean;
@@ -287,7 +244,7 @@ export type SendMessageTransportResult = {
 export async function executeSendMessageTransport(
   deps: {
     sendMessage: (
-      payload: ChatApiRequestPayload,
+      payload: ChatRunRequest,
       options: {
         signal: AbortSignal;
         onProgress: (message: string) => void;
@@ -297,7 +254,7 @@ export async function executeSendMessageTransport(
     markAzureAuthRequired: () => void;
   },
   options: {
-    requestPayload: ChatApiRequestPayload;
+    requestPayload: ChatRunRequest;
     requestThreadEnvironment: ThreadEnvironment;
     signal: AbortSignal;
     onProgress: (message: string) => void;
@@ -318,12 +275,12 @@ export async function executeSendMessageTransport(
     throw new Error(payload.error || "Failed to send message.");
   }
 
-  if (!payload.message) {
+  if (!payload.assistantMessage) {
     throw new Error("The server returned an empty message.");
   }
 
   return {
-    assistantMessage: payload.message,
+    assistantMessage: payload.assistantMessage,
     threadEnvironment:
       "threadEnvironment" in payload && payload.threadEnvironment
         ? payload.threadEnvironment

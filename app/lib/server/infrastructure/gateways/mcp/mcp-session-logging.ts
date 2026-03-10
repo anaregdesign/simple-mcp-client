@@ -6,7 +6,7 @@ import {
 } from "@openai/agents";
 import type {
   ClientMcpServerConfig,
-} from "~/lib/server/infrastructure/gateways/chat/request-parser";
+} from "~/lib/server/usecase/chat/mcp-server-config-types";
 import {
   buildStdioSpawnEnvironment,
   resolveExecutableCommand,

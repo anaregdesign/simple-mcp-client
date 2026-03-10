@@ -1,7 +1,5 @@
 import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
-import type {
-  ClientMcpServerConfig,
-} from "~/lib/server/usecase/chat/mcp-server-config-types";
+import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
 
 export function applyDefaultThreadDirectoryToStdioServers(
   mcpServers: ClientMcpServerConfig[],
@@ -41,6 +39,35 @@ export function applyDefaultThreadDirectoryToStdioServers(
   }
 
   return normalized;
+}
+
+export function resolveRelativeHttpMcpServerUrls(
+  mcpServers: ClientMcpServerConfig[],
+  requestOrigin: string,
+): ClientMcpServerConfig[] {
+  const normalizedRequestOrigin = requestOrigin.trim();
+  if (!normalizedRequestOrigin) {
+    return mcpServers;
+  }
+
+  return mcpServers.map((server) => {
+    if (
+      server.transport === "stdio" ||
+      !server.url.startsWith("/") ||
+      server.url.startsWith("//")
+    ) {
+      return server;
+    }
+
+    try {
+      return {
+        ...server,
+        url: new URL(server.url, normalizedRequestOrigin).toString(),
+      };
+    } catch {
+      return server;
+    }
+  });
 }
 
 export function buildMcpServerSessionConfigKey(

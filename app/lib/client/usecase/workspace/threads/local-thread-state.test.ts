@@ -113,4 +113,24 @@ describe("threads/local-thread-state", () => {
     expect(shouldPersistThreadState(threads[0], signatureMap)).toBe(true);
     expect(resolveThreadNameForSave("Base", false, " Draft ")).toBe("Base");
   });
+
+  it("treats instruction-only thread changes as persistable", () => {
+    const signatureMap = new Map<string, string>();
+    const thread = createLocalThreadState({
+      name: "Instruction Thread",
+      defaultThreadMcpServers: [],
+      createThreadId: () => "thread-2",
+      now: () => "2026-03-10T00:00:00.000Z",
+    });
+
+    expect(
+      shouldPersistThreadState(
+        {
+          ...thread,
+          agentInstruction: "Summarize tradeoffs before recommending.",
+        },
+        signatureMap,
+      ),
+    ).toBe(true);
+  });
 });

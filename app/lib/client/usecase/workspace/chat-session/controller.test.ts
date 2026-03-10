@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadState } from "~/lib/contracts/threads/types";
 
 vi.mock("~/lib/client/usecase/workspace/chat-session/operations", () => ({
@@ -7,7 +8,15 @@ vi.mock("~/lib/client/usecase/workspace/chat-session/operations", () => ({
 
 vi.mock("~/lib/client/usecase/workspace/chat-session/usecase", () => ({
   executeSendMessageTransport: vi.fn(async () => ({
-    assistantMessage: "assistant response",
+    assistantMessage: {
+      id: "assistant-1",
+      role: "assistant",
+      content: "assistant response",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      turnId: "turn-1",
+      attachments: [],
+      skillActivations: [],
+    },
     threadEnvironment: {},
     operationLogCount: 0,
     usedEventStream: false,
@@ -33,6 +42,8 @@ function createThreadState(overrides: Partial<ThreadState> = {}): ThreadState {
     deletedAt: null,
     reasoningEffort: "high",
     webSearchEnabled: false,
+    chatAzureConfig: null,
+    agentConversationId: null,
     agentInstruction: "Instruction",
     instructionContextToggles: {
       system: true,
@@ -58,13 +69,22 @@ describe("createSendMessageController", () => {
     const sendMessageGateway = vi.fn(async () => ({
       response: new Response(null, { status: 200 }),
       payload: {
-        message: "assistant response",
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          content: "assistant response",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          turnId: "turn-1",
+          attachments: [],
+          skillActivations: [],
+        } satisfies ThreadMessage,
         threadEnvironment: {},
       },
       isEventStream: false,
       operationLogCount: 0,
     }));
     const markAzureAuthRequired = vi.fn();
+    const saveThreadStateToDatabase = vi.fn(async () => true);
 
     const controller = createSendMessageController({
       activeThreadIdRef,
@@ -83,6 +103,7 @@ describe("createSendMessageController", () => {
       readThreadOperationPhase: () => "idle",
       isChatLocked: false,
       readActivePlaygroundAzureConnection: () => ({
+        id: "project-1",
         projectName: "Playground",
         baseUrl: "https://example.openai.azure.com",
         apiVersion: "2026-01-01-preview",
@@ -116,6 +137,7 @@ describe("createSendMessageController", () => {
       logClientError: vi.fn(),
       refreshThreadTitleInBackground: vi.fn(),
       assignThreadSendAbortController: vi.fn(),
+      saveThreadStateToDatabase,
       markAzureAuthRequired,
       sendMessage: sendMessageGateway,
       appendThreadProgressMessage: vi.fn(),
@@ -139,25 +161,6 @@ describe("createSendMessageController", () => {
       requestPayload: {
         threadId: "thread-1",
         turnId: "turn-1",
-        message: "hello",
-        attachments: [],
-        history: [],
-        azureConfig: {
-          tenantId: "tenant-1",
-          projectName: "Playground",
-          baseUrl: "https://example.openai.azure.com",
-          apiVersion: "2026-01-01-preview",
-          deploymentName: "gpt-5",
-        },
-        supportsReasoningEffort: true,
-        reasoningEffort: "medium" as const,
-        webSearchEnabled: false,
-        agentInstruction: "Keep responses concise.",
-        instructionContextToggles: { system: true },
-        threadEnvironment: {},
-        skills: [],
-        explicitSkillLocations: [],
-        mcpServers: [],
       },
       requestThreadEnvironment: {},
       signal: new AbortController().signal,
@@ -173,5 +176,6 @@ describe("createSendMessageController", () => {
       },
       transportOptions,
     );
+    expect(deps?.saveThreadStateToDatabase).toBe(saveThreadStateToDatabase);
   });
 });

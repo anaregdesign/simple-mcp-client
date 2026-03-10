@@ -19,6 +19,9 @@ export function presentThreadResource(
     deletedAt: thread.deletedAt,
     reasoningEffort: thread.reasoningEffort,
     webSearchEnabled: thread.webSearchEnabled,
+    chatAzureConfigJson: thread.chatAzureConfig
+      ? JSON.stringify(thread.chatAzureConfig)
+      : null,
     threadEnvironmentJson: JSON.stringify(thread.threadEnvironment),
     instructionContextTogglesJson: JSON.stringify(
       thread.instructionContextToggles,

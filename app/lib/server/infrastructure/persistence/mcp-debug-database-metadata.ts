@@ -362,6 +362,20 @@ export const databaseDebugTableDefinitions: DatabaseDebugTableDefinition[] = [
         description: "Whether web-search-preview is enabled for the thread.",
       },
       {
+        name: "chatAzureConfigJson",
+        type: "TEXT",
+        nullable: true,
+        description:
+          "Serialized chat Azure execution target JSON stored with the thread snapshot.",
+      },
+      {
+        name: "agentConversationId",
+        type: "TEXT",
+        nullable: true,
+        description:
+          "Agents SDK conversation session identifier used to resume thread context on the server.",
+      },
+      {
         name: "threadEnvironmentJson",
         type: "TEXT",
         nullable: false,

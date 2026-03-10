@@ -113,6 +113,7 @@ export type InstructionContextToggleOptionView = {
 };
 
 export type AzureConnectionView = {
+  id?: string;
   projectName: string;
   baseUrl: string;
   apiVersion: string;

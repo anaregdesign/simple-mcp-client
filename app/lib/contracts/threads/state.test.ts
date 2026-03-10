@@ -112,6 +112,39 @@ describe("hasThreadPersistableState", () => {
       }),
     ).toBe(true);
   });
+
+  it("returns true when agent instruction differs from the default", () => {
+    expect(
+      hasThreadPersistableState({
+        messages: [],
+        reasoningEffort: "none",
+        webSearchEnabled: false,
+        agentInstruction: "Use short paragraphs and list tradeoffs.",
+        instructionContextToggles: { system: true },
+        threadEnvironment: {},
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when chatAzureConfig is present", () => {
+    expect(
+      hasThreadPersistableState({
+        messages: [],
+        reasoningEffort: "none",
+        webSearchEnabled: false,
+        chatAzureConfig: {
+          tenantId: "tenant",
+          projectId: "project",
+          projectName: "Project",
+          baseUrl: "https://example.openai.azure.com",
+          apiVersion: "2026-01-01-preview",
+          deploymentName: "gpt-5.2",
+        },
+        instructionContextToggles: { system: true },
+        threadEnvironment: {},
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("isThreadArchived", () => {
@@ -125,7 +158,9 @@ describe("isThreadArchived", () => {
   });
 
   it("returns true when deletedAt is set", () => {
-    expect(isThreadArchived({ deletedAt: "2026-02-20T00:00:00.000Z" })).toBe(true);
+    expect(isThreadArchived({ deletedAt: "2026-02-20T00:00:00.000Z" })).toBe(
+      true,
+    );
   });
 });
 
@@ -247,16 +282,24 @@ describe("updateThreadStateCollectionById", () => {
   ];
 
   it("returns the original collection when thread id is missing", () => {
-    const next = updateThreadStateCollectionById(baseSnapshots, "missing", (current) => current);
+    const next = updateThreadStateCollectionById(
+      baseSnapshots,
+      "missing",
+      (current) => current,
+    );
     expect(next).toBe(baseSnapshots);
   });
 
   it("updates the target thread state and keeps array sorted by updatedAt", () => {
-    const next = updateThreadStateCollectionById(baseSnapshots, "thread-1", (current) => ({
-      ...current,
-      name: "After",
-      updatedAt: "2026-03-08T00:00:01.000Z",
-    }));
+    const next = updateThreadStateCollectionById(
+      baseSnapshots,
+      "thread-1",
+      (current) => ({
+        ...current,
+        name: "After",
+        updatedAt: "2026-03-08T00:00:01.000Z",
+      }),
+    );
     expect(next).toHaveLength(1);
     expect(next[0]?.name).toBe("After");
   });
