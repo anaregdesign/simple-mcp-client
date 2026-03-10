@@ -4,14 +4,14 @@ import {
   structuredAuthRequiredResponse,
   structuredErrorResponse,
   successResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   presentAzureDeploymentsByProjectIdResource,
   presentAzurePrincipalProfileResource,
   presentAzureProjectResources,
   presentAzureSelectionPreferenceResource,
   presentAzureTenantResources,
-} from "~/lib/server/http/azure/azure-presentation";
+} from "~/lib/server/infrastructure/azure/azure-presentation";
 import { presentThreadResources } from "~/lib/server/infrastructure/threads/thread-resource-presentation";
 import { readAuthenticatedWorkspaceUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";

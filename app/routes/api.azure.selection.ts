@@ -4,11 +4,11 @@
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   handleAzureSelectionAction,
   handleAzureSelectionLoader,
-} from "~/lib/server/http/azure/azure-selection-action";
+} from "~/lib/server/infrastructure/azure/azure-selection-action";
 import { readAuthenticatedIdentity } from "~/lib/server/infrastructure/auth/read-authenticated-identity";
 import {
   installGlobalServerErrorLogging,

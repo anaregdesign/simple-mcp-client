@@ -7,7 +7,7 @@ import {
 import {
   handleAzureSessionAction,
   handleAzureSessionLoader,
-} from "~/lib/server/http/azure/azure-session-action";
+} from "~/lib/server/infrastructure/azure/azure-session-action";
 import {
   createAzureSessionServiceWithInfrastructure,
 } from "~/lib/server/infrastructure/azure/azure-service-factory";

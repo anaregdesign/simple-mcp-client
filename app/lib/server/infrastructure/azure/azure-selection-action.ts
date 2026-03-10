@@ -4,9 +4,9 @@ import {
   readErrorMessage,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
-import { presentAzureSelectionPreferenceResource } from "~/lib/server/http/azure/azure-presentation";
-import { parseAzureSelectionPreferenceRequest } from "~/lib/server/http/azure/azure-selection-request";
+} from "~/lib/server/infrastructure/http/route-transport";
+import { presentAzureSelectionPreferenceResource } from "~/lib/server/infrastructure/azure/azure-presentation";
+import { parseAzureSelectionPreferenceRequest } from "~/lib/server/infrastructure/azure/azure-selection-request";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type {
   AzureSelectionIdentity,

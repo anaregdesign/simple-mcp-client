@@ -1,4 +1,4 @@
-import { readJsonPayload } from "~/lib/server/http";
+import { readJsonPayload } from "~/lib/server/infrastructure/http/route-transport";
 
 const AZURE_SESSION_INVALID_BODY_ERROR = "Invalid request body.";
 

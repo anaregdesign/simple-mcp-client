@@ -3,8 +3,8 @@ import {
   errorResponse,
   methodNotAllowedResponse,
   readErrorMessage,
-} from "~/lib/server/http";
-import { readAzureSessionPutTenantId } from "~/lib/server/http/azure/azure-session-request";
+} from "~/lib/server/infrastructure/http/route-transport";
+import { readAzureSessionPutTenantId } from "~/lib/server/infrastructure/azure/azure-session-request";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { AzureSessionService } from "~/lib/server/usecase/azure/azure-session-service";
 

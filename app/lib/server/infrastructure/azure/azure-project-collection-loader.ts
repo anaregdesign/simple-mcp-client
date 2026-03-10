@@ -3,12 +3,12 @@ import {
   errorResponse,
   methodNotAllowedResponse,
   readErrorMessage,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   presentAzurePrincipalProfileResource,
   presentAzureProjectResources,
   presentAzureTenantResources,
-} from "~/lib/server/http/azure/azure-presentation";
+} from "~/lib/server/infrastructure/azure/azure-presentation";
 import {
   getArmAccessToken,
   resolveAzurePrincipalProfile,

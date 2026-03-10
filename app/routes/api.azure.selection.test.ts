@@ -47,7 +47,7 @@ vi.mock("~/lib/server/usecase/azure/azure-selection-service", async () => {
   };
 });
 
-import { parseAzureSelectionPreferenceRequest } from "~/lib/server/http/azure/azure-selection-request";
+import { parseAzureSelectionPreferenceRequest } from "~/lib/server/infrastructure/azure/azure-selection-request";
 import { action, loader } from "./api.azure.selection";
 
 describe("parseAzureSelectionPreferenceRequest", () => {

@@ -3,7 +3,7 @@
  */
 import {
   handleAzureProjectDeploymentLoader,
-} from "~/lib/server/http/azure/azure-project-deployment-loader";
+} from "~/lib/server/infrastructure/azure/azure-project-deployment-loader";
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";

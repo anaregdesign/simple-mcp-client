@@ -5,11 +5,11 @@ import {
   methodNotAllowedResponse,
   readErrorMessage,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   presentAzureDeploymentResources,
   presentAzurePrincipalProfileResource,
-} from "~/lib/server/http/azure/azure-presentation";
+} from "~/lib/server/infrastructure/azure/azure-presentation";
 import {
   getArmAccessToken,
   resolveAzurePrincipalProfile,

@@ -11,7 +11,7 @@ import {
 } from "~/lib/server/infrastructure/azure/arm-access-context";
 import {
   handleAzureProjectCollectionLoader,
-} from "~/lib/server/http/azure/azure-project-collection-loader";
+} from "~/lib/server/infrastructure/azure/azure-project-collection-loader";
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
