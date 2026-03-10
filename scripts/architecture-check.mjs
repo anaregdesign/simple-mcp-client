@@ -139,6 +139,17 @@ const checks = [
     ],
   },
   {
+    key: "threadSaveSignatureRegistryOwnership",
+    description:
+      "Thread save-signature registry helpers must not live in local-thread-state.",
+    command: "rg",
+    args: [
+      "-n",
+      "buildThreadSaveSignature|export function setThreadSaveSignatures",
+      "app/lib/client/usecase/workspace/threads/local-thread-state.ts",
+    ],
+  },
+  {
     key: "threadPersistenceOperationPlanningDuplication",
     description:
       "Thread persistence operation modules must not inline save signature or persistable-state checks.",
@@ -147,6 +158,18 @@ const checks = [
       "-n",
       "buildThreadSaveSignature|hasThreadPersistableState",
       "app/lib/client/usecase/workspace/threads/thread-persistence-operations.ts",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+    ],
+  },
+  {
+    key: "threadSaveSignatureRefAccess",
+    description:
+      "use-workspace and background-effects must use thread save-signature accessors instead of touching the ref map directly.",
+    command: "rg",
+    args: [
+      "-n",
+      "threadSaveSignatureByIdRef\\.current\\.(get|set)",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
       "app/lib/client/usecase/workspace/threads/background-effects.ts",
     ],
   },
