@@ -329,6 +329,10 @@ export function useThreadShell(options: UseThreadShellOptions) {
     return isThreadsReadyRef.current;
   }
 
+  function readIsApplyingThreadState(): boolean {
+    return isApplyingThreadStateRef.current;
+  }
+
   function setThreadsReady(): void {
     isThreadsReadyRef.current = true;
   }
@@ -349,8 +353,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     setThreadOperationPhase,
     threadError,
     setThreadError,
-    isApplyingThreadStateRef,
-    isThreadsReadyRef,
     threadNameSaveTimeoutRef,
     threadSaveTimeoutRef,
     threadTitleRefreshTimeoutRef,
@@ -382,6 +384,7 @@ export function useThreadShell(options: UseThreadShellOptions) {
     nextThreadLoadRequestSeq,
     readThreadLoadRequestSeq,
     readIsThreadsReady,
+    readIsApplyingThreadState,
     readSavedThreadSignature,
     rememberThreadSaveSignature,
     writeThreadSaveSignature,

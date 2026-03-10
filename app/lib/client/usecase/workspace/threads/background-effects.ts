@@ -41,8 +41,8 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
   threads: ThreadState[];
   utilityAzureDeployments: Array<{ name: string }>;
   webSearchEnabled: boolean;
-  isThreadsReadyRef: MutableRefObject<boolean>;
-  isApplyingThreadStateRef: MutableRefObject<boolean>;
+  readIsThreadsReady: () => boolean;
+  readIsApplyingThreadState: () => boolean;
   activeThreadIdRef: MutableRefObject<string>;
   threadNameSaveTimeoutRef: MutableRefObject<number | null>;
   threadSaveTimeoutRef: MutableRefObject<number | null>;
@@ -108,7 +108,7 @@ export function useWorkspaceThreadBackgroundEffects(
   }, []);
 
   useEffect(() => {
-    if (!options.isThreadsReadyRef.current || options.isApplyingThreadStateRef.current) {
+    if (!options.readIsThreadsReady() || options.readIsApplyingThreadState()) {
       return;
     }
     if (
@@ -165,7 +165,7 @@ export function useWorkspaceThreadBackgroundEffects(
   ]);
 
   useEffect(() => {
-    if (!options.isThreadsReadyRef.current || options.isApplyingThreadStateRef.current) {
+    if (!options.readIsThreadsReady() || options.readIsApplyingThreadState()) {
       return;
     }
     if (
@@ -228,7 +228,7 @@ export function useWorkspaceThreadBackgroundEffects(
   ]);
 
   useEffect(() => {
-    if (!options.isThreadsReadyRef.current || options.isApplyingThreadStateRef.current) {
+    if (!options.readIsThreadsReady() || options.readIsApplyingThreadState()) {
       return;
     }
     if (!canStartThreadOperation(options.threadOperationPhase)) {
@@ -271,7 +271,7 @@ export function useWorkspaceThreadBackgroundEffects(
   ]);
 
   useEffect(() => {
-    if (!options.isThreadsReadyRef.current || options.isApplyingThreadStateRef.current) {
+    if (!options.readIsThreadsReady() || options.readIsApplyingThreadState()) {
       return;
     }
     if (!canStartThreadOperation(options.threadOperationPhase)) {
