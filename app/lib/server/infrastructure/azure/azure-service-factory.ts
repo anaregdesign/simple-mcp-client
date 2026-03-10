@@ -5,6 +5,9 @@ import {
   createAzureArmPagedFetchGateway,
 } from "~/lib/server/infrastructure/gateways/azure/arm-paged-fetch-gateway";
 import {
+  createAzureProjectQueryGateway,
+} from "~/lib/server/infrastructure/gateways/azure/azure-project-query-gateway";
+import {
   logServerRouteEvent,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
@@ -22,8 +25,10 @@ import {
 
 export function createAzureProjectQueryServiceWithInfrastructure() {
   return createAzureProjectQueryService({
-    logEvent: logServerRouteEvent,
-    armPagedFetchGateway: createAzureArmPagedFetchGateway(),
+    queryGateway: createAzureProjectQueryGateway({
+      logEvent: logServerRouteEvent,
+      armPagedFetchGateway: createAzureArmPagedFetchGateway(),
+    }),
   });
 }
 

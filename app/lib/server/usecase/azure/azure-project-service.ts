@@ -2,40 +2,23 @@
  * Azure project query service module.
  */
 import {
-  normalizeAzureOpenAIBaseURL,
-} from "~/lib/domain/value-objects/chat-azure-config";
-import {
   buildModelCapabilitiesMap,
   createModelKey,
   isAgentsSdkCompatibleDeployment,
   isDeploymentSucceeded,
   mergeReasoningEffortOptions,
   resolveDeploymentReasoningEffortOptions,
-  type AzureOpenAIModelCapabilitySource,
-  type AzureOpenAIDeploymentCapabilitySource,
 } from "~/lib/domain/value-objects/azure-openai-model-capabilities";
+import type {
+  AzureOpenAIProjectReference,
+  AzureProjectQueryGateway,
+} from "~/lib/domain/repositories/azure-project-query-gateway";
 import {
   createProjectId,
   type AzureProjectRef,
 } from "~/lib/contracts/api/azure-project-id";
-import type {
-  AzureArmPagedFetchGateway,
-  AzureArmPagedFetchLogEvent,
-} from "~/lib/domain/repositories/azure-arm-paged-fetch-gateway";
-import {
-  AZURE_COGNITIVE_API_VERSION,
-  AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
-  AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT,
-  AZURE_MAX_MODELS_PER_ACCOUNT,
-  AZURE_MAX_SUBSCRIPTIONS,
-  AZURE_MAX_TENANTS,
-  AZURE_OPENAI_DEFAULT_API_VERSION,
-  AZURE_SUBSCRIPTIONS_API_VERSION,
-  AZURE_TENANTS_API_VERSION,
-} from "~/lib/constants/azure";
+import { AZURE_OPENAI_DEFAULT_API_VERSION } from "~/lib/constants/azure";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-const AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY = 6;
-const AZURE_PROJECT_QUERY_LOG_LOCATION = "azure_project_query_service";
 
 export type AzureProject = {
   id: string;
@@ -55,582 +38,207 @@ export type AzureTenant = {
   defaultDomain: string;
 };
 
-type ArmSubscription = {
-  subscriptionId?: string;
-  state?: string;
-};
-
-type ArmTenant = {
-  id?: string;
-  tenantId?: string;
-  displayName?: string;
-  defaultDomain?: string;
-};
-
-type ArmCognitiveAccount = {
-  id?: string;
-  name?: string;
-  kind?: string;
-  properties?: {
-    endpoint?: string;
-  };
-};
-
-type ArmModelInfo = {
-  name?: string;
-  version?: string;
-  format?: string;
-  capabilities?: Record<string, unknown>;
-};
-
-type ArmCognitiveDeployment = {
-  name?: string;
-  properties?: {
-    provisioningState?: string;
-    model?: ArmModelInfo;
-  };
-};
-
-type ArmAccountModel = {
-  model?: ArmModelInfo;
-};
-
 export class AzureProjectQueryService {
-  constructor(
-    private readonly logEvent: AzureArmPagedFetchLogEvent,
-    private readonly armPagedFetchGateway: AzureArmPagedFetchGateway,
-  ) {}
+  constructor(private readonly queryGateway: AzureProjectQueryGateway) {}
 
   async loadAzureProjectsWithFallback(
     accessToken: string,
   ): Promise<AzureProject[]> {
-    return loadAzureProjectsWithFallback(
-      accessToken,
-      this.logEvent,
-      this.armPagedFetchGateway,
-    );
+    try {
+      return await this.listAzureProjects(accessToken);
+    } catch {
+      return [];
+    }
   }
 
   async loadAzureTenantsWithFallback(
     accessToken: string,
     activeTenantId: string,
   ): Promise<AzureTenant[]> {
-    return loadAzureTenantsWithFallback(
-      accessToken,
-      activeTenantId,
-      this.logEvent,
-      this.armPagedFetchGateway,
-    );
+    try {
+      const tenants = await this.queryGateway.listAzureTenants(accessToken);
+      return prioritizeActiveTenant(tenants, activeTenantId);
+    } catch {
+      return activeTenantId
+        ? [
+            {
+              tenantId: activeTenantId,
+              displayName: activeTenantId,
+              defaultDomain: "",
+            },
+          ]
+        : [];
+    }
   }
 
   async listProjectDeployments(
     accessToken: string,
     projectRef: AzureProjectRef,
   ): Promise<AzureDeployment[]> {
-    return listProjectDeployments(
-      accessToken,
-      projectRef,
-      this.logEvent,
-      this.armPagedFetchGateway,
-    );
-  }
-}
+    const normalizedProjectRef = toAzureOpenAIProjectReference(projectRef);
+    const [deployments, accountModels] = await Promise.all([
+      this.queryGateway.listAzureProjectDeployments(
+        accessToken,
+        normalizedProjectRef,
+      ),
+      this.queryGateway.listAzureProjectModels(accessToken, normalizedProjectRef),
+    ]);
+    const modelCapabilities = buildModelCapabilitiesMap(accountModels);
+    const deploymentsByName = new Map<string, AzureDeployment>();
 
-export function createAzureProjectQueryService(
-  options: {
-    logEvent: AzureArmPagedFetchLogEvent;
-    armPagedFetchGateway: AzureArmPagedFetchGateway;
-  },
-): AzureProjectQueryService {
-  return new AzureProjectQueryService(
-    options.logEvent,
-    options.armPagedFetchGateway,
-  );
-}
-
-async function loadAzureProjectsWithFallback(
-  accessToken: string,
-  logEvent: AzureArmPagedFetchLogEvent,
-  armPagedFetchGateway: AzureArmPagedFetchGateway,
-): Promise<AzureProject[]> {
-  try {
-    return await listAzureProjects(accessToken, logEvent, armPagedFetchGateway);
-  } catch (error) {
-    await logEvent({
-      route: AZURE_PROJECT_QUERY_LOG_LOCATION,
-      eventName: "load_azure_projects_partial_failed",
-      action: "list_projects",
-      level: "warning",
-      error,
-      context: {
-        fallbackProjects: true,
-      },
-    });
-    return [];
-  }
-}
-
-async function loadAzureTenantsWithFallback(
-  accessToken: string,
-  activeTenantId: string,
-  logEvent: AzureArmPagedFetchLogEvent,
-  armPagedFetchGateway: AzureArmPagedFetchGateway,
-): Promise<AzureTenant[]> {
-  try {
-    return await listAzureTenants(
-      accessToken,
-      activeTenantId,
-      logEvent,
-      armPagedFetchGateway,
-    );
-  } catch (error) {
-    await logEvent({
-      route: AZURE_PROJECT_QUERY_LOG_LOCATION,
-      eventName: "load_azure_tenants_failed",
-      action: "list_tenants",
-      level: "warning",
-      error,
-      context: {
-        tenantId: activeTenantId || null,
-      },
-    });
-
-    return activeTenantId
-      ? [
-          {
-            tenantId: activeTenantId,
-            displayName: activeTenantId,
-            defaultDomain: "",
-          },
-        ]
-      : [];
-  }
-}
-
-export async function listAzureProjects(
-  accessToken: string,
-  logEvent: AzureArmPagedFetchLogEvent,
-  armPagedFetchGateway: AzureArmPagedFetchGateway,
-): Promise<AzureProject[]> {
-  const subscriptions = await armPagedFetchGateway.fetchPaged<ArmSubscription>({
-    url: `https://management.azure.com/subscriptions?api-version=${AZURE_SUBSCRIPTIONS_API_VERSION}`,
-    accessToken,
-    maxItems: AZURE_MAX_SUBSCRIPTIONS,
-    logEvent,
-  });
-
-  const enabledSubscriptionIds = subscriptions
-    .map((subscription) => {
-      const subscriptionId =
-        typeof subscription.subscriptionId === "string"
-          ? subscription.subscriptionId.trim()
-          : "";
-      const subscriptionState =
-        typeof subscription.state === "string"
-          ? subscription.state.toLowerCase()
-          : "";
-      if (
-        !subscriptionId ||
-        (subscriptionState && subscriptionState !== "enabled")
-      ) {
-        return "";
+    for (const deployment of deployments) {
+      if (!isDeploymentSucceeded(deployment.capability)) {
+        continue;
       }
 
-      return subscriptionId;
-    })
-    .filter(Boolean);
+      if (
+        !isAgentsSdkCompatibleDeployment(
+          deployment.capability,
+          modelCapabilities,
+        )
+      ) {
+        continue;
+      }
 
-  const discovered = (
-    await mapWithConcurrency(
-      enabledSubscriptionIds,
-      AZURE_SUBSCRIPTION_ACCOUNT_FETCH_CONCURRENCY,
-      async (
-        subscriptionId,
-      ): Promise<Array<AzureProject & { resourceGroup: string }>> => {
-        let accounts: ArmCognitiveAccount[];
-        try {
-          accounts = await armPagedFetchGateway.fetchPaged<ArmCognitiveAccount>({
-            url: `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/providers/Microsoft.CognitiveServices/accounts?api-version=${AZURE_COGNITIVE_API_VERSION}`,
-            accessToken,
-            maxItems: AZURE_MAX_ACCOUNTS_PER_SUBSCRIPTION,
-            logEvent,
-          });
-        } catch (error) {
-          await logEvent({
-            route: AZURE_PROJECT_QUERY_LOG_LOCATION,
-            eventName: "list_accounts_failed",
-            action: "list_subscription_accounts",
-            level: "warning",
-            error,
-            context: {
-              subscriptionId,
-            },
-          });
-          return [];
-        }
+      const model = deployment.capability.model;
+      const modelName =
+        typeof model?.name === "string" ? model.name.trim().toLowerCase() : "";
+      const modelVersion =
+        typeof model?.version === "string"
+          ? model.version.trim().toLowerCase()
+          : "";
+      const capabilities =
+        modelCapabilities.get(createModelKey(modelName, modelVersion)) ??
+        modelCapabilities.get(createModelKey(modelName, ""));
+      const reasoningEffortOptions = resolveDeploymentReasoningEffortOptions(
+        modelName,
+        capabilities,
+      );
 
-        const projects: Array<AzureProject & { resourceGroup: string }> = [];
-        for (const account of accounts) {
-          if (!isAzureOpenAIProject(account)) {
-            continue;
-          }
+      const key = deployment.name.toLowerCase();
+      const existing = deploymentsByName.get(key);
+      if (existing) {
+        existing.reasoningEffortOptions = mergeReasoningEffortOptions(
+          existing.reasoningEffortOptions,
+          reasoningEffortOptions,
+        );
+        continue;
+      }
 
-          const accountName =
-            typeof account.name === "string" ? account.name.trim() : "";
-          const accountId =
-            typeof account.id === "string" ? account.id.trim() : "";
-          if (!accountName || !accountId) {
-            continue;
-          }
-
-          const resourceGroup = parseResourceGroupFromResourceId(accountId);
-          if (!resourceGroup) {
-            continue;
-          }
-
-          const endpoint =
-            typeof account.properties?.endpoint === "string" &&
-            account.properties.endpoint.trim()
-              ? account.properties.endpoint
-              : `https://${accountName}.openai.azure.com/`;
-          const baseUrl = normalizeAzureOpenAIBaseURL(endpoint);
-          if (!baseUrl) {
-            continue;
-          }
-
-          projects.push({
-            id: createProjectId({
-              subscriptionId,
-              resourceGroup,
-              accountName,
-            }),
-            projectName: accountName,
-            baseUrl,
-            apiVersion: AZURE_OPENAI_DEFAULT_API_VERSION,
-            resourceGroup,
-          });
-        }
-
-        return projects;
-      },
-    )
-  ).flat();
-
-  const dedupeById = new Set<string>();
-  const dedupedDiscovered: Array<AzureProject & { resourceGroup: string }> = [];
-  for (const project of discovered) {
-    if (dedupeById.has(project.id)) {
-      continue;
+      deploymentsByName.set(key, {
+        name: deployment.name,
+        reasoningEffortOptions,
+      });
     }
 
-    dedupeById.add(project.id);
-    dedupedDiscovered.push(project);
+    return [...deploymentsByName.values()].sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
   }
 
-  const nameCounts = new Map<string, number>();
-  for (const project of dedupedDiscovered) {
-    const key = project.projectName.toLowerCase();
-    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+  private async listAzureProjects(accessToken: string): Promise<AzureProject[]> {
+    const discovered = await this.queryGateway.listAzureOpenAIAccounts(
+      accessToken,
+    );
+    const dedupeById = new Set<string>();
+    const dedupedDiscovered: Array<
+      AzureProject & {
+        resourceGroup: string;
+      }
+    > = [];
+
+    for (const account of discovered) {
+      const id = createProjectId({
+        subscriptionId: account.subscriptionId,
+        resourceGroup: account.resourceGroup,
+        accountName: account.accountName,
+      });
+      if (dedupeById.has(id)) {
+        continue;
+      }
+
+      dedupeById.add(id);
+      dedupedDiscovered.push({
+        id,
+        projectName: account.accountName,
+        baseUrl: account.baseUrl,
+        apiVersion: AZURE_OPENAI_DEFAULT_API_VERSION,
+        resourceGroup: account.resourceGroup,
+      });
+    }
+
+    const nameCounts = new Map<string, number>();
+    for (const project of dedupedDiscovered) {
+      const key = project.projectName.toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+
+    return dedupedDiscovered
+      .map(({ resourceGroup, ...project }) => {
+        const duplicateCount = nameCounts.get(project.projectName.toLowerCase()) ?? 0;
+        return duplicateCount > 1
+          ? {
+              ...project,
+              projectName: `${project.projectName} (${resourceGroup})`,
+            }
+          : project;
+      })
+      .sort((left, right) => left.projectName.localeCompare(right.projectName));
   }
-
-  const projects = dedupedDiscovered
-    .map(({ resourceGroup, ...project }) => {
-      const nameKey = project.projectName.toLowerCase();
-      const duplicateCount = nameCounts.get(nameKey) ?? 0;
-      return duplicateCount > 1
-        ? {
-            ...project,
-            projectName: `${project.projectName} (${resourceGroup})`,
-          }
-        : project;
-    })
-    .sort((left, right) => left.projectName.localeCompare(right.projectName));
-
-  return projects;
 }
 
-export async function listAzureTenants(
-  accessToken: string,
+export function createAzureProjectQueryService(options: {
+  queryGateway: AzureProjectQueryGateway;
+}): AzureProjectQueryService {
+  return new AzureProjectQueryService(options.queryGateway);
+}
+
+function toAzureOpenAIProjectReference(
+  projectRef: AzureProjectRef,
+): AzureOpenAIProjectReference {
+  return {
+    subscriptionId: projectRef.subscriptionId,
+    resourceGroup: projectRef.resourceGroup,
+    accountName: projectRef.accountName,
+  };
+}
+
+function prioritizeActiveTenant(
+  tenants: AzureTenant[],
   activeTenantId: string,
-  logEvent: AzureArmPagedFetchLogEvent,
-  armPagedFetchGateway: AzureArmPagedFetchGateway,
-  abortSignal?: AbortSignal,
-): Promise<AzureTenant[]> {
-  const discovered = await armPagedFetchGateway.fetchPaged<ArmTenant>({
-    url: `https://management.azure.com/tenants?api-version=${AZURE_TENANTS_API_VERSION}`,
-    accessToken,
-    maxItems: AZURE_MAX_TENANTS,
-    logEvent,
-    abortSignal,
-  });
-
+): AzureTenant[] {
+  const normalizedActiveTenantId = activeTenantId.trim();
   const tenantsById = new Map<string, AzureTenant>();
-  for (const tenant of discovered) {
-    const tenantId = readArmTenantId(tenant);
-    if (!tenantId) {
-      continue;
-    }
-    const tenantKey = tenantId.toLowerCase();
-
-    const defaultDomain =
-      typeof tenant.defaultDomain === "string"
-        ? tenant.defaultDomain.trim()
-        : "";
-    const displayNameRaw =
-      typeof tenant.displayName === "string" ? tenant.displayName.trim() : "";
-    const displayName = displayNameRaw || defaultDomain || tenantId;
-    const existing = tenantsById.get(tenantKey);
-    if (existing && existing.defaultDomain && existing.displayName) {
-      continue;
-    }
-
-    tenantsById.set(tenantKey, {
-      tenantId,
-      displayName,
-      defaultDomain,
-    });
+  for (const tenant of tenants) {
+    tenantsById.set(tenant.tenantId.toLowerCase(), tenant);
   }
 
-  const normalizedActiveTenantId = activeTenantId.trim();
-  const normalizedActiveTenantKey = normalizedActiveTenantId.toLowerCase();
-  if (normalizedActiveTenantId && !tenantsById.has(normalizedActiveTenantKey)) {
-    tenantsById.set(normalizedActiveTenantKey, {
+  if (
+    normalizedActiveTenantId &&
+    !tenantsById.has(normalizedActiveTenantId.toLowerCase())
+  ) {
+    tenantsById.set(normalizedActiveTenantId.toLowerCase(), {
       tenantId: normalizedActiveTenantId,
       displayName: normalizedActiveTenantId,
       defaultDomain: "",
     });
   }
 
-  return Array.from(tenantsById.values()).sort((left, right) => {
+  return [...tenantsById.values()].sort((left, right) => {
     if (
-      normalizedActiveTenantKey &&
-      left.tenantId.toLowerCase() === normalizedActiveTenantKey
+      normalizedActiveTenantId &&
+      left.tenantId.toLowerCase() === normalizedActiveTenantId.toLowerCase()
     ) {
       return -1;
     }
     if (
-      normalizedActiveTenantKey &&
-      right.tenantId.toLowerCase() === normalizedActiveTenantKey
+      normalizedActiveTenantId &&
+      right.tenantId.toLowerCase() === normalizedActiveTenantId.toLowerCase()
     ) {
       return 1;
     }
     return left.displayName.localeCompare(right.displayName);
   });
-}
-
-export async function listProjectDeployments(
-  accessToken: string,
-  projectRef: AzureProjectRef,
-  logEvent: AzureArmPagedFetchLogEvent,
-  armPagedFetchGateway: AzureArmPagedFetchGateway,
-): Promise<AzureDeployment[]> {
-  const { subscriptionId, resourceGroup, accountName } = projectRef;
-  const deployments = await armPagedFetchGateway.fetchPaged<ArmCognitiveDeployment>({
-    url: `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/deployments?api-version=${AZURE_COGNITIVE_API_VERSION}`,
-    accessToken,
-    maxItems: AZURE_MAX_DEPLOYMENTS_PER_ACCOUNT,
-    logEvent,
-  });
-
-  const accountModels = await listAccountModels(
-    accessToken,
-    projectRef,
-    logEvent,
-    armPagedFetchGateway,
-  );
-  const modelCapabilities = buildModelCapabilitiesMap(
-    accountModels.map(mapArmAccountModelToCapabilitySource),
-  );
-
-  const deploymentsByName = new Map<string, AzureDeployment>();
-
-  for (const deployment of deployments) {
-    const name =
-      typeof deployment.name === "string" ? deployment.name.trim() : "";
-    if (!name) {
-      continue;
-    }
-
-    const deploymentCapability = mapArmDeploymentToCapabilitySource(deployment);
-    if (!isDeploymentSucceeded(deploymentCapability)) {
-      continue;
-    }
-
-    if (
-      !isAgentsSdkCompatibleDeployment(deploymentCapability, modelCapabilities)
-    ) {
-      continue;
-    }
-
-    const model = deployment.properties?.model;
-    const modelName =
-      typeof model?.name === "string" ? model.name.trim().toLowerCase() : "";
-    const modelVersion =
-      typeof model?.version === "string"
-        ? model.version.trim().toLowerCase()
-        : "";
-    const capabilities =
-      modelCapabilities.get(createModelKey(modelName, modelVersion)) ??
-      modelCapabilities.get(createModelKey(modelName, ""));
-    const reasoningEffortOptions = resolveDeploymentReasoningEffortOptions(
-      modelName,
-      capabilities,
-    );
-
-    const key = name.toLowerCase();
-    const existing = deploymentsByName.get(key);
-    if (existing) {
-      existing.reasoningEffortOptions = mergeReasoningEffortOptions(
-        existing.reasoningEffortOptions,
-        reasoningEffortOptions,
-      );
-      continue;
-    }
-
-    deploymentsByName.set(key, {
-      name,
-      reasoningEffortOptions,
-    });
-  }
-
-  return [...deploymentsByName.values()].sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
-}
-
-function mapArmAccountModelToCapabilitySource(
-  entry: ArmAccountModel,
-): AzureOpenAIModelCapabilitySource {
-  return {
-    model: mapArmModelInfo(entry.model),
-  };
-}
-
-function mapArmDeploymentToCapabilitySource(
-  deployment: ArmCognitiveDeployment,
-): AzureOpenAIDeploymentCapabilitySource {
-  return {
-    provisioningState:
-      typeof deployment.properties?.provisioningState === "string"
-        ? deployment.properties.provisioningState
-        : "",
-    model: mapArmModelInfo(deployment.properties?.model),
-  };
-}
-
-function mapArmModelInfo(
-  model: ArmModelInfo | undefined,
-): AzureOpenAIModelCapabilitySource["model"] {
-  if (!model) {
-    return null;
-  }
-
-  return {
-    name: typeof model.name === "string" ? model.name : "",
-    version: typeof model.version === "string" ? model.version : "",
-    format: typeof model.format === "string" ? model.format : "",
-    capabilities:
-      model.capabilities && typeof model.capabilities === "object"
-        ? model.capabilities
-        : {},
-  };
-}
-
-async function listAccountModels(
-  accessToken: string,
-  projectRef: AzureProjectRef,
-  logEvent: AzureArmPagedFetchLogEvent,
-  armPagedFetchGateway: AzureArmPagedFetchGateway,
-): Promise<ArmAccountModel[]> {
-  const { subscriptionId, resourceGroup, accountName } = projectRef;
-  try {
-    return await armPagedFetchGateway.fetchPaged<ArmAccountModel>({
-      url: `https://management.azure.com/subscriptions/${encodeURIComponent(subscriptionId)}/resourceGroups/${encodeURIComponent(resourceGroup)}/providers/Microsoft.CognitiveServices/accounts/${encodeURIComponent(accountName)}/models?api-version=${AZURE_COGNITIVE_API_VERSION}`,
-      accessToken,
-      maxItems: AZURE_MAX_MODELS_PER_ACCOUNT,
-      logEvent,
-    });
-  } catch (error) {
-    await logEvent({
-      route: AZURE_PROJECT_QUERY_LOG_LOCATION,
-      eventName: "list_account_models_failed",
-      action: "list_account_models",
-      level: "warning",
-      error,
-      context: {
-        subscriptionId,
-        resourceGroup,
-        accountName,
-      },
-    });
-    return [];
-  }
-}
-
-function isAzureOpenAIProject(account: ArmCognitiveAccount): boolean {
-  const kind =
-    typeof account.kind === "string" ? account.kind.toLowerCase() : "";
-  const endpoint =
-    typeof account.properties?.endpoint === "string"
-      ? account.properties.endpoint.toLowerCase()
-      : "";
-
-  return (
-    kind === "openai" ||
-    kind === "aiservices" ||
-    endpoint.includes(".openai.azure.com") ||
-    endpoint.includes(".services.ai.azure.com")
-  );
-}
-
-function parseResourceGroupFromResourceId(resourceId: string): string {
-  const match = resourceId.match(/\/resourceGroups\/([^/]+)/i);
-  return match?.[1] ?? "";
-}
-
-function readArmTenantId(tenant: ArmTenant): string {
-  const tenantId =
-    typeof tenant.tenantId === "string" ? tenant.tenantId.trim() : "";
-  if (tenantId) {
-    return tenantId;
-  }
-
-  const resourceId = typeof tenant.id === "string" ? tenant.id.trim() : "";
-  const match = resourceId.match(/\/tenants\/([^/]+)/i);
-  return match?.[1]?.trim() ?? "";
-}
-
-async function mapWithConcurrency<TItem, TResult>(
-  items: TItem[],
-  concurrency: number,
-  mapper: (item: TItem, index: number) => Promise<TResult>,
-): Promise<TResult[]> {
-  if (items.length === 0) {
-    return [];
-  }
-
-  const normalizedConcurrency = Math.max(
-    1,
-    Math.min(items.length, concurrency),
-  );
-  const results = new Array<TResult>(items.length);
-  let currentIndex = 0;
-
-  await Promise.all(
-    Array.from({ length: normalizedConcurrency }, async () => {
-      while (currentIndex < items.length) {
-        const targetIndex = currentIndex;
-        currentIndex += 1;
-        results[targetIndex] = await mapper(items[targetIndex], targetIndex);
-      }
-    }),
-  );
-
-  return results;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
 }
 
 export function readErrorMessage(error: unknown): string {
