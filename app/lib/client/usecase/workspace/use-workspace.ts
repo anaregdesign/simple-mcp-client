@@ -77,7 +77,7 @@ import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/worksp
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
 import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-runtime";
 import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-session";
-import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
+import { buildConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
 import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
 import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-editor";
@@ -1221,7 +1221,7 @@ export function useWorkspace() {
     loadAzureProjects,
   });
 
-  const configPanelProps = buildWorkspaceConfigPanelProps({
+  const configPanelProps = buildConfigPanelProps({
     activeMainTab,
     setActiveMainTab,
     isChatLocked,

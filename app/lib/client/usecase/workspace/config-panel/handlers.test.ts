@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { MCP_DEFAULT_AZURE_AUTH_SCOPE } from "~/lib/constants/mcp";
 import {
-  buildWorkspaceMcpServersTabProps,
-} from "~/lib/client/usecase/workspace/config-panel/panel-props";
+  createMcpServersTabHandlers,
+} from "~/lib/client/usecase/workspace/config-panel/handlers";
 
 function createMcpOptions() {
   return {
@@ -51,12 +51,12 @@ function createMcpOptions() {
   };
 }
 
-describe("buildWorkspaceMcpServersTabProps", () => {
+describe("createMcpServersTabHandlers", () => {
   it("resets the MCP form error when the transport changes", () => {
     const options = createMcpOptions();
-    const props = buildWorkspaceMcpServersTabProps(options);
+    const handlers = createMcpServersTabHandlers(options);
 
-    props.onMcpTransportChange("streamable_http");
+    handlers.onMcpTransportChange("streamable_http");
 
     expect(options.setMcpTransport).toHaveBeenCalledWith("streamable_http");
     expect(options.setMcpFormError).toHaveBeenCalledWith(null);
@@ -64,9 +64,9 @@ describe("buildWorkspaceMcpServersTabProps", () => {
 
   it("seeds the default Azure auth scope when enabling Azure auth", () => {
     const options = createMcpOptions();
-    const props = buildWorkspaceMcpServersTabProps(options);
+    const handlers = createMcpServersTabHandlers(options);
 
-    props.onMcpUseAzureAuthInputChange(true);
+    handlers.onMcpUseAzureAuthInputChange(true);
 
     expect(options.setMcpUseAzureAuthInput).toHaveBeenCalledWith(true);
     expect(options.setMcpAzureAuthScopeInput).toHaveBeenCalledWith(
