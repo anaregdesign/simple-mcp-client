@@ -27,7 +27,7 @@ import {
   useLockedConfigPanelTab,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
 
-function buildMcpServersTabProps(
+function createMcpServersTabViewModel(
   options: WorkspaceConfigPanelMcpServersOptions,
 ) {
   const handlers = createMcpServersTabHandlers(options);
@@ -90,7 +90,7 @@ function buildMcpServersTabProps(
   });
 }
 
-function buildThreadsTabProps(
+function createThreadsTabViewModel(
   options: UseWorkspaceConfigPanelOptions["threads"],
 ) {
   const handlers = createThreadsTabHandlers(options);
@@ -149,7 +149,7 @@ function buildThreadsTabProps(
   });
 }
 
-function buildSkillsTabProps(
+function createSkillsTabViewModel(
   options: UseWorkspaceConfigPanelOptions["skills"],
 ) {
   const handlers = createSkillsTabHandlers(options);
@@ -175,7 +175,7 @@ function buildSkillsTabProps(
   });
 }
 
-export function selectWorkspaceConfigPanelProps(
+export function createWorkspaceConfigPanelViewModel(
   options: UseWorkspaceConfigPanelOptions,
 ) {
   const settingsTabProps = selectSettingsTabViewModel({
@@ -193,9 +193,9 @@ export function selectWorkspaceConfigPanelProps(
     },
     tabs: {
       settings: settingsTabProps,
-      mcpServers: buildMcpServersTabProps(options.mcpServers),
-      skills: buildSkillsTabProps(options.skills),
-      threads: buildThreadsTabProps(options.threads),
+      mcpServers: createMcpServersTabViewModel(options.mcpServers),
+      skills: createSkillsTabViewModel(options.skills),
+      threads: createThreadsTabViewModel(options.threads),
     },
   };
 }
@@ -210,7 +210,7 @@ export function useWorkspaceConfigPanel(
   });
 
   const configPanelProps = useMemo(
-    () => selectWorkspaceConfigPanelProps(options),
+    () => createWorkspaceConfigPanelViewModel(options),
     [options],
   );
 

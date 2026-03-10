@@ -1,6 +1,6 @@
 import {
-  createAzureCatalogHandlers,
-} from "./catalog-handlers";
+  createAzureCatalogLoadingHandlers,
+} from "./catalog-loading-handlers";
 import {
   createAzureSessionHandlers,
 } from "./session-handlers";
@@ -12,7 +12,7 @@ import type {
 export function createAzureSettingsHandlers(
   deps: AzureSettingsHandlerDependencies,
 ): AzureSettingsHandlers {
-  const catalogHandlers = createAzureCatalogHandlers(deps);
+  const catalogHandlers = createAzureCatalogLoadingHandlers(deps);
   const sessionHandlers = createAzureSessionHandlers(deps, catalogHandlers);
 
   return {

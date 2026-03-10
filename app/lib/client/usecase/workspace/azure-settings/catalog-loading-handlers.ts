@@ -5,15 +5,9 @@ import {
   azureProjectsApiClient,
 } from "~/lib/client/infrastructure/api/azure-projects-api-client";
 import {
-  azureSelectionApiClient,
-} from "~/lib/client/infrastructure/api/azure-selection-api-client";
-import {
   ClientApiError,
   mapApiError,
 } from "~/lib/client/infrastructure/api/api-client";
-import {
-  shouldScheduleWorkspaceMcpServerProfileLoginRetry,
-} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 import {
   isLikelyChatAzureAuthError,
 } from "./errors";
@@ -21,23 +15,37 @@ import {
   readAzureDeploymentList,
   readAzurePrincipalProfileFromUnknown,
   readAzureProjectList,
-  readAzureSelectionFromUnknown,
   readAzureTenantList,
   readPrincipalIdFromUnknown,
   readTenantIdFromUnknown,
-  type AzureSelectionPreference,
 } from "./parsers";
-import {
-  selectCachedAzureDeployments,
-  selectCachedAzureProjectCatalog,
-} from "./selectors";
 import {
   buildAzureProjectsLoadResult,
   resolveAzureAuthRequiredState,
   resolveAzureTenantOptions,
-  resolveInitialAzureProjectId,
   shouldUseCachedAzureProjectCatalog,
 } from "./catalog-state";
+import {
+  loadAzureSelectionPreference,
+  resolveProjectSelection,
+  saveAzureSelectionPreference,
+  saveThemePreference,
+} from "./catalog-preferences";
+import {
+  applyAzureDeployments,
+  cancelAzureDeploymentLoad,
+  cancelAzureDeploymentLoads,
+} from "./deployment-selection";
+import {
+  clearActiveAzureIdentity,
+  clearWorkspaceMcpServerProfileLoginRetry,
+  syncWorkspaceStateForLoadedIdentity,
+  updateActiveAzureIdentity,
+} from "./catalog-identity";
+import {
+  selectCachedAzureDeployments,
+  selectCachedAzureProjectCatalog,
+} from "./selectors";
 import type {
   AzureDeploymentTarget,
   AzureLoadAzureDeploymentsOptions,
@@ -49,7 +57,7 @@ import type {
   LoadAzureProjectsResult,
 } from "./types";
 
-export type AzureCatalogHandlers = Pick<
+export type AzureCatalogLoadingHandlers = Pick<
   AzureSettingsHandlers,
   | "cancelAzureDeploymentLoad"
   | "clearWorkspaceMcpServerProfileLoginRetryTimeout"
@@ -58,414 +66,6 @@ export type AzureCatalogHandlers = Pick<
   | "loadAzureProjects"
   | "loadAzureDeployments"
 >;
-
-function clearWorkspaceMcpServerProfileLoginRetryTimeout(
-  deps: AzureSettingsHandlerDependencies,
-) {
-  deps.clearWorkspaceMcpServerProfileLoginRetryTimeout();
-}
-
-function cancelAzureDeploymentLoad(
-  deps: AzureSettingsHandlerDependencies,
-  target: AzureDeploymentTarget,
-): void {
-  deps.nextAzureDeploymentRequestSeq(target);
-  if (target === "playground") {
-    deps.patchState({
-      isLoadingPlaygroundAzureDeployments: false,
-    });
-    return;
-  }
-
-  deps.patchState({
-    isLoadingUtilityAzureDeployments: false,
-  });
-}
-
-function cancelAzureDeploymentLoads(
-  deps: AzureSettingsHandlerDependencies,
-): void {
-  cancelAzureDeploymentLoad(deps, "playground");
-  cancelAzureDeploymentLoad(deps, "utility");
-}
-
-function clearActiveAzureIdentity(
-  deps: AzureSettingsHandlerDependencies,
-): void {
-  deps.options.writeActiveAzureTenantId("");
-  deps.options.writeActiveAzurePrincipalId("");
-  deps.options.writeActiveWorkspaceUserKey("");
-  deps.writePreferredAzureSelection(null);
-  cancelAzureDeploymentLoads(deps);
-  deps.dispatch({ type: "cache/clear_all" });
-  deps.patchState({
-    azureTenants: [],
-    activeAzurePrincipal: null,
-    azureTenantSwitchError: null,
-    isReloadingAzureCatalog: false,
-    utilityReasoningEffort: DEFAULT_UTILITY_REASONING_EFFORT,
-  });
-}
-
-function updateActiveAzureIdentity(
-  deps: AzureSettingsHandlerDependencies,
-  tenantId: string,
-  principalId: string,
-): string {
-  deps.options.writeActiveAzureTenantId(tenantId);
-  deps.options.writeActiveAzurePrincipalId(principalId);
-  const nextWorkspaceUserKey =
-    tenantId && principalId ? `${tenantId}::${principalId}` : "";
-  deps.options.writeActiveWorkspaceUserKey(nextWorkspaceUserKey);
-  return nextWorkspaceUserKey;
-}
-
-async function reloadWorkspaceStateForActiveIdentity(
-  deps: AzureSettingsHandlerDependencies,
-  waitForWorkspaceStateReload: boolean,
-): Promise<void> {
-  deps.options.clearWorkspaceMcpServerProfilesState();
-  deps.options.clearThreadsState();
-
-  const nextWorkspaceUserKey =
-    deps.options.readActiveWorkspaceUserKey().trim();
-  if (!nextWorkspaceUserKey) {
-    return;
-  }
-
-  deps.options.showThreadReloadPlaceholder();
-
-  const reloadState = async () => {
-    await deps.options.loadWorkspaceMcpServerProfiles();
-    await deps.options.loadThreads();
-  };
-
-  if (waitForWorkspaceStateReload) {
-    await reloadState();
-    return;
-  }
-
-  void reloadState();
-}
-
-function scheduleWorkspaceMcpServerProfileLoginRetry(
-  deps: AzureSettingsHandlerDependencies,
-  expectedUserKey: string,
-) {
-  deps.scheduleWorkspaceMcpServerProfileLoginRetryTimeout(() => {
-    if (deps.options.readActiveWorkspaceUserKey() === expectedUserKey) {
-      void deps.options.loadWorkspaceMcpServerProfiles();
-    }
-  });
-}
-
-async function syncWorkspaceStateForLoadedIdentity(
-  deps: AzureSettingsHandlerDependencies,
-  options: {
-    currentAuthRequired: boolean;
-    previousWorkspaceUserKey: string;
-    nextWorkspaceUserKey: string;
-    waitForWorkspaceStateReload: boolean;
-  },
-) {
-  if (!options.nextWorkspaceUserKey) {
-    deps.options.clearWorkspaceMcpServerProfilesState();
-    deps.options.clearThreadsState();
-  } else if (
-    options.previousWorkspaceUserKey !== options.nextWorkspaceUserKey
-  ) {
-    await reloadWorkspaceStateForActiveIdentity(
-      deps,
-      options.waitForWorkspaceStateReload,
-    );
-  } else if (
-    !deps.options.readIsThreadsReady() &&
-    !deps.options.readIsLoadingThreads() &&
-    deps.readState().isAzureAuthRequired === false
-  ) {
-    if (options.waitForWorkspaceStateReload) {
-      await deps.options.loadThreads();
-    } else {
-      void deps.options.loadThreads();
-    }
-  }
-
-  if (
-    shouldScheduleWorkspaceMcpServerProfileLoginRetry(
-      options.currentAuthRequired,
-      options.nextWorkspaceUserKey,
-    )
-  ) {
-    scheduleWorkspaceMcpServerProfileLoginRetry(
-      deps,
-      options.nextWorkspaceUserKey,
-    );
-  } else {
-    clearWorkspaceMcpServerProfileLoginRetryTimeout(deps);
-  }
-}
-
-async function loadAzureSelectionPreference(
-  deps: AzureSettingsHandlerDependencies,
-  tenantId: string,
-  principalId: string,
-): Promise<AzureSelectionPreference | null> {
-  const normalizedTenantId = tenantId.trim();
-  const normalizedPrincipalId = principalId.trim();
-  if (!normalizedTenantId || !normalizedPrincipalId) {
-    return null;
-  }
-
-  try {
-    const payload = await azureSelectionApiClient.loadSelection();
-    return readAzureSelectionFromUnknown(
-      payload.selection,
-      normalizedTenantId,
-      normalizedPrincipalId,
-    );
-  } catch (selectionError) {
-    deps.options.logClientError(
-      "load_azure_selection_failed",
-      selectionError,
-      {
-        action: "load_azure_selection",
-      },
-    );
-    return null;
-  }
-}
-
-async function saveAzureSelectionPreference(
-  deps: AzureSettingsHandlerDependencies,
-  selection: AzureSelectionSaveInput,
-): Promise<void> {
-  const currentPreferredSelection = deps.readPreferredAzureSelection();
-  const hasIdentityScopedPreferredSelection =
-    currentPreferredSelection !== null &&
-    currentPreferredSelection.tenantId === selection.tenantId &&
-    currentPreferredSelection.principalId === selection.principalId;
-  const nextPreferredSelection = hasIdentityScopedPreferredSelection
-    ? {
-        ...currentPreferredSelection,
-        theme: currentPreferredSelection.theme,
-        playground: currentPreferredSelection.playground
-          ? { ...currentPreferredSelection.playground }
-          : null,
-        utility: currentPreferredSelection.utility
-          ? { ...currentPreferredSelection.utility }
-          : null,
-      }
-    : {
-        tenantId: selection.tenantId,
-        principalId: selection.principalId,
-        theme: deps.readState().theme,
-        playground: null,
-        utility: null,
-      };
-
-  const targetSelection = {
-    projectId: selection.projectId,
-    deploymentName: selection.deploymentName,
-  };
-  if (selection.target === "playground") {
-    nextPreferredSelection.playground = targetSelection;
-  } else {
-    nextPreferredSelection.utility = {
-      ...targetSelection,
-      reasoningEffort: selection.reasoningEffort,
-    };
-  }
-  deps.writePreferredAzureSelection(nextPreferredSelection);
-  const persistedThemeMode = hasIdentityScopedPreferredSelection
-    ? currentPreferredSelection.theme
-    : null;
-
-  try {
-    if (selection.target === "utility") {
-      await azureSelectionApiClient.saveSelection({
-        target: "utility",
-        projectId: selection.projectId,
-        deploymentName: selection.deploymentName,
-        reasoningEffort: selection.reasoningEffort,
-        theme: persistedThemeMode,
-      });
-    } else {
-      await azureSelectionApiClient.saveSelection({
-        target: "playground",
-        projectId: selection.projectId,
-        deploymentName: selection.deploymentName,
-        theme: persistedThemeMode,
-      });
-    }
-  } catch (selectionSaveError) {
-    deps.options.logClientError(
-      "save_azure_selection_failed",
-      selectionSaveError,
-      {
-        action: "save_azure_selection",
-      },
-    );
-  }
-}
-
-async function saveThemePreference(
-  deps: AzureSettingsHandlerDependencies,
-  nextTheme: AzureSettingsState["theme"],
-): Promise<void> {
-  const tenantId = deps.options.readActiveAzureTenantId().trim();
-  const principalId = deps.options.readActiveAzurePrincipalId().trim();
-  if (!tenantId || !principalId) {
-    return;
-  }
-
-  const currentPreferredSelection = deps.readPreferredAzureSelection();
-  deps.writePreferredAzureSelection(
-    currentPreferredSelection &&
-      currentPreferredSelection.tenantId === tenantId &&
-      currentPreferredSelection.principalId === principalId
-      ? {
-          ...currentPreferredSelection,
-          theme: nextTheme,
-          playground: currentPreferredSelection.playground
-            ? { ...currentPreferredSelection.playground }
-            : null,
-          utility: currentPreferredSelection.utility
-            ? { ...currentPreferredSelection.utility }
-            : null,
-        }
-      : {
-          tenantId,
-          principalId,
-          theme: nextTheme,
-          playground: null,
-          utility: null,
-        },
-  );
-
-  try {
-    await azureSelectionApiClient.saveSelection({
-      theme: nextTheme,
-    });
-  } catch (selectionSaveError) {
-    deps.options.logClientError("save_theme_failed", selectionSaveError, {
-      action: "save_theme",
-    });
-  }
-}
-
-function resolveProjectSelection(
-  deps: AzureSettingsHandlerDependencies,
-  options: {
-    projects: Array<{ id: string }>;
-    preferredSelection: AzureSelectionPreference | null;
-  },
-) {
-  const preferredPlaygroundProjectId =
-    options.preferredSelection?.playground?.projectId ?? "";
-  const preferredUtilityProjectId =
-    options.preferredSelection?.utility?.projectId ?? "";
-  const preferredUtilityReasoningEffort =
-    options.preferredSelection?.utility?.reasoningEffort ??
-    DEFAULT_UTILITY_REASONING_EFFORT;
-  const knownProjectIds = new Set(
-    options.projects.map((connection) => connection.id),
-  );
-  const defaultProjectId = options.projects[0]?.id ?? "";
-  const nextPlaygroundProjectId = resolveInitialAzureProjectId({
-    knownProjectIds,
-    currentProjectId: deps.options.readSelectedPlaygroundAzureConnectionId(),
-    preferredProjectId: preferredPlaygroundProjectId,
-    defaultProjectId,
-  });
-  const nextUtilityProjectId = resolveInitialAzureProjectId({
-    knownProjectIds,
-    currentProjectId: deps.options.readSelectedUtilityAzureConnectionId(),
-    preferredProjectId: preferredUtilityProjectId,
-    fallbackProjectId: nextPlaygroundProjectId,
-    defaultProjectId,
-  });
-
-  return {
-    nextPlaygroundProjectId,
-    nextUtilityProjectId,
-    preferredUtilityReasoningEffort,
-  };
-}
-
-function applyAzureDeployments(
-  deps: AzureSettingsHandlerDependencies,
-  target: AzureDeploymentTarget,
-  normalizedProjectId: string,
-  deployments: AzureSettingsState["playgroundAzureDeployments"],
-) {
-  const preferredSelection = deps.readPreferredAzureSelection();
-  const preferredDeploymentName =
-    preferredSelection &&
-    preferredSelection.tenantId === deps.options.readActiveAzureTenantId() &&
-    preferredSelection.principalId ===
-      deps.options.readActiveAzurePrincipalId() &&
-    (target === "playground"
-      ? preferredSelection.playground?.projectId === normalizedProjectId
-      : preferredSelection.utility?.projectId === normalizedProjectId)
-      ? (
-          target === "playground"
-            ? preferredSelection.playground?.deploymentName
-            : preferredSelection.utility?.deploymentName
-        ) ?? ""
-      : "";
-  const currentState = deps.readState();
-
-  deps.patchState(
-    target === "playground"
-      ? {
-          isAzureAuthRequired: resolveAzureAuthRequiredState({
-            currentAuthRequired: currentState.isAzureAuthRequired,
-            nextAuthRequired: false,
-            source: "background_success",
-          }),
-          playgroundAzureDeployments: deployments,
-          selectedPlaygroundAzureDeploymentName: deployments.some(
-            (deployment) =>
-              deployment.name ===
-              currentState.selectedPlaygroundAzureDeploymentName,
-          )
-            ? currentState.selectedPlaygroundAzureDeploymentName
-            : preferredDeploymentName &&
-                deployments.some(
-                  (deployment) => deployment.name === preferredDeploymentName,
-                )
-              ? preferredDeploymentName
-              : deployments[0]?.name ?? "",
-          playgroundAzureDeploymentError:
-            deployments.length === 0
-              ? "No Agents SDK-compatible deployments found for this project."
-              : null,
-        }
-      : {
-          isAzureAuthRequired: resolveAzureAuthRequiredState({
-            currentAuthRequired: currentState.isAzureAuthRequired,
-            nextAuthRequired: false,
-            source: "background_success",
-          }),
-          utilityAzureDeployments: deployments,
-          selectedUtilityAzureDeploymentName: deployments.some(
-            (deployment) =>
-              deployment.name === currentState.selectedUtilityAzureDeploymentName,
-          )
-            ? currentState.selectedUtilityAzureDeploymentName
-            : preferredDeploymentName &&
-                deployments.some(
-                  (deployment) => deployment.name === preferredDeploymentName,
-                )
-              ? preferredDeploymentName
-              : deployments[0]?.name ?? "",
-          utilityAzureDeploymentError:
-            deployments.length === 0
-              ? "No Agents SDK-compatible deployments found for this project."
-              : null,
-        },
-  );
-}
 
 async function loadAzureProjects(
   deps: AzureSettingsHandlerDependencies,
@@ -701,7 +301,7 @@ async function loadAzureProjects(
       loadError instanceof ClientApiError
         ? loadError.kind === "auth_required"
         : isLikelyChatAzureAuthError(errorMessage);
-    clearActiveAzureIdentity(deps);
+    clearActiveAzureIdentity(deps, () => cancelAzureDeploymentLoads(deps));
     deps.options.clearWorkspaceMcpServerProfilesState();
     deps.options.clearThreadsState(
       nextAuthRequired
@@ -892,20 +492,20 @@ async function loadAzureDeployments(
   }
 }
 
-export function createAzureCatalogHandlers(
+export function createAzureCatalogLoadingHandlers(
   deps: AzureSettingsHandlerDependencies,
-): AzureCatalogHandlers {
+): AzureCatalogLoadingHandlers {
   return {
     cancelAzureDeploymentLoad(target) {
       cancelAzureDeploymentLoad(deps, target);
     },
     clearWorkspaceMcpServerProfileLoginRetryTimeout() {
-      clearWorkspaceMcpServerProfileLoginRetryTimeout(deps);
+      clearWorkspaceMcpServerProfileLoginRetry(deps);
     },
-    saveAzureSelectionPreference(selection) {
+    saveAzureSelectionPreference(selection: AzureSelectionSaveInput) {
       return saveAzureSelectionPreference(deps, selection);
     },
-    saveThemePreference(nextTheme) {
+    saveThemePreference(nextTheme: AzureSettingsState["theme"]) {
       return saveThemePreference(deps, nextTheme);
     },
     loadAzureProjects(loadOptions) {
