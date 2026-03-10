@@ -4,7 +4,7 @@ import type {
   buildSkillsTabProps as selectSkillsTabProps,
   buildThreadsTabProps as selectThreadsTabProps,
 } from "~/lib/client/usecase/workspace/config-panel/selectors";
-import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 
 type SettingsTabSelectorOptions = Parameters<typeof selectSettingsTabProps>[0];
 type McpServersTabSelectorOptions = Parameters<typeof selectMcpServersTabProps>[0];

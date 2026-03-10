@@ -20,8 +20,8 @@ import type {
 } from "~/lib/client/usecase/workspace/threads/thread-request-state";
 import type {
   AzureConnectionView,
-  MainViewTab,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/azure-settings/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";

@@ -1,5 +1,5 @@
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
-import type { ThreadMessageView } from "~/lib/client/usecase/workspace/view-types";
+import type { ThreadMessageView } from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 type PlaygroundTurnMessageSkillActivationBubblesProps<
   TMessage extends ThreadMessageView,

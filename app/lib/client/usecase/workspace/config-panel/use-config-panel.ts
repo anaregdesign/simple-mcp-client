@@ -23,7 +23,7 @@ import type {
   BuildConfigPanelPropsOptions,
   BuildMcpServersTabPropsOptions,
 } from "~/lib/client/usecase/workspace/config-panel/types";
-import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 
 export function useConfigPanelState() {
   const [activeMainTab, setActiveMainTab] = useState<MainViewTab>("threads");

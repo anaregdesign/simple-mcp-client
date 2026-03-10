@@ -7,7 +7,7 @@ import { McpServersTab } from "~/components/config/mcp/McpServersTab";
 import { SkillsTab } from "~/components/config/skills/SkillsTab";
 import { SettingsTab } from "~/components/config/settings/SettingsTab";
 import { ThreadsTab } from "~/components/config/threads/ThreadsTab";
-import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 import { CLIENT_CONFIG_TAB_OPTIONS } from "~/lib/constants/client";
 
 const { MessageBar, MessageBarBody, Tab, TabList } = FluentUI;

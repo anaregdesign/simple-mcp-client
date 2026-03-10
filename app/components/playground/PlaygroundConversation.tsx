@@ -4,7 +4,7 @@ import { PlaygroundTurnMessageSkillActivationBubbles } from "~/components/playgr
 import type {
   ThreadMessageView,
   ThreadOperationLogEntryView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 type PlaygroundConversationProps<
   TMessage extends ThreadMessageView,

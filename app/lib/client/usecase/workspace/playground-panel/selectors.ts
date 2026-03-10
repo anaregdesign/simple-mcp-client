@@ -10,7 +10,7 @@ import type {
 } from "~/lib/client/usecase/workspace/desktop-updater/selectors";
 import type {
   ChatCommandMenuView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/playground-panel/view-types";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";

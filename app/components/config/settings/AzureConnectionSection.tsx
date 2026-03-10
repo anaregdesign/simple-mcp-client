@@ -9,7 +9,7 @@ import type {
   AzureConnectionView,
   AzurePrincipalView,
   AzureTenantView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/azure-settings/view-types";
 
 const { Button, Select, Spinner } = FluentUI;
 

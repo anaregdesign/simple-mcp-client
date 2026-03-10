@@ -19,7 +19,7 @@ import type {
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 import type {
   InstructionLanguage,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/instruction-editor/view-types";
 import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,
 } from "~/lib/domain/value-objects/thread-instruction-context";

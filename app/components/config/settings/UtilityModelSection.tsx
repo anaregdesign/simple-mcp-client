@@ -7,7 +7,7 @@ import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageLis
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/azure-settings/view-types";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import {
   NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,

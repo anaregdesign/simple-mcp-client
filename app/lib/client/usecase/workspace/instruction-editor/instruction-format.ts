@@ -1,4 +1,4 @@
-import type { InstructionLanguage } from "~/lib/client/usecase/workspace/view-types";
+import type { InstructionLanguage } from "~/lib/client/usecase/workspace/instruction-editor/view-types";
 import {
   INSTRUCTION_ALLOWED_EXTENSIONS,
   INSTRUCTION_DEFAULT_EXTENSION,

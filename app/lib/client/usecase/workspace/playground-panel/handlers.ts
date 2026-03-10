@@ -9,7 +9,7 @@ import {
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   MainViewTab,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 
 type PlaygroundControlHandlerDependencies = {
   isSending: boolean;

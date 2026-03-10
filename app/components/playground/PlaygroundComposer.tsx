@@ -15,11 +15,13 @@ import { FluentUI } from "~/components/shared/fluent";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
+} from "~/lib/client/usecase/workspace/azure-settings/view-types";
+import type {
   ChatCommandMenuView,
   ThreadMcpConnectionView,
   ThreadMessageAttachmentView,
   ThreadSkillView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 const { Textarea } = FluentUI;
 

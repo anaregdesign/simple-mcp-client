@@ -5,7 +5,7 @@ import {
 import type {
   ChatCommandSuggestion,
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
-import type { ChatCommandMenuView } from "~/lib/client/usecase/workspace/view-types";
+import type { ChatCommandMenuView } from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 export type ChatCommandProvider = {
   keyword: string;

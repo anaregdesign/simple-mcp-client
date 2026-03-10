@@ -3,7 +3,7 @@ import { FluentUI } from "~/components/shared/fluent";
 import type {
   ThreadMcpConnectionView,
   ThreadSkillView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 const { Button } = FluentUI;
 

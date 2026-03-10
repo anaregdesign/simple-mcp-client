@@ -1,4 +1,4 @@
-import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadRequestState } from "./thread-request-state";

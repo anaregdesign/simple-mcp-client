@@ -27,8 +27,8 @@ import type {
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import type {
   ChatCommandMenuView,
-  MainViewTab,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/playground-panel/view-types";
+import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   CHAT_ATTACHMENT_MAX_FILES,

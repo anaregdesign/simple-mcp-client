@@ -1,4 +1,4 @@
-import type { ChatCommandMenuView } from "~/lib/client/usecase/workspace/view-types";
+import type { ChatCommandMenuView } from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 type PlaygroundChatCommandMenuProps = {
   chatCommandMenu: ChatCommandMenuView | null;

@@ -8,7 +8,7 @@ import {
 import {
   validateEnhancedInstructionFormat,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-format";
-import type { InstructionLanguage } from "~/lib/client/usecase/workspace/view-types";
+import type { InstructionLanguage } from "~/lib/client/usecase/workspace/instruction-editor/view-types";
 
 type ReadInstructionEnhancementResponseOptions = {
   currentInstruction: string;

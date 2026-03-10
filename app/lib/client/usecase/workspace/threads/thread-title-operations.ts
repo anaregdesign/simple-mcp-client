@@ -5,7 +5,7 @@ import type {
 } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import type {
   AzureConnectionView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/azure-settings/view-types";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import { buildThreadAutoTitlePlaygroundContent } from "~/lib/client/usecase/workspace/threads/thread-title-content";

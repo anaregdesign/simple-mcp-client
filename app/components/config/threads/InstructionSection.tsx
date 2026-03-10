@@ -15,7 +15,7 @@ import type {
   InstructionContextToggleOptionView,
   InstructionEnhanceComparisonView,
   InstructionLanguage,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/instruction-editor/view-types";
 
 const { Button, Spinner, Switch, Textarea } = FluentUI;
 

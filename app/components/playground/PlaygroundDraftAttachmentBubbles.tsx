@@ -1,6 +1,6 @@
 import { FluentUI } from "~/components/shared/fluent";
 import { formatPlaygroundAttachmentSize } from "~/components/playground/rendering/attachment-size";
-import type { ThreadMessageAttachmentView } from "~/lib/client/usecase/workspace/view-types";
+import type { ThreadMessageAttachmentView } from "~/lib/client/usecase/workspace/playground-panel/view-types";
 
 const { Button } = FluentUI;
 

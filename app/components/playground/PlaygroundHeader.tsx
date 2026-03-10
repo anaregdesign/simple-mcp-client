@@ -2,7 +2,7 @@ import { FluentUI } from "~/components/shared/fluent";
 import type {
   DesktopUpdaterActionStateView,
   DesktopUpdaterStatusView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/desktop-updater/view-types";
 
 const { Button } = FluentUI;
 

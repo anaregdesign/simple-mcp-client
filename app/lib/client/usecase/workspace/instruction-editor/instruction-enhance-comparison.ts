@@ -1,4 +1,4 @@
-import type { InstructionLanguage } from "~/lib/client/usecase/workspace/view-types";
+import type { InstructionLanguage } from "~/lib/client/usecase/workspace/instruction-editor/view-types";
 
 export type InstructionEnhanceComparison = {
   original: string;

@@ -10,7 +10,7 @@ import { mergeSkillSelections } from "~/lib/client/usecase/workspace/threads/thr
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type {
   AzureConnectionView,
-} from "~/lib/client/usecase/workspace/view-types";
+} from "~/lib/client/usecase/workspace/azure-settings/view-types";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
