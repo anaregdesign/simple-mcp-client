@@ -6,11 +6,9 @@ import {
   useMemo,
   useReducer,
   useRef,
-  useState,
 } from "react";
 import type {
   ThemeMode,
-  MainViewTab,
   McpTransport,
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
@@ -78,6 +76,10 @@ import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/
 import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-runtime";
 import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-session";
 import { buildConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
+import {
+  useConfigPanelState,
+  useLockedConfigPanelTab,
+} from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
 import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
 import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-editor";
@@ -222,7 +224,11 @@ export function useWorkspace() {
     resetPlaygroundSession,
     applyThreadPlaygroundState,
   } = usePlaygroundSession();
-  const [activeMainTab, setActiveMainTab] = useState<MainViewTab>("threads");
+  const {
+    activeMainTab,
+    activeMainTabRef,
+    setActiveMainTab,
+  } = useConfigPanelState();
   const {
     instructionFileInputRef,
     agentInstruction,
@@ -398,7 +404,6 @@ export function useWorkspace() {
   const activeAzurePrincipalIdRef = useRef("");
   const activeWorkspaceUserKeyRef = useRef("");
   const workspaceMcpServerProfileRequestSeqRef = useRef(0);
-  const activeMainTabRef = useRef<MainViewTab>("threads");
   const selectedPlaygroundAzureConnectionIdRef = useRef("");
   const selectedPlaygroundAzureDeploymentNameRef = useRef("");
   const selectedUtilityAzureConnectionIdRef = useRef("");
@@ -714,11 +719,6 @@ export function useWorkspace() {
     logClientWarning,
   });
 
-  // Keep refs synchronized with state to avoid stale closures in async handlers.
-  useEffect(() => {
-    activeMainTabRef.current = activeMainTab;
-  }, [activeMainTab]);
-
   useEffect(() => {
     return installGlobalClientErrorLogging(() =>
       buildRuntimeLogContext({
@@ -727,11 +727,11 @@ export function useWorkspace() {
     );
   }, []);
 
-  useEffect(() => {
-    if (isChatLocked && activeMainTab !== "settings") {
-      setActiveMainTab("settings");
-    }
-  }, [activeMainTab, isChatLocked]);
+  useLockedConfigPanelTab({
+    activeMainTab,
+    isChatLocked,
+    setActiveMainTab,
+  });
 
   // Saved MCP / Skills loading flows.
   const workspaceMcpProfileStorageRuntime =
