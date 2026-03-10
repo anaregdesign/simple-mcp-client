@@ -68,7 +68,6 @@ describe("createThreadPersistenceController", () => {
         updater(threadsRef.current),
       ),
       setActiveThreadNameInput: vi.fn(),
-      shouldPersistThreadState: vi.fn(() => true),
       buildThreadStateFromCurrentState: vi.fn((base: ThreadState) => base),
       clearThreadNameSaveTimeout: vi.fn(),
       clearThreadSaveTimeout: vi.fn(),
@@ -82,7 +81,6 @@ describe("createThreadPersistenceController", () => {
     const persistenceDeps = vi.mocked(saveThreadStateToDatabase).mock.calls[0]?.[0];
     expect(persistenceDeps?.readActiveWorkspaceUserKey()).toBe("tenant::principal");
     expect(persistenceDeps?.readThreads()).toEqual([thread]);
-    expect(persistenceDeps?.hasSavedThreadSignature("thread-1")).toBe(false);
     persistenceDeps?.writeThreadSaveSignature("thread-1", "signature-1");
     expect(
       persistenceDeps?.readSavedThreadSignature("thread-1"),

@@ -7,8 +7,9 @@ import {
   convertThreadStateToWritePayload,
 } from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
 import {
-  buildThreadSaveSignature,
-} from "~/lib/client/usecase/workspace/threads/thread-save-state";
+  buildThreadPersistencePlan,
+  buildThreadPersistencePlanFromCurrentState,
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-plan";
 import {
   type ThreadState,
   upsertThreadState,
@@ -29,7 +30,6 @@ type ThreadPersistenceDependencies = {
   readActiveWorkspaceUserKey: () => string;
   readActiveThreadId: () => string;
   readThreads: () => ThreadState[];
-  hasSavedThreadSignature: (threadId: string) => boolean;
   readSavedThreadSignature: (threadId: string) => string | undefined;
   writeThreadSaveSignature: (threadId: string, signature: string) => void;
   nextThreadSaveRequestSeq: () => number;
@@ -41,7 +41,6 @@ type ThreadPersistenceDependencies = {
     updater: (current: ThreadState[]) => ThreadState[],
   ) => ThreadState[];
   setActiveThreadNameInput: (value: string) => void;
-  shouldPersistThreadState: (thread: ThreadState) => boolean;
   buildThreadStateFromCurrentState: (
     base: ThreadState,
     options?: {
@@ -80,7 +79,10 @@ export async function saveThreadStateToDatabase(
 ): Promise<boolean> {
   const showBusy = options.showBusy !== false;
   const reportError = options.reportError !== false;
-  if (!deps.shouldPersistThreadState(thread)) {
+  const persistencePlan = buildThreadPersistencePlan(thread, {
+    readSavedThreadSignature: deps.readSavedThreadSignature,
+  });
+  if (!persistencePlan) {
     return true;
   }
 
@@ -89,8 +91,12 @@ export async function saveThreadStateToDatabase(
     return false;
   }
 
-  const expectedThreadId = thread.id;
-  const hasPersistedSignature = deps.hasSavedThreadSignature(expectedThreadId);
+  const expectedThreadId = persistencePlan.snapshot.id;
+  const hasPersistedSignature = persistencePlan.hasSavedSignature;
+  const nextSignature =
+    signature === persistencePlan.signature
+      ? signature
+      : persistencePlan.signature;
   const method = hasPersistedSignature ? "PUT" : "POST";
   const requestSeq = deps.nextThreadSaveRequestSeq();
   if (showBusy) {
@@ -98,17 +104,20 @@ export async function saveThreadStateToDatabase(
   }
 
   try {
-    const payload = await deps.saveThread(convertThreadStateToWritePayload(thread), {
-      isUpdate: hasPersistedSignature,
-      onAuthRequired: () => {
-        deps.markAzureAuthRequired();
-        if (reportError) {
-          deps.setThreadError(
-            "Azure login is required. Open Settings and sign in to continue.",
-          );
-        }
+    const payload = await deps.saveThread(
+      convertThreadStateToWritePayload(persistencePlan.snapshot),
+      {
+        isUpdate: hasPersistedSignature,
+        onAuthRequired: () => {
+          deps.markAzureAuthRequired();
+          if (reportError) {
+            deps.setThreadError(
+              "Azure login is required. Open Settings and sign in to continue.",
+            );
+          }
+        },
       },
-    });
+    );
 
     const savedThreadResource = readThreadResourceFromUnknown(payload.thread);
     if (!savedThreadResource) {
@@ -126,7 +135,7 @@ export async function saveThreadStateToDatabase(
     }
 
     deps.updateThreadsState((current) => upsertThreadState(current, savedThread));
-    deps.writeThreadSaveSignature(savedThread.id, signature);
+    deps.writeThreadSaveSignature(savedThread.id, nextSignature);
     if (savedThread.id === deps.readActiveThreadId().trim()) {
       deps.setActiveThreadNameInput(savedThread.name);
     }
@@ -178,20 +187,23 @@ export async function saveThreadStateSilentlyIfNeeded(
   if (!snapshot) {
     return;
   }
-  if (!deps.shouldPersistThreadState(snapshot)) {
-    return;
-  }
 
-  const signature = buildThreadSaveSignature(snapshot);
-  const savedSignature = deps.readSavedThreadSignature(normalizedThreadId);
-  if (savedSignature === signature) {
-    return;
-  }
-
-  await saveThreadStateToDatabase(deps, snapshot, signature, {
-    showBusy: false,
-    reportError: false,
+  const persistencePlan = buildThreadPersistencePlan(snapshot, {
+    readSavedThreadSignature: deps.readSavedThreadSignature,
   });
+  if (!persistencePlan) {
+    return;
+  }
+
+  await saveThreadStateToDatabase(
+    deps,
+    persistencePlan.snapshot,
+    persistencePlan.signature,
+    {
+      showBusy: false,
+      reportError: false,
+    },
+  );
 }
 
 export async function flushActiveThreadState(
@@ -209,21 +221,22 @@ export async function flushActiveThreadState(
     return true;
   }
 
-  const snapshot = deps.buildThreadStateFromCurrentState(baseThread, {
+  const persistencePlan = buildThreadPersistencePlanFromCurrentState({
+    baseThread,
+    buildThreadStateFromCurrentState: deps.buildThreadStateFromCurrentState,
+    readSavedThreadSignature: deps.readSavedThreadSignature,
     includeDraftName: true,
   });
-  if (!deps.shouldPersistThreadState(snapshot)) {
-    return true;
-  }
-
-  const signature = buildThreadSaveSignature(snapshot);
-  const savedSignature = deps.readSavedThreadSignature(currentThreadId);
-  if (savedSignature === signature) {
+  if (!persistencePlan) {
     return true;
   }
 
   deps.clearThreadSaveTimeout();
-  return await saveThreadStateToDatabase(deps, snapshot, signature);
+  return await saveThreadStateToDatabase(
+    deps,
+    persistencePlan.snapshot,
+    persistencePlan.signature,
+  );
 }
 
 export async function saveActiveThreadNameInBackground(
@@ -244,20 +257,24 @@ export async function saveActiveThreadNameInBackground(
   if (!baseThread || baseThread.name === normalizedName) {
     return;
   }
-  if (!deps.shouldPersistThreadState(baseThread)) {
-    return;
-  }
 
-  const snapshot = deps.buildThreadStateFromCurrentState(baseThread, {
+  const persistencePlan = buildThreadPersistencePlanFromCurrentState({
+    baseThread,
+    buildThreadStateFromCurrentState: deps.buildThreadStateFromCurrentState,
+    readSavedThreadSignature: deps.readSavedThreadSignature,
     includeDraftName: true,
+    mapSnapshot: (snapshot) => ({
+      ...snapshot,
+      name: normalizedName,
+    }),
   });
-  snapshot.name = normalizedName;
-
-  const signature = buildThreadSaveSignature(snapshot);
-  const savedSignature = deps.readSavedThreadSignature(normalizedThreadId);
-  if (savedSignature === signature) {
+  if (!persistencePlan) {
     return;
   }
 
-  await saveThreadStateToDatabase(deps, snapshot, signature);
+  await saveThreadStateToDatabase(
+    deps,
+    persistencePlan.snapshot,
+    persistencePlan.signature,
+  );
 }

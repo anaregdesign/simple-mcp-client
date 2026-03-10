@@ -92,7 +92,6 @@ function createDependencies(overrides: {
     readActiveWorkspaceUserKey: () => state.activeWorkspaceUserKey,
     readActiveThreadId: () => state.activeThreadId,
     readThreads: () => state.threads,
-    hasSavedThreadSignature: (threadId: string) => state.signatures.has(threadId),
     readSavedThreadSignature: (threadId: string) => state.signatures.get(threadId),
     writeThreadSaveSignature: (threadId: string, signature: string) => {
       state.signatures.set(threadId, signature);
@@ -120,7 +119,6 @@ function createDependencies(overrides: {
     setActiveThreadNameInput: (value: string) => {
       state.activeThreadNameInput = value;
     },
-    shouldPersistThreadState: () => true,
     buildThreadStateFromCurrentState: (
       base: ThreadState,
       options?: {
@@ -177,11 +175,12 @@ describe("thread-persistence-operations", () => {
     const { deps, state } = createDependencies({
       saveThread,
     });
+    const signature = buildThreadSaveSignature(state.threads[0]!);
 
     const result = await saveThreadStateToDatabase(
       deps,
       state.threads[0]!,
-      "signature-1",
+      signature,
     );
 
     expect(result).toBe(true);
@@ -194,7 +193,7 @@ describe("thread-persistence-operations", () => {
       }),
     );
     expect(state.threads[0]?.name).toBe("Saved Thread");
-    expect(state.signatures.get("thread-1")).toBe("signature-1");
+    expect(state.signatures.get("thread-1")).toBe(signature);
     expect(state.activeThreadNameInput).toBe("Saved Thread");
     expect(state.infoEvents).toEqual(["save_thread_snapshot_succeeded"]);
     expect(state.isSavingThread).toBe(false);
@@ -220,11 +219,12 @@ describe("thread-persistence-operations", () => {
     const { deps, state } = createDependencies({
       saveThread,
     });
+    const signature = buildThreadSaveSignature(state.threads[0]!);
 
     const result = await saveThreadStateToDatabase(
       deps,
       state.threads[0]!,
-      "signature-1",
+      signature,
     );
 
     expect(result).toBe(false);

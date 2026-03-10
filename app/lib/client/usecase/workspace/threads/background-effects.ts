@@ -6,9 +6,11 @@ import {
 import { THREAD_DEFAULT_NAME } from "~/lib/domain/value-objects/thread-defaults";
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import {
-  buildThreadSaveSignature,
   hasThreadInteraction,
 } from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import {
+  buildThreadPersistencePlanFromCurrentState,
+} from "~/lib/client/usecase/workspace/threads/thread-persistence-plan";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
@@ -58,7 +60,6 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
       includeDraftName?: boolean;
     },
   ) => ThreadState;
-  shouldPersistThreadState: (thread: ThreadState) => boolean;
   saveThreadStateToDatabase: (
     thread: ThreadState,
     signature: string,
@@ -131,22 +132,23 @@ export function useWorkspaceThreadBackgroundEffects(
       return;
     }
 
-    const snapshot = options.buildThreadStateFromCurrentState(baseThread);
-    if (!options.shouldPersistThreadState(snapshot)) {
-      return;
-    }
-    const signature = buildThreadSaveSignature(snapshot);
-    const savedSignature = options.threadSaveSignatureByIdRef.current.get(
-      snapshot.id,
-    );
-    if (savedSignature === signature) {
+    const persistencePlan = buildThreadPersistencePlanFromCurrentState({
+      baseThread,
+      buildThreadStateFromCurrentState: options.buildThreadStateFromCurrentState,
+      readSavedThreadSignature: (threadId) =>
+        options.threadSaveSignatureByIdRef.current.get(threadId),
+    });
+    if (!persistencePlan) {
       return;
     }
 
     options.clearThreadSaveTimeout();
     options.threadSaveTimeoutRef.current = window.setTimeout(() => {
       options.threadSaveTimeoutRef.current = null;
-      void persistThreadState(snapshot, signature);
+      void persistThreadState(
+        persistencePlan.snapshot,
+        persistencePlan.signature,
+      );
     }, 450);
 
     return () => {
@@ -190,15 +192,27 @@ export function useWorkspaceThreadBackgroundEffects(
     if (!baseThread) {
       return;
     }
-    if (!options.shouldPersistThreadState(baseThread)) {
-      return;
-    }
 
     const trimmedName = options.activeThreadNameInput
       .trim()
       .slice(0, THREAD_NAME_MAX_LENGTH);
     const nextName = trimmedName || baseThread.name;
     if (nextName === baseThread.name) {
+      return;
+    }
+
+    const persistencePlan = buildThreadPersistencePlanFromCurrentState({
+      baseThread,
+      buildThreadStateFromCurrentState: options.buildThreadStateFromCurrentState,
+      readSavedThreadSignature: (threadId) =>
+        options.threadSaveSignatureByIdRef.current.get(threadId),
+      includeDraftName: true,
+      mapSnapshot: (snapshot) => ({
+        ...snapshot,
+        name: nextName,
+      }),
+    });
+    if (!persistencePlan) {
       return;
     }
 

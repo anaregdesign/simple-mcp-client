@@ -22,7 +22,6 @@ type CreateThreadPersistenceControllerOptions = {
     updater: (current: ThreadState[]) => ThreadState[],
   ) => ThreadState[];
   setActiveThreadNameInput: (value: string) => void;
-  shouldPersistThreadState: (thread: ThreadState) => boolean;
   buildThreadStateFromCurrentState: (
     base: ThreadState,
     options?: {
@@ -70,8 +69,6 @@ export function createThreadPersistenceController(
       readActiveWorkspaceUserKey: () => options.activeWorkspaceUserKeyRef.current,
       readActiveThreadId: () => options.activeThreadIdRef.current,
       readThreads: () => options.threadsRef.current,
-      hasSavedThreadSignature: (threadId: string) =>
-        options.threadSaveSignatureByIdRef.current.has(threadId),
       readSavedThreadSignature: (threadId: string) =>
         options.threadSaveSignatureByIdRef.current.get(threadId),
       writeThreadSaveSignature: (threadId: string, signature: string) => {
@@ -87,7 +84,6 @@ export function createThreadPersistenceController(
       setThreadError: options.setThreadError,
       updateThreadsState: options.updateThreadsState,
       setActiveThreadNameInput: options.setActiveThreadNameInput,
-      shouldPersistThreadState: options.shouldPersistThreadState,
       buildThreadStateFromCurrentState: options.buildThreadStateFromCurrentState,
       clearThreadNameSaveTimeout: options.clearThreadNameSaveTimeout,
       clearThreadSaveTimeout: options.clearThreadSaveTimeout,

@@ -84,7 +84,6 @@ describe("createThreadStorageRuntime", () => {
           updater([]),
         ),
         setActiveThreadNameInput: vi.fn(),
-        shouldPersistThreadState: vi.fn(() => true),
         buildThreadStateFromCurrentState: vi.fn((thread) => thread),
         clearThreadNameSaveTimeout: vi.fn(),
         clearThreadSaveTimeout: vi.fn(),

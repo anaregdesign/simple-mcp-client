@@ -163,7 +163,6 @@ import {
   buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
   createLocalThreadState as createLocalThreadStateOperation,
   setThreadSaveSignatures as setThreadSaveSignaturesOperation,
-  shouldPersistThreadState as shouldPersistThreadStateOperation,
 } from "~/lib/client/usecase/workspace/threads/local-thread-state";
 import {
   createThreadRequestStateController,
@@ -354,7 +353,6 @@ export function useWorkspace() {
     resetThreadOperationPhase,
     endThreadOperation,
     isArchivedThread,
-    shouldPersistThreadState,
     createLocalThreadState,
     buildThreadStateFromCurrentState,
     setThreadSaveSignatures,
@@ -778,7 +776,6 @@ export function useWorkspace() {
         setThreadError,
         updateThreadsState,
         setActiveThreadNameInput,
-        shouldPersistThreadState,
         buildThreadStateFromCurrentState,
         clearThreadNameSaveTimeout,
         clearThreadSaveTimeout,
@@ -956,7 +953,6 @@ export function useWorkspace() {
     isArchivedThread,
     isSelectedUtilityDeploymentAvailable: isUtilityDeploymentAvailable,
     buildThreadStateFromCurrentState,
-    shouldPersistThreadState: (thread) => shouldPersistThreadState(thread),
     saveThreadStateToDatabase: threadStorageRuntime.saveThreadStateToDatabase,
     saveActiveThreadNameInBackground:
       threadStorageRuntime.saveActiveThreadNameInBackground,

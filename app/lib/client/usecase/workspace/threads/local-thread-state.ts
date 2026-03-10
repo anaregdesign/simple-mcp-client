@@ -14,7 +14,6 @@ import {
   cloneThreadInstructionContexts,
   cloneThreadOperationLogs,
   cloneThreadSkillActivations,
-  hasThreadPersistableState,
 } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
@@ -59,28 +58,6 @@ export function resolveThreadNameForSave(
   }
 
   return draftName.slice(0, THREAD_NAME_MAX_LENGTH);
-}
-
-export function shouldPersistThreadState(
-  thread: Pick<
-    ThreadState,
-    | "id"
-    | "messages"
-    | "reasoningEffort"
-    | "webSearchEnabled"
-    | "chatAzureConfig"
-    | "agentInstruction"
-    | "instructionContextToggles"
-    | "threadEnvironment"
-  > &
-    Partial<Pick<ThreadState, "skillSelections">>,
-  signatureMap: Map<string, string>,
-): boolean {
-  if (hasThreadPersistableState(thread)) {
-    return true;
-  }
-
-  return signatureMap.has(thread.id);
 }
 
 export function createLocalThreadState(

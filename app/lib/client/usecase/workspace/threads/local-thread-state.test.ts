@@ -4,7 +4,6 @@ import {
   createLocalThreadState,
   resolveThreadNameForSave,
   setThreadSaveSignatures,
-  shouldPersistThreadState,
 } from "~/lib/client/usecase/workspace/threads/local-thread-state";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
@@ -85,7 +84,7 @@ describe("threads/local-thread-state", () => {
     expect(next.messages).toHaveLength(1);
   });
 
-  it("tracks save signatures and persistence eligibility", () => {
+  it("tracks save signatures for existing threads", () => {
     const signatureMap = new Map<string, string>();
     const threads: ThreadState[] = [
       {
@@ -110,27 +109,6 @@ describe("threads/local-thread-state", () => {
 
     setThreadSaveSignatures(signatureMap, threads);
     expect(signatureMap.has("thread-1")).toBe(true);
-    expect(shouldPersistThreadState(threads[0], signatureMap)).toBe(true);
     expect(resolveThreadNameForSave("Base", false, " Draft ")).toBe("Base");
-  });
-
-  it("treats instruction-only thread changes as persistable", () => {
-    const signatureMap = new Map<string, string>();
-    const thread = createLocalThreadState({
-      name: "Instruction Thread",
-      defaultThreadMcpServers: [],
-      createThreadId: () => "thread-2",
-      now: () => "2026-03-10T00:00:00.000Z",
-    });
-
-    expect(
-      shouldPersistThreadState(
-        {
-          ...thread,
-          agentInstruction: "Summarize tradeoffs before recommending.",
-        },
-        signatureMap,
-      ),
-    ).toBe(true);
   });
 });

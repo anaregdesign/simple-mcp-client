@@ -15,7 +15,6 @@ import {
   buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
   createLocalThreadState as createLocalThreadStateOperation,
   setThreadSaveSignatures as setThreadSaveSignaturesOperation,
-  shouldPersistThreadState as shouldPersistThreadStateOperation,
 } from "./local-thread-state";
 import { createThreadRequestStateController } from "./request-state";
 import { createThreadStateUpdaters } from "./state-updaters";
@@ -217,26 +216,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     return isThreadArchivedById(threadsRef.current, threadIdRaw);
   }
 
-  function shouldPersistThreadState(
-    thread: Pick<
-      ThreadState,
-      | "id"
-      | "messages"
-      | "reasoningEffort"
-      | "webSearchEnabled"
-      | "chatAzureConfig"
-      | "agentInstruction"
-      | "instructionContextToggles"
-      | "threadEnvironment"
-    > &
-      Partial<Pick<ThreadState, "skillSelections">>,
-  ): boolean {
-    return shouldPersistThreadStateOperation(
-      thread,
-      threadSaveSignatureByIdRef.current,
-    );
-  }
-
   function createLocalThreadState(
     createOptions: {
       name?: string;
@@ -358,7 +337,6 @@ export function useThreadShell(options: UseThreadShellOptions) {
     resetThreadOperationPhase,
     endThreadOperation,
     isArchivedThread,
-    shouldPersistThreadState,
     createLocalThreadState,
     buildThreadStateFromCurrentState,
     setThreadSaveSignatures,
