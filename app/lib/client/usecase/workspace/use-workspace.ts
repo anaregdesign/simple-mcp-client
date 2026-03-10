@@ -121,7 +121,6 @@ import {
   type SkillsCatalogSnapshot,
 } from "~/lib/client/infrastructure/api/skills-api-client";
 import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
-import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
   useWorkspaceAzure,
 } from "~/lib/client/usecase/workspace/azure-settings/use-workspace-azure";
@@ -165,12 +164,6 @@ import {
   type ThreadRequestState,
 } from "~/lib/client/usecase/workspace/types";
 import {
-  createThreadLoadingController,
-} from "~/lib/client/usecase/workspace/threads/thread-loading-controller";
-import {
-  createThreadPersistenceController,
-} from "~/lib/client/usecase/workspace/threads/thread-persistence-controller";
-import {
   createThreadTitleController,
 } from "~/lib/client/usecase/workspace/threads/thread-title-controller";
 import {
@@ -191,6 +184,9 @@ import {
 import {
   createThreadRequestStateController,
 } from "~/lib/client/usecase/workspace/threads/request-state";
+import {
+  createThreadStorageRuntime,
+} from "~/lib/client/usecase/workspace/threads/storage-runtime";
 import {
   useThreadShell,
 } from "~/lib/client/usecase/workspace/threads/use-shell";
@@ -784,49 +780,48 @@ export function useWorkspace() {
       logClientError,
     });
 
-  const threadPersistenceController = createThreadPersistenceController({
-    activeWorkspaceUserKeyRef,
-    activeThreadIdRef,
-    threadsRef,
-    threadSaveSignatureByIdRef,
-    threadSaveRequestSeqRef,
-    setIsSavingThread,
-    markAzureAuthRequired,
-    setThreadError,
-    updateThreadsState,
-    setActiveThreadNameInput,
-    shouldPersistThreadState,
-    buildThreadStateFromCurrentState,
-    clearThreadNameSaveTimeout,
-    clearThreadSaveTimeout,
-    saveThread: (payload, options) => threadsApiClient.saveThread(payload, options),
-    logClientInfo,
-    logClientError,
-  });
-
-  const threadLoadingController = createThreadLoadingController({
-    activeWorkspaceUserKeyRef,
-    activeThreadIdRef,
-    threadLoadRequestSeqRef,
-    isThreadsReadyRef,
-    clearThreadsState,
-    beginLoadingThreadOperation: () => beginThreadOperation("loading"),
-    endLoadingThreadOperation: () => endThreadOperation("loading"),
-    setThreadError,
-    loadThreads: (options) => threadsApiClient.loadThreads(options),
-    markAzureAuthRequired,
-    setThreadSaveSignatures,
-    setThreadsState,
-    pruneThreadRequestState: (validThreadIds) => {
-      dispatchWorkspaceInteraction({
-        type: "thread_request_state/prune",
-        validThreadIds,
-      });
+  const threadStorageRuntime = createThreadStorageRuntime({
+    persistence: {
+      activeWorkspaceUserKeyRef,
+      activeThreadIdRef,
+      threadsRef,
+      threadSaveSignatureByIdRef,
+      threadSaveRequestSeqRef,
+      setIsSavingThread,
+      markAzureAuthRequired,
+      setThreadError,
+      updateThreadsState,
+      setActiveThreadNameInput,
+      shouldPersistThreadState,
+      buildThreadStateFromCurrentState,
+      clearThreadNameSaveTimeout,
+      clearThreadSaveTimeout,
+      logClientInfo,
+      logClientError,
     },
-    applyThreadState,
-    createLocalThreadState,
-    logClientInfo,
-    logClientError,
+    loading: {
+      activeWorkspaceUserKeyRef,
+      activeThreadIdRef,
+      threadLoadRequestSeqRef,
+      isThreadsReadyRef,
+      clearThreadsState,
+      beginLoadingThreadOperation: () => beginThreadOperation("loading"),
+      endLoadingThreadOperation: () => endThreadOperation("loading"),
+      setThreadError,
+      markAzureAuthRequired,
+      setThreadSaveSignatures,
+      setThreadsState,
+      pruneThreadRequestState: (validThreadIds) => {
+        dispatchWorkspaceInteraction({
+          type: "thread_request_state/prune",
+          validThreadIds,
+        });
+      },
+      applyThreadState,
+      createLocalThreadState,
+      logClientInfo,
+      logClientError,
+    },
   });
 
   const threadTitleController = createThreadTitleController({
@@ -848,7 +843,8 @@ export function useWorkspace() {
     generateTitle: (request) => threadTitleApiClient.generateTitle(request),
     updateThreadStateById,
     setActiveThreadNameInput,
-    saveActiveThreadNameInBackground,
+    saveActiveThreadNameInBackground:
+      threadStorageRuntime.saveActiveThreadNameInBackground,
     isSwitchingAzureTenant,
     reportAzureTenantSwitchPending,
     logClientError,
@@ -906,46 +902,10 @@ export function useWorkspace() {
     clearThreadSendAbortController,
     scheduleThreadStateSave: (threadId) => {
       window.setTimeout(() => {
-        void saveThreadStateSilentlyIfNeeded(threadId);
+        void threadStorageRuntime.saveThreadStateSilentlyIfNeeded(threadId);
       }, 0);
     },
   });
-
-  // Thread persistence and title-refresh orchestration.
-  async function saveThreadStateToDatabase(
-    thread: ThreadState,
-    signature: string,
-    options: {
-      showBusy?: boolean;
-      reportError?: boolean;
-    } = {},
-  ): Promise<boolean> {
-    return await threadPersistenceController.saveThreadStateToDatabase(
-      thread,
-      signature,
-      options,
-    );
-  }
-
-  async function saveThreadStateSilentlyIfNeeded(
-    threadId: string,
-  ): Promise<void> {
-    await threadPersistenceController.saveThreadStateSilentlyIfNeeded(threadId);
-  }
-
-  async function flushActiveThreadState(): Promise<boolean> {
-    return await threadPersistenceController.flushActiveThreadState();
-  }
-
-  async function saveActiveThreadNameInBackground(
-    threadId: string,
-    name: string,
-  ): Promise<void> {
-    await threadPersistenceController.saveActiveThreadNameInBackground(
-      threadId,
-      name,
-    );
-  }
 
   async function refreshThreadTitleInBackground(options: {
     threadId: string;
@@ -956,6 +916,10 @@ export function useWorkspace() {
     instructionOverride?: string;
   }): Promise<void> {
     await threadTitleController.refreshThreadTitleInBackground(options);
+  }
+
+  async function loadThreads(): Promise<void> {
+    await threadStorageRuntime.loadThreads();
   }
 
   useWorkspaceThreadBackgroundEffects({
@@ -993,16 +957,13 @@ export function useWorkspace() {
     isSelectedUtilityDeploymentAvailable: isUtilityDeploymentAvailable,
     buildThreadStateFromCurrentState,
     shouldPersistThreadState: (thread) => shouldPersistThreadState(thread),
-    saveThreadStateToDatabase,
-    saveActiveThreadNameInBackground,
+    saveThreadStateToDatabase: threadStorageRuntime.saveThreadStateToDatabase,
+    saveActiveThreadNameInBackground:
+      threadStorageRuntime.saveActiveThreadNameInBackground,
     refreshThreadTitleInBackground,
   });
 
   // Thread lifecycle actions (load/create/rename/archive/switch).
-  async function loadThreads(): Promise<void> {
-    await threadLoadingController.loadThreads();
-  }
-
   const {
     handleCreateThread,
     handleThreadRename,
@@ -1034,11 +995,11 @@ export function useWorkspace() {
     },
     applyThreadState,
     buildThreadStateFromCurrentState,
-    saveThreadStateToDatabase,
-    flushActiveThreadState,
+    saveThreadStateToDatabase: threadStorageRuntime.saveThreadStateToDatabase,
+    flushActiveThreadState: threadStorageRuntime.flushActiveThreadState,
     cancelThreadInProgressProcessing,
     createLocalThreadState,
-    loadThreads,
+    loadThreads: threadStorageRuntime.loadThreads,
     removeThreadRequestState: (threadId) => {
       dispatchWorkspaceInteraction({
         type: "thread_request_state/remove",
