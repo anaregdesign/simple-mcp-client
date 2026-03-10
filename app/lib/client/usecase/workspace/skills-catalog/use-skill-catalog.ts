@@ -9,7 +9,7 @@ import {
 } from "~/lib/client/usecase/workspace/skills-catalog/controller";
 import {
   useWorkspaceSkillCatalogEffects,
-} from "~/lib/client/usecase/workspace/skills-catalog/effects";
+} from "~/lib/client/usecase/workspace/skills-catalog/use-skill-catalog-effects";
 import {
   createSkillSelectionHandlers,
 } from "~/lib/client/usecase/workspace/skills-catalog/handlers";

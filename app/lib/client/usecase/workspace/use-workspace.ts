@@ -77,7 +77,7 @@ import {
   useConfigPanelState,
   useLockedConfigPanelTab,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
-import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
+import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props";
 import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
 import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-instruction-editor";
 import {
