@@ -4,8 +4,6 @@
  * Changing them affects SKILL.md validation and chat-time Skill loading behavior.
  */
 export const AGENT_SKILLS_DIRECTORY_NAME = "skills";
-export const AGENT_SKILL_NAME_MAX_LENGTH = 64;
-export const AGENT_SKILL_DESCRIPTION_MAX_LENGTH = 1_024;
 export const AGENT_SKILL_FILE_MAX_BYTES = 1_000_000;
 export const CHAT_MAX_ACTIVE_SKILLS = 24;
 export const AGENT_SKILL_SCRIPTS_DIRECTORY_NAME = "scripts";

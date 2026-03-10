@@ -39,4 +39,16 @@ describe("validateSkillFrontmatterForDirectory", () => {
 
     expect(error).toBe("Skill name must use lower-case kebab-case.");
   });
+
+  it("rejects empty descriptions before directory matching", () => {
+    const error = validateSkillFrontmatterForDirectory(
+      {
+        name: "workspace-skill",
+        description: "   ",
+      },
+      "another-name",
+    );
+
+    expect(error).toBe("Skill description is required.");
+  });
 });
