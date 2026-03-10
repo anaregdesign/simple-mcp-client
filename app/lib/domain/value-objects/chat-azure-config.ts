@@ -17,7 +17,7 @@ export function readChatAzureConfigFromUnknown(
   const tenantId = readRequiredString(value.tenantId);
   const projectId = readRequiredString(value.projectId);
   const projectName = readRequiredString(value.projectName);
-  const baseUrl = readRequiredString(value.baseUrl);
+  const baseUrl = normalizeAzureOpenAIBaseURL(readRequiredString(value.baseUrl));
   const apiVersion = readRequiredString(value.apiVersion);
   const deploymentName = readRequiredString(value.deploymentName);
   if (
@@ -45,6 +45,19 @@ export function cloneChatAzureConfig(
   value: ChatAzureConfig | null | undefined,
 ): ChatAzureConfig | null {
   return value ? { ...value } : null;
+}
+
+export function normalizeAzureOpenAIBaseURL(rawValue: string): string {
+  const trimmed = rawValue.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/\/openai\/v1$/i.test(trimmed)) {
+    return `${trimmed}/`;
+  }
+
+  return `${trimmed}/openai/v1/`;
 }
 
 function readRequiredString(value: unknown): string {

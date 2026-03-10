@@ -4,7 +4,7 @@
 import { InteractiveBrowserCredential } from "@azure/identity";
 import OpenAI from "openai";
 import { AZURE_ACCESS_TOKEN_REFRESH_BUFFER_MS, AZURE_ARM_SCOPE, AZURE_COGNITIVE_SERVICES_SCOPE } from "~/lib/constants/azure";
-import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/domain/value-objects/chat-azure-config";
 
 type AzureCredential = {
   getToken: InteractiveBrowserCredential["getToken"];

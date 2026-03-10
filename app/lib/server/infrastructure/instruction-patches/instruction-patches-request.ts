@@ -11,11 +11,11 @@ import {
   PROMPT_MAX_FILE_NAME_LENGTH,
   PROMPT_MAX_FILE_STEM_LENGTH,
 } from "~/lib/constants/instruction";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/domain/value-objects/chat-azure-config";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
   type InstructionPatchAzureConfig,
 } from "~/lib/server/usecase/instruction-patches/instruction-patch-service";
-import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 

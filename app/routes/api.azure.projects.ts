@@ -2,9 +2,11 @@
  * API route module for /api/azure/projects.
  */
 import {
-  isLikelyAzureAuthError,
   parseReasoningEffortOptionsFromString,
   resolveReasoningEffortOptionsByModelName,
+} from "~/lib/domain/value-objects/azure-openai-model-capabilities";
+import {
+  isLikelyAzureAuthError,
 } from "~/lib/server/usecase/azure/azure-project-service";
 import {
   getArmAccessToken,
@@ -23,8 +25,6 @@ import type { Route } from "./+types/api.azure.projects";
 export {
   getArmAccessToken,
   isLikelyAzureAuthError,
-  parseReasoningEffortOptionsFromString,
-  resolveReasoningEffortOptionsByModelName,
 };
 
 export async function loader({ request }: Route.LoaderArgs) {

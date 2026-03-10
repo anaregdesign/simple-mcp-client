@@ -2,17 +2,8 @@
  * Azure project query service module.
  */
 import {
-  createProjectId,
-  type AzureProjectRef,
-} from "~/lib/contracts/api/azure-project-id";
-import {
   normalizeAzureOpenAIBaseURL,
-} from "~/lib/server/usecase/azure/azure-openai-url";
-export {
-  parseReasoningEffortOptionsFromString,
-  resolveReasoningEffortOptionsByModelName,
-} from "~/lib/server/usecase/azure/azure-project-deployment-capabilities";
-
+} from "~/lib/domain/value-objects/chat-azure-config";
 import {
   buildModelCapabilitiesMap,
   createModelKey,
@@ -20,9 +11,13 @@ import {
   isDeploymentSucceeded,
   mergeReasoningEffortOptions,
   resolveDeploymentReasoningEffortOptions,
-  type ArmAccountModel,
-  type ArmCognitiveDeployment,
-} from "~/lib/server/usecase/azure/azure-project-deployment-capabilities";
+  type AzureOpenAIModelCapabilitySource,
+  type AzureOpenAIDeploymentCapabilitySource,
+} from "~/lib/domain/value-objects/azure-openai-model-capabilities";
+import {
+  createProjectId,
+  type AzureProjectRef,
+} from "~/lib/contracts/api/azure-project-id";
 import type {
   AzureArmPagedFetchGateway,
   AzureArmPagedFetchLogEvent,
@@ -79,6 +74,25 @@ type ArmCognitiveAccount = {
   properties?: {
     endpoint?: string;
   };
+};
+
+type ArmModelInfo = {
+  name?: string;
+  version?: string;
+  format?: string;
+  capabilities?: Record<string, unknown>;
+};
+
+type ArmCognitiveDeployment = {
+  name?: string;
+  properties?: {
+    provisioningState?: string;
+    model?: ArmModelInfo;
+  };
+};
+
+type ArmAccountModel = {
+  model?: ArmModelInfo;
 };
 
 export class AzureProjectQueryService {
@@ -424,7 +438,9 @@ export async function listProjectDeployments(
     logEvent,
     armPagedFetchGateway,
   );
-  const modelCapabilities = buildModelCapabilitiesMap(accountModels);
+  const modelCapabilities = buildModelCapabilitiesMap(
+    accountModels.map(mapArmAccountModelToCapabilitySource),
+  );
 
   const deploymentsByName = new Map<string, AzureDeployment>();
 
@@ -435,11 +451,14 @@ export async function listProjectDeployments(
       continue;
     }
 
-    if (!isDeploymentSucceeded(deployment)) {
+    const deploymentCapability = mapArmDeploymentToCapabilitySource(deployment);
+    if (!isDeploymentSucceeded(deploymentCapability)) {
       continue;
     }
 
-    if (!isAgentsSdkCompatibleDeployment(deployment, modelCapabilities)) {
+    if (
+      !isAgentsSdkCompatibleDeployment(deploymentCapability, modelCapabilities)
+    ) {
       continue;
     }
 
@@ -477,6 +496,44 @@ export async function listProjectDeployments(
   return [...deploymentsByName.values()].sort((left, right) =>
     left.name.localeCompare(right.name),
   );
+}
+
+function mapArmAccountModelToCapabilitySource(
+  entry: ArmAccountModel,
+): AzureOpenAIModelCapabilitySource {
+  return {
+    model: mapArmModelInfo(entry.model),
+  };
+}
+
+function mapArmDeploymentToCapabilitySource(
+  deployment: ArmCognitiveDeployment,
+): AzureOpenAIDeploymentCapabilitySource {
+  return {
+    provisioningState:
+      typeof deployment.properties?.provisioningState === "string"
+        ? deployment.properties.provisioningState
+        : "",
+    model: mapArmModelInfo(deployment.properties?.model),
+  };
+}
+
+function mapArmModelInfo(
+  model: ArmModelInfo | undefined,
+): AzureOpenAIModelCapabilitySource["model"] {
+  if (!model) {
+    return null;
+  }
+
+  return {
+    name: typeof model.name === "string" ? model.name : "",
+    version: typeof model.version === "string" ? model.version : "",
+    format: typeof model.format === "string" ? model.format : "",
+    capabilities:
+      model.capabilities && typeof model.capabilities === "object"
+        ? model.capabilities
+        : {},
+  };
 }
 
 async function listAccountModels(

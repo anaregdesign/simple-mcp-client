@@ -2,8 +2,11 @@ import {
   CHAT_MAX_AGENT_INSTRUCTION_LENGTH,
   REASONING_EFFORT_OPTIONS,
 } from "~/lib/constants/chat";
+import {
+  normalizeAzureOpenAIBaseURL,
+  type ChatAzureConfig,
+} from "~/lib/domain/value-objects/chat-azure-config";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
 import type {
   ResolvedThreadTitleAzureConfig,
   ThreadTitleSuggestionRequest,
@@ -216,24 +219,24 @@ function readAzureConfig(
     return { ok: false, error: "`azureConfig.tenantId` is required." };
   }
 
-  return {
-    ok: true,
-    value: {
-      tenantId,
-      projectName:
-        typeof value.projectName === "string" ? value.projectName.trim() : "",
-      baseUrl:
-        typeof value.baseUrl === "string"
-          ? normalizeAzureOpenAIBaseURL(value.baseUrl)
-          : "",
-      apiVersion:
-        typeof value.apiVersion === "string" ? value.apiVersion.trim() : "",
-      deploymentName:
-        typeof value.deploymentName === "string"
-          ? value.deploymentName.trim()
-          : "",
-    },
+  const resolvedConfig: ChatAzureConfig = {
+    tenantId,
+    projectId: "",
+    projectName:
+      typeof value.projectName === "string" ? value.projectName.trim() : "",
+    baseUrl:
+      typeof value.baseUrl === "string"
+        ? normalizeAzureOpenAIBaseURL(value.baseUrl)
+        : "",
+    apiVersion:
+      typeof value.apiVersion === "string" ? value.apiVersion.trim() : "",
+    deploymentName:
+      typeof value.deploymentName === "string"
+        ? value.deploymentName.trim()
+        : "",
   };
+
+  return { ok: true, value: resolvedConfig };
 }
 
 function validationIssue(

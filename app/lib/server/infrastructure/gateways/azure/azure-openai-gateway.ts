@@ -1,6 +1,6 @@
 import { OpenAIResponsesModel } from "@openai/agents-openai";
+import { normalizeAzureOpenAIBaseURL } from "~/lib/domain/value-objects/chat-azure-config";
 import { getAzureDependencies } from "~/lib/server/infrastructure/azure/dependencies";
-import { normalizeAzureOpenAIBaseURL } from "~/lib/server/usecase/azure/azure-openai-url";
 import type { AzureOpenAIClient } from "~/lib/server/usecase/azure/azure-openai-service";
 
 export function createAzureOpenAIClient(
