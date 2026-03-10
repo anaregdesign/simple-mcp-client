@@ -2,7 +2,7 @@
  * Test module verifying registry helper behavior.
  */
 import { describe, expect, it } from "vitest";
-import { skillRegistryServerTestUtils } from "~/lib/server/infrastructure/gateways/skills/skill-registry-gateway";
+import { skillRegistryServerTestUtils } from "~/lib/server/infrastructure/gateways/skills/skill-registry-test-utils";
 
 const {
   normalizeSkillName,
