@@ -34,9 +34,6 @@ import {
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
-import {
-  readChatCommandMatchAtCursor,
-} from "~/lib/client/usecase/workspace/chat-composer/commands";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type {
   ThreadOperationLogEntry,
@@ -157,9 +154,12 @@ import {
 } from "~/lib/client/usecase/workspace/thread-lifecycle-handlers";
 import {
   createChatComposerHandlers,
-  type ChatCommandProvider,
   resizeChatComposerInput,
 } from "~/lib/client/usecase/workspace/chat-composer-handlers";
+import {
+  deriveActiveChatCommandMenuState,
+  type ChatCommandProvider,
+} from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import {
   createInstructionEditingHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editing-handlers";
@@ -661,43 +661,20 @@ export function useWorkspace() {
       },
     },
   ];
-  const chatCommandKeywords = chatCommandProviders.map(
-    (provider) => provider.keyword,
-  );
   const effectiveChatComposerCursorIndex =
     chatInputRef.current?.selectionStart ?? chatComposerCursorIndex;
-  const activeChatCommandMatch = readChatCommandMatchAtCursor({
+  const {
+    activeChatCommandMatch,
+    activeChatCommandProvider,
+    activeChatCommandSuggestions,
+    activeChatCommandHighlightIndex,
+    activeChatCommandMenu,
+  } = deriveActiveChatCommandMenuState({
     value: draft,
     cursorIndex: effectiveChatComposerCursorIndex,
-    keywords: chatCommandKeywords,
+    chatCommandProviders,
+    highlightedIndex: chatCommandHighlightedIndex,
   });
-  const activeChatCommandProvider = activeChatCommandMatch
-    ? (chatCommandProviders.find(
-        (provider) => provider.keyword === activeChatCommandMatch.keyword,
-      ) ?? null)
-    : null;
-  const activeChatCommandSuggestions =
-    activeChatCommandMatch && activeChatCommandProvider
-      ? activeChatCommandProvider.readSuggestions(activeChatCommandMatch.query)
-      : [];
-  const activeChatCommandHighlightIndex =
-    activeChatCommandSuggestions.length > 0
-      ? clampNumber(
-          chatCommandHighlightedIndex,
-          0,
-          activeChatCommandSuggestions.length - 1,
-        )
-      : 0;
-  const activeChatCommandMenu =
-    activeChatCommandMatch && activeChatCommandProvider
-      ? {
-          keyword: activeChatCommandMatch.keyword,
-          query: activeChatCommandMatch.query,
-          emptyHint: activeChatCommandProvider.emptyHint,
-          highlightedIndex: activeChatCommandHighlightIndex,
-          suggestions: activeChatCommandSuggestions,
-        }
-      : null;
   const skillRegistryGroups = useMemo(
     () => buildSkillRegistryGroups(skillRegistryCatalogs),
     [skillRegistryCatalogs],

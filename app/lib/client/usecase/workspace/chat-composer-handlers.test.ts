@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   createChatComposerHandlers,
-  type ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer-handlers";
+import type {
+  ChatCommandProvider,
+} from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 
 function createBaseDependencies(
   overrides: Partial<

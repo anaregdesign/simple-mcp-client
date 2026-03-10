@@ -14,6 +14,9 @@ import {
   replaceChatCommandToken,
   type ChatCommandMatch,
 } from "~/lib/client/usecase/workspace/chat-composer/commands";
+import {
+  type ChatCommandProvider,
+} from "~/lib/client/usecase/workspace/chat-composer/menu-state";
 import { readFileAsDataUrl } from "~/lib/client/infrastructure/browser/file-data-url";
 import { createId } from "~/lib/client/usecase/workspace/ids";
 import type { ChatCommandSuggestion } from "~/lib/client/usecase/workspace/selectors";
@@ -35,13 +38,6 @@ import {
   CLIENT_CHAT_INPUT_MAX_HEIGHT_PX,
   CLIENT_CHAT_INPUT_MIN_HEIGHT_PX,
 } from "~/lib/constants/client";
-
-export type ChatCommandProvider = {
-  keyword: string;
-  emptyHint: string;
-  readSuggestions: (query: string) => ChatCommandSuggestion[];
-  applySuggestion: (suggestion: ChatCommandSuggestion) => void;
-};
 
 type ChatComposerLogOptions = {
   category?: string;
