@@ -77,11 +77,66 @@ const checks = [
     args: ["-n", "from ['\\\"]~/lib/contracts/", "app/lib/domain/repositories"],
   },
   {
+    key: "contractsNonValueObjectDomainImports",
+    description:
+      "Transport contracts may depend on domain value-objects only, never on entities, repositories, policies, or services.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/domain/(entities|repositories|policies|services)/",
+      "app/lib/contracts",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
+    ],
+  },
+  {
     key: "legacySkillRegistryContract",
     description: "Legacy skill registry transport contract owner must not exist.",
     rootPath: "app/lib/contracts/skills/registry.ts",
     command: "rg",
     args: ["--files", "app/lib/contracts/skills/registry.ts"],
+  },
+  {
+    key: "threadTitleContractFile",
+    description: "Thread title helpers must not live under app/lib/contracts/threads.",
+    rootPath: "app/lib/contracts/threads/title.ts",
+    command: "rg",
+    args: ["--files", "app/lib/contracts/threads/title.ts"],
+  },
+  {
+    key: "contractOperationLogHelpers",
+    description:
+      "contracts/chat/operation-log.ts must stay transport-only and not own state or presentation helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "upsertThreadOperationLogEntry|buildThreadOperationLogsByTurnId|buildThreadOperationLogCopyPayload|collectSuccessfulSkillGuideLocations",
+      "app/lib/contracts/chat/operation-log.ts",
+    ],
+  },
+  {
+    key: "contractMcpProfileHelpers",
+    description:
+      "contracts/mcp/profile.ts must not own client collection or presentation helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "upsertMcpServer|formatMcpServerOption",
+      "app/lib/contracts/mcp/profile.ts",
+    ],
+  },
+  {
+    key: "contractRuntimeEventLogIdOwnership",
+    description:
+      "contracts/shared/runtime-event-log.ts must not own runtime event id generation.",
+    command: "rg",
+    args: [
+      "-n",
+      "createRuntimeEventLogId",
+      "app/lib/contracts/shared/runtime-event-log.ts",
+    ],
   },
   {
     key: "threadStateHelpersInContracts",
