@@ -12,7 +12,7 @@ import {
   parseInstructionContent,
   parseInstructionReasoningEffort,
   parseRequestedPromptFileName,
-} from "~/lib/server/http/instruction-patches/instruction-patches-request";
+} from "~/lib/server/infrastructure/instruction-patches/instruction-patches-request";
 
 describe("parseInstructionContent", () => {
   it("accepts a non-empty instruction string", () => {

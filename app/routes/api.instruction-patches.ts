@@ -8,7 +8,7 @@ import {
 import {
   handleInstructionPatchesAction,
   handleInstructionPatchesLoader,
-} from "~/lib/server/http/instruction-patches/instruction-patches-action";
+} from "~/lib/server/infrastructure/instruction-patches/instruction-patches-action";
 
 export function loader({}: Route.LoaderArgs) {
   installGlobalServerErrorLogging();

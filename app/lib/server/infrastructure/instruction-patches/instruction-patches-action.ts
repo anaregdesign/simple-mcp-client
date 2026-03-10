@@ -7,7 +7,7 @@ import {
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import {
   buildInstructionPatchUpstreamErrorPayload,
-} from "~/lib/server/http/instruction-patches/instruction-patches-error";
+} from "~/lib/server/infrastructure/instruction-patches/instruction-patches-error";
 import {
   isInstructionPromptSavePayload,
   parseInstructionReasoningEffort,
@@ -15,14 +15,14 @@ import {
   readEnhanceAgentInstruction,
   readMessage,
   readSupportsReasoningEffort,
-} from "~/lib/server/http/instruction-patches/instruction-patches-request";
+} from "~/lib/server/infrastructure/instruction-patches/instruction-patches-request";
 import {
   errorResponse,
   invalidJsonResponse,
   methodNotAllowedResponse,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   enhanceInstruction,
 } from "~/lib/server/usecase/instruction-patches/instruction-patch-service";
