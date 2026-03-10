@@ -167,17 +167,11 @@ import {
   createThreadRequestStateController,
 } from "~/lib/client/usecase/workspace/threads/request-state";
 import {
-  createThreadStorageRuntime,
-} from "~/lib/client/usecase/workspace/threads/storage-runtime";
-import {
   useThreadShell,
 } from "~/lib/client/usecase/workspace/threads/use-shell";
 import {
   useSkillCatalog,
 } from "~/lib/client/usecase/workspace/skills-catalog/use-skill-catalog";
-import {
-  createWorkspaceMcpProfileStorageRuntime,
-} from "~/lib/client/usecase/workspace/mcp-profiles/storage-runtime";
 import {
   selectThreadViewModel,
 } from "~/lib/client/usecase/workspace/threads/selectors";
@@ -185,6 +179,9 @@ import {
   selectPlaygroundComposerViewModel,
   selectPlaygroundOperationLogViewModel,
 } from "~/lib/client/usecase/workspace/playground-panel/selectors";
+import {
+  useWorkspaceStorageRuntimes,
+} from "~/lib/client/usecase/workspace/use-workspace-storage-runtimes";
 
 /**
  * Client runtime controller.
@@ -403,7 +400,6 @@ export function useWorkspace() {
   const activeAzureTenantIdRef = useRef("");
   const activeAzurePrincipalIdRef = useRef("");
   const activeWorkspaceUserKeyRef = useRef("");
-  const workspaceMcpServerProfileRequestSeqRef = useRef(0);
   const selectedPlaygroundAzureConnectionIdRef = useRef("");
   const selectedPlaygroundAzureDeploymentNameRef = useRef("");
   const selectedUtilityAzureConnectionIdRef = useRef("");
@@ -734,16 +730,12 @@ export function useWorkspace() {
   });
 
   // Saved MCP / Skills loading flows.
-  const workspaceMcpProfileStorageRuntime =
-    createWorkspaceMcpProfileStorageRuntime({
+  const {
+    workspaceMcpProfileStorageRuntime,
+    threadStorageRuntime,
+  } = useWorkspaceStorageRuntimes({
+    workspaceMcpProfile: {
       readActiveWorkspaceUserKey: () => activeWorkspaceUserKeyRef.current,
-      nextWorkspaceMcpServerProfileRequestSeq: () => {
-        const requestSeq = workspaceMcpServerProfileRequestSeqRef.current + 1;
-        workspaceMcpServerProfileRequestSeqRef.current = requestSeq;
-        return requestSeq;
-      },
-      readWorkspaceMcpServerProfileRequestSeq: () =>
-        workspaceMcpServerProfileRequestSeqRef.current,
       readWorkspaceMcpServerProfiles: () => workspaceMcpServerProfilesRef.current,
       writeWorkspaceMcpServerProfiles,
       setWorkspaceMcpServerProfileError,
@@ -752,49 +744,49 @@ export function useWorkspace() {
       setIsDeletingWorkspaceMcpServerProfile,
       markAzureAuthRequired,
       logClientError,
-    });
-
-  const threadStorageRuntime = createThreadStorageRuntime({
-    persistence: {
-      activeWorkspaceUserKeyRef,
-      activeThreadIdRef,
-      threadsRef,
-      threadSaveSignatureByIdRef,
-      threadSaveRequestSeqRef,
-      setIsSavingThread,
-      markAzureAuthRequired,
-      setThreadError,
-      updateThreadsState,
-      setActiveThreadNameInput,
-      shouldPersistThreadState,
-      buildThreadStateFromCurrentState,
-      clearThreadNameSaveTimeout,
-      clearThreadSaveTimeout,
-      logClientInfo,
-      logClientError,
     },
-    loading: {
-      activeWorkspaceUserKeyRef,
-      activeThreadIdRef,
-      threadLoadRequestSeqRef,
-      isThreadsReadyRef,
-      clearThreadsState,
-      beginLoadingThreadOperation: () => beginThreadOperation("loading"),
-      endLoadingThreadOperation: () => endThreadOperation("loading"),
-      setThreadError,
-      markAzureAuthRequired,
-      setThreadSaveSignatures,
-      setThreadsState,
-      pruneThreadRequestState: (validThreadIds) => {
-        dispatchWorkspaceInteraction({
-          type: "thread_request_state/prune",
-          validThreadIds,
-        });
+    threadStorage: {
+      persistence: {
+        activeWorkspaceUserKeyRef,
+        activeThreadIdRef,
+        threadsRef,
+        threadSaveSignatureByIdRef,
+        threadSaveRequestSeqRef,
+        setIsSavingThread,
+        markAzureAuthRequired,
+        setThreadError,
+        updateThreadsState,
+        setActiveThreadNameInput,
+        shouldPersistThreadState,
+        buildThreadStateFromCurrentState,
+        clearThreadNameSaveTimeout,
+        clearThreadSaveTimeout,
+        logClientInfo,
+        logClientError,
       },
-      applyThreadState,
-      createLocalThreadState,
-      logClientInfo,
-      logClientError,
+      loading: {
+        activeWorkspaceUserKeyRef,
+        activeThreadIdRef,
+        threadLoadRequestSeqRef,
+        isThreadsReadyRef,
+        clearThreadsState,
+        beginLoadingThreadOperation: () => beginThreadOperation("loading"),
+        endLoadingThreadOperation: () => endThreadOperation("loading"),
+        setThreadError,
+        markAzureAuthRequired,
+        setThreadSaveSignatures,
+        setThreadsState,
+        pruneThreadRequestState: (validThreadIds) => {
+          dispatchWorkspaceInteraction({
+            type: "thread_request_state/prune",
+            validThreadIds,
+          });
+        },
+        applyThreadState,
+        createLocalThreadState,
+        logClientInfo,
+        logClientError,
+      },
     },
   });
 
