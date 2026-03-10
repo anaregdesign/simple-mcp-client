@@ -100,6 +100,8 @@ import { createId } from "~/lib/client/usecase/workspace/ids";
 import { clampNumber } from "~/lib/client/usecase/workspace/numbers";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/use-workspace-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
+import { useWorkspaceSkillCatalogEffects } from "~/lib/client/usecase/workspace/use-workspace-skill-catalog-effects";
+import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/workspace/use-workspace-thread-background-effects";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -369,7 +371,6 @@ export function useWorkspace() {
   const workspaceMcpServerProfileRequestSeqRef = useRef(0);
   const skillsRequestSeqRef = useRef(0);
   const lastManualSkillsReloadAtRef = useRef(0);
-  const lastLoadedSkillsUserKeyRef = useRef("");
   const activeThreadIdRef = useRef("");
   const activeMainTabRef = useRef<MainViewTab>("threads");
   const selectedPlaygroundAzureConnectionIdRef = useRef("");
@@ -477,7 +478,6 @@ export function useWorkspace() {
     logClientError,
     logClientWarning,
   });
-  const previousIsAzureAuthRequiredRef = useRef(isAzureAuthRequired);
   const isChatLocked = isAzureAuthRequired;
   const instructionRuntimeUiState = deriveInstructionRuntimeUiState({
     agentInstruction,
@@ -809,6 +809,14 @@ export function useWorkspace() {
     logClientWarning,
   });
 
+  useWorkspaceSkillCatalogEffects({
+    activeAzurePrincipal,
+    isAzureAuthRequired,
+    skillRegistryError,
+    skillsError,
+    loadAvailableSkills,
+  });
+
   // Keep refs synchronized with state to avoid stale closures in async handlers.
   useEffect(() => {
     activeMainTabRef.current = activeMainTab;
@@ -874,51 +882,6 @@ export function useWorkspace() {
   }, [activeChatCommandSuggestions.length]);
 
   useEffect(() => {
-    void loadAvailableSkills();
-  }, []);
-
-  useEffect(() => {
-    const wasAzureAuthRequired = previousIsAzureAuthRequiredRef.current;
-    previousIsAzureAuthRequiredRef.current = isAzureAuthRequired;
-
-    const tenantId = activeAzurePrincipal?.tenantId.trim() ?? "";
-    const principalId = activeAzurePrincipal?.principalId.trim() ?? "";
-    const activeUserKey =
-      !isAzureAuthRequired && tenantId && principalId
-        ? `${tenantId}::${principalId}`
-        : "";
-
-    if (!activeUserKey) {
-      if (isAzureAuthRequired) {
-        lastLoadedSkillsUserKeyRef.current = "";
-      }
-      return;
-    }
-
-    const hasAuthRequiredSkillsError =
-      skillsError?.includes("Azure login is required.") === true ||
-      skillRegistryError?.includes("Azure login is required.") === true;
-    const shouldReloadForIdentityChange =
-      lastLoadedSkillsUserKeyRef.current !== activeUserKey;
-    if (
-      !shouldReloadForIdentityChange &&
-      !wasAzureAuthRequired &&
-      !hasAuthRequiredSkillsError
-    ) {
-      return;
-    }
-
-    lastLoadedSkillsUserKeyRef.current = activeUserKey;
-    void loadAvailableSkills();
-  }, [
-    activeAzurePrincipal?.principalId,
-    activeAzurePrincipal?.tenantId,
-    isAzureAuthRequired,
-    skillRegistryError,
-    skillsError,
-  ]);
-
-  useEffect(() => {
     if (isChatLocked && activeMainTab !== "settings") {
       setActiveMainTab("settings");
     }
@@ -956,219 +919,6 @@ export function useWorkspace() {
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
-
-  useEffect(() => {
-    return () => {
-      clearThreadTitleRefreshTimeout();
-      clearThreadNameSaveTimeout();
-      clearThreadSaveTimeout();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
-      return;
-    }
-    if (
-      shouldBlockThreadPersistence({
-        threadOperationPhase,
-        isSending,
-        blockOnCreating: false,
-      })
-    ) {
-      return;
-    }
-
-    const currentThreadId = activeThreadIdRef.current.trim();
-    if (!currentThreadId) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      currentThreadId,
-    );
-    if (!baseThread) {
-      return;
-    }
-
-    const snapshot = buildThreadStateFromCurrentState(baseThread);
-    if (!shouldPersistThreadState(snapshot)) {
-      return;
-    }
-    const signature = buildThreadSaveSignature(snapshot);
-    const savedSignature = threadSaveSignatureByIdRef.current.get(snapshot.id);
-    if (savedSignature === signature) {
-      return;
-    }
-
-    clearThreadSaveTimeout();
-    threadSaveTimeoutRef.current = window.setTimeout(() => {
-      threadSaveTimeoutRef.current = null;
-      void saveThreadStateToDatabase(snapshot, signature);
-    }, 450);
-
-    return () => {
-      clearThreadSaveTimeout();
-    };
-  }, [
-    activeThreadId,
-    reasoningEffort,
-    webSearchEnabled,
-    agentInstruction,
-    instructionContextToggles,
-    messages,
-    mcpServers,
-    mcpRpcLogs,
-    selectedThreadSkills,
-    threads,
-    isSending,
-    threadOperationPhase,
-  ]);
-
-  useEffect(() => {
-    if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
-      return;
-    }
-    if (
-      shouldBlockThreadPersistence({
-        threadOperationPhase,
-        isSending,
-        blockOnCreating: true,
-      })
-    ) {
-      return;
-    }
-
-    const currentThreadId = activeThreadIdRef.current.trim();
-    if (!currentThreadId) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      currentThreadId,
-    );
-    if (!baseThread) {
-      return;
-    }
-    if (!shouldPersistThreadState(baseThread)) {
-      return;
-    }
-
-    const trimmedName = activeThreadNameInput
-      .trim()
-      .slice(0, THREAD_NAME_MAX_LENGTH);
-    const nextName = trimmedName || baseThread.name;
-    if (nextName === baseThread.name) {
-      return;
-    }
-
-    clearThreadNameSaveTimeout();
-    threadNameSaveTimeoutRef.current = window.setTimeout(() => {
-      threadNameSaveTimeoutRef.current = null;
-      void saveActiveThreadNameInBackground(currentThreadId, nextName);
-    }, 3000);
-
-    return () => {
-      clearThreadNameSaveTimeout();
-    };
-  }, [
-    activeThreadId,
-    activeThreadNameInput,
-    threads,
-    isSending,
-    threadOperationPhase,
-  ]);
-
-  useEffect(() => {
-    if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
-      return;
-    }
-    if (!canStartThreadOperation(threadOperationPhase)) {
-      return;
-    }
-
-    const currentThreadId = activeThreadIdRef.current.trim();
-    if (!currentThreadId || isArchivedThread(currentThreadId)) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      currentThreadId,
-    );
-    if (!baseThread || !hasThreadInteraction(baseThread)) {
-      return;
-    }
-
-    const currentInstruction = agentInstruction.trim();
-    const baseInstruction = baseThread.agentInstruction.trim();
-    if (currentInstruction === baseInstruction) {
-      return;
-    }
-
-    clearThreadTitleRefreshTimeout();
-    threadTitleRefreshTimeoutRef.current = window.setTimeout(() => {
-      threadTitleRefreshTimeoutRef.current = null;
-      void refreshThreadTitleInBackground({
-        threadId: currentThreadId,
-        reason: "instruction_update",
-      });
-    }, 1000);
-
-    return () => {
-      clearThreadTitleRefreshTimeout();
-    };
-  }, [activeThreadId, agentInstruction, threads, threadOperationPhase]);
-
-  useEffect(() => {
-    if (!isThreadsReadyRef.current || isApplyingThreadStateRef.current) {
-      return;
-    }
-    if (!canStartThreadOperation(threadOperationPhase)) {
-      return;
-    }
-    if (isChatLocked || isLoadingUtilityAzureDeployments) {
-      return;
-    }
-
-    const deploymentName = selectedUtilityAzureDeploymentName.trim();
-    if (
-      !deploymentName ||
-      !includesAzureDeploymentName(utilityAzureDeployments, deploymentName)
-    ) {
-      return;
-    }
-
-    const currentThreadId = activeThreadIdRef.current.trim();
-    if (!currentThreadId || isArchivedThread(currentThreadId)) {
-      return;
-    }
-
-    const baseThread = findThreadStateById(
-      threadsRef.current,
-      currentThreadId,
-    );
-    if (!baseThread || !hasThreadInteraction(baseThread)) {
-      return;
-    }
-    if (baseThread.name.trim() !== THREAD_DEFAULT_NAME) {
-      return;
-    }
-
-    void refreshThreadTitleInBackground({
-      threadId: currentThreadId,
-      reason: "utility_deployment_update",
-    });
-  }, [
-    isChatLocked,
-    threadOperationPhase,
-    isLoadingUtilityAzureDeployments,
-    selectedUtilityAzureConnectionId,
-    selectedUtilityAzureDeploymentName,
-    utilityAzureDeployments,
-  ]);
 
   // Saved MCP / Skills loading flows.
   function buildWorkspaceMcpServerProfileOperationDeps() {
@@ -2028,6 +1778,47 @@ export function useWorkspace() {
       options,
     );
   }
+
+  useWorkspaceThreadBackgroundEffects({
+    activeThreadId,
+    activeThreadNameInput,
+    agentInstruction,
+    instructionContextToggles,
+    isChatLocked,
+    isLoadingUtilityAzureDeployments,
+    isSending,
+    mcpRpcLogs,
+    mcpServers,
+    messages,
+    reasoningEffort,
+    selectedThreadSkills,
+    selectedUtilityAzureConnectionId,
+    selectedUtilityAzureDeploymentName,
+    threadOperationPhase,
+    threads,
+    utilityAzureDeployments,
+    webSearchEnabled,
+    isThreadsReadyRef,
+    isApplyingThreadStateRef,
+    activeThreadIdRef,
+    threadNameSaveTimeoutRef,
+    threadSaveTimeoutRef,
+    threadTitleRefreshTimeoutRef,
+    threadSaveSignatureByIdRef,
+    clearThreadNameSaveTimeout,
+    clearThreadSaveTimeout,
+    clearThreadTitleRefreshTimeout,
+    readThreadById: (threadId) =>
+      findThreadStateById(threadsRef.current, threadId) ?? undefined,
+    isArchivedThread,
+    isSelectedUtilityDeploymentAvailable: (deploymentName: string) =>
+      includesAzureDeploymentName(utilityAzureDeployments, deploymentName),
+    buildThreadStateFromCurrentState,
+    shouldPersistThreadState: (thread) => shouldPersistThreadState(thread),
+    saveThreadStateToDatabase,
+    saveActiveThreadNameInBackground,
+    refreshThreadTitleInBackground,
+  });
 
   // Thread lifecycle actions (load/create/rename/archive/switch).
   async function loadThreads(): Promise<void> {
