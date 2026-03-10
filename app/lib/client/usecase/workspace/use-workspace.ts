@@ -52,9 +52,6 @@ import {
 } from "~/lib/client/usecase/workspace/workspace-mcp-server-profiles";
 import {
   installGlobalClientErrorLogging,
-  reportClientEvent,
-  reportClientError,
-  reportClientWarning,
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
   buildThreadSummary,
@@ -99,6 +96,7 @@ import { useWorkspaceThreadBackgroundEffects } from "~/lib/client/usecase/worksp
 import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-control-handlers";
 import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/workspace-config-panel-props";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/workspace-playground-panel-props";
+import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/workspace-runtime-logging";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -386,6 +384,25 @@ export function useWorkspace() {
   );
   const workspaceMcpServerProfilesRef = useRef<McpServerConfig[]>([]);
   const threadsRef = useRef<ThreadState[]>([]);
+  const {
+    buildRuntimeLogContext,
+    logClientError,
+    logClientWarning,
+    logClientInfo,
+  } = createWorkspaceRuntimeLogging({
+    readActiveMainTab: () => activeMainTabRef.current,
+    readActiveThreadId: () => activeThreadIdRef.current,
+    readSelectedPlaygroundAzureConnectionId: () =>
+      selectedPlaygroundAzureConnectionIdRef.current,
+    readSelectedPlaygroundAzureDeploymentName: () =>
+      selectedPlaygroundAzureDeploymentNameRef.current,
+    readSelectedUtilityAzureConnectionId: () =>
+      selectedUtilityAzureConnectionIdRef.current,
+    readSelectedUtilityAzureDeploymentName: () =>
+      selectedUtilityAzureDeploymentNameRef.current,
+    readActiveAzureTenantId: () => activeAzureTenantIdRef.current,
+    readActiveAzurePrincipalId: () => activeAzurePrincipalIdRef.current,
+  });
 
   // Derived UI state and view models consumed by panel props.
   const activeThreadRequestState = readThreadRequestStateById(
@@ -700,93 +717,6 @@ export function useWorkspace() {
     isPlaygroundReasoningEffortWebSearchCompatible,
     hasDraftContent: draft.trim().length > 0,
   });
-
-  // Observability helpers for Client runtime events.
-  function buildRuntimeLogContext(
-    extra: Record<string, unknown> = {},
-  ): Record<string, unknown> {
-    return {
-      activeMainTab: activeMainTabRef.current,
-      activeThreadId: activeThreadIdRef.current,
-      selectedPlaygroundAzureConnectionId:
-        selectedPlaygroundAzureConnectionIdRef.current,
-      selectedPlaygroundAzureDeploymentName:
-        selectedPlaygroundAzureDeploymentNameRef.current,
-      selectedUtilityAzureConnectionId:
-        selectedUtilityAzureConnectionIdRef.current,
-      selectedUtilityAzureDeploymentName:
-        selectedUtilityAzureDeploymentNameRef.current,
-      tenantId: activeAzureTenantIdRef.current,
-      principalId: activeAzurePrincipalIdRef.current,
-      ...extra,
-    };
-  }
-
-  function logClientError(
-    eventName: string,
-    error: unknown,
-    options: {
-      category?: string;
-      location?: string;
-      action?: string;
-      statusCode?: number;
-      context?: Record<string, unknown>;
-    } = {},
-  ): void {
-    reportClientError(eventName, error, {
-      category: options.category ?? "frontend",
-      location: options.location ?? "client.controller",
-      action: options.action,
-      ...(options.statusCode !== undefined
-        ? { statusCode: options.statusCode }
-        : {}),
-      threadId: activeThreadIdRef.current || undefined,
-      context: buildRuntimeLogContext(options.context),
-    });
-  }
-
-  function logClientWarning(
-    eventName: string,
-    message: string,
-    options: {
-      category?: string;
-      location?: string;
-      action?: string;
-      context?: Record<string, unknown>;
-    } = {},
-  ): void {
-    reportClientWarning(eventName, message, {
-      category: options.category ?? "frontend",
-      location: options.location ?? "client.controller",
-      action: options.action,
-      threadId: activeThreadIdRef.current || undefined,
-      context: buildRuntimeLogContext(options.context),
-    });
-  }
-
-  function logClientInfo(
-    eventName: string,
-    message: string,
-    options: {
-      category?: string;
-      location?: string;
-      action?: string;
-      context?: Record<string, unknown>;
-    } = {},
-  ): void {
-    reportClientEvent({
-      level: "info",
-      category: options.category ?? "frontend",
-      eventName,
-      message,
-      location: options.location ?? "client.controller",
-      ...(options.action ? { action: options.action } : {}),
-      ...(activeThreadIdRef.current
-        ? { threadId: activeThreadIdRef.current }
-        : {}),
-      context: buildRuntimeLogContext(options.context),
-    });
-  }
 
   const {
     desktopUpdaterStatus,
