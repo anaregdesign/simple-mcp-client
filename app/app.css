@@ -2562,10 +2562,35 @@ body {
 
 .instruction-diff-github {
   margin: 0;
+  --diff-background-color: var(--surface);
+  --diff-text-color: var(--text-main);
+  --diff-selection-background-color: var(--theme-color-rgba-31-94-139-0-28);
+  --diff-selection-text-color: var(--text-main);
+  --diff-gutter-insert-background-color: var(--theme-color-c7decf);
+  --diff-gutter-insert-text-color: var(--theme-color-1f553a);
+  --diff-gutter-delete-background-color: var(--theme-color-f6edeb);
+  --diff-gutter-delete-text-color: var(--theme-color-8a332f);
+  --diff-gutter-selected-background-color: var(--theme-color-e8f1fb);
+  --diff-gutter-selected-text-color: var(--text-main);
+  --diff-code-insert-background-color: var(--theme-color-ebf6ee);
+  --diff-code-insert-text-color: var(--theme-color-1f553a);
+  --diff-code-delete-background-color: var(--theme-color-fde7e9);
+  --diff-code-delete-text-color: var(--theme-color-8a332f);
+  --diff-code-insert-edit-background-color: var(--theme-color-e7f4ea);
+  --diff-code-insert-edit-text-color: var(--theme-color-1e5a3f);
+  --diff-code-delete-edit-background-color: var(--theme-color-f6edeb);
+  --diff-code-delete-edit-text-color: var(--theme-color-8a332f);
+  --diff-code-selected-background-color: var(--theme-color-e8f1fb);
+  --diff-code-selected-text-color: var(--text-main);
+  --diff-omit-gutter-line-color: var(--theme-color-a4262c);
 }
 
 .instruction-diff-github .diff {
   margin: 0;
+}
+
+.instruction-diff-github .diff td {
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .instruction-diff-github .diff code {
