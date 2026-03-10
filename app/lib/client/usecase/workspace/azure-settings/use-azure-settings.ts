@@ -6,7 +6,7 @@ import {
 import {
   DEFAULT_UTILITY_REASONING_EFFORT,
 } from "~/lib/constants/chat";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
   resolveAzureAuthRequiredState,
 } from "./catalog-state";

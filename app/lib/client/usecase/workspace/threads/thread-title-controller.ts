@@ -8,8 +8,8 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-title-operations";
 import type {
   AzureConnectionView,
-  ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 type CreateThreadTitleControllerOptions = {

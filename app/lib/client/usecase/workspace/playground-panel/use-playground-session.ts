@@ -6,12 +6,10 @@ import {
   DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
 } from "~/lib/domain/value-objects/thread-defaults";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
-import type {
-  ReasoningEffort,
-} from "~/lib/client/usecase/workspace/view-types";
 
 export function usePlaygroundSession() {
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);

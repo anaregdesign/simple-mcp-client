@@ -1,4 +1,4 @@
-import type { McpTransport } from "~/lib/client/usecase/workspace/view-types";
+import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
 import { MCP_DEFAULT_AZURE_AUTH_SCOPE } from "~/lib/constants/mcp";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {

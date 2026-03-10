@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createPlaygroundControlHandlers,
 } from "~/lib/client/usecase/workspace/playground-panel/handlers";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 function createDeps() {
   return {

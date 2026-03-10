@@ -5,7 +5,7 @@ import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { SubSection } from "~/components/shared/SubSection";
 import { THEME_MODE_OPTIONS } from "~/lib/constants/client";
-import type { ThemeMode } from "~/lib/client/usecase/workspace/view-types";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 
 const { Select } = FluentUI;
 

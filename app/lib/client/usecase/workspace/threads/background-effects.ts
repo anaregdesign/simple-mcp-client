@@ -12,7 +12,7 @@ import {
   buildThreadPersistencePlanFromCurrentState,
 } from "~/lib/client/usecase/workspace/threads/thread-persistence-plan";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import { canStartThreadOperation } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import { shouldBlockThreadPersistence } from "~/lib/client/usecase/workspace/threads/thread-guards";

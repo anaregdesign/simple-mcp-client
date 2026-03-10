@@ -12,10 +12,10 @@ import { PlaygroundChatCommandMenu } from "~/components/playground/PlaygroundCha
 import { PlaygroundDraftAttachmentBubbles } from "~/components/playground/PlaygroundDraftAttachmentBubbles";
 import { PlaygroundQuickControls } from "~/components/playground/PlaygroundQuickControls";
 import { FluentUI } from "~/components/shared/fluent";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
   ChatCommandMenuView,
-  ReasoningEffort,
   ThreadMcpConnectionView,
   ThreadMessageAttachmentView,
   ThreadSkillView,

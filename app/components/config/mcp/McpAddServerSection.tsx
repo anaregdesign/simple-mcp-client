@@ -5,7 +5,7 @@ import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
-import type { McpTransport } from "~/lib/client/usecase/workspace/view-types";
+import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
 
 const {
   Button,

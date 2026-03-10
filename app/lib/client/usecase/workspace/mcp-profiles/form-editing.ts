@@ -4,7 +4,7 @@ import {
   MCP_DEFAULT_TIMEOUT_SECONDS,
 } from "~/lib/constants/mcp";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
-import type { McpTransport } from "~/lib/client/usecase/workspace/view-types";
+import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
 
 type McpProfileFormSetters = {
   setMcpNameInput: (value: string) => void;

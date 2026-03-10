@@ -2,9 +2,9 @@ import { PlaygroundAzureActionSelect } from "~/components/playground/PlaygroundA
 import { PlaygroundControlTooltip } from "~/components/playground/PlaygroundControlTooltip";
 import { QuickControlFrame } from "~/components/shared/QuickControlFrame";
 import { FluentUI } from "~/components/shared/fluent";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
-  ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
 import {
   NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,

@@ -3,7 +3,7 @@ import type {
   AzureDeploymentOption,
   AzureProjectOption,
 } from "./parsers";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import {
   readAzureDeploymentCacheKey,
   readAzureTenantCacheKey,

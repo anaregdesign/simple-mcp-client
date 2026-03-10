@@ -2,14 +2,9 @@
  * Client runtime support module.
  */
 import type { AzurePrincipalType } from "~/lib/domain/value-objects/azure-principal-type";
-import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
-import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
-import type { ThemeMode as DomainThemeMode } from "~/lib/domain/value-objects/theme-mode";
 import type { ThreadInstructionContextToggleKey } from "~/lib/domain/value-objects/thread-instruction-context";
 
 export type MainViewTab = "settings" | "skills" | "mcp" | "threads";
-export type { McpTransport, ReasoningEffort };
-export type ThemeMode = DomainThemeMode;
 
 export type ThreadMessageRole = "user" | "assistant";
 

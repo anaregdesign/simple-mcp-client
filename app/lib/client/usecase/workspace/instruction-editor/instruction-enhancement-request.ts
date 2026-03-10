@@ -8,7 +8,7 @@ import {
   resolveInstructionFormatExtension,
   resolveInstructionSourceFileName,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-format";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 type UtilityAzureConnection = {
   projectName: string;

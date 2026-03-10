@@ -6,11 +6,9 @@ import {
   useReducer,
   useRef,
 } from "react";
-import type {
-  ThemeMode,
-  McpTransport,
-  ReasoningEffort,
-} from "~/lib/client/usecase/workspace/view-types";
+import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 import {
   DEFAULT_AGENT_INSTRUCTION,
   DEFAULT_WEB_SEARCH_ENABLED,

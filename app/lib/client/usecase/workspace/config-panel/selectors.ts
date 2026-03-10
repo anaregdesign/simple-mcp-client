@@ -11,14 +11,14 @@ import {
   type SelectableSkillOption,
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import type { ThreadListOption } from "~/lib/client/usecase/workspace/threads/thread-runtime";
+import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 import type {
   InstructionEnhanceComparison,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 import type {
   InstructionLanguage,
-  McpTransport,
-  ReasoningEffort,
-  ThemeMode,
 } from "~/lib/client/usecase/workspace/view-types";
 import {
   THREAD_INSTRUCTION_CONTEXT_OPTIONS,

@@ -10,8 +10,8 @@ import type {
 } from "~/lib/client/usecase/workspace/desktop-updater/selectors";
 import type {
   ChatCommandMenuView,
-  ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";

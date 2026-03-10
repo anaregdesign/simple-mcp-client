@@ -5,8 +5,8 @@ import type {
 } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import type {
   AzureConnectionView,
-  ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import { buildThreadAutoTitlePlaygroundContent } from "~/lib/client/usecase/workspace/threads/thread-title-content";
 import { normalizeGeneratedThreadTitle } from "~/lib/domain/value-objects/thread-name";

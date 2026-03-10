@@ -9,9 +9,10 @@ import type {
   AzureSelectionPreference,
   AzureTenantOption,
 } from "./parsers";
-import type { ReasoningEffort, ThemeMode } from "~/lib/client/usecase/workspace/view-types";
 import type { AzureProjectsLoadResult } from "./catalog-state";
 import type { AzureSettingsAction } from "./reducer";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
+import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
 
 export type AzureProjectCatalogCacheEntry = {
   tenantId: string;

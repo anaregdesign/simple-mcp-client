@@ -3,7 +3,7 @@ import {
   resolveAuthRequired,
 } from "~/lib/client/infrastructure/api/api-client";
 import { readJsonPayload } from "~/lib/client/infrastructure/api/http";
-import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 
 export type InstructionPatchAzureConfigInput = {
   tenantId: string;

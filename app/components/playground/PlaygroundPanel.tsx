@@ -12,12 +12,12 @@ import type {
 import { PlaygroundComposer } from "~/components/playground/PlaygroundComposer";
 import { PlaygroundConversation } from "~/components/playground/PlaygroundConversation";
 import { PlaygroundHeader } from "~/components/playground/PlaygroundHeader";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
   ChatCommandMenuView,
   DesktopUpdaterActionStateView,
   DesktopUpdaterStatusView,
-  ReasoningEffort,
   ThreadMcpConnectionView,
   ThreadMessageAttachmentView,
   ThreadMessageView,

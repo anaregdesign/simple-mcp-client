@@ -4,9 +4,9 @@
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
-  ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
 import { REASONING_EFFORT_OPTIONS } from "~/lib/constants/chat";
 import {

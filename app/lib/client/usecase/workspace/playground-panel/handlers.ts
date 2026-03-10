@@ -6,9 +6,9 @@ import {
   filterReasoningEffortOptionsForWebSearch,
   isWebSearchCompatibleReasoningEffort,
 } from "~/lib/client/usecase/workspace/azure-settings/selectors";
+import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   MainViewTab,
-  ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
 
 type PlaygroundControlHandlerDependencies = {
