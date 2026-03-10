@@ -5,10 +5,6 @@ import {
   azureSelectionApiClient,
 } from "~/lib/client/infrastructure/api/azure-selection-api-client";
 import {
-  clearAzureSettingsTimeout,
-  scheduleWorkspaceMcpServerProfileLoginRetry as scheduleWorkspaceMcpServerProfileLoginRetryTimeout,
-} from "~/lib/client/infrastructure/browser/azure-settings";
-import {
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 import type {
@@ -62,21 +58,18 @@ export function createAzureCatalogRuntime(
   deps: AzureSettingsHandlerDependencies,
 ): AzureCatalogRuntime {
   function clearWorkspaceMcpServerProfileLoginRetryTimeout() {
-    clearAzureSettingsTimeout(
-      deps.workspaceMcpServerProfileLoginRetryTimeoutRef,
-    );
+    deps.clearWorkspaceMcpServerProfileLoginRetryTimeout();
   }
 
   function cancelAzureDeploymentLoad(target: "playground" | "utility"): void {
+    deps.nextAzureDeploymentRequestSeq(target);
     if (target === "playground") {
-      deps.playgroundAzureDeploymentRequestSeqRef.current += 1;
       deps.patchState({
         isLoadingPlaygroundAzureDeployments: false,
       });
       return;
     }
 
-    deps.utilityAzureDeploymentRequestSeqRef.current += 1;
     deps.patchState({
       isLoadingUtilityAzureDeployments: false,
     });
@@ -91,7 +84,7 @@ export function createAzureCatalogRuntime(
     deps.options.writeActiveAzureTenantId("");
     deps.options.writeActiveAzurePrincipalId("");
     deps.options.writeActiveWorkspaceUserKey("");
-    deps.preferredAzureSelectionRef.current = null;
+    deps.writePreferredAzureSelection(null);
     cancelAzureDeploymentLoads();
     deps.dispatch({ type: "cache/clear_all" });
     deps.patchState({
@@ -143,14 +136,11 @@ export function createAzureCatalogRuntime(
   }
 
   function scheduleWorkspaceMcpServerProfileLoginRetry(expectedUserKey: string) {
-    scheduleWorkspaceMcpServerProfileLoginRetryTimeout(
-      deps.workspaceMcpServerProfileLoginRetryTimeoutRef,
-      () => {
-        if (deps.options.readActiveWorkspaceUserKey() === expectedUserKey) {
-          void deps.options.loadWorkspaceMcpServerProfiles();
-        }
-      },
-    );
+    deps.scheduleWorkspaceMcpServerProfileLoginRetryTimeout(() => {
+      if (deps.options.readActiveWorkspaceUserKey() === expectedUserKey) {
+        void deps.options.loadWorkspaceMcpServerProfiles();
+      }
+    });
   }
 
   async function syncWorkspaceStateForLoadedIdentity(options: {
@@ -224,7 +214,7 @@ export function createAzureCatalogRuntime(
   async function saveAzureSelectionPreference(
     selection: AzureSelectionSaveInput,
   ): Promise<void> {
-    const currentPreferredSelection = deps.preferredAzureSelectionRef.current;
+    const currentPreferredSelection = deps.readPreferredAzureSelection();
     const hasIdentityScopedPreferredSelection =
       currentPreferredSelection !== null &&
       currentPreferredSelection.tenantId === selection.tenantId &&
@@ -260,7 +250,7 @@ export function createAzureCatalogRuntime(
         reasoningEffort: selection.reasoningEffort,
       };
     }
-    deps.preferredAzureSelectionRef.current = nextPreferredSelection;
+    deps.writePreferredAzureSelection(nextPreferredSelection);
     const persistedThemeMode = hasIdentityScopedPreferredSelection
       ? currentPreferredSelection.theme
       : null;
@@ -302,11 +292,11 @@ export function createAzureCatalogRuntime(
       return;
     }
 
-    const currentPreferredSelection = deps.preferredAzureSelectionRef.current;
-    deps.preferredAzureSelectionRef.current =
+    const currentPreferredSelection = deps.readPreferredAzureSelection();
+    deps.writePreferredAzureSelection(
       currentPreferredSelection &&
-      currentPreferredSelection.tenantId === tenantId &&
-      currentPreferredSelection.principalId === principalId
+        currentPreferredSelection.tenantId === tenantId &&
+        currentPreferredSelection.principalId === principalId
         ? {
             ...currentPreferredSelection,
             theme: nextTheme,
@@ -323,7 +313,8 @@ export function createAzureCatalogRuntime(
             theme: nextTheme,
             playground: null,
             utility: null,
-          };
+          },
+    );
 
     try {
       await azureSelectionApiClient.saveSelection({

@@ -1,7 +1,4 @@
-import type {
-  Dispatch,
-  MutableRefObject,
-} from "react";
+import type { Dispatch } from "react";
 import type {
   AzureDeploymentOption,
   AzurePrincipalProfile,
@@ -183,10 +180,6 @@ export type AzureSelectionSaveInput =
 
 export type AzureSettingsStatePatch = Partial<AzureSettingsState>;
 
-export type AzureCacheRefs = {
-  preferredAzureSelectionRef: MutableRefObject<AzureSelectionPreference | null>;
-};
-
 export type AzureDeploymentTarget = "playground" | "utility";
 
 export type AzureLoadAzureDeploymentsOptions = {
@@ -198,11 +191,18 @@ export type AzureSettingsHandlerDependencies = {
   dispatch: Dispatch<AzureSettingsAction>;
   patchState: (patch: Partial<AzureSettingsState>) => void;
   readState: () => AzureSettingsState;
-  preferredAzureSelectionRef: MutableRefObject<AzureSelectionPreference | null>;
-  azureConnectionsRequestSeqRef: MutableRefObject<number>;
-  playgroundAzureDeploymentRequestSeqRef: MutableRefObject<number>;
-  utilityAzureDeploymentRequestSeqRef: MutableRefObject<number>;
-  workspaceMcpServerProfileLoginRetryTimeoutRef: MutableRefObject<number | null>;
+  readPreferredAzureSelection: () => AzureSelectionPreference | null;
+  writePreferredAzureSelection: (
+    selection: AzureSelectionPreference | null,
+  ) => void;
+  nextAzureConnectionsRequestSeq: () => number;
+  readAzureConnectionsRequestSeq: () => number;
+  nextAzureDeploymentRequestSeq: (target: AzureDeploymentTarget) => number;
+  readAzureDeploymentRequestSeq: (target: AzureDeploymentTarget) => number;
+  clearWorkspaceMcpServerProfileLoginRetryTimeout: () => void;
+  scheduleWorkspaceMcpServerProfileLoginRetryTimeout: (
+    onElapsed: () => void,
+  ) => void;
 };
 
 export type AzureSettingsHandlers = {

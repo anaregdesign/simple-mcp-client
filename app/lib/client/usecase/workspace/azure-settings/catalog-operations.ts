@@ -65,7 +65,7 @@ export function createAzureCatalogOperations(
     normalizedProjectId: string,
     deployments: AzureSettingsState["playgroundAzureDeployments"],
   ) {
-    const preferredSelection = deps.preferredAzureSelectionRef.current;
+    const preferredSelection = deps.readPreferredAzureSelection();
     const preferredDeploymentName =
       preferredSelection &&
       preferredSelection.tenantId === deps.options.readActiveAzureTenantId() &&
@@ -146,8 +146,7 @@ export function createAzureCatalogOperations(
       forceReload,
       isAzureAuthRequired: currentState.isAzureAuthRequired,
     });
-    const requestSeq = deps.azureConnectionsRequestSeqRef.current + 1;
-    deps.azureConnectionsRequestSeqRef.current = requestSeq;
+    const requestSeq = deps.nextAzureConnectionsRequestSeq();
     deps.patchState({
       isLoadingAzureConnections: true,
     });
@@ -181,14 +180,14 @@ export function createAzureCatalogOperations(
                   cachedCatalog.principalId,
                 )
               : null;
-          if (requestSeq !== deps.azureConnectionsRequestSeqRef.current) {
+          if (requestSeq !== deps.readAzureConnectionsRequestSeq()) {
             return {
               authRequired: false,
               tenantSwitchPending: false,
             };
           }
 
-          deps.preferredAzureSelectionRef.current = preferredSelection;
+          deps.writePreferredAzureSelection(preferredSelection);
           const {
             nextPlaygroundProjectId,
             nextUtilityProjectId,
@@ -229,7 +228,7 @@ export function createAzureCatalogOperations(
       const payload = await azureProjectsApiClient.loadProjects({
         preferredTenantId,
       });
-      if (requestSeq !== deps.azureConnectionsRequestSeqRef.current) {
+      if (requestSeq !== deps.readAzureConnectionsRequestSeq()) {
         return {
           authRequired: currentState.isAzureAuthRequired,
           tenantSwitchPending: false,
@@ -295,14 +294,14 @@ export function createAzureCatalogOperations(
         tenantId && principalId
           ? await runtime.loadAzureSelectionPreference(tenantId, principalId)
           : null;
-      if (requestSeq !== deps.azureConnectionsRequestSeqRef.current) {
+      if (requestSeq !== deps.readAzureConnectionsRequestSeq()) {
         return {
           authRequired: payload.authRequired === true,
           tenantSwitchPending: false,
         };
       }
 
-      deps.preferredAzureSelectionRef.current = preferredSelection;
+      deps.writePreferredAzureSelection(preferredSelection);
       if (tenantId && principalId) {
         deps.dispatch({
           type: "project_cache/upsert",
@@ -347,7 +346,7 @@ export function createAzureCatalogOperations(
       });
       return loadResult;
     } catch (loadError) {
-      if (requestSeq !== deps.azureConnectionsRequestSeqRef.current) {
+      if (requestSeq !== deps.readAzureConnectionsRequestSeq()) {
         return {
           authRequired: currentState.isAzureAuthRequired,
           tenantSwitchPending: false,
@@ -393,7 +392,7 @@ export function createAzureCatalogOperations(
         tenantSwitchPending: false,
       };
     } finally {
-      if (requestSeq === deps.azureConnectionsRequestSeqRef.current) {
+      if (requestSeq === deps.readAzureConnectionsRequestSeq()) {
         deps.patchState({
           isLoadingAzureConnections: false,
         });
@@ -437,18 +436,13 @@ export function createAzureCatalogOperations(
       }
     }
 
-    const requestSeq =
-      target === "playground"
-        ? deps.playgroundAzureDeploymentRequestSeqRef.current + 1
-        : deps.utilityAzureDeploymentRequestSeqRef.current + 1;
+    const requestSeq = deps.nextAzureDeploymentRequestSeq(target);
     if (target === "playground") {
-      deps.playgroundAzureDeploymentRequestSeqRef.current = requestSeq;
       deps.patchState({
         isLoadingPlaygroundAzureDeployments: true,
         playgroundAzureDeploymentError: null,
       });
     } else {
-      deps.utilityAzureDeploymentRequestSeqRef.current = requestSeq;
       deps.patchState({
         isLoadingUtilityAzureDeployments: true,
         utilityAzureDeploymentError: null,
@@ -459,10 +453,7 @@ export function createAzureCatalogOperations(
       const payload = await azureProjectsApiClient.loadDeployments(
         normalizedProjectId,
       );
-      const activeRequestSeq =
-        target === "playground"
-          ? deps.playgroundAzureDeploymentRequestSeqRef.current
-          : deps.utilityAzureDeploymentRequestSeqRef.current;
+      const activeRequestSeq = deps.readAzureDeploymentRequestSeq(target);
       if (requestSeq !== activeRequestSeq) {
         return;
       }
@@ -517,10 +508,7 @@ export function createAzureCatalogOperations(
       });
       applyAzureDeployments(target, normalizedProjectId, parsedDeployments);
     } catch (loadError) {
-      const activeRequestSeq =
-        target === "playground"
-          ? deps.playgroundAzureDeploymentRequestSeqRef.current
-          : deps.utilityAzureDeploymentRequestSeqRef.current;
+      const activeRequestSeq = deps.readAzureDeploymentRequestSeq(target);
       if (requestSeq !== activeRequestSeq) {
         return;
       }
@@ -569,10 +557,7 @@ export function createAzureCatalogOperations(
             },
       );
     } finally {
-      const activeRequestSeq =
-        target === "playground"
-          ? deps.playgroundAzureDeploymentRequestSeqRef.current
-          : deps.utilityAzureDeploymentRequestSeqRef.current;
+      const activeRequestSeq = deps.readAzureDeploymentRequestSeq(target);
       if (requestSeq === activeRequestSeq) {
         deps.patchState(
           target === "playground"

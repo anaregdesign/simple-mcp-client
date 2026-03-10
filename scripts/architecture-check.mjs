@@ -519,6 +519,20 @@ const checks = [
     ],
   },
   {
+    key: "azureSettingsPrivateRuntimeRefOwnership",
+    description:
+      "azure-settings internal handlers and runtime modules must use accessor callbacks instead of raw ref dependencies.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|preferredAzureSelectionRef|azureConnectionsRequestSeqRef|playgroundAzureDeploymentRequestSeqRef|utilityAzureDeploymentRequestSeqRef|workspaceMcpServerProfileLoginRetryTimeoutRef",
+      "app/lib/client/usecase/workspace/azure-settings/types.ts",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-operations.ts",
+      "app/lib/client/usecase/workspace/azure-settings/catalog-runtime.ts",
+      "app/lib/client/usecase/workspace/azure-settings/handlers.ts",
+    ],
+  },
+  {
     key: "legacyConfigPanelPropsFile",
     description:
       "config-panel generic panel-props.ts wrapper must stay retired.",

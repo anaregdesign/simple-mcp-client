@@ -59,11 +59,11 @@ function createHarness(
     ...createInitialAzureSettingsReducerState(),
     ...overrides,
   };
-  const preferredAzureSelectionRef: {
-    current: AzureSelectionPreference | null;
-  } = {
-    current: null,
-  };
+  let preferredAzureSelection: AzureSelectionPreference | null = null;
+  let azureConnectionsRequestSeq = 0;
+  let playgroundAzureDeploymentRequestSeq = 0;
+  let utilityAzureDeploymentRequestSeq = 0;
+  let workspaceMcpServerProfileLoginRetryTimeout: number | null = null;
   const runtimeState = {
     activeAzureTenantId: "",
     activeAzurePrincipalId: "",
@@ -128,11 +128,43 @@ function createHarness(
     dispatch,
     patchState,
     readState: () => state,
-    preferredAzureSelectionRef,
-    azureConnectionsRequestSeqRef: { current: 0 },
-    playgroundAzureDeploymentRequestSeqRef: { current: 0 },
-    utilityAzureDeploymentRequestSeqRef: { current: 0 },
-    workspaceMcpServerProfileLoginRetryTimeoutRef: { current: null },
+    readPreferredAzureSelection: () => preferredAzureSelection,
+    writePreferredAzureSelection: (selection) => {
+      preferredAzureSelection = selection;
+    },
+    nextAzureConnectionsRequestSeq: () => {
+      azureConnectionsRequestSeq += 1;
+      return azureConnectionsRequestSeq;
+    },
+    readAzureConnectionsRequestSeq: () => azureConnectionsRequestSeq,
+    nextAzureDeploymentRequestSeq: (target) => {
+      if (target === "playground") {
+        playgroundAzureDeploymentRequestSeq += 1;
+        return playgroundAzureDeploymentRequestSeq;
+      }
+
+      utilityAzureDeploymentRequestSeq += 1;
+      return utilityAzureDeploymentRequestSeq;
+    },
+    readAzureDeploymentRequestSeq: (target) =>
+      target === "playground"
+        ? playgroundAzureDeploymentRequestSeq
+        : utilityAzureDeploymentRequestSeq,
+    clearWorkspaceMcpServerProfileLoginRetryTimeout: () => {
+      if (workspaceMcpServerProfileLoginRetryTimeout !== null) {
+        clearTimeout(workspaceMcpServerProfileLoginRetryTimeout);
+        workspaceMcpServerProfileLoginRetryTimeout = null;
+      }
+    },
+    scheduleWorkspaceMcpServerProfileLoginRetryTimeout: (onElapsed) => {
+      if (workspaceMcpServerProfileLoginRetryTimeout !== null) {
+        clearTimeout(workspaceMcpServerProfileLoginRetryTimeout);
+      }
+      workspaceMcpServerProfileLoginRetryTimeout = window.setTimeout(() => {
+        workspaceMcpServerProfileLoginRetryTimeout = null;
+        onElapsed();
+      }, 1000);
+    },
   });
 
   return {
@@ -140,9 +172,14 @@ function createHarness(
     dispatch,
     patchState,
     handlers,
-    preferredAzureSelectionRef,
     runtimeState,
     readState: () => state,
+    readPreferredAzureSelection: () => preferredAzureSelection,
+    writePreferredAzureSelection: (
+      selection: AzureSelectionPreference | null,
+    ) => {
+      preferredAzureSelection = selection;
+    },
   };
 }
 
@@ -324,7 +361,7 @@ describe("createAzureSettingsHandlers", () => {
     const harness = createHarness();
     harness.runtimeState.activeAzureTenantId = "tenant-a";
     harness.runtimeState.activeAzurePrincipalId = "principal-a";
-    harness.preferredAzureSelectionRef.current = {
+    harness.writePreferredAzureSelection({
       tenantId: "tenant-a",
       principalId: "principal-a",
       theme: "light",
@@ -333,14 +370,14 @@ describe("createAzureSettingsHandlers", () => {
         deploymentName: "deploy-a",
       },
       utility: null,
-    };
+    });
 
     await harness.handlers.saveThemePreference("dark");
 
     expect(vi.mocked(azureSelectionApiClient.saveSelection)).toHaveBeenCalledWith({
       theme: "dark",
     });
-    expect(harness.preferredAzureSelectionRef.current).toEqual({
+    expect(harness.readPreferredAzureSelection()).toEqual({
       tenantId: "tenant-a",
       principalId: "principal-a",
       theme: "dark",
@@ -373,7 +410,7 @@ describe("createAzureSettingsHandlers", () => {
       reasoningEffort: "high",
       theme: null,
     });
-    expect(harness.preferredAzureSelectionRef.current).toEqual({
+    expect(harness.readPreferredAzureSelection()).toEqual({
       tenantId: "tenant-a",
       principalId: "principal-a",
       theme: "dark",

@@ -4,6 +4,10 @@ import {
   useRef,
 } from "react";
 import {
+  clearAzureSettingsTimeout,
+  scheduleWorkspaceMcpServerProfileLoginRetry,
+} from "~/lib/client/infrastructure/browser/azure-settings";
+import {
   DEFAULT_UTILITY_REASONING_EFFORT,
 } from "~/lib/constants/chat";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
@@ -101,9 +105,62 @@ export function useAzureSettings(
     });
   }
 
+  function readPreferredAzureSelection(): AzureSelectionPreference | null {
+    return preferredAzureSelectionRef.current;
+  }
+
+  function writePreferredAzureSelection(
+    selection: AzureSelectionPreference | null,
+  ): void {
+    preferredAzureSelectionRef.current = selection;
+  }
+
+  function nextAzureConnectionsRequestSeq(): number {
+    azureConnectionsRequestSeqRef.current += 1;
+    return azureConnectionsRequestSeqRef.current;
+  }
+
+  function readAzureConnectionsRequestSeq(): number {
+    return azureConnectionsRequestSeqRef.current;
+  }
+
+  function nextAzureDeploymentRequestSeq(
+    target: "playground" | "utility",
+  ): number {
+    if (target === "playground") {
+      playgroundAzureDeploymentRequestSeqRef.current += 1;
+      return playgroundAzureDeploymentRequestSeqRef.current;
+    }
+
+    utilityAzureDeploymentRequestSeqRef.current += 1;
+    return utilityAzureDeploymentRequestSeqRef.current;
+  }
+
+  function readAzureDeploymentRequestSeq(
+    target: "playground" | "utility",
+  ): number {
+    return target === "playground"
+      ? playgroundAzureDeploymentRequestSeqRef.current
+      : utilityAzureDeploymentRequestSeqRef.current;
+  }
+
+  function clearWorkspaceMcpServerProfileLoginRetryTimeout(): void {
+    clearAzureSettingsTimeout(workspaceMcpServerProfileLoginRetryTimeoutRef);
+  }
+
+  function scheduleWorkspaceMcpServerProfileLoginRetryTimeout(
+    onElapsed: () => void,
+  ): void {
+    scheduleWorkspaceMcpServerProfileLoginRetry(
+      workspaceMcpServerProfileLoginRetryTimeoutRef,
+      onElapsed,
+    );
+  }
+
   const {
     cancelAzureDeploymentLoad,
-    clearWorkspaceMcpServerProfileLoginRetryTimeout,
+    clearWorkspaceMcpServerProfileLoginRetryTimeout:
+      clearWorkspaceMcpServerProfileLoginRetryTimeoutFromHandlers,
     saveAzureSelectionPreference,
     saveThemePreference,
     loadAzureProjects,
@@ -122,11 +179,14 @@ export function useAzureSettings(
     dispatch,
     patchState,
     readState: () => stateRef.current,
-    preferredAzureSelectionRef,
-    azureConnectionsRequestSeqRef,
-    playgroundAzureDeploymentRequestSeqRef,
-    utilityAzureDeploymentRequestSeqRef,
-    workspaceMcpServerProfileLoginRetryTimeoutRef,
+    readPreferredAzureSelection,
+    writePreferredAzureSelection,
+    nextAzureConnectionsRequestSeq,
+    readAzureConnectionsRequestSeq,
+    nextAzureDeploymentRequestSeq,
+    readAzureDeploymentRequestSeq,
+    clearWorkspaceMcpServerProfileLoginRetryTimeout,
+    scheduleWorkspaceMcpServerProfileLoginRetryTimeout,
   });
 
   useAzureSettingsEffects({
@@ -134,7 +194,7 @@ export function useAzureSettings(
     activePlaygroundAzureConnection,
     activeUtilityAzureConnection,
     effectiveUtilityReasoningEffort,
-    readPreferredAzureSelection: () => preferredAzureSelectionRef.current,
+    readPreferredAzureSelection,
     readActiveAzureTenantId: options.readActiveAzureTenantId,
     readActiveAzurePrincipalId: options.readActiveAzurePrincipalId,
     writeSelectedPlaygroundAzureConnectionId:
@@ -150,7 +210,8 @@ export function useAzureSettings(
     loadAzureDeployments,
     cancelAzureDeploymentLoad,
     saveAzureSelectionPreference,
-    clearWorkspaceMcpServerProfileLoginRetryTimeout,
+    clearWorkspaceMcpServerProfileLoginRetryTimeout:
+      clearWorkspaceMcpServerProfileLoginRetryTimeoutFromHandlers,
   });
 
   return {
