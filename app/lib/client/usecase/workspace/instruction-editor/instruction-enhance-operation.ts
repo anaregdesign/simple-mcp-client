@@ -1,8 +1,4 @@
 import { INSTRUCTION_ENHANCE_SYSTEM_PROMPT } from "~/lib/constants/instruction";
-import {
-  isInstructionSaveCanceled,
-  saveInstructionToClientFile,
-} from "~/lib/client/infrastructure/browser/instruction-file-save";
 import { includesAzureDeploymentName } from "~/lib/client/usecase/workspace/azure-settings/selectors";
 import {
   applyInstructionUnifiedDiffPatch,
@@ -10,7 +6,6 @@ import {
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-diff-patch";
 import {
   buildInstructionEnhanceMessage,
-  buildInstructionSuggestedFileName,
   detectInstructionLanguage,
   resolveInstructionFormatExtension,
   resolveInstructionSourceFileName,
@@ -19,68 +14,6 @@ import {
 import type {
   InstructionPromptHandlerDependencies,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-types";
-
-export async function saveInstructionPrompt(
-  deps: InstructionPromptHandlerDependencies,
-): Promise<void> {
-  const saveInstructionFile =
-    deps.saveInstructionFile ?? saveInstructionToClientFile;
-  const readSaveCanceled =
-    deps.isInstructionSaveCanceled ?? isInstructionSaveCanceled;
-
-  if (deps.isArchivedThread(deps.readActiveThreadId())) {
-    return;
-  }
-
-  if (deps.isSavingInstructionPrompt) {
-    return;
-  }
-
-  deps.setInstructionSaveError(null);
-  deps.setInstructionSaveSuccess(null);
-
-  const agentInstruction = deps.readAgentInstruction();
-  if (!agentInstruction.trim()) {
-    deps.setInstructionSaveError("Instruction is empty.");
-    return;
-  }
-
-  deps.setIsSavingInstructionPrompt(true);
-
-  try {
-    const sourceFileName = resolveInstructionSourceFileName(
-      deps.readLoadedInstructionFileName(),
-    );
-    const suggestedFileName = buildInstructionSuggestedFileName(
-      sourceFileName,
-      agentInstruction,
-    );
-    const saveResult = await saveInstructionFile(
-      agentInstruction,
-      suggestedFileName,
-    );
-    deps.setLoadedInstructionFileName(saveResult.fileName);
-    deps.setInstructionSaveSuccess(
-      saveResult.mode === "picker"
-        ? `Saved as ${saveResult.fileName}`
-        : `Download started: ${saveResult.fileName}`,
-    );
-  } catch (saveError) {
-    if (readSaveCanceled(saveError)) {
-      return;
-    }
-    deps.logClientError("save_instruction_file_failed", saveError, {
-      action: "save_instruction_file",
-    });
-    deps.setInstructionSaveError(
-      saveError instanceof Error
-        ? saveError.message
-        : "Failed to save instruction prompt.",
-    );
-  } finally {
-    deps.setIsSavingInstructionPrompt(false);
-  }
-}
 
 export async function enhanceInstruction(
   deps: InstructionPromptHandlerDependencies,
@@ -235,54 +168,4 @@ export async function enhanceInstruction(
     deps.setIsEnhancingInstruction(false);
     deps.setInstructionEnhancingThreadId("");
   }
-}
-
-function adoptInstruction(
-  deps: InstructionPromptHandlerDependencies,
-  mode: "enhanced" | "original",
-): void {
-  if (deps.isArchivedThread(deps.readActiveThreadId())) {
-    return;
-  }
-
-  const instructionEnhanceComparison =
-    deps.readInstructionEnhanceComparison();
-  if (!instructionEnhanceComparison) {
-    return;
-  }
-
-  const nextInstruction =
-    mode === "enhanced"
-      ? instructionEnhanceComparison.enhanced
-      : instructionEnhanceComparison.original;
-  const successMessage =
-    mode === "enhanced"
-      ? "Enhanced instruction applied."
-      : "Kept original instruction.";
-  const currentThreadId = deps.readActiveThreadId().trim();
-  deps.setAgentInstruction(nextInstruction);
-  deps.setInstructionEnhanceComparison(null);
-  deps.setInstructionEnhanceError(null);
-  deps.setInstructionSaveError(null);
-  deps.setInstructionSaveSuccess(null);
-  deps.setInstructionEnhanceSuccess(successMessage);
-  if (currentThreadId) {
-    void deps.refreshThreadTitleInBackground({
-      threadId: currentThreadId,
-      reason: "instruction_update",
-      instructionOverride: nextInstruction,
-    });
-  }
-}
-
-export function adoptEnhancedInstruction(
-  deps: InstructionPromptHandlerDependencies,
-): void {
-  adoptInstruction(deps, "enhanced");
-}
-
-export function adoptOriginalInstruction(
-  deps: InstructionPromptHandlerDependencies,
-): void {
-  adoptInstruction(deps, "original");
 }

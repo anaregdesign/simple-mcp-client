@@ -1,9 +1,13 @@
 import {
   adoptEnhancedInstruction,
   adoptOriginalInstruction,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-adoption";
+import {
   enhanceInstruction,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-operation";
+import {
   saveInstructionPrompt,
-} from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-operations";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-save-operation";
 import type {
   InstructionPromptHandlerDependencies,
   InstructionPromptHandlers,
