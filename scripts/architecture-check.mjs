@@ -366,6 +366,69 @@ const checks = [
     ],
   },
   {
+    key: "legacyChatSessionUsecaseFile",
+    description:
+      "chat-session generic usecase.ts owner must stay split into send-message intent modules.",
+    rootPath: "app/lib/client/usecase/workspace/chat-session/usecase.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/chat-session/usecase.ts"],
+  },
+  {
+    key: "legacyInstructionEditorHookFile",
+    description:
+      "instruction-editor public Hook file must use the canonical use-instruction-editor.ts name.",
+    rootPath: "app/lib/client/usecase/workspace/instruction-editor/use-editor.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/instruction-editor/use-editor.ts",
+    ],
+  },
+  {
+    key: "legacyPlaygroundPanelRuntimeHookFile",
+    description:
+      "playground-panel runtime Hook file must use the canonical use-playground-runtime.ts name.",
+    rootPath: "app/lib/client/usecase/workspace/playground-panel/use-runtime.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/playground-panel/use-runtime.ts",
+    ],
+  },
+  {
+    key: "legacyPlaygroundPanelSessionHookFile",
+    description:
+      "playground-panel session Hook file must use the canonical use-playground-session.ts name.",
+    rootPath: "app/lib/client/usecase/workspace/playground-panel/use-session.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/playground-panel/use-session.ts",
+    ],
+  },
+  {
+    key: "legacyAzureSettingsEffectsFile",
+    description:
+      "azure-settings effect Hook file must use the canonical use-azure-settings-effects.ts name.",
+    rootPath: "app/lib/client/usecase/workspace/azure-settings/effects.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/azure-settings/effects.ts",
+    ],
+  },
+  {
+    key: "legacyConfigPanelPropsFile",
+    description:
+      "config-panel generic panel-props.ts wrapper must stay retired.",
+    rootPath: "app/lib/client/usecase/workspace/config-panel/panel-props.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/config-panel/panel-props.ts",
+    ],
+  },
+  {
     key: "legacyThreadMcpServerOperations",
     description:
       "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
