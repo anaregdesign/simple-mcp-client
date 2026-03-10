@@ -16,10 +16,10 @@ import {
   invalidJsonResponse,
   methodNotAllowedResponse,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   buildChatUpstreamErrorPayload,
-} from "~/lib/server/http/chat/chat-upstream-error";
+} from "~/lib/server/infrastructure/chat/chat-upstream-error";
 import {
   chatExecutionDependencies,
 } from "~/lib/server/infrastructure/gateways/chat/chat-execution-dependencies";

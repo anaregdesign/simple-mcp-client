@@ -8,7 +8,7 @@ import {
 import {
   handleChatAction,
   handleChatLoader,
-} from "~/lib/server/http/chat/chat-action";
+} from "~/lib/server/infrastructure/chat/chat-action";
 
 export function loader({}: Route.LoaderArgs) {
   installGlobalServerErrorLogging();

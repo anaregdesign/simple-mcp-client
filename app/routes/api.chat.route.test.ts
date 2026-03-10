@@ -17,7 +17,7 @@ vi.mock(
   }),
 );
 
-vi.mock("~/lib/server/http/chat/chat-action", () => ({
+vi.mock("~/lib/server/infrastructure/chat/chat-action", () => ({
   handleChatLoader: handleChatLoaderMock,
   handleChatAction: handleChatActionMock,
 }));

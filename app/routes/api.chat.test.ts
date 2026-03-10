@@ -22,7 +22,7 @@ import {
 } from "~/lib/server/usecase/chat/chat-execution";
 import {
   buildChatUpstreamErrorPayload,
-} from "~/lib/server/http/chat/chat-upstream-error";
+} from "~/lib/server/infrastructure/chat/chat-upstream-error";
 import {
   buildUpstreamErrorMessage,
 } from "~/lib/server/usecase/chat/chat-execution";
