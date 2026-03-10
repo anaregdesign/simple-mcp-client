@@ -429,6 +429,28 @@ const checks = [
     ],
   },
   {
+    key: "legacyPlaygroundPanelPropsFile",
+    description:
+      "playground-panel generic panel-props.ts wrapper must use the concept-specific workspace owner name.",
+    rootPath: "app/lib/client/usecase/workspace/playground-panel/panel-props.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/playground-panel/panel-props.ts",
+    ],
+  },
+  {
+    key: "legacySkillCatalogEffectsFile",
+    description:
+      "skills-catalog effect Hook file must use the canonical use-skill-catalog-effects.ts name.",
+    rootPath: "app/lib/client/usecase/workspace/skills-catalog/effects.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/skills-catalog/effects.ts",
+    ],
+  },
+  {
     key: "legacyThreadMcpServerOperations",
     description:
       "Thread MCP server membership policy must not be reintroduced under client/usecase/workspace/threads.",
