@@ -128,6 +128,35 @@ const checks = [
     ],
   },
   {
+    key: "legacyMcpConfigKeyContract",
+    description: "MCP config key ownership must not live under app/lib/contracts/mcp.",
+    rootPath: "app/lib/contracts/mcp/config-key.ts",
+    command: "rg",
+    args: ["--files", "app/lib/contracts/mcp/config-key.ts"],
+  },
+  {
+    key: "contractMcpProfileKeyHelper",
+    description:
+      "contracts/mcp/profile.ts must not own MCP config-key helpers.",
+    command: "rg",
+    args: [
+      "-n",
+      "buildMcpServerKey",
+      "app/lib/contracts/mcp/profile.ts",
+    ],
+  },
+  {
+    key: "contractSkillFrontmatterValidation",
+    description:
+      "contracts/skills/frontmatter.ts must stay parser-only and not own frontmatter validation.",
+    command: "rg",
+    args: [
+      "-n",
+      "validateSkillFrontmatter",
+      "app/lib/contracts/skills/frontmatter.ts",
+    ],
+  },
+  {
     key: "contractRuntimeEventLogOwnership",
     description:
       "contracts/shared/runtime-event-log.ts must stay transport-only and not own runtime event-log value-object helpers.",
