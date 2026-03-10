@@ -52,7 +52,6 @@ import {
 import {
   cloneThreadEnvironment,
   cloneThreadInstructionContexts,
-  buildThreadSaveSignature,
   cloneThreadOperationLogs,
   cloneMcpServers,
   cloneMessages,
@@ -159,11 +158,6 @@ import {
   populateMcpServerFormForEdit as populateMcpServerFormForEditOperation,
   resetMcpServerFormInputs as resetMcpServerFormInputsOperation,
 } from "~/lib/client/usecase/workspace/mcp-profiles/controller";
-import {
-  buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
-  createLocalThreadState as createLocalThreadStateOperation,
-  setThreadSaveSignatures as setThreadSaveSignaturesOperation,
-} from "~/lib/client/usecase/workspace/threads/local-thread-state";
 import {
   createThreadRequestStateController,
 } from "~/lib/client/usecase/workspace/threads/request-state";
@@ -355,6 +349,8 @@ export function useWorkspace() {
     isArchivedThread,
     createLocalThreadState,
     buildThreadStateFromCurrentState,
+    readSavedThreadSignature,
+    rememberThreadSaveSignature,
     setThreadSaveSignatures,
     applyThreadState,
     clearActiveThreadState,
@@ -944,7 +940,6 @@ export function useWorkspace() {
     threadNameSaveTimeoutRef,
     threadSaveTimeoutRef,
     threadTitleRefreshTimeoutRef,
-    threadSaveSignatureByIdRef,
     clearThreadNameSaveTimeout,
     clearThreadSaveTimeout,
     clearThreadTitleRefreshTimeout,
@@ -953,6 +948,7 @@ export function useWorkspace() {
     isArchivedThread,
     isSelectedUtilityDeploymentAvailable: isUtilityDeploymentAvailable,
     buildThreadStateFromCurrentState,
+    readSavedThreadSignature,
     saveThreadStateToDatabase: threadStorageRuntime.saveThreadStateToDatabase,
     saveActiveThreadNameInBackground:
       threadStorageRuntime.saveActiveThreadNameInBackground,
@@ -978,17 +974,11 @@ export function useWorkspace() {
     readThreadRequestState,
     updateThreadStateById,
     updateThreadsState,
-    readSavedThreadSignature: (threadId) =>
-      threadSaveSignatureByIdRef.current.get(threadId),
+    readSavedThreadSignature,
     setThreadsReady: () => {
       isThreadsReadyRef.current = true;
     },
-    rememberThreadSaveSignature: (thread) => {
-      threadSaveSignatureByIdRef.current.set(
-        thread.id,
-        buildThreadSaveSignature(thread),
-      );
-    },
+    rememberThreadSaveSignature,
     applyThreadState,
     clearActiveThreadState,
     buildThreadStateFromCurrentState,

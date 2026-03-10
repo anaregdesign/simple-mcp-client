@@ -3,7 +3,6 @@ import {
   buildThreadStateFromCurrentState,
   createLocalThreadState,
   resolveThreadNameForSave,
-  setThreadSaveSignatures,
 } from "~/lib/client/usecase/workspace/threads/local-thread-state";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
@@ -84,31 +83,7 @@ describe("threads/local-thread-state", () => {
     expect(next.messages).toHaveLength(1);
   });
 
-  it("tracks save signatures for existing threads", () => {
-    const signatureMap = new Map<string, string>();
-    const threads: ThreadState[] = [
-      {
-        id: "thread-1",
-        name: "Thread",
-        createdAt: "2026-03-09T00:00:00.000Z",
-        updatedAt: "2026-03-09T00:00:00.000Z",
-        deletedAt: null,
-        reasoningEffort: "medium",
-        webSearchEnabled: false,
-        agentInstruction: "",
-        instructionContextToggles: {
-          system: true,
-        },
-        threadEnvironment: {},
-        messages: [],
-        mcpServers: [],
-        mcpRpcLogs: [],
-        skillSelections: [],
-      },
-    ];
-
-    setThreadSaveSignatures(signatureMap, threads);
-    expect(signatureMap.has("thread-1")).toBe(true);
+  it("preserves the base name when draft save is disabled", () => {
     expect(resolveThreadNameForSave("Base", false, " Draft ")).toBe("Base");
   });
 });

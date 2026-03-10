@@ -14,8 +14,12 @@ import type { WorkspaceInteractionAction } from "~/lib/client/usecase/workspace/
 import {
   buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
   createLocalThreadState as createLocalThreadStateOperation,
-  setThreadSaveSignatures as setThreadSaveSignaturesOperation,
 } from "./local-thread-state";
+import {
+  readSavedThreadSignature as readSavedThreadSignatureOperation,
+  rememberThreadSaveSignature as rememberThreadSaveSignatureOperation,
+  setThreadSaveSignatures as setThreadSaveSignaturesOperation,
+} from "./thread-save-signatures";
 import { createThreadRequestStateController } from "./request-state";
 import { createThreadStateUpdaters } from "./state-updaters";
 import {
@@ -257,6 +261,17 @@ export function useThreadShell(options: UseThreadShellOptions) {
     );
   }
 
+  function readSavedThreadSignature(threadId: string): string | undefined {
+    return readSavedThreadSignatureOperation(
+      threadSaveSignatureByIdRef.current,
+      threadId,
+    );
+  }
+
+  function rememberThreadSaveSignature(thread: ThreadState): void {
+    rememberThreadSaveSignatureOperation(threadSaveSignatureByIdRef.current, thread);
+  }
+
   function applyThreadState(thread: ThreadState) {
     isApplyingThreadStateRef.current = true;
 
@@ -339,6 +354,8 @@ export function useThreadShell(options: UseThreadShellOptions) {
     isArchivedThread,
     createLocalThreadState,
     buildThreadStateFromCurrentState,
+    readSavedThreadSignature,
+    rememberThreadSaveSignature,
     setThreadSaveSignatures,
     applyThreadState,
     clearActiveThreadState,

@@ -7,7 +7,6 @@ import {
 import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
-  buildThreadSaveSignature,
   cloneMcpServers,
   cloneMessages,
   cloneThreadEnvironment,
@@ -120,14 +119,4 @@ export function buildThreadStateFromCurrentState(
     mcpRpcLogs: cloneThreadOperationLogs(options.mcpRpcLogs),
     skillSelections: cloneThreadSkillActivations(options.selectedThreadSkills),
   };
-}
-
-export function setThreadSaveSignatures(
-  signatureMap: Map<string, string>,
-  threads: ThreadState[],
-): void {
-  signatureMap.clear();
-  for (const thread of threads) {
-    signatureMap.set(thread.id, buildThreadSaveSignature(thread));
-  }
 }

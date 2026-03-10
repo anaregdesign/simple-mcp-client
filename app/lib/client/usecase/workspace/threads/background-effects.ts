@@ -47,7 +47,6 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
   threadNameSaveTimeoutRef: MutableRefObject<number | null>;
   threadSaveTimeoutRef: MutableRefObject<number | null>;
   threadTitleRefreshTimeoutRef: MutableRefObject<number | null>;
-  threadSaveSignatureByIdRef: MutableRefObject<Map<string, string>>;
   clearThreadNameSaveTimeout: () => void;
   clearThreadSaveTimeout: () => void;
   clearThreadTitleRefreshTimeout: () => void;
@@ -60,6 +59,7 @@ type UseWorkspaceThreadBackgroundEffectsOptions = {
       includeDraftName?: boolean;
     },
   ) => ThreadState;
+  readSavedThreadSignature: (threadId: string) => string | undefined;
   saveThreadStateToDatabase: (
     thread: ThreadState,
   ) => Promise<boolean>;
@@ -134,8 +134,7 @@ export function useWorkspaceThreadBackgroundEffects(
     const persistencePlan = buildThreadPersistencePlanFromCurrentState({
       baseThread,
       buildThreadStateFromCurrentState: options.buildThreadStateFromCurrentState,
-      readSavedThreadSignature: (threadId) =>
-        options.threadSaveSignatureByIdRef.current.get(threadId),
+      readSavedThreadSignature: options.readSavedThreadSignature,
     });
     if (!persistencePlan) {
       return;
@@ -200,8 +199,7 @@ export function useWorkspaceThreadBackgroundEffects(
     const persistencePlan = buildThreadPersistencePlanFromCurrentState({
       baseThread,
       buildThreadStateFromCurrentState: options.buildThreadStateFromCurrentState,
-      readSavedThreadSignature: (threadId) =>
-        options.threadSaveSignatureByIdRef.current.get(threadId),
+      readSavedThreadSignature: options.readSavedThreadSignature,
       includeDraftName: true,
       mapSnapshot: (snapshot) => ({
         ...snapshot,
