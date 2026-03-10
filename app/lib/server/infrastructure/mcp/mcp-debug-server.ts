@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
-import { buildMcpToolResponse } from "~/lib/server/http/mcp/mcp-transport";
+import { buildMcpToolResponse } from "~/lib/server/infrastructure/mcp/mcp-transport";
 import {
   buildDatabaseDebugLatestThreadToolDescription,
   buildDatabaseDebugTableToolDescription,

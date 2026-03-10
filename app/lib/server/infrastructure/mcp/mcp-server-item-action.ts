@@ -5,7 +5,7 @@ import {
   readErrorMessage,
   readJsonPayload,
   validationErrorResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import { logServerRouteEvent } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import type { McpServerProfileService } from "~/lib/server/usecase/mcp/mcp-server-profile-service";
 

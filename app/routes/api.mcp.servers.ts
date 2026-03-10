@@ -4,7 +4,7 @@
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
 import {
   installGlobalServerErrorLogging,
@@ -12,7 +12,7 @@ import {
 import {
   handleMcpServerCollectionAction,
   handleMcpServerCollectionLoader,
-} from "~/lib/server/http/mcp/mcp-server-collection-action";
+} from "~/lib/server/infrastructure/mcp/mcp-server-collection-action";
 import {
   createMcpServerProfileServiceWithInfrastructure,
 } from "~/lib/server/infrastructure/mcp/mcp-server-profile-service-factory";

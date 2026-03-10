@@ -4,12 +4,12 @@
 import {
   authRequiredResponse,
   methodNotAllowedResponse,
-} from "~/lib/server/http";
+} from "~/lib/server/infrastructure/http/route-transport";
 import {
   installGlobalServerErrorLogging,
 } from "~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway";
 import { readAuthenticatedUser } from "~/lib/server/infrastructure/auth/read-authenticated-user";
-import { handleMcpServerItemAction } from "~/lib/server/http/mcp/mcp-server-item-action";
+import { handleMcpServerItemAction } from "~/lib/server/infrastructure/mcp/mcp-server-item-action";
 import {
   createMcpServerProfileServiceWithInfrastructure,
 } from "~/lib/server/infrastructure/mcp/mcp-server-profile-service-factory";
