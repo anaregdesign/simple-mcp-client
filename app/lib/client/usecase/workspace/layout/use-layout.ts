@@ -5,6 +5,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
+  applyMainSplitterBodyStyle,
+  installWindowPointerDragListeners,
+  installWindowResizeListener,
+} from "~/lib/client/infrastructure/browser/workspace-layout";
+import {
   CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
 } from "~/lib/constants/client";
 import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/layout/main-splitter";
@@ -14,6 +19,7 @@ const DEFAULT_RIGHT_PANE_WIDTH_PX = 420;
 
 export function useWorkspaceLayout() {
   const layoutRef = useRef<HTMLDivElement | null>(null);
+  const activeResizeCleanupRef = useRef<(() => void) | null>(null);
   const [rightPaneWidth, setRightPaneWidth] = useState(
     DEFAULT_RIGHT_PANE_WIDTH_PX,
   );
@@ -22,19 +28,7 @@ export function useWorkspaceLayout() {
   );
 
   useEffect(() => {
-    const body = document.body;
-    const previousCursor = body.style.cursor;
-    const previousUserSelect = body.style.userSelect;
-
-    if (activeResizeHandle === "main") {
-      body.style.cursor = "col-resize";
-      body.style.userSelect = "none";
-    }
-
-    return () => {
-      body.style.cursor = previousCursor;
-      body.style.userSelect = previousUserSelect;
-    };
+    return applyMainSplitterBodyStyle(activeResizeHandle === "main");
   }, [activeResizeHandle]);
 
   useEffect(() => {
@@ -56,9 +50,13 @@ export function useWorkspaceLayout() {
     };
 
     handleResize();
-    window.addEventListener("resize", handleResize);
+    return installWindowResizeListener(handleResize);
+  }, []);
+
+  useEffect(() => {
     return () => {
-      window.removeEventListener("resize", handleResize);
+      activeResizeCleanupRef.current?.();
+      activeResizeCleanupRef.current = null;
     };
   }, []);
 
@@ -86,16 +84,14 @@ export function useWorkspaceLayout() {
       );
     };
 
-    const stopResizing = () => {
-      setActiveResizeHandle(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopResizing);
-      window.removeEventListener("pointercancel", stopResizing);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopResizing);
-    window.addEventListener("pointercancel", stopResizing);
+    activeResizeCleanupRef.current?.();
+    activeResizeCleanupRef.current = installWindowPointerDragListeners({
+      onPointerMove: handlePointerMove,
+      onPointerEnd: () => {
+        activeResizeCleanupRef.current = null;
+        setActiveResizeHandle(null);
+      },
+    });
   }
 
   return {
