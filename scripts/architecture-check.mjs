@@ -164,13 +164,26 @@ const checks = [
   {
     key: "threadSaveSignatureRefAccess",
     description:
-      "use-workspace and background-effects must use thread save-signature accessors instead of touching the ref map directly.",
+      "use-workspace, background-effects, and persistence-controller must use thread save-signature accessors instead of touching the ref map directly.",
     command: "rg",
     args: [
       "-n",
       "threadSaveSignatureByIdRef\\.current\\.(get|set)",
       "app/lib/client/usecase/workspace/use-workspace.ts",
       "app/lib/client/usecase/workspace/threads/background-effects.ts",
+      "app/lib/client/usecase/workspace/threads/thread-persistence-controller.ts",
+    ],
+  },
+  {
+    key: "threadSaveSignatureRefOwnership",
+    description:
+      "threadSaveSignatureByIdRef must stay private to use-shell instead of leaking into persistence composition.",
+    command: "rg",
+    args: [
+      "-n",
+      "threadSaveSignatureByIdRef",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+      "app/lib/client/usecase/workspace/threads/thread-persistence-controller.ts",
     ],
   },
   {
