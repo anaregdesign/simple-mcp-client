@@ -4,7 +4,7 @@ import {
 } from "~/lib/domain/value-objects/thread-instruction-context";
 import {
   cloneThreadInstructionContexts,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type {
   InstructionEnhanceComparison,
 } from "~/lib/client/usecase/workspace/types";

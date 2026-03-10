@@ -15,8 +15,8 @@ import {
   cloneThreadOperationLogs,
   cloneThreadSkillActivations,
   hasThreadPersistableState,
-  type ThreadState,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES } from "~/lib/domain/value-objects/thread-instruction-context";
 import type { ThreadMessage } from "~/lib/contracts/chat/messages";
 import type { ThreadOperationLogEntry } from "~/lib/contracts/chat/operation-log";

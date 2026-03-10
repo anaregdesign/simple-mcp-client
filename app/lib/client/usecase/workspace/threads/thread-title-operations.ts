@@ -7,7 +7,7 @@ import type {
   AzureConnectionView,
   ReasoningEffort,
 } from "~/lib/client/usecase/workspace/view-types";
-import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-state";
+import { hasThreadInteraction } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import {
   buildThreadAutoTitlePlaygroundContent,
   normalizeThreadAutoTitle,

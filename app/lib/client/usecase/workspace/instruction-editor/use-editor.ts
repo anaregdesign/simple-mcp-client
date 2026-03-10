@@ -4,7 +4,7 @@ import {
 } from "react";
 import {
   cloneThreadInstructionContexts,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   createInitialInstructionEditorState,

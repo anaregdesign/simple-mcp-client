@@ -45,6 +45,11 @@ import {
   installGlobalClientErrorLogging,
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
+  isThreadArchivedById,
+  updateThreadStateCollectionById,
+  type ThreadState,
+} from "~/lib/client/usecase/workspace/threads/thread-state";
+import {
   cloneThreadEnvironment,
   cloneThreadInstructionContexts,
   buildThreadSaveSignature,
@@ -54,10 +59,7 @@ import {
   cloneThreadSkillActivations,
   hasThreadInteraction,
   hasThreadPersistableState,
-  isThreadArchivedById,
-  updateThreadStateCollectionById,
-  type ThreadState,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
 import {
   DEFAULT_THREAD_INSTRUCTION_CONTEXT_TOGGLES,

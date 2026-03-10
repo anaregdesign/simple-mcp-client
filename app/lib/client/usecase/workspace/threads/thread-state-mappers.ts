@@ -27,6 +27,8 @@ import {
   cloneThreadInstructionContexts,
   cloneThreadOperationLogs,
   cloneThreadSkillActivations,
+} from "./thread-save-state";
+import {
   type ThreadState,
   type ThreadSummary,
 } from "./thread-state";

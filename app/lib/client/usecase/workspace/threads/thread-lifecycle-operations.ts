@@ -6,8 +6,8 @@ import {
   buildThreadSaveSignature,
   hasThreadInteraction,
   hasThreadPersistableState,
-  upsertThreadState,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import { upsertThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import {
   ClientApiError,
   mapApiError,

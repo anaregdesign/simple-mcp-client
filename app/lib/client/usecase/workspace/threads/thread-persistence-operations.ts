@@ -8,6 +8,8 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
 import {
   buildThreadSaveSignature,
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import {
   type ThreadState,
   upsertThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";

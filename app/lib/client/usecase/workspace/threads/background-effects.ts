@@ -8,8 +8,8 @@ import { THREAD_NAME_MAX_LENGTH } from "~/lib/constants/client";
 import {
   buildThreadSaveSignature,
   hasThreadInteraction,
-  type ThreadState,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
+import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import { canStartThreadOperation } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";

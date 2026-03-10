@@ -21,7 +21,7 @@ import {
   cloneThreadInstructionContexts,
   cloneThreadOperationLogs,
   cloneThreadSkillActivations,
-} from "~/lib/client/usecase/workspace/threads/thread-state";
+} from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type {
