@@ -28,10 +28,13 @@ If sign-in is required, complete Azure authentication from the app before using 
 The contributor architecture source of truth is:
 
 - [`AGENTS.md`](AGENTS.md)
+- [`skills/enforce-react-spa-architecture/SKILL.md`](skills/enforce-react-spa-architecture/SKILL.md)
 
 Current workspace UI behavior baseline for post-refactor bug fixing:
 
 - [`workspace-ui-behavior-baseline.md`](docs/architecture/workspace-ui-behavior-baseline.md)
+
+There is intentionally no competing architecture migration doc under `docs/architecture/`. Durable architecture rules live in `AGENTS.md` and the skill; the baseline doc records current UI behavior only.
 
 Stable contributor rules:
 

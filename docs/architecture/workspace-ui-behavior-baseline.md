@@ -255,3 +255,24 @@ This baseline is intentionally conservative. If behavior changes after the archi
 1. the behavior was broken by the refactor,
 2. the previous behavior was a known quirk worth correcting, or
 3. the baseline doc itself needs to be updated because the product decision changed.
+
+## Manual Smoke Matrix
+
+Use this checklist after large internal refactors. The goal is to confirm that current user-visible behavior still matches the baseline above.
+
+| Area | User action | Expected visible result |
+| --- | --- | --- |
+| Auth gate | Launch the app while Azure auth is required | `UnauthenticatedPanel` renders instead of the split workspace |
+| Threads | Create a new thread | Playground header changes to the new thread and the Threads tab marks it active |
+| Threads | Switch to another active thread | Messages, instruction state, MCP servers, and selected thread skills all swap together |
+| Threads | Archive and restore a thread | The thread moves between active and archived lists without losing its snapshot |
+| Instruction editor | `Load File` with a local prompt file | Instruction textarea and loaded file name update together |
+| Instruction editor | `Save` the current prompt | Success or error feedback appears in the Threads tab instruction section |
+| Playground | Send a message | Progress messages appear and a new assistant response is appended |
+| Playground | Wait for title suggestion after thread activity | Thread title updates in the Playground header and Threads tab |
+| Azure settings | Sign in, switch tenant, and reload catalog | Settings selectors reload and Azure-dependent workspace state refreshes |
+| Azure settings | Change Playground project or deployment | Composer Azure selectors update and the deployment list follows the chosen project |
+| MCP Servers | Add or remove a saved profile, then connect it to the active thread | MCP tab updates immediately and the Playground MCP bubble list matches the active thread |
+| Skills | Add or remove thread skills and message skill activations | Skills tab and Playground bubble groups stay in sync |
+| Desktop updater | Check for updates | Playground header shows the current updater status or action feedback |
+| Error handling | Trigger an auth or mutation failure | Error text appears in the owning feature region instead of a global catch-all area |
