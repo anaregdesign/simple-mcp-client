@@ -640,6 +640,28 @@ const checks = [
     ],
   },
   {
+    key: "skillCatalogControllerRefOwnership",
+    description:
+      "skills-catalog controller must stay callback-first and must not own raw ref access.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|activeWorkspaceUserKeyRef|skillsRequestSeqRef|lastManualSkillsReloadAtRef",
+      "app/lib/client/usecase/workspace/skills-catalog/controller.ts",
+    ],
+  },
+  {
+    key: "skillCatalogHookRefSurfaceOwnership",
+    description:
+      "use-skill-catalog must expose reader callbacks instead of taking workspace user refs through its public surface.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|activeWorkspaceUserKeyRef",
+      "app/lib/client/usecase/workspace/skills-catalog/use-skill-catalog.ts",
+    ],
+  },
+  {
     key: "legacyWorkspaceViewTypesFile",
     description:
       "workspace generic view-types.ts bucket must stay retired in favor of feature-local view type owners.",
