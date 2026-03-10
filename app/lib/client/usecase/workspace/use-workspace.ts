@@ -80,7 +80,6 @@ import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-
 import { buildWorkspaceConfigPanelProps } from "~/lib/client/usecase/workspace/config-panel/panel-props";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/panel-props";
 import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
-import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-editor/instruction-runtime";
 import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-editor";
 import {
   canTransition,
@@ -131,6 +130,9 @@ import {
 import {
   createInstructionPromptHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
+import {
+  selectInstructionEditorViewModel,
+} from "~/lib/client/usecase/workspace/instruction-editor/selectors";
 import {
   createMcpProfileHandlers,
 } from "~/lib/client/usecase/workspace/mcp-profiles/handlers";
@@ -506,17 +508,30 @@ export function useWorkspace() {
     webSearchEnabled,
   });
   const isChatLocked = isAzureAuthRequired;
-  const instructionRuntimeUiState = deriveInstructionRuntimeUiState({
-    agentInstruction,
-    loadedInstructionFileName,
-    instructionFileError,
-  });
-  const canClearAgentInstruction =
-    instructionRuntimeUiState.hasInstructionInteraction;
-  const canSaveAgentInstructionPrompt =
-    instructionRuntimeUiState.canSaveAgentInstructionPrompt;
-  const canEnhanceAgentInstruction =
-    instructionRuntimeUiState.canEnhanceAgentInstruction;
+  const {
+    canClearAgentInstruction,
+    canSaveAgentInstructionPrompt,
+    canEnhanceAgentInstruction,
+    isEnhancingInstructionForActiveThread,
+  } = useMemo(
+    () =>
+      selectInstructionEditorViewModel({
+        agentInstruction,
+        loadedInstructionFileName,
+        instructionFileError,
+        isEnhancingInstruction,
+        instructionEnhancingThreadId,
+        activeThreadId,
+      }),
+    [
+      activeThreadId,
+      agentInstruction,
+      instructionEnhancingThreadId,
+      instructionFileError,
+      isEnhancingInstruction,
+      loadedInstructionFileName,
+    ],
+  );
   const sendProgressMessages = activeThreadRequestState.sendProgressMessages;
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
@@ -645,10 +660,6 @@ export function useWorkspace() {
       workspaceMcpServerProfiles,
     ],
   );
-  const isEnhancingInstructionForActiveThread =
-    isEnhancingInstruction &&
-    instructionEnhancingThreadId.length > 0 &&
-    instructionEnhancingThreadId === activeThreadId;
   const {
     draftAttachmentTotalSizeBytes,
     draftPdfAttachmentTotalSizeBytes,
