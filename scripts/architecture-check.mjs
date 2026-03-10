@@ -473,6 +473,28 @@ const checks = [
     ],
   },
   {
+    key: "azureSettingsEffectRefSurfaceOwnership",
+    description:
+      "azure-settings effect Hook must expose reader/writer callbacks instead of raw workspace refs.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|activeAzureTenantIdRef|activeAzurePrincipalIdRef|activeWorkspaceUserKeyRef|selectedPlaygroundAzureConnectionIdRef|selectedPlaygroundAzureDeploymentNameRef|selectedUtilityAzureConnectionIdRef|selectedUtilityAzureDeploymentNameRef",
+      "app/lib/client/usecase/workspace/azure-settings/use-azure-settings-effects.ts",
+    ],
+  },
+  {
+    key: "azureSettingsPublicOptionRefOwnership",
+    description:
+      "UseAzureSettingsOptions must expose reader/writer callbacks instead of raw workspace ref properties.",
+    command: "rg",
+    args: [
+      "-n",
+      "activeAzureTenantIdRef|activeAzurePrincipalIdRef|activeWorkspaceUserKeyRef|selectedPlaygroundAzureConnectionIdRef|selectedPlaygroundAzureDeploymentNameRef|selectedUtilityAzureConnectionIdRef|selectedUtilityAzureDeploymentNameRef",
+      "app/lib/client/usecase/workspace/azure-settings/types.ts",
+    ],
+  },
+  {
     key: "legacyConfigPanelPropsFile",
     description:
       "config-panel generic panel-props.ts wrapper must stay retired.",
@@ -659,6 +681,17 @@ const checks = [
       "-n",
       "MutableRefObject|activeWorkspaceUserKeyRef",
       "app/lib/client/usecase/workspace/skills-catalog/use-skill-catalog.ts",
+    ],
+  },
+  {
+    key: "chatSessionControllerRefOwnership",
+    description:
+      "chat-session controller must stay callback-first and must not own raw thread or azure refs.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|activeThreadIdRef|activeAzureTenantIdRef|threadsRef",
+      "app/lib/client/usecase/workspace/chat-session/controller.ts",
     ],
   },
   {
