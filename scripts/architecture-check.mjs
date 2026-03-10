@@ -609,14 +609,26 @@ const checks = [
     ],
   },
   {
-    key: "workspaceViewTypeScalarAliases",
+    key: "legacyWorkspaceViewTypesFile",
     description:
-      "view-types.ts must not re-export domain scalar aliases such as ThemeMode, ReasoningEffort, or McpTransport.",
+      "workspace generic view-types.ts bucket must stay retired in favor of feature-local view type owners.",
+    rootPath: "app/lib/client/usecase/workspace/view-types.ts",
+    command: "rg",
+    args: ["--files", "app/lib/client/usecase/workspace/view-types.ts"],
+  },
+  {
+    key: "workspaceLegacyViewTypeImports",
+    description:
+      "workspace features must not import the retired generic workspace/view-types.ts bucket.",
     command: "rg",
     args: [
       "-n",
-      "export type \\{ McpTransport, ReasoningEffort \\}|export type ThemeMode =",
-      "app/lib/client/usecase/workspace/view-types.ts",
+      "from ['\\\"]~/lib/client/usecase/workspace/view-types['\\\"]",
+      "app",
+      "--glob",
+      "!**/*.test.ts",
+      "--glob",
+      "!**/*.test.tsx",
     ],
   },
   {
