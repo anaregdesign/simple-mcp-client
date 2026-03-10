@@ -4,7 +4,10 @@ import type {
   AzureProjectOption,
 } from "./parsers";
 import type { ReasoningEffort } from "~/lib/client/usecase/workspace/view-types";
-import { readAzureDeploymentCacheKey, readAzureTenantCacheKey } from "./handlers";
+import {
+  readAzureDeploymentCacheKey,
+  readAzureTenantCacheKey,
+} from "./runtime";
 import type { AzureSettingsState } from "./types";
 
 export function selectActiveAzureConnection(

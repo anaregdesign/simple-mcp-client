@@ -3,7 +3,7 @@ import {
   readNextDeploymentCatalogCache,
   readNextProjectCatalogCache,
   readAzureTenantCacheKey,
-} from "./handlers";
+} from "./runtime";
 import type {
   AzureProjectCatalogCacheEntry,
   AzureSettingsState,
