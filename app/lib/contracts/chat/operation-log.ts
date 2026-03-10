@@ -182,6 +182,32 @@ export function readThreadOperationLogEntryFromUnknown(
   };
 }
 
+export function readPersistedThreadOperationLogEntryFromUnknown(
+  value: unknown,
+  options: {
+    allowedKeys?: ReadonlySet<string>;
+  } = {},
+): ThreadOperationLogEntry | null {
+  const parsed = readThreadOperationLogEntryFromUnknown(value);
+  if (!parsed || !isRecord(value)) {
+    return null;
+  }
+
+  if (options.allowedKeys && !hasOnlyAllowedKeys(value, options.allowedKeys)) {
+    return null;
+  }
+
+  const turnId = typeof value.turnId === "string" ? value.turnId.trim() : "";
+  if (!turnId) {
+    return null;
+  }
+
+  return {
+    ...parsed,
+    turnId,
+  };
+}
+
 export function upsertThreadOperationLogEntry(
   current: ThreadOperationLogEntry[],
   entry: ThreadOperationLogEntry,
@@ -322,6 +348,13 @@ export function collectSuccessfulSkillGuideLocations(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
+}
+
+function hasOnlyAllowedKeys(
+  value: Record<string, unknown>,
+  allowedKeys: ReadonlySet<string>,
+): boolean {
+  return Object.keys(value).every((key) => allowedKeys.has(key));
 }
 
 function readJsonRpcResponseResult(value: unknown): Record<string, unknown> | null {

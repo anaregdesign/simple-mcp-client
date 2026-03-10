@@ -6,7 +6,7 @@ import {
   type ThreadMessage,
 } from "~/lib/contracts/chat/messages";
 import {
-  readThreadOperationLogEntryFromUnknown as readThreadOperationLogEntryFromStream,
+  readPersistedThreadOperationLogEntryFromUnknown,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import {
@@ -40,15 +40,6 @@ const threadWritePayloadAllowedKeys = new Set([
 ]);
 
 const threadInstructionAllowedKeys = new Set(["content"]);
-const threadMessageAllowedKeys = new Set([
-  "id",
-  "role",
-  "content",
-  "createdAt",
-  "turnId",
-  "attachments",
-  "skillActivations",
-]);
 const threadOperationLogAllowedKeys = new Set([
   "id",
   "sequence",
@@ -241,7 +232,9 @@ function readThreadOperationLogEntryList(value: unknown): ThreadOperationLogEntr
   const seenIds = new Set<string>();
 
   for (const entry of value) {
-    const parsed = readThreadOperationLogEntryFromUnknown(entry);
+    const parsed = readPersistedThreadOperationLogEntryFromUnknown(entry, {
+      allowedKeys: threadOperationLogAllowedKeys,
+    });
     if (!parsed || seenIds.has(parsed.id)) {
       continue;
     }
@@ -252,36 +245,6 @@ function readThreadOperationLogEntryList(value: unknown): ThreadOperationLogEntr
 
   return entries;
 }
-
-function readThreadOperationLogEntryFromUnknown(value: unknown): ThreadOperationLogEntry | null {
-  const parsed = readThreadOperationLogEntryFromStream(value);
-  if (!parsed || !isRecord(value) || !hasOnlyAllowedKeys(value, threadOperationLogAllowedKeys)) {
-    return null;
-  }
-
-  const turnId = readTrimmedString(value.turnId);
-  if (!turnId) {
-    return null;
-  }
-
-  return {
-    ...parsed,
-    turnId,
-  };
-}
-
-function readJsonValue<T>(value: string | null | undefined, fallback: T): T {
-  if (typeof value !== "string") {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 function hasOnlyAllowedKeys(
   value: Record<string, unknown>,
   allowedKeys: ReadonlySet<string>,
