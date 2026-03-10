@@ -151,6 +151,21 @@ const checks = [
     ],
   },
   {
+    key: "threadSaveEntrySignatureDuplication",
+    description:
+      "Thread lifecycle and chat-session callers must not assemble save signatures or depend on legacy saved-signature callbacks.",
+    command: "rg",
+    args: [
+      "-n",
+      "buildThreadSaveSignature|hasSavedThreadSignature|signature: string",
+      "app/lib/client/usecase/workspace/threads/thread-lifecycle-operations.ts",
+      "app/lib/client/usecase/workspace/threads/thread-lifecycle-types.ts",
+      "app/lib/client/usecase/workspace/chat-session/operations.ts",
+      "app/lib/client/usecase/workspace/chat-session/controller.ts",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
