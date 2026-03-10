@@ -214,6 +214,18 @@ const checks = [
     ],
   },
   {
+    key: "threadLoadingRuntimeOwnership",
+    description:
+      "Thread loading controller and composition must use load-status callbacks instead of touching loading refs directly.",
+    command: "rg",
+    args: [
+      "-n",
+      "threadLoadRequestSeqRef|isThreadsReadyRef\\.current",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+      "app/lib/client/usecase/workspace/threads/thread-loading-controller.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
