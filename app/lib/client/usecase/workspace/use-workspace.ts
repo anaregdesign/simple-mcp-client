@@ -41,7 +41,7 @@ import {
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
-  countSelectedWorkspaceMcpServerProfileOptions,
+  selectWorkspaceMcpProfileViewModel,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 import {
   installGlobalClientErrorLogging,
@@ -622,30 +622,28 @@ export function useWorkspace() {
       }),
     [activeTurnId, lastErrorTurnId, mcpRpcLogs],
   );
-  const workspaceMcpServerProfileOptions = useMemo(
+  const {
+    workspaceMcpServerProfileOptions,
+    selectedWorkspaceMcpServerProfileCount,
+    isEditingMcpServer,
+    editingMcpServerName,
+    isMutatingWorkspaceMcpServerProfiles,
+  } = useMemo(
     () =>
-      buildWorkspaceMcpServerProfileOptions(
+      selectWorkspaceMcpProfileViewModel({
         workspaceMcpServerProfiles,
-        mcpServers,
-      ),
-    [workspaceMcpServerProfiles, mcpServers],
-  );
-  const editingMcpServer =
-    editingMcpServerId.trim().length > 0
-      ? (workspaceMcpServerProfiles.find(
-          (server) => server.id === editingMcpServerId,
-        ) ?? null)
-      : null;
-  const isEditingMcpServer = editingMcpServer !== null;
-  const editingMcpServerName = editingMcpServer?.name ?? null;
-  const isMutatingWorkspaceMcpServerProfiles =
-    isSavingMcpServer || isDeletingWorkspaceMcpServerProfile;
-  const selectedWorkspaceMcpServerProfileCount = useMemo(
-    () =>
-      countSelectedWorkspaceMcpServerProfileOptions(
-        workspaceMcpServerProfileOptions,
-      ),
-    [workspaceMcpServerProfileOptions],
+        activeMcpServers: mcpServers,
+        editingMcpServerId,
+        isSavingMcpServer,
+        isDeletingWorkspaceMcpServerProfile,
+      }),
+    [
+      editingMcpServerId,
+      isDeletingWorkspaceMcpServerProfile,
+      isSavingMcpServer,
+      mcpServers,
+      workspaceMcpServerProfiles,
+    ],
   );
   const isEnhancingInstructionForActiveThread =
     isEnhancingInstruction &&

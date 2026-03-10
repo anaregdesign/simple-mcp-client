@@ -8,6 +8,7 @@ import {
   describeWorkspaceMcpServerProfile,
   describeWorkspaceMcpServerProfileDetail,
   resolveMcpTransportBadge,
+  selectWorkspaceMcpProfileViewModel,
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
 
@@ -199,5 +200,45 @@ describe("countSelectedWorkspaceMcpServerProfileOptions", () => {
         },
       ]),
     ).toBe(1);
+  });
+});
+
+describe("selectWorkspaceMcpProfileViewModel", () => {
+  it("derives editing and mutation flags from profile state", () => {
+    const saved = [
+      {
+        id: "server-1",
+        name: "Alpha",
+        transport: "streamable_http" as const,
+        url: "https://example.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      },
+      {
+        id: "server-2",
+        name: "Beta",
+        transport: "stdio" as const,
+        command: "npx",
+        args: ["-y", "@playwright/mcp"],
+        env: {},
+      },
+    ];
+
+    const viewModel = selectWorkspaceMcpProfileViewModel({
+      workspaceMcpServerProfiles: saved,
+      activeMcpServers: [saved[0]!],
+      editingMcpServerId: "server-2",
+      isSavingMcpServer: false,
+      isDeletingWorkspaceMcpServerProfile: true,
+    });
+
+    expect(viewModel.workspaceMcpServerProfileOptions).toHaveLength(2);
+    expect(viewModel.selectedWorkspaceMcpServerProfileCount).toBe(1);
+    expect(viewModel.editingMcpServer).toEqual(saved[1]);
+    expect(viewModel.isEditingMcpServer).toBe(true);
+    expect(viewModel.editingMcpServerName).toBe("Beta");
+    expect(viewModel.isMutatingWorkspaceMcpServerProfiles).toBe(true);
   });
 });

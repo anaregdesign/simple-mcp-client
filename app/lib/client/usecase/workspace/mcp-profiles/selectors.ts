@@ -16,6 +16,15 @@ export type WorkspaceMcpServerProfileOption = {
   isAvailable: boolean;
 };
 
+export type WorkspaceMcpProfileViewModel = {
+  workspaceMcpServerProfileOptions: WorkspaceMcpServerProfileOption[];
+  selectedWorkspaceMcpServerProfileCount: number;
+  editingMcpServer: McpServerConfig | null;
+  isEditingMcpServer: boolean;
+  editingMcpServerName: string | null;
+  isMutatingWorkspaceMcpServerProfiles: boolean;
+};
+
 /**
  * Schedules a retry only when auth was previously required and the workspace identity is known.
  */
@@ -61,6 +70,38 @@ export function buildWorkspaceMcpServerProfileOptions(
  */
 export function countSelectedWorkspaceMcpServerProfileOptions(options: WorkspaceMcpServerProfileOption[]): number {
   return options.filter((option) => option.isSelected).length;
+}
+
+export function selectWorkspaceMcpProfileViewModel(options: {
+  workspaceMcpServerProfiles: McpServerConfig[];
+  activeMcpServers: McpServerConfig[];
+  editingMcpServerId: string;
+  isSavingMcpServer: boolean;
+  isDeletingWorkspaceMcpServerProfile: boolean;
+}): WorkspaceMcpProfileViewModel {
+  const workspaceMcpServerProfileOptions = buildWorkspaceMcpServerProfileOptions(
+    options.workspaceMcpServerProfiles,
+    options.activeMcpServers,
+  );
+  const editingMcpServer =
+    options.editingMcpServerId.trim().length > 0
+      ? (options.workspaceMcpServerProfiles.find(
+          (server) => server.id === options.editingMcpServerId,
+        ) ?? null)
+      : null;
+
+  return {
+    workspaceMcpServerProfileOptions,
+    selectedWorkspaceMcpServerProfileCount:
+      countSelectedWorkspaceMcpServerProfileOptions(
+        workspaceMcpServerProfileOptions,
+      ),
+    editingMcpServer,
+    isEditingMcpServer: editingMcpServer !== null,
+    editingMcpServerName: editingMcpServer?.name ?? null,
+    isMutatingWorkspaceMcpServerProfiles:
+      options.isSavingMcpServer || options.isDeletingWorkspaceMcpServerProfile,
+  };
 }
 
 /**
