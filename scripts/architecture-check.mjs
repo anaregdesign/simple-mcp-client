@@ -1,25 +1,14 @@
 /**
  * Repo-wide architecture audit script.
- *
- * By default this script enforces "no new findings" relative to the checked-in
- * baseline so large refactors can land in reviewable waves. Set
- * ARCHITECTURE_CHECK_STRICT=1 to require zero findings.
  */
 import fs from "node:fs/promises";
-import path from "node:path";
 import process from "node:process";
+import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFile = promisify(execFileCallback);
 const workspaceRoot = process.cwd();
-const baselinePath = path.join(
-  workspaceRoot,
-  "scripts",
-  "architecture-check-baseline.json",
-);
-const strictMode = process.env.ARCHITECTURE_CHECK_STRICT === "1";
-const shouldWriteBaseline = process.argv.includes("--write-baseline");
 
 const checks = [
   {
@@ -40,12 +29,14 @@ const checks = [
   {
     key: "serverHttpFiles",
     description: "Legacy app/lib/server/http files should be retired.",
+    rootPath: "app/lib/server/http",
     command: "rg",
     args: ["--files", "app/lib/server/http"],
   },
   {
     key: "clientChatFiles",
     description: "Legacy app/lib/client/chat files should be retired.",
+    rootPath: "app/lib/client/chat",
     command: "rg",
     args: ["--files", "app/lib/client/chat"],
   },
@@ -101,64 +92,32 @@ const checks = [
 ];
 
 async function main() {
-  const baseline = await readBaseline();
   const report = {};
-  let hasNewFindings = false;
   let hasAnyFindings = false;
-  const nextBaseline = {};
 
   for (const check of checks) {
     const actual = await runCheck(check);
-    const expected = normalizeFindings(baseline[check.key]);
-    const unexpected = actual.filter((item) => !expected.includes(item));
-    const resolved = expected.filter((item) => !actual.includes(item));
     const hasFindings = actual.length > 0;
     hasAnyFindings ||= hasFindings;
-    hasNewFindings ||= unexpected.length > 0;
-    nextBaseline[check.key] = actual;
 
     report[check.key] = {
       description: check.description,
       actual,
-      unexpected,
-      resolved,
     };
-  }
-
-  if (shouldWriteBaseline) {
-    await fs.writeFile(
-      baselinePath,
-      `${JSON.stringify(nextBaseline, null, 2)}\n`,
-      "utf8",
-    );
   }
 
   printReport(report);
 
-  if (strictMode && hasAnyFindings) {
+  if (hasAnyFindings) {
     process.exitCode = 1;
-    return;
-  }
-
-  if (hasNewFindings) {
-    process.exitCode = 1;
-  }
-}
-
-async function readBaseline() {
-  try {
-    const source = await fs.readFile(baselinePath, "utf8");
-    const parsed = JSON.parse(source);
-    return typeof parsed === "object" && parsed ? parsed : {};
-  } catch (error) {
-    if (isMissingFileError(error)) {
-      return {};
-    }
-    throw error;
   }
 }
 
 async function runCheck(check) {
+  if (check.rootPath && !(await pathExists(path.join(workspaceRoot, check.rootPath)))) {
+    return [];
+  }
+
   try {
     const { stdout } = await execFile(check.command, check.args, {
       cwd: workspaceRoot,
@@ -171,6 +130,15 @@ async function runCheck(check) {
       return normalizeFindings(error.stdout?.split("\n") ?? []);
     }
     throw error;
+  }
+}
+
+async function pathExists(targetPath) {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -190,17 +158,9 @@ function printReport(report) {
     console.log(`\n[${key}] ${section.description}`);
     console.log(`findings: ${count}`);
     for (const finding of section.actual) {
-      const marker = section.unexpected.includes(finding) ? "+" : "=";
-      console.log(`  ${marker} ${finding}`);
-    }
-    for (const finding of section.resolved) {
       console.log(`  - ${finding}`);
     }
   }
-}
-
-function isMissingFileError(error) {
-  return Boolean(error) && typeof error === "object" && error.code === "ENOENT";
 }
 
 main().catch((error) => {

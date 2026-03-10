@@ -36,9 +36,10 @@ Stable contributor rules:
 - shared client/server parsing and contract logic belongs in `app/lib/contracts/`
 - framework-independent model behavior belongs in `app/lib/domain/`
 - server-only integrations belong in `app/lib/server/infrastructure/`
-- route modules should stay thin and delegate reusable logic to `app/lib/server/`
+- route modules should stay thin and delegate reusable logic to `app/lib/server/usecase/` and `app/lib/server/infrastructure/`
 - Prisma vocabulary is the naming source of truth
 - legacy prefixes that still remain in the codebase should not be copied into new names
+- `npm run architecture:check` is a strict zero-findings gate, not a baseline drift check
 
 ## Runtime Model
 
@@ -52,6 +53,7 @@ Stable contributor rules:
 
 ```bash
 npm run dev
+npm run architecture:check
 npm run typecheck:core
 npm run test:core
 npm run quality:gate

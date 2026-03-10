@@ -1,6 +1,6 @@
 # Client-Centered Clean Architecture
 
-This document is the contributor architecture baseline for Local Playground.
+This document is the contributor architecture source of truth for Local Playground.
 
 Use it together with:
 
@@ -106,7 +106,7 @@ Current examples:
 
 Server-side logic only.
 
-Target structure:
+Current structure:
 
 ```text
 app/lib/server/
@@ -114,11 +114,8 @@ app/lib/server/
   infrastructure/
 ```
 
-Migration residue still exists under additional `app/lib/server/*` directories such as `auth/`, `chat/`, `mcp/`, `observability/`, and `skills/`. When touching those areas:
-
-- prefer extracting reusable logic into `usecase/` or `infrastructure/`
-- avoid creating new legacy top-level siblings
-- avoid expanding route-local helper sprawl
+Keep route transport helpers, persistence implementations, gateway adapters, and auth/config infrastructure under `infrastructure/`.
+Do not recreate `app/lib/server/http/` or any other peer root under `app/lib/server/`.
 
 ## Dependency Rules
 
@@ -161,7 +158,7 @@ Examples:
 
 Use `app/lib/contracts/` for shared parsing and validation logic rather than recreating feature roots.
 
-Contracts should expose explicit DTO and resource shapes. Do not leak Prisma model types into `contracts`.
+Contracts should expose explicit DTO, Request, and Response shapes. Do not leak Prisma model types into `contracts`.
 
 Examples:
 
@@ -181,6 +178,13 @@ When adding new behavior:
 - do not add reusable orchestration to these files if an extracted module is possible
 - prefer feature-local usecase modules, `client/infrastructure/api`, `client/infrastructure/browser`, selector helpers, and server-side usecase modules
 - keep route files focused on parsing, dispatch, and response wiring
+
+## Verification Gate
+
+- `npm run architecture:check` must stay at zero findings.
+- Run focused `rg` drift checks after each meaningful refactor batch.
+- Run `npm run typecheck:core` after touched route or shared contract changes.
+- Run `npm run quality:gate` before finalizing broader architecture batches.
 
 ## Class Policy
 
