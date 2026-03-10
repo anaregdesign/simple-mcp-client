@@ -17,7 +17,6 @@ import type {
 import {
   CHAT_ATTACHMENT_ALLOWED_EXTENSIONS,
   DEFAULT_AGENT_INSTRUCTION,
-  DEFAULT_REASONING_EFFORT,
   DEFAULT_WEB_SEARCH_ENABLED,
   THREAD_DEFAULT_NAME,
 } from "~/lib/constants/chat";
@@ -124,14 +123,8 @@ import {
 import { threadTitleApiClient } from "~/lib/client/infrastructure/api/thread-title-api-client";
 import { threadsApiClient } from "~/lib/client/infrastructure/api/threads-api-client";
 import {
-  filterReasoningEffortOptionsForDeploymentCompatibility,
-  filterReasoningEffortOptionsForWebSearch,
-  includesAzureDeploymentName,
-  isWebSearchCompatibleReasoningEffort,
-  resolveEffectiveReasoningEffort,
-  resolveSupportedReasoningEffortOptions,
-} from "~/lib/client/usecase/workspace/azure-settings/selectors";
-import { useAzureSettings } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
+  useWorkspaceAzure,
+} from "~/lib/client/usecase/workspace/azure-settings/use-workspace-azure";
 import {
   buildUnauthenticatedPanelProps,
 } from "~/lib/client/usecase/workspace/unauthenticated-panel/selectors";
@@ -480,8 +473,13 @@ export function useWorkspace() {
     azureLoginError,
     azureTenantSwitchError,
     azureLogoutError,
+    effectivePlaygroundReasoningEffortOptions,
     effectiveUtilityReasoningEffortOptions,
     effectiveUtilityReasoningEffort,
+    isPlaygroundReasoningEffortSupported,
+    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+    isSelectedPlaygroundReasoningEffortOptionAvailable,
+    isPlaygroundReasoningEffortWebSearchCompatible,
     isUtilityReasoningEffortSupported,
     clearAzureSessionStatus,
     markAzureAuthRequired,
@@ -498,7 +496,10 @@ export function useWorkspace() {
     handleSelectUtilityDeployment,
     handleUtilityReasoningEffortChange: handleAzureUtilityReasoningEffortChange,
     loadAzureProjects,
-  } = useAzureSettings({
+    isPlaygroundDeploymentAvailable,
+    isUtilityDeploymentAvailable,
+    isPlaygroundReasoningEffortOptionAvailable,
+  } = useWorkspaceAzure({
     isSending,
     readIsThreadsReady: () => isThreadsReadyRef.current,
     readIsLoadingThreads: () => isLoadingThreads,
@@ -526,6 +527,8 @@ export function useWorkspace() {
     loadThreads,
     logClientError,
     logClientWarning,
+    reasoningEffort,
+    webSearchEnabled,
   });
   const isChatLocked = isAzureAuthRequired;
   const instructionRuntimeUiState = deriveInstructionRuntimeUiState({
@@ -539,37 +542,6 @@ export function useWorkspace() {
     instructionRuntimeUiState.canSaveAgentInstructionPrompt;
   const canEnhanceAgentInstruction =
     instructionRuntimeUiState.canEnhanceAgentInstruction;
-  const selectedPlaygroundAzureDeployment = playgroundAzureDeployments.find(
-    (deployment) => deployment.name === selectedPlaygroundAzureDeploymentName,
-  );
-  const selectedUtilityAzureDeployment = utilityAzureDeployments.find(
-    (deployment) => deployment.name === selectedUtilityAzureDeploymentName,
-  );
-  const selectedPlaygroundDeploymentReasoningEffortOptions =
-    resolveSupportedReasoningEffortOptions(
-      selectedPlaygroundAzureDeployment?.reasoningEffortOptions ?? [],
-    );
-  const selectedPlaygroundDeploymentCompatibleReasoningEffortOptions =
-    filterReasoningEffortOptionsForDeploymentCompatibility(
-      selectedPlaygroundDeploymentReasoningEffortOptions,
-      selectedPlaygroundAzureDeploymentName,
-    );
-  const isPlaygroundReasoningEffortSupported =
-    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions.length > 0;
-  const effectivePlaygroundReasoningEffortOptions: ReasoningEffort[] =
-    isPlaygroundReasoningEffortSupported
-      ? filterReasoningEffortOptionsForWebSearch(
-          selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
-          webSearchEnabled,
-        )
-      : [DEFAULT_REASONING_EFFORT];
-  const isSelectedPlaygroundReasoningEffortOptionAvailable =
-    !isPlaygroundReasoningEffortSupported ||
-    effectivePlaygroundReasoningEffortOptions.includes(reasoningEffort);
-  const isPlaygroundReasoningEffortWebSearchCompatible =
-    !webSearchEnabled ||
-    !isPlaygroundReasoningEffortSupported ||
-    isWebSearchCompatibleReasoningEffort(reasoningEffort);
   const sendProgressMessages = activeThreadRequestState.sendProgressMessages;
   const activeTurnId = activeThreadRequestState.activeTurnId;
   const lastErrorTurnId = activeThreadRequestState.lastErrorTurnId;
@@ -868,8 +840,7 @@ export function useWorkspace() {
     readActiveUtilityAzureConnection: () => activeUtilityAzureConnection,
     readSelectedUtilityAzureDeploymentName: () =>
       selectedUtilityAzureDeploymentName,
-    isSelectedUtilityDeploymentAvailable: (deploymentName) =>
-      includesAzureDeploymentName(utilityAzureDeployments, deploymentName),
+    isSelectedUtilityDeploymentAvailable: isUtilityDeploymentAvailable,
     readAgentInstruction: () => agentInstruction,
     isUtilityReasoningEffortSupported,
     readEffectiveUtilityReasoningEffort: () =>
@@ -897,12 +868,10 @@ export function useWorkspace() {
     readActivePlaygroundAzureConnection: () => activePlaygroundAzureConnection,
     isAzureAuthRequired,
     isLoadingPlaygroundAzureDeployments,
-    isSelectedPlaygroundDeploymentAvailable: (deploymentName) =>
-      includesAzureDeploymentName(playgroundAzureDeployments, deploymentName),
+    isSelectedPlaygroundDeploymentAvailable: isPlaygroundDeploymentAvailable,
     isPlaygroundReasoningEffortSupported,
-    isSelectedPlaygroundReasoningEffortOptionAvailable: (
-      nextReasoningEffort,
-    ) => effectivePlaygroundReasoningEffortOptions.includes(nextReasoningEffort),
+    isSelectedPlaygroundReasoningEffortOptionAvailable:
+      isPlaygroundReasoningEffortOptionAvailable,
     readReasoningEffort: () => reasoningEffort,
     readWebSearchEnabled: () => webSearchEnabled,
     readDraftAttachments: () => draftAttachments,
@@ -1021,8 +990,7 @@ export function useWorkspace() {
     readThreadById: (threadId) =>
       findThreadStateById(threadsRef.current, threadId) ?? undefined,
     isArchivedThread,
-    isSelectedUtilityDeploymentAvailable: (deploymentName: string) =>
-      includesAzureDeploymentName(utilityAzureDeployments, deploymentName),
+    isSelectedUtilityDeploymentAvailable: isUtilityDeploymentAvailable,
     buildThreadStateFromCurrentState,
     shouldPersistThreadState: (thread) => shouldPersistThreadState(thread),
     saveThreadStateToDatabase,
