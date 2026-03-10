@@ -3,9 +3,11 @@ import type {
   AzureProjectOption,
 } from "~/lib/client/usecase/workspace/azure-settings/parsers";
 import type {
-  DesktopUpdaterActionState,
   DesktopUpdaterStatus,
-} from "~/lib/client/usecase/workspace/desktop-updater/runtime";
+} from "~/lib/client/infrastructure/browser/desktop-updater";
+import type {
+  DesktopUpdaterActionState,
+} from "~/lib/client/usecase/workspace/desktop-updater/selectors";
 import type {
   ChatCommandMenuView,
   ReasoningEffort,

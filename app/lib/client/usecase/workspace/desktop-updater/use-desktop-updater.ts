@@ -4,11 +4,15 @@ import {
   useState,
 } from "react";
 import {
-  getDefaultDesktopUpdaterStatus,
   readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
+} from "~/lib/client/infrastructure/browser/desktop-updater";
+import {
   resolveDesktopUpdaterActionState,
-} from "~/lib/client/usecase/workspace/desktop-updater/runtime";
+} from "~/lib/client/usecase/workspace/desktop-updater/selectors";
+import {
+  getDefaultDesktopUpdaterStatus,
+} from "~/lib/client/usecase/workspace/desktop-updater/state";
 
 type ClientErrorLogger = (
   eventName: string,

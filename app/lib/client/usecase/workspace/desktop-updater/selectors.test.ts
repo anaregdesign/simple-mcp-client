@@ -2,7 +2,7 @@
  * Tests for desktop updater state helpers.
  */
 import { describe, expect, it } from "vitest";
-import { resolveDesktopUpdaterActionState } from "~/lib/client/usecase/workspace/desktop-updater/runtime";
+import { resolveDesktopUpdaterActionState } from "~/lib/client/usecase/workspace/desktop-updater/selectors";
 
 describe("resolveDesktopUpdaterActionState", () => {
   it("returns check when no update is available", () => {

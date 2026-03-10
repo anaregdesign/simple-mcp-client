@@ -1,7 +1,3 @@
-/**
- * Desktop updater bridge helpers.
- */
-
 export type DesktopUpdaterStatus = {
   supported: boolean;
   checking: boolean;
@@ -19,39 +15,6 @@ export type DesktopUpdaterApi = {
   onUpdaterStatus: (listener: (status: unknown) => void) => () => void;
   quitAndInstallUpdate: () => Promise<void>;
 };
-
-export type DesktopUpdaterActionState = "check" | "downloading" | "upgrade";
-
-const DEFAULT_DESKTOP_UPDATER_STATUS: DesktopUpdaterStatus = {
-  supported: false,
-  checking: false,
-  updateAvailable: false,
-  updateDownloaded: false,
-  currentVersion: "",
-  availableVersion: "",
-  errorMessage: "",
-  lastCheckedAt: "",
-};
-
-export function getDefaultDesktopUpdaterStatus(): DesktopUpdaterStatus {
-  return {
-    ...DEFAULT_DESKTOP_UPDATER_STATUS,
-  };
-}
-
-export function resolveDesktopUpdaterActionState(
-  status: Pick<DesktopUpdaterStatus, "updateAvailable" | "updateDownloaded">,
-): DesktopUpdaterActionState {
-  if (status.updateDownloaded) {
-    return "upgrade";
-  }
-
-  if (status.updateAvailable) {
-    return "downloading";
-  }
-
-  return "check";
-}
 
 export function readDesktopApi(): DesktopUpdaterApi | null {
   if (typeof window === "undefined") {
@@ -76,7 +39,9 @@ export function readDesktopApi(): DesktopUpdaterApi | null {
   return typedCandidate as DesktopUpdaterApi;
 }
 
-export function readDesktopUpdaterStatusFromUnknown(value: unknown): DesktopUpdaterStatus | null {
+export function readDesktopUpdaterStatusFromUnknown(
+  value: unknown,
+): DesktopUpdaterStatus | null {
   if (!value || typeof value !== "object") {
     return null;
   }
