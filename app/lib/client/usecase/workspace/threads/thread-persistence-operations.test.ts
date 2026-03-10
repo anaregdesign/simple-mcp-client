@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ClientApiError } from "~/lib/client/infrastructure/api/api-client";
-import { buildThreadSaveSignature } from "~/lib/client/usecase/workspace/threads/thread-state";
+import { buildThreadSaveSignature } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type {
   ThreadResource,
   ThreadWritePayload,

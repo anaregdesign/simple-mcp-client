@@ -117,6 +117,17 @@ const checks = [
     ],
   },
   {
+    key: "threadStateSaveHelperOwnership",
+    description:
+      "thread-state.ts must not own save-shape helpers or depend on thread transport payload contracts.",
+    command: "rg",
+    args: [
+      "-n",
+      "from ['\\\"]~/lib/contracts/threads/types|export function (buildThreadSaveSignature|hasThreadInteraction|hasThreadPersistableState|cloneThreadInstructionContexts)",
+      "app/lib/client/usecase/workspace/threads/thread-state.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
