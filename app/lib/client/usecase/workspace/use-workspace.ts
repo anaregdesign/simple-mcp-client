@@ -136,8 +136,7 @@ import {
 } from "~/lib/domain/policies/thread-mcp-server-membership";
 import {
   type InstructionEnhanceComparison,
-  type ThreadRequestState,
-} from "~/lib/client/usecase/workspace/types";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 import {
   createThreadTitleController,
 } from "~/lib/client/usecase/workspace/threads/thread-title-controller";
@@ -146,7 +145,7 @@ import {
 } from "~/lib/client/usecase/workspace/chat-session/controller";
 import {
   createThreadRequestStateController,
-} from "~/lib/client/usecase/workspace/threads/request-state";
+} from "~/lib/client/usecase/workspace/threads/thread-request-state-controller";
 import {
   useThreadShell,
 } from "~/lib/client/usecase/workspace/threads/use-shell";
@@ -163,6 +162,9 @@ import {
 import {
   useWorkspaceStorageRuntimes,
 } from "~/lib/client/usecase/workspace/use-workspace-storage-runtimes";
+import type {
+  ThreadRequestState,
+} from "~/lib/client/usecase/workspace/threads/thread-request-state";
 
 /**
  * Client runtime controller.

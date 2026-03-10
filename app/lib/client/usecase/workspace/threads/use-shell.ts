@@ -14,7 +14,6 @@ import {
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { createRuntimeId } from "~/lib/client/usecase/workspace/runtime-id";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type { WorkspaceInteractionAction } from "~/lib/client/usecase/workspace/reducer";
 import {
   buildThreadStateFromCurrentState as buildThreadStateFromCurrentStateOperation,
@@ -27,8 +26,9 @@ import {
   setThreadSaveSignatures as setThreadSaveSignaturesOperation,
   writeThreadSaveSignature as writeThreadSaveSignatureOperation,
 } from "./thread-save-signatures";
-import { createThreadRequestStateController } from "./request-state";
+import { createThreadRequestStateController } from "./thread-request-state-controller";
 import { createThreadStateUpdaters } from "./state-updaters";
+import type { ThreadRequestState } from "./thread-request-state";
 import {
   canTransition,
   transitionThreadOperation,

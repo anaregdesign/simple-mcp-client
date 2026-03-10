@@ -11,7 +11,9 @@ import {
   type SelectableSkillOption,
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
 import type { ThreadListOption } from "~/lib/client/usecase/workspace/threads/thread-runtime";
-import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
+import type {
+  InstructionEnhanceComparison,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 import type {
   InstructionLanguage,
   McpTransport,

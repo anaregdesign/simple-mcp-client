@@ -3,7 +3,9 @@ import {
   createInitialWorkspaceInteractionState,
   type WorkspaceInteractionState,
 } from "~/lib/client/usecase/workspace/state";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
+import type {
+  ThreadRequestState,
+} from "~/lib/client/usecase/workspace/threads/thread-request-state";
 
 export type WorkspaceInteractionAction =
   | { type: "thread_request_state/reset_all" }

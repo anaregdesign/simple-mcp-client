@@ -7,7 +7,7 @@ import {
 } from "~/lib/client/usecase/workspace/threads/thread-save-state";
 import type {
   InstructionEnhanceComparison,
-} from "~/lib/client/usecase/workspace/types";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 
 export type InstructionEditorState = {
   agentInstruction: string;

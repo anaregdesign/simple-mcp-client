@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createInstructionPromptHandlers,
 } from "~/lib/client/usecase/workspace/instruction-editor/instruction-prompt-handlers";
-import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
+import type {
+  InstructionEnhanceComparison,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 
 function createBaseDependencies(
   overrides: Partial<

@@ -5,11 +5,11 @@ import {
   type ThreadState,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
 import { buildThreadSummary } from "~/lib/client/usecase/workspace/threads/thread-state-mappers";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import {
   buildThreadListOptions,
   type ThreadListOption,
 } from "~/lib/client/usecase/workspace/threads/thread-runtime";
+import type { ThreadRequestState } from "./thread-request-state";
 
 export type ThreadViewModel = {
   activeThreadState: ThreadState | null;

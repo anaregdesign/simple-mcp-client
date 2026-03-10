@@ -14,7 +14,7 @@ import type {
 } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
 import type {
   ThreadRequestState,
-} from "~/lib/client/usecase/workspace/types";
+} from "~/lib/client/usecase/workspace/threads/thread-request-state";
 import type {
   AzureConnectionView,
   MainViewTab,

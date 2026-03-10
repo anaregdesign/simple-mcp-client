@@ -7,7 +7,7 @@ import type {
   ThreadState,
   ThreadSummary,
 } from "~/lib/client/usecase/workspace/threads/thread-state";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
+import type { ThreadRequestState } from "./thread-request-state";
 
 export type ThreadListOption = {
   id: string;

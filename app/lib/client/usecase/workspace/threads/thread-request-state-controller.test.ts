@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createThreadRequestStateController } from "~/lib/client/usecase/workspace/threads/request-state";
+import { createThreadRequestStateController } from "~/lib/client/usecase/workspace/threads/thread-request-state-controller";
 
-describe("threads/request-state", () => {
+describe("threads/thread-request-state-controller", () => {
   it("updates request state through the reducer action", () => {
     const dispatchWorkspaceInteraction = vi.fn();
     const controller = createThreadRequestStateController({

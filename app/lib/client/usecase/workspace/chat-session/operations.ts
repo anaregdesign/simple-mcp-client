@@ -15,7 +15,9 @@ import {
 } from "~/lib/client/usecase/workspace/chat-session/send-message-preconditions";
 import { isThreadPhaseBlockingSend } from "~/lib/client/usecase/workspace/threads/thread-guards";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
+import type {
+  ThreadRequestState,
+} from "~/lib/client/usecase/workspace/threads/thread-request-state";
 import type {
   AzureConnectionView,
   MainViewTab,

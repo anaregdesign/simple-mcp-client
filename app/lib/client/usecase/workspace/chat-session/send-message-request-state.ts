@@ -1,4 +1,6 @@
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
+import type {
+  ThreadRequestState,
+} from "~/lib/client/usecase/workspace/threads/thread-request-state";
 
 export function applySendResult(
   current: ThreadRequestState,

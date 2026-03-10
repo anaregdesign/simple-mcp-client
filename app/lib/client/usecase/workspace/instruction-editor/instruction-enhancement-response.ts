@@ -1,6 +1,6 @@
 import type {
   InstructionEnhanceComparison,
-} from "~/lib/client/usecase/workspace/types";
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
 import {
   applyInstructionUnifiedDiffPatch,
   normalizeInstructionDiffPatchResponse,

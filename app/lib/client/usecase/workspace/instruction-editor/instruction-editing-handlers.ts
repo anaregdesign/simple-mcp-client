@@ -8,10 +8,12 @@ import {
   INSTRUCTION_MAX_FILE_SIZE_LABEL,
 } from "~/lib/constants/instruction";
 import type {
+  InstructionEnhanceComparison,
+} from "~/lib/client/usecase/workspace/instruction-editor/instruction-enhance-comparison";
+import type {
   ThreadInstructionContextToggles,
   ThreadInstructionContextToggleKey,
 } from "~/lib/domain/value-objects/thread-instruction-context";
-import type { InstructionEnhanceComparison } from "~/lib/client/usecase/workspace/types";
 
 type InstructionEditingLogOptions = {
   category?: string;

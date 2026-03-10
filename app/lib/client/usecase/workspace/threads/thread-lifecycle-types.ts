@@ -1,7 +1,7 @@
 import type { MainViewTab } from "~/lib/client/usecase/workspace/view-types";
 import type { ThreadOperationPhase } from "~/lib/client/usecase/workspace/threads/thread-operation-phase";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
+import type { ThreadRequestState } from "./thread-request-state";
 
 export type ThreadLifecycleLogOptions = {
   category?: string;

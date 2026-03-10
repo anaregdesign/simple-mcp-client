@@ -3,7 +3,7 @@ import {
   readThreadRequestStateById,
   type WorkspaceInteractionAction,
 } from "~/lib/client/usecase/workspace/reducer";
-import type { ThreadRequestState } from "~/lib/client/usecase/workspace/types";
+import type { ThreadRequestState } from "./thread-request-state";
 
 type CreateThreadRequestStateControllerOptions = {
   threadRequestStateByIdRef: MutableRefObject<Record<string, ThreadRequestState>>;
