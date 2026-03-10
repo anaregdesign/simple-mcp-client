@@ -8,7 +8,6 @@ import {
   MCP_TIMEOUT_SECONDS_MAX,
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
-import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
 
 export type WorkspaceMcpServerProfileResource = {
   id: string;
@@ -58,10 +57,6 @@ type SaveMcpHttpServerRequest = Omit<McpHttpServerConfig, "id"> & { id?: string 
 type SaveMcpStdioServerRequest = Omit<McpStdioServerConfig, "id"> & { id?: string };
 
 export type SaveMcpServerRequest = SaveMcpHttpServerRequest | SaveMcpStdioServerRequest;
-
-export function buildMcpServerKey(server: McpServerConfig): string {
-  return buildMcpServerConfigKey(server);
-}
 
 export function readMcpServerList(value: unknown): McpServerConfig[] {
   if (!Array.isArray(value)) {

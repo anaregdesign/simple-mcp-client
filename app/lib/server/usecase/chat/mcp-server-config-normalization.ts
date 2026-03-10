@@ -1,4 +1,4 @@
-import { buildMcpServerConfigKey } from "~/lib/contracts/mcp/config-key";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import type { ClientMcpServerConfig } from "~/lib/server/usecase/chat/mcp-server-config-types";
 
 export function applyDefaultThreadDirectoryToStdioServers(

@@ -4,7 +4,6 @@
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  buildMcpServerKey,
   readMcpServerFromWorkspaceProfileResource,
   type McpServerConfig,
   type WorkspaceMcpServerProfileResource,
@@ -15,6 +14,7 @@ import {
   MCP_DEFAULT_TIMEOUT_SECONDS,
 } from "~/lib/constants/mcp";
 import { parseIncomingMcpServer } from "~/lib/contracts/mcp/server-config-parser";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import { resolveWorkspaceStorageDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
 import {
   upsertWorkspaceMcpServerProfile,
@@ -95,7 +95,7 @@ function createWorkspaceMcpServerProfileResource(
   userId = defaultWorkspaceUserId,
   profileOrder = 0,
 ): WorkspaceMcpServerProfileResource {
-  const configKey = buildMcpServerKey(profile);
+  const configKey = buildMcpServerConfigKey(profile);
   if (profile.transport === "stdio") {
     return {
       id: profile.id,

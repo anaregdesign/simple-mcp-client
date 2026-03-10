@@ -4,67 +4,10 @@
 import { describe, expect, it } from "vitest";
 import { MCP_DEFAULT_AZURE_AUTH_SCOPE, MCP_DEFAULT_TIMEOUT_SECONDS } from "~/lib/constants/mcp";
 import {
-  buildMcpServerKey,
   readMcpServerFromUnknown,
   readMcpServerList,
   serializeMcpServerForSave,
 } from "./profile";
-
-describe("buildMcpServerKey", () => {
-  it("builds stable stdio key including env and cwd", () => {
-    const keyA = buildMcpServerKey({
-      id: "1",
-      name: "Local",
-      transport: "stdio",
-      command: "NPX",
-      args: ["-y", "@mcp/server"],
-      cwd: "/TMP/MCP",
-      env: { Z_KEY: "z", A_KEY: "a" },
-    });
-
-    const keyB = buildMcpServerKey({
-      id: "2",
-      name: "Other",
-      transport: "stdio",
-      command: "npx",
-      args: ["-y", "@mcp/server"],
-      cwd: "/tmp/mcp",
-      env: { A_KEY: "a", Z_KEY: "z" },
-    });
-
-    expect(keyA).toBe(keyB);
-  });
-
-  it("builds stable HTTP key with header normalization", () => {
-    const keyA = buildMcpServerKey({
-      id: "1",
-      name: "HTTP",
-      transport: "streamable_http",
-      url: "https://EXAMPLE.com/mcp",
-      headers: {
-        "X-Trace-Id": "trace",
-      },
-      useAzureAuth: true,
-      azureAuthScope: "https://scope/.default",
-      timeoutSeconds: 45,
-    });
-
-    const keyB = buildMcpServerKey({
-      id: "2",
-      name: "HTTP 2",
-      transport: "streamable_http",
-      url: "https://example.com/mcp",
-      headers: {
-        "x-trace-id": "trace",
-      },
-      useAzureAuth: true,
-      azureAuthScope: "HTTPS://SCOPE/.DEFAULT",
-      timeoutSeconds: 45,
-    });
-
-    expect(keyA).toBe(keyB);
-  });
-});
 
 describe("readMcpServerFromUnknown / readMcpServerList", () => {
   it("reads stdio server and sanitizes args/env/cwd", () => {

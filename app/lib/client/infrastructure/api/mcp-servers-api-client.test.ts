@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildMcpServerKey } from "~/lib/contracts/mcp/profile";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import { McpServersApiClient } from "./mcp-servers-api-client";
 
 function createWorkspaceMcpServerProfileResource() {
@@ -8,7 +8,7 @@ function createWorkspaceMcpServerProfileResource() {
     userId: 10,
     profileOrder: 0,
     connectOnThreadCreate: false,
-    configKey: buildMcpServerKey({
+    configKey: buildMcpServerConfigKey({
       id: "srv-1",
       name: "filesystem",
       transport: "stdio",

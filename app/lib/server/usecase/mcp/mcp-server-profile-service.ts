@@ -8,13 +8,13 @@ import {
   MCP_LEGACY_UNAVAILABLE_DEFAULT_STDIO_NPX_PACKAGE_NAMES,
 } from "~/lib/constants/mcp";
 import {
-  buildMcpServerKey,
   readMcpServerFromWorkspaceProfileResource,
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
 import {
   type ParsedIncomingMcpServerConfig,
 } from "~/lib/contracts/mcp/server-config-parser";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import type {
   WorkspaceMcpServerProfile,
   WorkspaceMcpServerProfileRepository,
@@ -129,7 +129,7 @@ export async function readWorkspaceMcpServerProfiles(
       continue;
     }
 
-    const key = buildMcpServerKey(config);
+    const key = buildMcpServerConfigKey(config);
     if (keys.has(key)) {
       continue;
     }
@@ -168,7 +168,7 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
     mergedProfiles
       .map((profile) => readMcpServerFromWorkspaceProfileResource(profile))
       .filter((profile): profile is McpServerConfig => profile !== null)
-      .map((profile) => buildMcpServerKey(profile)),
+      .map((profile) => buildMcpServerConfigKey(profile)),
   );
 
   const nextProfiles = [...mergedProfiles];
@@ -183,7 +183,7 @@ export function mergeDefaultWorkspaceMcpServerProfiles(
       continue;
     }
 
-    const profileKey = buildMcpServerKey(config);
+    const profileKey = buildMcpServerConfigKey(config);
     if (profileKeys.has(profileKey)) {
       continue;
     }
@@ -396,7 +396,7 @@ export function upsertWorkspaceMcpServerProfile(
     );
 
   const keyIndex = currentConfigs.findIndex(
-    ({ config }) => buildMcpServerKey(config) === incomingKey,
+    ({ config }) => buildMcpServerConfigKey(config) === incomingKey,
   );
 
   const idIndex =
@@ -513,7 +513,7 @@ function createWorkspaceMcpServerProfile(
         profileOrder: number;
       }),
 ): WorkspaceMcpServerProfile {
-  const configKey = buildMcpServerKey(profile);
+  const configKey = buildMcpServerConfigKey(profile);
   if (profile.transport === "stdio") {
     return {
       id: profile.id,
@@ -556,7 +556,7 @@ function createWorkspaceMcpServerProfile(
 }
 
 function buildIncomingProfileKey(profile: IncomingMcpServerConfig): string {
-  return buildMcpServerKey(
+  return buildMcpServerConfigKey(
     profile.transport === "stdio"
       ? {
           id: profile.id ?? "",

@@ -1,7 +1,8 @@
 /**
  * Client runtime support module.
  */
-import { buildMcpServerKey, type McpServerConfig } from "~/lib/contracts/mcp/profile";
+import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 
 /**
  * View model used by `SelectableCardList` in the MCP saved profile section.
@@ -42,10 +43,12 @@ export function buildWorkspaceMcpServerProfileOptions(
   workspaceMcpServerProfiles: McpServerConfig[],
   activeMcpServers: McpServerConfig[],
 ): WorkspaceMcpServerProfileOption[] {
-  const activeMcpServerKeySet = new Set(activeMcpServers.map((server) => buildMcpServerKey(server)));
+  const activeMcpServerKeySet = new Set(
+    activeMcpServers.map((server) => buildMcpServerConfigKey(server)),
+  );
   return workspaceMcpServerProfiles
     .map((server) => {
-      const key = buildMcpServerKey(server);
+      const key = buildMcpServerConfigKey(server);
       return {
         id: server.id,
         name: server.name,

@@ -1,5 +1,4 @@
 import {
-  buildMcpServerKey,
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
 import {
@@ -7,6 +6,7 @@ import {
   type McpProfileFormState,
 } from "~/lib/client/usecase/workspace/mcp-profiles/form";
 import { createId } from "~/lib/client/usecase/workspace/ids";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import {
   reconcileSavedThreadMcpServer,
   removeThreadMcpServerByConfig,
@@ -174,7 +174,8 @@ export async function saveWorkspaceMcpServerProfile(
   const existingServerIndex = isEditing
     ? -1
     : activeThreadMcpServers.findIndex(
-        (server) => buildMcpServerKey(server) === buildMcpServerKey(serverToSave),
+        (server) =>
+          buildMcpServerConfigKey(server) === buildMcpServerConfigKey(serverToSave),
       );
   const existingServerName =
     existingServerIndex >= 0

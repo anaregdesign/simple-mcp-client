@@ -1,16 +1,16 @@
 import {
-  buildMcpServerKey,
   type McpServerConfig,
 } from "~/lib/contracts/mcp/profile";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import type { ThreadState } from "~/lib/client/usecase/workspace/threads/thread-state";
 
 export function connectMcpServerToThread(
   thread: ThreadState,
   serverToConnect: McpServerConfig,
 ): ThreadState {
-  const nextKey = buildMcpServerKey(serverToConnect);
+  const nextKey = buildMcpServerConfigKey(serverToConnect);
   const existingIndex = thread.mcpServers.findIndex(
-    (server) => buildMcpServerKey(server) === nextKey,
+    (server) => buildMcpServerConfigKey(server) === nextKey,
   );
   if (existingIndex < 0) {
     return {
@@ -46,11 +46,11 @@ export function removeThreadMcpServerByConfig(
   thread: ThreadState,
   serverToRemove: McpServerConfig,
 ): ThreadState {
-  const deletedKey = buildMcpServerKey(serverToRemove);
+  const deletedKey = buildMcpServerConfigKey(serverToRemove);
   return {
     ...thread,
     mcpServers: thread.mcpServers.filter(
-      (server) => buildMcpServerKey(server) !== deletedKey,
+      (server) => buildMcpServerConfigKey(server) !== deletedKey,
     ),
   };
 }
@@ -59,15 +59,15 @@ export function toggleThreadMcpServer(
   thread: ThreadState,
   serverToToggle: McpServerConfig,
 ): ThreadState {
-  const selectedKey = buildMcpServerKey(serverToToggle);
+  const selectedKey = buildMcpServerConfigKey(serverToToggle);
   const alreadyConnected = thread.mcpServers.some(
-    (server) => buildMcpServerKey(server) === selectedKey,
+    (server) => buildMcpServerConfigKey(server) === selectedKey,
   );
   if (alreadyConnected) {
     return {
       ...thread,
       mcpServers: thread.mcpServers.filter(
-        (server) => buildMcpServerKey(server) !== selectedKey,
+        (server) => buildMcpServerConfigKey(server) !== selectedKey,
       ),
     };
   }
@@ -85,17 +85,17 @@ export function reconcileSavedThreadMcpServer(
     savedProfile: McpServerConfig;
   },
 ): ThreadState {
-  const previousServerKey = buildMcpServerKey(options.previousServer);
-  const nextServerKey = buildMcpServerKey(options.savedProfile);
+  const previousServerKey = buildMcpServerConfigKey(options.previousServer);
+  const nextServerKey = buildMcpServerConfigKey(options.savedProfile);
   const filtered = thread.mcpServers.filter(
-    (server) => buildMcpServerKey(server) !== previousServerKey,
+    (server) => buildMcpServerConfigKey(server) !== previousServerKey,
   );
   if (filtered.length === thread.mcpServers.length) {
     return thread;
   }
 
   const nextIndex = filtered.findIndex(
-    (server) => buildMcpServerKey(server) === nextServerKey,
+    (server) => buildMcpServerConfigKey(server) === nextServerKey,
   );
   if (nextIndex >= 0) {
     return {
