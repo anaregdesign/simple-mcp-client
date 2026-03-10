@@ -189,6 +189,18 @@ const checks = [
     ],
   },
   {
+    key: "threadNameMutationOwnership",
+    description:
+      "Thread lifecycle and title operations must reuse thread-name-mutation for optimistic rename state updates.",
+    command: "rg",
+    args: [
+      "-n",
+      "deps\\.(updateThreadStateById|setActiveThreadNameInput)\\(",
+      "app/lib/client/usecase/workspace/threads/thread-lifecycle-operations.ts",
+      "app/lib/client/usecase/workspace/threads/thread-title-operations.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
