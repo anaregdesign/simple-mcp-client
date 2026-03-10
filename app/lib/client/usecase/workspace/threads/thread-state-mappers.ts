@@ -2,19 +2,17 @@ import {
   DEFAULT_REASONING_EFFORT,
   reasoningEffortValues,
 } from "~/lib/domain/value-objects/reasoning-effort";
-import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   readThreadMessageFromUnknown,
   type ThreadMessage,
 } from "~/lib/contracts/chat/messages";
 import {
-  readThreadOperationLogEntryFromUnknown as readThreadOperationLogEntryFromStream,
+  readPersistedThreadOperationLogEntryFromUnknown,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
 import { readMcpServerFromUnknown, type McpServerConfig } from "~/lib/contracts/mcp/profile";
 import { readThreadResourceList } from "~/lib/contracts/threads/parsers";
 import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
-import { readThreadSkillActivationList } from "~/lib/contracts/skills/parsers";
 import {
   cloneChatAzureConfig,
   readChatAzureConfigFromUnknown,
@@ -144,59 +142,18 @@ function readThreadMessageResources(value: ThreadResource["messages"]): ThreadMe
 }
 
 function readThreadMessageResource(value: ThreadResource["messages"][number]): ThreadMessage | null {
-  const attachments = readChatAttachmentList(readJsonValue(value.attachmentsJson, []));
-
-  return {
+  return readThreadMessageFromUnknown({
     id: value.id,
     role: value.role === "assistant" ? "assistant" : "user",
     content: value.content,
     createdAt: value.createdAt,
     turnId: value.turnId,
-    attachments,
+    attachments: readJsonValue(value.attachmentsJson, []),
     skillActivations: value.skillActivations.map((activation) => ({
       name: activation.skillProfile.name,
       location: activation.skillProfile.location,
     })),
-  };
-}
-
-function readChatAttachmentList(value: unknown): ChatAttachment[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const attachments: ChatAttachment[] = [];
-  for (const entry of value) {
-    const attachment = readChatAttachmentFromUnknown(entry);
-    if (!attachment) {
-      continue;
-    }
-
-    attachments.push(attachment);
-  }
-
-  return attachments;
-}
-
-function readChatAttachmentFromUnknown(value: unknown): ChatAttachment | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const name = readTrimmedString(value.name);
-  const mimeType = readTrimmedString(value.mimeType);
-  const dataUrl = typeof value.dataUrl === "string" ? value.dataUrl.trim() : "";
-  const sizeBytes = readSafeInteger(value.sizeBytes);
-  if (!name || !mimeType || !dataUrl || sizeBytes === null || sizeBytes < 0) {
-    return null;
-  }
-
-  return {
-    name,
-    mimeType,
-    sizeBytes,
-    dataUrl,
-  };
+  });
 }
 
 function readThreadMcpServerResources(value: ThreadResource["mcpServers"]): McpServerConfig[] {
@@ -235,7 +192,7 @@ function readThreadOperationLogResources(
 ): ThreadOperationLogEntry[] {
   return value
     .map((entry) =>
-      readThreadOperationLogEntryFromUnknown({
+      readPersistedThreadOperationLogEntryFromUnknown({
         id: entry.sourceRpcId,
         sequence: entry.sequence,
         operationType: entry.operationType,
@@ -250,23 +207,6 @@ function readThreadOperationLogResources(
       }),
     )
     .filter((entry): entry is ThreadOperationLogEntry => entry !== null);
-}
-
-function readThreadOperationLogEntryFromUnknown(value: unknown): ThreadOperationLogEntry | null {
-  const parsed = readThreadOperationLogEntryFromStream(value);
-  if (!parsed || !isRecord(value)) {
-    return null;
-  }
-
-  const turnId = readTrimmedString(value.turnId);
-  if (!turnId) {
-    return null;
-  }
-
-  return {
-    ...parsed,
-    turnId,
-  };
 }
 
 function readThreadSkillSelectionResources(
@@ -290,22 +230,6 @@ function readJsonValue<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
-function readTrimmedString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function readSafeInteger(value: unknown): number | null {
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    !Number.isSafeInteger(value)
-  ) {
-    return null;
-  }
-
-  return value;
-}
-
 function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null {
   if (
     typeof value === "string" &&
@@ -315,8 +239,4 @@ function readReasoningEffortFromUnknown(value: unknown): ReasoningEffort | null 
   }
 
   return null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
 }

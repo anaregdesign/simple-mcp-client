@@ -1,7 +1,10 @@
 /**
  * Client runtime support module.
  */
-import type { ChatAttachment } from "~/lib/contracts/chat/attachments";
+import {
+  cloneChatAttachments,
+  type ChatAttachment,
+} from "~/lib/contracts/chat/attachments";
 import type {
   ThreadMessage,
   ThreadMessageRole,
@@ -28,7 +31,7 @@ export function createThreadMessage(
     content,
     createdAt: normalizedCreatedAt,
     turnId,
-    attachments,
+    attachments: cloneChatAttachments(attachments),
     skillActivations: skillActivations.map((selection) => ({ ...selection })),
   };
 }
