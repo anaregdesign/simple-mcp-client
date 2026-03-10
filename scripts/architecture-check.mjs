@@ -238,6 +238,30 @@ const checks = [
     ],
   },
   {
+    key: "threadControllerReaderOwnership",
+    description:
+      "Thread controller adapters must use reader callbacks instead of raw refs.",
+    command: "rg",
+    args: [
+      "-n",
+      "MutableRefObject|activeWorkspaceUserKeyRef|activeThreadIdRef|activeThreadNameInputRef|activeAzureTenantIdRef|threadsRef|threadSaveRequestSeqRef",
+      "app/lib/client/usecase/workspace/threads/thread-persistence-controller.ts",
+      "app/lib/client/usecase/workspace/threads/thread-loading-controller.ts",
+      "app/lib/client/usecase/workspace/threads/thread-title-controller.ts",
+    ],
+  },
+  {
+    key: "threadControllerReaderComposition",
+    description:
+      "use-workspace must not pass thread controller reader state through raw thread name or save request refs.",
+    command: "rg",
+    args: [
+      "-n",
+      "activeThreadNameInputRef|threadSaveRequestSeqRef",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
