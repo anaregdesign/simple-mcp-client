@@ -2,7 +2,6 @@
  * Workspace client usecase module.
  */
 import {
-  useEffect,
   useMemo,
   useReducer,
   useRef,
@@ -37,9 +36,6 @@ import {
   buildWorkspaceMcpServerProfileOptions,
   selectWorkspaceMcpProfileViewModel,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
-import {
-  installGlobalClientErrorLogging,
-} from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 import {
   isThreadArchivedById,
   updateThreadStateCollectionById,
@@ -78,7 +74,7 @@ import {
   useLockedConfigPanelTab,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
 import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props";
-import { createWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/logger";
+import { useWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/use-runtime-logging";
 import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-instruction-editor";
 import {
   canTransition,
@@ -417,11 +413,10 @@ export function useWorkspace() {
   const selectedUtilityAzureConnectionIdRef = useRef("");
   const selectedUtilityAzureDeploymentNameRef = useRef("");
   const {
-    buildRuntimeLogContext,
     logClientError,
     logClientWarning,
     logClientInfo,
-  } = createWorkspaceRuntimeLogging({
+  } = useWorkspaceRuntimeLogging({
     readActiveMainTab: () => activeMainTabRef.current,
     readActiveThreadId: () => activeThreadIdRef.current,
     readSelectedPlaygroundAzureConnectionId: () =>
@@ -727,14 +722,6 @@ export function useWorkspace() {
     logClientWarning,
   });
 
-  useEffect(() => {
-    return installGlobalClientErrorLogging(() =>
-      buildRuntimeLogContext({
-        source: "client",
-      }),
-    );
-  }, []);
-
   useLockedConfigPanelTab({
     activeMainTab,
     isChatLocked,
@@ -882,11 +869,7 @@ export function useWorkspace() {
     appendThreadOperationLogToThreadState,
     applyThreadEnvironmentToThreadState,
     clearThreadSendAbortController,
-    scheduleThreadStateSave: (threadId) => {
-      window.setTimeout(() => {
-        void threadStorageRuntime.saveThreadStateSilentlyIfNeeded(threadId);
-      }, 0);
-    },
+    scheduleThreadStateSave: threadStorageRuntime.scheduleThreadStateSave,
   });
 
   async function refreshThreadTitleInBackground(options: {

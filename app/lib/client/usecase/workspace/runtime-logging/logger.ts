@@ -4,7 +4,7 @@ import {
   reportClientWarning,
 } from "~/lib/client/infrastructure/browser/runtime-event-log-client";
 
-type WorkspaceRuntimeLogReaders = {
+export type WorkspaceRuntimeLogReaders = {
   readActiveMainTab: () => string;
   readActiveThreadId: () => string;
   readSelectedPlaygroundAzureConnectionId: () => string;

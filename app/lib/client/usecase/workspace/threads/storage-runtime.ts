@@ -50,6 +50,14 @@ export function createThreadStorageRuntime(
       await threadPersistenceController.saveThreadStateSilentlyIfNeeded(threadId);
     },
 
+    scheduleThreadStateSave(threadId: string): void {
+      queueMicrotask(() => {
+        void threadPersistenceController.saveThreadStateSilentlyIfNeeded(
+          threadId,
+        );
+      });
+    },
+
     async flushActiveThreadState(): Promise<boolean> {
       return await threadPersistenceController.flushActiveThreadState();
     },
