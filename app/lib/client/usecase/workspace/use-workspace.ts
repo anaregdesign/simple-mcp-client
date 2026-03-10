@@ -7,7 +7,6 @@ import {
   useReducer,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import type {
   ThemeMode,
@@ -26,7 +25,6 @@ import {
 import {
   DEFAULT_THEME_MODE,
   INITIAL_THREAD_MESSAGES,
-  CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
   THREAD_NAME_MAX_LENGTH,
 } from "~/lib/constants/client";
 import {
@@ -52,7 +50,6 @@ import {
 import {
   describeInstructionLanguage,
 } from "~/lib/client/usecase/workspace/instruction-document";
-import { resolveMainSplitterMaxRightWidth } from "~/lib/client/usecase/workspace/main-splitter";
 import type { McpServerConfig } from "~/lib/contracts/mcp/profile";
 import {
   buildWorkspaceMcpServerProfileOptions,
@@ -107,6 +104,7 @@ import {
   readDesktopUpdaterStatusFromUnknown,
   resolveDesktopUpdaterActionState,
 } from "~/lib/client/usecase/workspace/desktop-updater";
+import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/use-workspace-layout";
 import { deriveInstructionRuntimeUiState } from "~/lib/client/usecase/workspace/instruction-runtime";
 import {
   canTransition,
@@ -352,10 +350,12 @@ export function useWorkspace() {
     getDefaultDesktopUpdaterStatus,
   );
   const [isApplyingDesktopUpdate, setIsApplyingDesktopUpdate] = useState(false);
-  const [rightPaneWidth, setRightPaneWidth] = useState(420);
-  const [activeResizeHandle, setActiveResizeHandle] = useState<"main" | null>(
-    null,
-  );
+  const {
+    layoutRef,
+    rightPaneWidth,
+    isMainSplitterResizing,
+    onMainSplitterPointerDown,
+  } = useWorkspaceLayout();
   const threadOperationPhaseFlags =
     selectThreadOperationPhaseFlags(threadOperationPhase);
   const isLoadingThreads = threadOperationPhaseFlags.isLoadingThreads;
@@ -372,7 +372,6 @@ export function useWorkspace() {
   const pendingChatCommandCursorIndexRef = useRef<number | null>(null);
   const chatAttachmentInputRef = useRef<HTMLInputElement | null>(null);
   const instructionFileInputRef = useRef<HTMLInputElement | null>(null);
-  const layoutRef = useRef<HTMLDivElement | null>(null);
   const activeAzureTenantIdRef = useRef("");
   const activeAzurePrincipalIdRef = useRef("");
   const activeWorkspaceUserKeyRef = useRef("");
@@ -963,45 +962,6 @@ export function useWorkspace() {
       setActiveMainTab("settings");
     }
   }, [activeMainTab, isChatLocked]);
-
-  useEffect(() => {
-    const body = document.body;
-    const previousCursor = body.style.cursor;
-    const previousUserSelect = body.style.userSelect;
-
-    if (activeResizeHandle === "main") {
-      body.style.cursor = "col-resize";
-      body.style.userSelect = "none";
-    }
-
-    return () => {
-      body.style.cursor = previousCursor;
-      body.style.userSelect = previousUserSelect;
-    };
-  }, [activeResizeHandle]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const layoutElement = layoutRef.current;
-      if (layoutElement) {
-        const rect = layoutElement.getBoundingClientRect();
-        const maxRightWidth = resolveMainSplitterMaxRightWidth(rect.width);
-        setRightPaneWidth((current) =>
-          clampNumber(
-            current,
-            CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
-            maxRightWidth,
-          ),
-        );
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
 
   useEffect(() => {
     if (!editingMcpServerId) {
@@ -2527,42 +2487,6 @@ export function useWorkspace() {
     }
   }
 
-  function handleMainSplitterPointerDown(
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) {
-    event.preventDefault();
-    const layoutElement = layoutRef.current;
-    if (!layoutElement) {
-      return;
-    }
-
-    const rect = layoutElement.getBoundingClientRect();
-    const maxRightWidth = resolveMainSplitterMaxRightWidth(rect.width);
-    setActiveResizeHandle("main");
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const nextRightWidth = rect.right - moveEvent.clientX;
-      setRightPaneWidth(
-        clampNumber(
-          nextRightWidth,
-          CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX,
-          maxRightWidth,
-        ),
-      );
-    };
-
-    const stopResizing = () => {
-      setActiveResizeHandle(null);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopResizing);
-      window.removeEventListener("pointercancel", stopResizing);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopResizing);
-    window.addEventListener("pointercancel", stopResizing);
-  }
-
   function handleChatAzureSelectorAction(target: "project" | "deployment") {
     if (
       isSending ||
@@ -2898,8 +2822,8 @@ export function useWorkspace() {
   return {
     layoutRef,
     rightPaneWidth,
-    isMainSplitterResizing: activeResizeHandle === "main",
-    onMainSplitterPointerDown: handleMainSplitterPointerDown,
+    isMainSplitterResizing,
+    onMainSplitterPointerDown,
     isAzureAuthRequired,
     theme,
     unauthenticatedPanelProps,
