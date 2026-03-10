@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  buildWorkspacePlaygroundPanelProps,
-} from "~/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props";
+  selectWorkspacePlaygroundPanelProps,
+} from "~/lib/client/usecase/workspace/playground-panel/use-workspace-playground";
 
 function createOptions() {
   return {
@@ -86,10 +86,10 @@ function createOptions() {
   };
 }
 
-describe("buildWorkspacePlaygroundPanelProps", () => {
+describe("selectWorkspacePlaygroundPanelProps", () => {
   it("reads the active thread id when cancelling processing", () => {
     const options = createOptions();
-    const props = buildWorkspacePlaygroundPanelProps(options);
+    const props = selectWorkspacePlaygroundPanelProps(options);
 
     props.onCancelThreadProcessing();
 
@@ -99,7 +99,7 @@ describe("buildWorkspacePlaygroundPanelProps", () => {
 
   it("maps composition lifecycle callbacks to the composing setter", () => {
     const options = createOptions();
-    const props = buildWorkspacePlaygroundPanelProps(options);
+    const props = selectWorkspacePlaygroundPanelProps(options);
 
     props.onCompositionStart();
     props.onCompositionEnd();

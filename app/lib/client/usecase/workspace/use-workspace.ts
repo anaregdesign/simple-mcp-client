@@ -59,15 +59,13 @@ import {
 import type { ThreadSkillActivation } from "~/lib/contracts/skills/types";
 import { useWorkspaceDesktopUpdater } from "~/lib/client/usecase/workspace/desktop-updater/use-desktop-updater";
 import { useWorkspaceLayout } from "~/lib/client/usecase/workspace/layout/use-layout";
-import { createPlaygroundControlHandlers } from "~/lib/client/usecase/workspace/playground-panel/handlers";
-import { usePlaygroundRuntime } from "~/lib/client/usecase/workspace/playground-panel/use-playground-runtime";
 import { usePlaygroundSession } from "~/lib/client/usecase/workspace/playground-panel/use-playground-session";
 import {
-  buildConfigPanelProps,
   useConfigPanelState,
-  useLockedConfigPanelTab,
 } from "~/lib/client/usecase/workspace/config-panel/use-config-panel";
-import { buildWorkspacePlaygroundPanelProps } from "~/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props";
+import {
+  useWorkspaceConfigPanel,
+} from "~/lib/client/usecase/workspace/config-panel/use-workspace-config-panel";
 import { useWorkspaceRuntimeLogging } from "~/lib/client/usecase/workspace/runtime-logging/use-runtime-logging";
 import { useInstructionEditor } from "~/lib/client/usecase/workspace/instruction-editor/use-instruction-editor";
 import { selectThreadOperationPhaseFlags } from "~/lib/client/usecase/workspace/threads/thread-guards";
@@ -92,9 +90,6 @@ import {
 import {
   readSkillCommandSuggestions,
 } from "~/lib/client/usecase/workspace/skills-catalog/selectors";
-import {
-  createChatComposerHandlers,
-} from "~/lib/client/usecase/workspace/chat-composer/handlers";
 import {
   type ChatCommandProvider,
 } from "~/lib/client/usecase/workspace/chat-composer/menu-state";
@@ -124,9 +119,8 @@ import {
   selectThreadViewModel,
 } from "~/lib/client/usecase/workspace/threads/selectors";
 import {
-  selectPlaygroundComposerViewModel,
-  selectPlaygroundOperationLogViewModel,
-} from "~/lib/client/usecase/workspace/playground-panel/selectors";
+  useWorkspacePlayground,
+} from "~/lib/client/usecase/workspace/playground-panel/use-workspace-playground";
 import {
   useWorkspaceStorageRuntimes,
 } from "~/lib/client/usecase/workspace/use-workspace-storage-runtimes";
@@ -602,39 +596,6 @@ export function useWorkspace() {
     },
   ];
   const {
-    activeChatCommandMatch,
-    activeChatCommandProvider,
-    activeChatCommandSuggestions,
-    activeChatCommandHighlightIndex,
-    activeChatCommandMenu,
-  } = usePlaygroundRuntime({
-    messages,
-    isSending,
-    sendProgressMessages,
-    endOfMessagesRef,
-    chatInputRef,
-    pendingChatCommandCursorIndexRef,
-    draft,
-    chatComposerCursorIndex,
-    setChatComposerCursorIndex,
-    chatCommandHighlightedIndex,
-    setChatCommandHighlightedIndex,
-    chatCommandProviders,
-  });
-  const {
-    threadOperationLogsByTurnId,
-    activeTurnOperationLogs,
-    errorTurnOperationLogs,
-  } = useMemo(
-    () =>
-      selectPlaygroundOperationLogViewModel({
-        mcpRpcLogs,
-        activeTurnId,
-        lastErrorTurnId,
-      }),
-    [activeTurnId, lastErrorTurnId, mcpRpcLogs],
-  );
-  const {
     workspaceMcpServerProfileOptions,
     selectedWorkspaceMcpServerProfileCount,
     isEditingMcpServer,
@@ -658,47 +619,6 @@ export function useWorkspace() {
     ],
   );
   const {
-    draftAttachmentTotalSizeBytes,
-    draftPdfAttachmentTotalSizeBytes,
-    messageAttachmentAccept: chatAttachmentAccept,
-    messageAttachmentFormatHint: chatAttachmentFormatHint,
-    canSendMessage,
-  } = useMemo(
-    () =>
-      selectPlaygroundComposerViewModel({
-        draft,
-        draftAttachments,
-        threadOperationPhase,
-        isSending,
-        isActiveThreadArchived,
-        isChatLocked,
-        isLoadingAzureConnections,
-        isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
-        hasActiveThreadId: activeThreadId.trim().length > 0,
-        hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
-        hasSelectedPlaygroundAzureDeploymentName:
-          selectedPlaygroundAzureDeploymentName.trim().length > 0,
-        isSelectedPlaygroundReasoningEffortOptionAvailable,
-        isPlaygroundReasoningEffortWebSearchCompatible,
-      }),
-    [
-      activeThreadId,
-      activePlaygroundAzureConnection,
-      draft,
-      draftAttachments,
-      isActiveThreadArchived,
-      isChatLocked,
-      isLoadingAzureConnections,
-      isLoadingPlaygroundAzureDeployments,
-      isPlaygroundReasoningEffortWebSearchCompatible,
-      isSelectedPlaygroundReasoningEffortOptionAvailable,
-      isSending,
-      selectedPlaygroundAzureDeploymentName,
-      threadOperationPhase,
-    ],
-  );
-
-  const {
     desktopUpdaterStatus,
     desktopUpdaterActionState,
     isApplyingDesktopUpdate,
@@ -709,12 +629,6 @@ export function useWorkspace() {
     setSystemNotice,
     logClientError,
     logClientWarning,
-  });
-
-  useLockedConfigPanelTab({
-    activeMainTab,
-    isChatLocked,
-    setActiveMainTab,
   });
 
   // Saved MCP / Skills loading flows.
@@ -1015,48 +929,6 @@ export function useWorkspace() {
   });
 
   const {
-    handleSelectActiveChatCommandSuggestion,
-    handleSubmit,
-    handleInputKeyDown,
-    handleDraftChange,
-    handleInputSelect,
-    handleOpenChatAttachmentPicker,
-    handleChatAttachmentFileChange,
-    handleRemoveDraftAttachment,
-  } = createChatComposerHandlers({
-    isArchivedThread,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    isChatLocked,
-    isSending,
-    isComposing,
-    readDraft: () => draft,
-    readDraftAttachments: () => draftAttachments,
-    readDraftAttachmentTotalSizeBytes: () => draftAttachmentTotalSizeBytes,
-    readDraftPdfAttachmentTotalSizeBytes: () =>
-      draftPdfAttachmentTotalSizeBytes,
-    chatAttachmentFormatHint,
-    readActiveChatCommandMatch: () => activeChatCommandMatch,
-    readActiveChatCommandProvider: () => activeChatCommandProvider,
-    readActiveChatCommandSuggestions: () => activeChatCommandSuggestions,
-    readActiveChatCommandMenu: () => activeChatCommandMenu,
-    readActiveChatCommandHighlightIndex: () =>
-      activeChatCommandHighlightIndex,
-    readChatAttachmentInput: () => chatAttachmentInputRef.current,
-    setPendingChatCommandCursorIndex: (value) => {
-      pendingChatCommandCursorIndexRef.current = value;
-    },
-    setDraft,
-    setChatComposerCursorIndex,
-    setChatCommandHighlightedIndex,
-    setChatAttachmentError,
-    setDraftAttachments,
-    setThreadError,
-    setActiveMainTab,
-    sendMessage,
-    logClientError,
-  });
-
-  const {
     handleInstructionContextToggleChange,
     handleAgentInstructionChange,
     handleOpenInstructionFilePicker,
@@ -1132,45 +1004,8 @@ export function useWorkspace() {
   });
 
   const {
-    handleChatProjectChange,
-    handleChatDeploymentChange,
-    handleReasoningEffortChange,
-    handleWebSearchEnabledChange,
-    handleChatAzureSelectorAction,
-    handleCopyMessage,
-    handleCopyMcpLog,
-  } = createPlaygroundControlHandlers({
-    isSending,
-    isStartingAzureLogin,
-    isSwitchingAzureTenant,
-    isStartingAzureLogout,
-    isLoadingAzureConnections,
-    isLoadingPlaygroundAzureDeployments,
-    isAzureAuthRequired,
-    azureConnectionError,
-    hasAzureConnections: azureConnections.length > 0,
-    hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
-    hasPlaygroundAzureDeployments: playgroundAzureDeployments.length > 0,
-    hasSelectedPlaygroundAzureDeploymentName:
-      selectedPlaygroundAzureDeploymentName.trim().length > 0,
-    isPlaygroundReasoningEffortSupported,
-    selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
-    effectivePlaygroundReasoningEffortOptions,
-    reasoningEffort,
-    setUiError,
-    setSystemNotice,
-    setActiveMainTab,
-    setReasoningEffort,
-    setWebSearchEnabled,
-    clearAzureSessionStatus,
-    markAzureAuthRequired,
-    handleAzureLogin,
-    handleSelectPlaygroundProject,
-    handleSelectPlaygroundDeployment,
-    loadAzureProjects,
-  });
-
-  const configPanelProps = buildConfigPanelProps({
+    configPanelProps,
+  } = useWorkspaceConfigPanel({
     activeMainTab,
     setActiveMainTab,
     isChatLocked,
@@ -1309,77 +1144,144 @@ export function useWorkspace() {
     setSkillRegistryWarning,
     setSkillRegistrySuccess,
   });
-
-  const playgroundPanelProps = buildWorkspacePlaygroundPanelProps({
-    messages,
-    threadOperationLogsByTurnId,
-    isSending,
-    isThreadReadOnly: isActiveThreadArchived,
-    desktopUpdaterStatus,
-    desktopUpdaterActionState,
-    isApplyingDesktopUpdate,
-    handleCheckDesktopUpdates,
-    handleApplyDesktopUpdate,
-    activeThreadName: activeThreadNameInput,
-    isThreadOperationBusy,
-    isCreatingThread,
-    handleCreateThread,
-    handleThreadCancel,
-    readActiveThreadId: () => activeThreadIdRef.current,
-    onCopyMessage: handleCopyMessage,
-    onCopyOperationLog: handleCopyMcpLog,
-    sendProgressMessages,
-    activeTurnOperationLogs,
-    errorTurnOperationLogs,
-    endOfMessagesRef,
-    systemNotice,
-    setSystemNotice,
-    error,
-    azureLoginError,
-    onSubmit: handleSubmit,
-    chatInputRef,
-    messageAttachmentInputRef: chatAttachmentInputRef,
-    messageAttachmentAccept: chatAttachmentAccept,
-    messageAttachmentFormatHint: chatAttachmentFormatHint,
-    draft,
-    messageAttachments: draftAttachments,
-    messageAttachmentError: chatAttachmentError,
-    onDraftChange: handleDraftChange,
-    onInputSelect: handleInputSelect,
-    onOpenMessageAttachmentPicker: handleOpenChatAttachmentPicker,
-    onMessageAttachmentFileChange: handleChatAttachmentFileChange,
-    onRemoveMessageAttachment: handleRemoveDraftAttachment,
-    onInputKeyDown: handleInputKeyDown,
-    chatCommandMenu: activeChatCommandMenu,
-    onSelectChatCommandSuggestion: handleSelectActiveChatCommandSuggestion,
-    onHighlightChatCommandSuggestion: setChatCommandHighlightedIndex,
-    setIsComposing,
-    isChatLocked,
-    isLoadingAzureConnections,
-    isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
-    isAzureAuthRequired,
-    isStartingAzureLogin,
-    isStartingAzureLogout,
-    onChatAzureSelectorAction: handleChatAzureSelectorAction,
-    azureConnections,
-    activeAzureConnectionId: activePlaygroundAzureConnection?.id ?? "",
-    onProjectChange: handleChatProjectChange,
-    selectedAzureDeploymentName: selectedPlaygroundAzureDeploymentName,
-    azureDeployments: playgroundAzureDeploymentNames,
-    onDeploymentChange: handleChatDeploymentChange,
-    reasoningEffort,
-    reasoningEffortOptions: effectivePlaygroundReasoningEffortOptions,
-    isReasoningEffortSupported: isPlaygroundReasoningEffortSupported,
-    onReasoningEffortChange: handleReasoningEffortChange,
-    webSearchEnabled,
-    onWebSearchEnabledChange: handleWebSearchEnabledChange,
-    canSendMessage,
-    selectedThreadSkills,
-    selectedMessageSkillActivations,
-    onRemoveThreadSkill: handleRemoveThreadSkill,
-    onRemoveMessageSkillActivation: handleRemoveMessageSkillActivation,
-    mcpServers,
-    onRemoveMcpServer: handleRemoveMcpServer,
+  const {
+    playgroundPanelProps,
+  } = useWorkspacePlayground({
+    chatCommandProviders,
+    runtime: {
+      messages,
+      isSending,
+      sendProgressMessages,
+      endOfMessagesRef,
+      chatInputRef,
+      pendingChatCommandCursorIndexRef,
+      draft,
+      chatComposerCursorIndex,
+      setChatComposerCursorIndex,
+      chatCommandHighlightedIndex,
+      setChatCommandHighlightedIndex,
+    },
+    operationLogs: {
+      mcpRpcLogs,
+      activeTurnId,
+      lastErrorTurnId,
+    },
+    composerView: {
+      draft,
+      draftAttachments,
+      threadOperationPhase,
+      isSending,
+      isActiveThreadArchived,
+      isChatLocked,
+      isLoadingAzureConnections,
+      isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
+      hasActiveThreadId: activeThreadId.trim().length > 0,
+      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+      hasSelectedPlaygroundAzureDeploymentName:
+        selectedPlaygroundAzureDeploymentName.trim().length > 0,
+      isSelectedPlaygroundReasoningEffortOptionAvailable,
+      isPlaygroundReasoningEffortWebSearchCompatible,
+    },
+    composerHandlers: {
+      isArchivedThread,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      isChatLocked,
+      isSending,
+      isComposing,
+      readDraft: () => draft,
+      readDraftAttachments: () => draftAttachments,
+      readChatAttachmentInput: () => chatAttachmentInputRef.current,
+      setPendingChatCommandCursorIndex: (value) => {
+        pendingChatCommandCursorIndexRef.current = value;
+      },
+      setDraft,
+      setChatComposerCursorIndex,
+      setChatCommandHighlightedIndex,
+      setChatAttachmentError,
+      setDraftAttachments,
+      setThreadError,
+      setActiveMainTab,
+      sendMessage,
+      logClientError,
+    },
+    controlHandlers: {
+      isSending,
+      isStartingAzureLogin,
+      isSwitchingAzureTenant,
+      isStartingAzureLogout,
+      isLoadingAzureConnections,
+      isLoadingPlaygroundAzureDeployments,
+      isAzureAuthRequired,
+      azureConnectionError,
+      hasAzureConnections: azureConnections.length > 0,
+      hasActivePlaygroundAzureConnection: !!activePlaygroundAzureConnection,
+      hasPlaygroundAzureDeployments: playgroundAzureDeployments.length > 0,
+      hasSelectedPlaygroundAzureDeploymentName:
+        selectedPlaygroundAzureDeploymentName.trim().length > 0,
+      isPlaygroundReasoningEffortSupported,
+      selectedPlaygroundDeploymentCompatibleReasoningEffortOptions,
+      effectivePlaygroundReasoningEffortOptions,
+      reasoningEffort,
+      setUiError,
+      setSystemNotice,
+      setActiveMainTab,
+      setReasoningEffort,
+      setWebSearchEnabled,
+      clearAzureSessionStatus,
+      markAzureAuthRequired,
+      handleAzureLogin,
+      handleSelectPlaygroundProject,
+      handleSelectPlaygroundDeployment,
+      loadAzureProjects,
+    },
+    panel: {
+      messages,
+      isSending,
+      isThreadReadOnly: isActiveThreadArchived,
+      desktopUpdaterStatus,
+      desktopUpdaterActionState,
+      isApplyingDesktopUpdate,
+      handleCheckDesktopUpdates,
+      handleApplyDesktopUpdate,
+      activeThreadName: activeThreadNameInput,
+      isThreadOperationBusy,
+      isCreatingThread,
+      handleCreateThread,
+      handleThreadCancel,
+      readActiveThreadId: () => activeThreadIdRef.current,
+      sendProgressMessages,
+      endOfMessagesRef,
+      systemNotice,
+      setSystemNotice,
+      error,
+      azureLoginError,
+      chatInputRef,
+      messageAttachmentInputRef: chatAttachmentInputRef,
+      draft,
+      messageAttachments: draftAttachments,
+      messageAttachmentError: chatAttachmentError,
+      setIsComposing,
+      isChatLocked,
+      isLoadingAzureConnections,
+      isLoadingAzureDeployments: isLoadingPlaygroundAzureDeployments,
+      isAzureAuthRequired,
+      isStartingAzureLogin,
+      isStartingAzureLogout,
+      azureConnections,
+      activeAzureConnectionId: activePlaygroundAzureConnection?.id ?? "",
+      selectedAzureDeploymentName: selectedPlaygroundAzureDeploymentName,
+      azureDeployments: playgroundAzureDeploymentNames,
+      reasoningEffort,
+      reasoningEffortOptions: effectivePlaygroundReasoningEffortOptions,
+      isReasoningEffortSupported: isPlaygroundReasoningEffortSupported,
+      webSearchEnabled,
+      selectedThreadSkills,
+      selectedMessageSkillActivations,
+      onRemoveThreadSkill: handleRemoveThreadSkill,
+      onRemoveMessageSkillActivation: handleRemoveMessageSkillActivation,
+      mcpServers,
+      onRemoveMcpServer: handleRemoveMcpServer,
+    },
   });
 
   const unauthenticatedPanelProps = buildUnauthenticatedPanelProps({
@@ -1388,16 +1290,22 @@ export function useWorkspace() {
   });
 
   return {
-    layoutRef,
-    rightPaneWidth,
-    isMainSplitterResizing,
-    onMainSplitterPointerDown,
-    isAzureAuthRequired,
-    theme,
-    unauthenticatedPanelProps,
-    configPanelProps: {
-      ...configPanelProps,
+    screen: {
+      theme,
+      layout: {
+        layoutRef,
+        rightPaneWidth,
+        isMainSplitterResizing,
+        onMainSplitterPointerDown,
+      },
+      auth: {
+        isAzureAuthRequired,
+        unauthenticatedPanelProps,
+      },
+      config: {
+        ...configPanelProps,
+      },
+      playground: playgroundPanelProps,
     },
-    playgroundPanelProps,
   };
 }

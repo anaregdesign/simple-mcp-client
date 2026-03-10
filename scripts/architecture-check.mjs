@@ -388,6 +388,17 @@ const checks = [
     ],
   },
   {
+    key: "workspacePanelAssemblyOwnership",
+    description:
+      "use-workspace must delegate config-panel and playground-panel assembly to feature-local workspace Hooks.",
+    command: "rg",
+    args: [
+      "-n",
+      "buildConfigPanelProps|selectWorkspaceConfigPanelProps|createPlaygroundControlHandlers|createChatComposerHandlers|usePlaygroundRuntime|selectPlaygroundOperationLogViewModel|selectPlaygroundComposerViewModel|buildWorkspacePlaygroundPanelProps|selectWorkspacePlaygroundPanelProps",
+      "app/lib/client/usecase/workspace/use-workspace.ts",
+    ],
+  },
+  {
     key: "threadPrivateRuntimeRefOwnership",
     description:
       "Thread private state updaters and request-state controller must use reader callbacks instead of raw refs.",
@@ -574,6 +585,18 @@ const checks = [
     args: [
       "--files",
       "app/lib/client/usecase/workspace/playground-panel/panel-props.ts",
+    ],
+  },
+  {
+    key: "legacyWorkspacePlaygroundPanelOwner",
+    description:
+      "playground-panel workspace prop owner must stay retired in favor of the feature-local Hook owner.",
+    rootPath:
+      "app/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props.ts",
+    command: "rg",
+    args: [
+      "--files",
+      "app/lib/client/usecase/workspace/playground-panel/workspace-playground-panel-props.ts",
     ],
   },
   {

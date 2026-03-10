@@ -24,24 +24,16 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const {
-    layoutRef,
-    rightPaneWidth,
-    isMainSplitterResizing,
-    onMainSplitterPointerDown,
-    isAzureAuthRequired,
-    theme,
-    unauthenticatedPanelProps,
-    configPanelProps,
-    playgroundPanelProps,
+    screen,
   } = useWorkspace();
 
-  const fluentTheme = theme === "dark" ? webDarkTheme : webLightTheme;
+  const fluentTheme = screen.theme === "dark" ? webDarkTheme : webLightTheme;
 
-  if (isAzureAuthRequired) {
+  if (screen.auth.isAzureAuthRequired) {
     return (
       <FluentProvider theme={fluentTheme}>
         <main className="chat-page chat-page-unauth">
-          <UnauthenticatedPanel {...unauthenticatedPanelProps} />
+          <UnauthenticatedPanel {...screen.auth.unauthenticatedPanelProps} />
         </main>
       </FluentProvider>
     );
@@ -52,29 +44,29 @@ export default function Home() {
       <main className="chat-page">
         <div
           className="chat-layout workspace-layout"
-          ref={layoutRef}
+          ref={screen.layout.layoutRef}
           style={
             {
-              "--right-pane-width": `${rightPaneWidth}px`,
+              "--right-pane-width": `${screen.layout.rightPaneWidth}px`,
             } as CSSProperties
           }
         >
           <PlaygroundPanel
-            {...playgroundPanelProps}
+            {...screen.playground}
             renderMessageContent={renderMessageContent}
             renderTurnOperationLog={renderTurnOperationLog}
           />
 
           <div
-            className={`layout-splitter main-splitter ${isMainSplitterResizing ? "resizing" : ""}`}
+            className={`layout-splitter main-splitter ${screen.layout.isMainSplitterResizing ? "resizing" : ""}`}
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize panels"
             title="Drag to resize Playground and side panels."
-            onPointerDown={onMainSplitterPointerDown}
+            onPointerDown={screen.layout.onMainSplitterPointerDown}
           />
 
-          <ConfigPanel {...configPanelProps} />
+          <ConfigPanel {...screen.config} />
         </div>
       </main>
     </FluentProvider>
