@@ -128,6 +128,29 @@ const checks = [
     ],
   },
   {
+    key: "threadPersistencePlanOwnership",
+    description:
+      "Thread persistence orchestration must reuse thread-persistence-plan helpers instead of inline save-eligibility checks.",
+    command: "rg",
+    args: [
+      "-n",
+      "export function shouldPersistThreadState",
+      "app/lib/client/usecase/workspace/threads/local-thread-state.ts",
+    ],
+  },
+  {
+    key: "threadPersistenceOperationPlanningDuplication",
+    description:
+      "Thread persistence operation modules must not inline save signature or persistable-state checks.",
+    command: "rg",
+    args: [
+      "-n",
+      "buildThreadSaveSignature|hasThreadPersistableState",
+      "app/lib/client/usecase/workspace/threads/thread-persistence-operations.ts",
+      "app/lib/client/usecase/workspace/threads/background-effects.ts",
+    ],
+  },
+  {
     key: "raw405InRoutes",
     description: "Route modules should use methodNotAllowedResponse helpers instead of raw 405 values.",
     command: "rg",
