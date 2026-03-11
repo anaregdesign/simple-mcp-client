@@ -277,6 +277,7 @@ jobs:
     name: Publish Container Image (${{ matrix.arch }})
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -321,6 +322,8 @@ jobs:
     name: Publish Container Manifest
     needs: publish-container-image
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ needs.publish-container-image.result == 'success' }}
 
     steps:
       - name: Set up Docker Buildx
@@ -372,7 +375,6 @@ jobs:
     name: Publish Release Assets
     needs:
       - package-installers
-      - publish-container-manifest
     runs-on: ubuntu-latest
 
     steps:
@@ -461,8 +463,7 @@ jobs:
           - macOS installers and updater metadata
           - Windows NSIS installers and updater metadata (`.exe`, `latest.yml`, `.blockmap`)
 
-          Container image is published to GitHub Packages:
-          - `ghcr.io/anaregdesign/local-playground` (`latest`, `<major>.<minor>`, `<version>`)
+          Container image publishing is handled separately by GitHub Actions.
 
           ### Run from Source (Copy & Paste)
 
