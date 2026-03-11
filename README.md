@@ -73,6 +73,8 @@ npm run desktop:start
 npm run desktop:package
 ```
 
+Desktop builds wrap the same React Router SPA in Electron. There is no separate desktop renderer shell.
+
 ## Screenshots
 
 ![Local Playground overview](docs/images/local-playground-desktop.png)

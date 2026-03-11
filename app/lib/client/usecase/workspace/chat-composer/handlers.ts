@@ -9,6 +9,7 @@ import type {
 import type { DraftChatAttachment } from "~/lib/contracts/chat/attachments";
 import {
   openClientFileInputPicker,
+  type OpenClientFileInputPickerResult,
 } from "~/lib/client/infrastructure/browser/file-input-open";
 import {
   formatChatAttachmentSize,
@@ -68,7 +69,9 @@ type ChatComposerHandlerDependencies = {
   readActiveChatCommandMenu: () => ChatCommandMenuView | null;
   readActiveChatCommandHighlightIndex: () => number;
   readChatAttachmentInput: () => HTMLInputElement | null;
-  openChatAttachmentPicker?: (input: HTMLInputElement | null) => boolean;
+  openChatAttachmentPicker?: (
+    input: HTMLInputElement | null,
+  ) => OpenClientFileInputPickerResult;
   setPendingChatCommandCursorIndex: (value: number | null) => void;
   setDraft: (value: string) => void;
   setChatComposerCursorIndex: (value: number) => void;
@@ -259,12 +262,12 @@ export function createChatComposerHandlers(
       }
 
       deps.setChatAttachmentError(null);
-      const didOpen = (
+      const result = (
         deps.openChatAttachmentPicker ?? openClientFileInputPicker
       )(deps.readChatAttachmentInput());
-      if (!didOpen) {
+      if (!result.ok) {
         deps.setChatAttachmentError(
-          "Attachment file picker is unavailable right now.",
+          "Attachment file picker is unavailable in this runtime.",
         );
       }
     },

@@ -37,7 +37,6 @@ export type WorkspaceBootstrapData = {
   skillWarnings: string[];
   registryWarnings: string[];
   warnings: string[];
-  desktopStatus: null;
 };
 
 export type WorkspaceBootstrapResponseBody =

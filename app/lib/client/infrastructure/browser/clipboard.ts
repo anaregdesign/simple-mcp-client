@@ -1,14 +1,28 @@
+import {
+  readClipboardWriteStrategy,
+  type ClipboardWriteStrategy,
+} from "~/lib/client/infrastructure/browser/workspace-runtime-capabilities";
+
+export type ClipboardWriteResult = {
+  strategy: Exclude<ClipboardWriteStrategy, "unavailable">;
+};
+
 /**
  * Client runtime support module.
  */
-export async function copyTextToClipboard(text: string): Promise<void> {
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+export async function copyTextToClipboard(
+  text: string,
+): Promise<ClipboardWriteResult> {
+  const strategy = readClipboardWriteStrategy();
+  if (strategy === "async-clipboard") {
     await navigator.clipboard.writeText(text);
-    return;
+    return {
+      strategy,
+    };
   }
 
-  if (typeof document === "undefined") {
-    throw new Error("Clipboard API is not available.");
+  if (strategy === "unavailable") {
+    throw new Error("Clipboard write is unavailable in this runtime.");
   }
 
   const textarea = document.createElement("textarea");
@@ -24,4 +38,8 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   if (!copied) {
     throw new Error("Failed to copy text.");
   }
+
+  return {
+    strategy,
+  };
 }

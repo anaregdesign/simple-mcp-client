@@ -2,10 +2,13 @@ import {
   INSTRUCTION_SAVE_FILE_TYPES,
   type InstructionSaveFileType,
 } from "~/lib/constants/instruction";
+import {
+  readFileSaveStrategy,
+} from "~/lib/client/infrastructure/browser/workspace-runtime-capabilities";
 
 export type SaveInstructionToClientFileResult = {
   fileName: string;
-  mode: "picker" | "download";
+  strategy: "save-picker" | "download";
 };
 
 type SaveFilePickerOptionsCompat = {
@@ -31,10 +34,15 @@ export async function saveInstructionToClientFile(
   instruction: string,
   suggestedFileName: string,
 ): Promise<SaveInstructionToClientFileResult> {
-  const savePickerWindow = window as WindowWithSaveFilePicker;
-  if (typeof savePickerWindow.showSaveFilePicker === "function") {
+  const strategy = readFileSaveStrategy();
+  if (strategy === "save-picker") {
+    const savePickerWindow = window as WindowWithSaveFilePicker;
+    const showSaveFilePicker = savePickerWindow.showSaveFilePicker;
+    if (typeof showSaveFilePicker !== "function") {
+      throw new Error("Instruction file save is unavailable in this runtime.");
+    }
     try {
-      const fileHandle = await savePickerWindow.showSaveFilePicker({
+      const fileHandle = await showSaveFilePicker({
         suggestedName: suggestedFileName,
         types: INSTRUCTION_SAVE_FILE_TYPES,
       });
@@ -43,7 +51,7 @@ export async function saveInstructionToClientFile(
       await writable.close();
       return {
         fileName: fileHandle.name || suggestedFileName,
-        mode: "picker",
+        strategy: "save-picker",
       };
     } catch (error) {
       if (isInstructionSaveCanceled(error)) {
@@ -56,10 +64,14 @@ export async function saveInstructionToClientFile(
     }
   }
 
+  if (strategy === "unavailable") {
+    throw new Error("Instruction file save is unavailable in this runtime.");
+  }
+
   downloadInstructionFile(instruction, suggestedFileName);
   return {
     fileName: suggestedFileName,
-    mode: "download",
+    strategy: "download",
   };
 }
 

@@ -51,7 +51,7 @@ export async function saveInstructionPrompt(
     );
     deps.setLoadedInstructionFileName(saveResult.fileName);
     deps.setInstructionSaveSuccess(
-      saveResult.mode === "picker"
+      saveResult.strategy === "save-picker"
         ? `Saved as ${saveResult.fileName}`
         : `Download started: ${saveResult.fileName}`,
     );

@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
 import {
   openClientFileInputPicker,
+  type OpenClientFileInputPickerResult,
 } from "~/lib/client/infrastructure/browser/file-input-open";
 import {
   INSTRUCTION_ALLOWED_EXTENSIONS,
@@ -47,7 +48,9 @@ type InstructionEditingHandlerDependencies = {
     error: unknown,
     options?: InstructionEditingLogOptions,
   ) => void;
-  openInstructionFilePicker?: (input: HTMLInputElement | null) => boolean;
+  openInstructionFilePicker?: (
+    input: HTMLInputElement | null,
+  ) => OpenClientFileInputPickerResult;
 };
 
 export type InstructionEditingHandlers = {
@@ -107,12 +110,12 @@ export function createInstructionEditingHandlers(
       }
 
       deps.setInstructionFileError(null);
-      const didOpen = (
+      const result = (
         deps.openInstructionFilePicker ?? openClientFileInputPicker
       )(deps.readInstructionFileInput());
-      if (!didOpen) {
+      if (!result.ok) {
         deps.setInstructionFileError(
-          "Instruction file picker is unavailable right now.",
+          "Instruction file picker is unavailable in this runtime.",
         );
       }
     },

@@ -90,7 +90,10 @@ describe("createInstructionEditingHandlers", () => {
 
   it("opens the instruction file picker through the browser adapter", () => {
     const setInstructionFileError = vi.fn();
-    const openInstructionFilePicker = vi.fn(() => true);
+    const openInstructionFilePicker = vi.fn(() => ({
+      ok: true,
+      strategy: "input-click" as const,
+    }));
     const input = {} as HTMLInputElement;
     const handlers = createInstructionEditingHandlers({
       isArchivedThread: () => false,
@@ -131,7 +134,10 @@ describe("createInstructionEditingHandlers", () => {
       setInstructionEnhanceSuccess: () => {},
       setInstructionEnhanceComparison: () => {},
       logClientError: () => {},
-      openInstructionFilePicker: () => false,
+      openInstructionFilePicker: () => ({
+        ok: false,
+        strategy: "unavailable",
+      }),
     });
 
     handlers.handleOpenInstructionFilePicker();
@@ -139,7 +145,7 @@ describe("createInstructionEditingHandlers", () => {
     expect(setInstructionFileError).toHaveBeenNthCalledWith(1, null);
     expect(setInstructionFileError).toHaveBeenNthCalledWith(
       2,
-      "Instruction file picker is unavailable right now.",
+      "Instruction file picker is unavailable in this runtime.",
     );
   });
 

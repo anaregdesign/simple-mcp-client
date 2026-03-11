@@ -28,7 +28,7 @@ describe("instruction file save", () => {
 
     await expect(saveInstructionToClientFile("hello", "instruction.md")).resolves.toEqual({
       fileName: "saved.md",
-      mode: "picker",
+      strategy: "save-picker",
     });
     expect(showSaveFilePicker).toHaveBeenCalledWith({
       suggestedName: "instruction.md",
@@ -74,12 +74,22 @@ describe("instruction file save", () => {
 
     await expect(saveInstructionToClientFile("hello", "instruction.md")).resolves.toEqual({
       fileName: "instruction.md",
-      mode: "download",
+      strategy: "download",
     });
     expect(click).toHaveBeenCalledOnce();
     expect(append).toHaveBeenCalledOnce();
     expect(setTimeout).toHaveBeenCalledOnce();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:instruction");
+  });
+
+  it("throws when neither picker nor download fallback is available", async () => {
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("document", undefined);
+    vi.stubGlobal("URL", undefined);
+
+    await expect(
+      saveInstructionToClientFile("hello", "instruction.md"),
+    ).rejects.toThrow("Instruction file save is unavailable in this runtime.");
   });
 
   it("rethrows save cancellation", async () => {

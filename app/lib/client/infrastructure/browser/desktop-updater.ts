@@ -9,36 +9,6 @@ export type DesktopUpdaterStatus = {
   lastCheckedAt: string;
 };
 
-export type DesktopUpdaterApi = {
-  getUpdaterStatus: () => Promise<unknown>;
-  checkForUpdates: () => Promise<unknown>;
-  onUpdaterStatus: (listener: (status: unknown) => void) => () => void;
-  quitAndInstallUpdate: () => Promise<void>;
-};
-
-export function readDesktopApi(): DesktopUpdaterApi | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const candidate = (window as Window & { desktopApi?: unknown }).desktopApi;
-  if (!candidate || typeof candidate !== "object") {
-    return null;
-  }
-
-  const typedCandidate = candidate as Partial<DesktopUpdaterApi>;
-  if (
-    typeof typedCandidate.getUpdaterStatus !== "function" ||
-    typeof typedCandidate.checkForUpdates !== "function" ||
-    typeof typedCandidate.onUpdaterStatus !== "function" ||
-    typeof typedCandidate.quitAndInstallUpdate !== "function"
-  ) {
-    return null;
-  }
-
-  return typedCandidate as DesktopUpdaterApi;
-}
-
 export function readDesktopUpdaterStatusFromUnknown(
   value: unknown,
 ): DesktopUpdaterStatus | null {

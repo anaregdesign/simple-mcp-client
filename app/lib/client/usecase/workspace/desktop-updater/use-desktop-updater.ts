@@ -4,9 +4,12 @@ import {
   useState,
 } from "react";
 import {
-  readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
 } from "~/lib/client/infrastructure/browser/desktop-updater";
+import {
+  readDesktopUpdaterApi,
+  readWorkspaceRuntimeCapabilities,
+} from "~/lib/client/infrastructure/browser/workspace-runtime-capabilities";
 import {
   resolveDesktopUpdaterActionState,
 } from "~/lib/client/usecase/workspace/desktop-updater/selectors";
@@ -77,7 +80,13 @@ export function useWorkspaceDesktopUpdater(
   );
 
   useEffect(() => {
-    const desktopApi = readDesktopApi();
+    const capabilities = readWorkspaceRuntimeCapabilities();
+    if (!capabilities.desktopUpdaterAvailable) {
+      setDesktopUpdaterStatus(getDefaultDesktopUpdaterStatus());
+      return;
+    }
+
+    const desktopApi = readDesktopUpdaterApi();
     if (!desktopApi) {
       setDesktopUpdaterStatus(getDefaultDesktopUpdaterStatus());
       return;
@@ -117,7 +126,7 @@ export function useWorkspaceDesktopUpdater(
   }, []);
 
   async function handleApplyDesktopUpdate() {
-    const desktopApi = readDesktopApi();
+    const desktopApi = readDesktopUpdaterApi();
     if (
       !desktopApi ||
       !desktopUpdaterStatus.updateDownloaded ||
@@ -148,7 +157,7 @@ export function useWorkspaceDesktopUpdater(
   }
 
   async function handleCheckDesktopUpdates() {
-    const desktopApi = readDesktopApi();
+    const desktopApi = readDesktopUpdaterApi();
     if (
       !desktopApi ||
       !desktopUpdaterStatus.supported ||

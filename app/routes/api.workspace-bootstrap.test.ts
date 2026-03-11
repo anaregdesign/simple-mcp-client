@@ -55,7 +55,6 @@ describe("/api/workspace-bootstrap", () => {
       skillWarnings: [],
       registryWarnings: [],
       warnings: [],
-      desktopStatus: null,
     });
     logServerRouteEventMock.mockResolvedValue(undefined);
   });

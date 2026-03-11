@@ -1,24 +1,44 @@
+import {
+  readFileOpenStrategy,
+  type FileOpenStrategy,
+} from "~/lib/client/infrastructure/browser/workspace-runtime-capabilities";
+
 type FileInputWithPicker = HTMLInputElement & {
   showPicker?: () => void;
 };
 
+export type OpenClientFileInputPickerResult = {
+  ok: boolean;
+  strategy: FileOpenStrategy;
+};
+
 export function openClientFileInputPicker(
   input: HTMLInputElement | null,
-): boolean {
+): OpenClientFileInputPickerResult {
   if (!input || input.disabled) {
-    return false;
+    return {
+      ok: false,
+      strategy: "unavailable",
+    };
   }
 
+  const preferredStrategy = readFileOpenStrategy(input);
   const pickerInput = input as FileInputWithPicker;
-  if (typeof pickerInput.showPicker === "function") {
+  if (preferredStrategy === "show-picker") {
     try {
       pickerInput.showPicker();
-      return true;
+      return {
+        ok: true,
+        strategy: "show-picker",
+      };
     } catch {
       // Some embedded browsers expose showPicker() but still reject it.
     }
   }
 
   input.click();
-  return true;
+  return {
+    ok: true,
+    strategy: "input-click",
+  };
 }

@@ -61,7 +61,7 @@ function createBaseDependencies(
     requestInstructionEnhancement: async () => ({ message: "" }),
     saveInstructionFile: async () => ({
       fileName: "instruction.md",
-      mode: "download",
+      strategy: "download",
     }),
     isInstructionSaveCanceled: () => false,
     refreshThreadTitleInBackground: async () => {},
@@ -74,7 +74,7 @@ describe("createInstructionPromptHandlers", () => {
   it("saves the current instruction prompt via the injected file saver", async () => {
     const saveInstructionFile = vi.fn(async () => ({
       fileName: "instruction.md",
-      mode: "picker" as const,
+      strategy: "save-picker" as const,
     }));
     const setLoadedInstructionFileName = vi.fn();
     const setInstructionSaveSuccess = vi.fn();

@@ -134,7 +134,10 @@ describe("createChatComposerHandlers", () => {
 
   it("opens the attachment file picker through the browser adapter", () => {
     const setChatAttachmentError = vi.fn();
-    const openChatAttachmentPicker = vi.fn(() => true);
+    const openChatAttachmentPicker = vi.fn(() => ({
+      ok: true,
+      strategy: "input-click" as const,
+    }));
     const input = {} as HTMLInputElement;
     const handlers = createChatComposerHandlers(
       createBaseDependencies({
@@ -155,7 +158,10 @@ describe("createChatComposerHandlers", () => {
     const handlers = createChatComposerHandlers(
       createBaseDependencies({
         setChatAttachmentError,
-        openChatAttachmentPicker: () => false,
+        openChatAttachmentPicker: () => ({
+          ok: false,
+          strategy: "unavailable",
+        }),
       }),
     );
 
@@ -164,7 +170,7 @@ describe("createChatComposerHandlers", () => {
     expect(setChatAttachmentError).toHaveBeenNthCalledWith(1, null);
     expect(setChatAttachmentError).toHaveBeenNthCalledWith(
       2,
-      "Attachment file picker is unavailable right now.",
+      "Attachment file picker is unavailable in this runtime.",
     );
   });
 

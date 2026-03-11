@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  readDesktopApi,
   readDesktopUpdaterStatusFromUnknown,
 } from "~/lib/client/infrastructure/browser/desktop-updater";
+import {
+  readDesktopUpdaterApi,
+} from "~/lib/client/infrastructure/browser/workspace-runtime-capabilities";
 
 describe("readDesktopUpdaterStatusFromUnknown", () => {
   it("parses a valid desktop updater payload", () => {
@@ -38,9 +40,9 @@ describe("readDesktopUpdaterStatusFromUnknown", () => {
   });
 });
 
-describe("readDesktopApi", () => {
+describe("readDesktopUpdaterApi", () => {
   it("returns null when desktopApi is unavailable", () => {
-    expect(readDesktopApi()).toBeNull();
+    expect(readDesktopUpdaterApi()).toBeNull();
   });
 
   it("returns null when desktopApi is missing required functions", () => {
@@ -50,7 +52,7 @@ describe("readDesktopApi", () => {
       },
     });
 
-    expect(readDesktopApi()).toBeNull();
+    expect(readDesktopUpdaterApi()).toBeNull();
     vi.unstubAllGlobals();
   });
 });

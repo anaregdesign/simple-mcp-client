@@ -81,7 +81,7 @@ Source of truth for this baseline:
 - The textarea is `readOnly` when chat is locked, not `disabled`.
 - Progress messages appear while a send is in flight.
 - Operation logs are grouped by turn and the active/error turn logs render separately.
-- Desktop updater actions are visible in the Playground header.
+- Desktop updater actions are visible in the Playground header when the runtime exposes desktop updater capability.
 
 ### Known quirks
 
@@ -227,7 +227,7 @@ Source of truth for this baseline:
 ### Initial state
 
 - `uiError`, `systemNotice`, Azure auth errors, thread errors, instruction errors, MCP form errors, and skill warnings are all surfaced in feature-specific places.
-- Desktop updater status is shown in the Playground header.
+- Desktop updater status is shown in the Playground header when the runtime exposes desktop updater capability.
 
 ### User action
 
@@ -237,12 +237,12 @@ Source of truth for this baseline:
 
 - System notices can be cleared from the composer region.
 - Feature-specific warnings and success messages clear through local handlers.
-- Desktop updater action state moves between `check` and `apply` flows.
+- Desktop updater action state moves between `check` and `apply` flows when desktop updater capability is available.
 
 ### Visible result
 
 - Notices are not centralized into a single status center. They appear in the feature region that owns them.
-- Desktop updater actions remain visible even while the conversation pane is otherwise idle.
+- Desktop updater actions remain visible while the conversation pane is otherwise idle when desktop updater capability is available.
 
 ### Known quirks
 
@@ -274,5 +274,5 @@ Use this checklist after large internal refactors. The goal is to confirm that c
 | Azure settings | Change Playground project or deployment | Composer Azure selectors update and the deployment list follows the chosen project |
 | MCP Servers | Add or remove a saved profile, then connect it to the active thread | MCP tab updates immediately and the Playground MCP bubble list matches the active thread |
 | Skills | Add or remove thread skills and message skill activations | Skills tab and Playground bubble groups stay in sync |
-| Desktop updater | Check for updates | Playground header shows the current updater status or action feedback |
+| Desktop updater | Check for updates | Playground header shows the current updater status or action feedback when desktop updater capability is available |
 | Error handling | Trigger an auth or mutation failure | Error text appears in the owning feature region instead of a global catch-all area |

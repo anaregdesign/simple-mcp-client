@@ -128,7 +128,6 @@ describe("WorkspaceBootstrapService", () => {
       skillWarnings: [],
       registryWarnings: [],
       warnings: [],
-      desktopStatus: null,
     });
     expect(azureProjectQueryService.loadAzureProjectsWithFallback).toHaveBeenCalledOnce();
     expect(azureProjectQueryService.loadAzureTenantsWithFallback).toHaveBeenCalledOnce();

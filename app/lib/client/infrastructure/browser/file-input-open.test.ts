@@ -11,7 +11,10 @@ describe("openClientFileInputPicker", () => {
       showPicker,
     } as unknown as HTMLInputElement;
 
-    expect(openClientFileInputPicker(input)).toBe(true);
+    expect(openClientFileInputPicker(input)).toEqual({
+      ok: true,
+      strategy: "show-picker",
+    });
     expect(showPicker).toHaveBeenCalledOnce();
     expect(click).not.toHaveBeenCalled();
   });
@@ -27,12 +30,18 @@ describe("openClientFileInputPicker", () => {
       showPicker,
     } as unknown as HTMLInputElement;
 
-    expect(openClientFileInputPicker(input)).toBe(true);
+    expect(openClientFileInputPicker(input)).toEqual({
+      ok: true,
+      strategy: "input-click",
+    });
     expect(showPicker).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
   });
 
   it("returns false when the input is unavailable", () => {
-    expect(openClientFileInputPicker(null)).toBe(false);
+    expect(openClientFileInputPicker(null)).toEqual({
+      ok: false,
+      strategy: "unavailable",
+    });
   });
 });

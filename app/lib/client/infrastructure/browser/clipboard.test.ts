@@ -18,7 +18,9 @@ describe("copyTextToClipboard", () => {
       },
     });
 
-    await copyTextToClipboard("hello");
+    await expect(copyTextToClipboard("hello")).resolves.toEqual({
+      strategy: "async-clipboard",
+    });
 
     expect(writeText).toHaveBeenCalledWith("hello");
   });
@@ -28,7 +30,7 @@ describe("copyTextToClipboard", () => {
     vi.stubGlobal("document", undefined);
 
     await expect(copyTextToClipboard("hello")).rejects.toThrow(
-      "Clipboard API is not available.",
+      "Clipboard write is unavailable in this runtime.",
     );
   });
 });

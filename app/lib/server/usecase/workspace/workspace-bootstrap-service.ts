@@ -49,7 +49,6 @@ type WorkspaceBootstrapData = {
   skillWarnings: string[];
   registryWarnings: string[];
   warnings: string[];
-  desktopStatus: null;
 };
 
 type WorkspaceBootstrapDependencies = {
@@ -133,7 +132,6 @@ export class WorkspaceBootstrapService {
       skillWarnings: skillDiscovery.skillWarnings,
       registryWarnings: skillDiscovery.registryWarnings,
       warnings: skillDiscovery.warnings,
-      desktopStatus: null,
     };
   }
 }
