@@ -20,6 +20,7 @@ import {
 } from "~/lib/client/usecase/workspace/azure-settings/use-azure-settings";
 import {
   buildUnauthenticatedPanelProps,
+  shouldShowAzureAuthPendingPanel,
 } from "~/lib/client/usecase/workspace/unauthenticated-panel/selectors";
 import {
   readSkillCommandSuggestions,
@@ -793,6 +794,13 @@ export function useWorkspaceScreenFeatures(runtime: WorkspaceScreenRuntime) {
     isStartingAzureLogin,
     onAzureLogin: handleAzureLogin,
   });
+  const isResolvingAzureAuth = shouldShowAzureAuthPendingPanel({
+    isLoadingAzureConnections,
+    isAzureAuthRequired,
+    activeAzurePrincipal,
+    azureConnectionCount: azureConnections.length,
+    azureConnectionError,
+  });
 
   return {
     theme,
@@ -804,6 +812,7 @@ export function useWorkspaceScreenFeatures(runtime: WorkspaceScreenRuntime) {
     },
     auth: {
       isAzureAuthRequired,
+      isResolvingAzureAuth,
       unauthenticatedPanelProps,
     },
     config: {

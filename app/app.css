@@ -506,6 +506,19 @@ body {
   padding: 1.5rem;
 }
 
+.unauth-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-subtle);
+}
+
+.unauth-status-text {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
 .unauth-login-btn.fui-Button {
   min-width: 220px;
   min-height: 2.6rem;

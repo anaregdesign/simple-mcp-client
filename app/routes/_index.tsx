@@ -2,6 +2,7 @@
  * Route composition module.
  */
 import type { CSSProperties } from "react";
+import { AzureAuthPendingPanel } from "~/components/authorize/AzureAuthPendingPanel";
 import { ConfigPanel } from "~/components/config/ConfigPanel";
 import { UnauthenticatedPanel } from "~/components/authorize/UnauthenticatedPanel";
 import { PlaygroundPanel } from "~/components/playground/PlaygroundPanel";
@@ -28,6 +29,16 @@ export default function Home() {
   } = useWorkspace();
 
   const fluentTheme = screen.theme === "dark" ? webDarkTheme : webLightTheme;
+
+  if (screen.auth.isResolvingAzureAuth) {
+    return (
+      <FluentProvider theme={fluentTheme}>
+        <main className="chat-page chat-page-unauth">
+          <AzureAuthPendingPanel />
+        </main>
+      </FluentProvider>
+    );
+  }
 
   if (screen.auth.isAzureAuthRequired) {
     return (

@@ -74,6 +74,7 @@ npm run desktop:package
 ```
 
 Desktop builds wrap the same React Router SPA in Electron. There is no separate desktop renderer shell.
+`desktop:start` rebuilds Electron-native dependencies before launching the production shell. Installer builds rebuild native dependencies through `electron-builder`.
 
 ## Screenshots
 
