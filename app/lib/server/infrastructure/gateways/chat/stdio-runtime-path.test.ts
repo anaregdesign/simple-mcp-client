@@ -7,6 +7,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildStdioSpawnEnvironment,
+  resolveExecutableInvocation,
   resolveExecutableCommand,
 } from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
 
@@ -44,6 +45,49 @@ describe("resolveExecutableCommand", () => {
 
       const resolved = resolveExecutableCommand("demo-tool", { PATH: tempDirectory });
       expect(resolved).toBe(commandPath);
+    } finally {
+      rmSync(tempDirectory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resolveExecutableInvocation", () => {
+  it("rewrites node shebang scripts to execute through node", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const tempDirectory = mkdtempSync(path.join(os.tmpdir(), "local-playground-chat-"));
+    try {
+      const nodePath = path.join(tempDirectory, "node");
+      const scriptPath = path.join(tempDirectory, "npx");
+      writeFileSync(nodePath, "#!/bin/sh\necho node\n", "utf8");
+      writeFileSync(scriptPath, "#!/usr/bin/env node\nconsole.log('npx');\n", "utf8");
+      chmodSync(nodePath, 0o755);
+      chmodSync(scriptPath, 0o755);
+
+      const invocation = resolveExecutableInvocation("npx", ["-y", "@microsoft/workiq", "mcp"], {
+        PATH: tempDirectory,
+      });
+      expect(invocation.command).toBe(nodePath);
+      expect(invocation.args).toEqual([scriptPath, "-y", "@microsoft/workiq", "mcp"]);
+    } finally {
+      rmSync(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps non-node shebang scripts unchanged", () => {
+    const tempDirectory = mkdtempSync(path.join(os.tmpdir(), "local-playground-chat-"));
+    try {
+      const scriptPath = path.join(tempDirectory, "demo-tool");
+      writeFileSync(scriptPath, "#!/bin/sh\necho demo\n", "utf8");
+      chmodSync(scriptPath, 0o755);
+
+      const invocation = resolveExecutableInvocation("demo-tool", ["--flag"], {
+        PATH: tempDirectory,
+      });
+      expect(invocation.command).toBe(scriptPath);
+      expect(invocation.args).toEqual(["--flag"]);
     } finally {
       rmSync(tempDirectory, { recursive: true, force: true });
     }

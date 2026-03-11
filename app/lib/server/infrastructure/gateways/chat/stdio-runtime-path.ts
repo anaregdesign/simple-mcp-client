@@ -56,6 +56,29 @@ export function resolveExecutableCommand(command: string, env: Record<string, st
   return resolved ?? command;
 }
 
+export function resolveExecutableInvocation(
+  command: string,
+  args: string[],
+  env: Record<string, string>,
+): {
+  command: string;
+  args: string[];
+} {
+  const resolvedCommand = resolveExecutableCommand(command, env);
+  const nodeCommand = resolveNodeShebangCommand(resolvedCommand, env);
+  if (!nodeCommand) {
+    return {
+      command: resolvedCommand,
+      args,
+    };
+  }
+
+  return {
+    command: nodeCommand,
+    args: [resolvedCommand, ...args],
+  };
+}
+
 function isPathLikeCommand(command: string): boolean {
   return command.includes("/") || command.includes("\\");
 }
@@ -218,6 +241,59 @@ function splitPathEntries(pathValue: string): string[] {
     .split(path.delimiter)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+}
+
+function resolveNodeShebangCommand(
+  command: string,
+  env: Record<string, string>,
+): string | null {
+  if (process.platform === "win32") {
+    return null;
+  }
+
+  const shebangCommand = readShebangCommand(command);
+  if (shebangCommand !== "node") {
+    return null;
+  }
+
+  return resolveExecutableCommand("node", env);
+}
+
+function readShebangCommand(command: string): string | null {
+  try {
+    const header = fs.readFileSync(command, "utf8").slice(0, 256);
+    const firstLine = header.split(/\r?\n/u, 1)[0]?.trim() ?? "";
+    if (!firstLine.startsWith("#!")) {
+      return null;
+    }
+
+    const tokens = firstLine
+      .slice(2)
+      .trim()
+      .split(/\s+/u)
+      .filter((token) => token.length > 0);
+    if (tokens.length === 0) {
+      return null;
+    }
+
+    const executableName = path.basename(tokens[0]);
+    if (executableName !== "env") {
+      return executableName;
+    }
+
+    const envTokens = [...tokens.slice(1)];
+    while (envTokens[0]?.startsWith("-")) {
+      envTokens.shift();
+    }
+
+    if (!envTokens[0]) {
+      return null;
+    }
+
+    return path.basename(envTokens[0]);
+  } catch {
+    return null;
+  }
 }
 
 function dedupePathEntries(entries: string[]): string[] {

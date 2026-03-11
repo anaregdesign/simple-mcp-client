@@ -9,7 +9,7 @@ import type {
 } from "~/lib/server/usecase/chat/mcp-server-config-types";
 import {
   buildStdioSpawnEnvironment,
-  resolveExecutableCommand,
+  resolveExecutableInvocation,
 } from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
 import {
   buildMcpHttpRuntimeHeaders,
@@ -92,11 +92,11 @@ export async function createMcpServerSession(
 ): Promise<ThreadMcpServerSession<McpServerSessionRefreshState>> {
   if (config.transport === "stdio") {
     const env = buildStdioSpawnEnvironment(config.env);
-    const command = resolveExecutableCommand(config.command, env);
+    const invocation = resolveExecutableInvocation(config.command, config.args, env);
     const server = new MCPServerStdio({
       name: config.name,
-      command,
-      args: config.args,
+      command: invocation.command,
+      args: invocation.args,
       cwd: config.cwd,
       env,
     });
