@@ -4,9 +4,16 @@ import {
 import {
   shouldScheduleWorkspaceMcpServerProfileLoginRetry,
 } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
+import {
+  cancelAzureDeploymentLoads,
+} from "./deployment-selection";
 import type {
+  AzureSettingsState,
   AzureSettingsHandlerDependencies,
 } from "./types";
+
+const AZURE_AUTH_REQUIRED_THREADS_MESSAGE =
+  "Azure login is required. Open Settings and sign in to load threads.";
 
 export function clearWorkspaceMcpServerProfileLoginRetry(
   deps: AzureSettingsHandlerDependencies,
@@ -30,6 +37,33 @@ export function clearActiveAzureIdentity(
     azureTenantSwitchError: null,
     isReloadingAzureCatalog: false,
     utilityReasoningEffort: DEFAULT_UTILITY_REASONING_EFFORT,
+  });
+}
+
+export function applyAzureAuthRequiredState(
+  deps: AzureSettingsHandlerDependencies,
+  patch: Partial<AzureSettingsState> = {},
+): void {
+  clearWorkspaceMcpServerProfileLoginRetry(deps);
+  clearActiveAzureIdentity(deps, () => cancelAzureDeploymentLoads(deps));
+  deps.options.clearWorkspaceMcpServerProfilesState();
+  deps.options.clearThreadsState(AZURE_AUTH_REQUIRED_THREADS_MESSAGE);
+  deps.patchState({
+    isAzureAuthRequired: true,
+    azureConnections: [],
+    playgroundAzureDeployments: [],
+    utilityAzureDeployments: [],
+    isLoadingPlaygroundAzureDeployments: false,
+    isLoadingUtilityAzureDeployments: false,
+    selectedPlaygroundAzureConnectionId: "",
+    selectedPlaygroundAzureDeploymentName: "",
+    selectedUtilityAzureConnectionId: "",
+    selectedUtilityAzureDeploymentName: "",
+    utilityReasoningEffort: DEFAULT_UTILITY_REASONING_EFFORT,
+    azureConnectionError: null,
+    playgroundAzureDeploymentError: null,
+    utilityAzureDeploymentError: null,
+    ...patch,
   });
 }
 

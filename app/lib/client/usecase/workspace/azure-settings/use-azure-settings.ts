@@ -14,6 +14,9 @@ import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effor
 import {
   resolveAzureAuthRequiredState,
 } from "./catalog-state";
+import {
+  applyAzureAuthRequiredState,
+} from "./catalog-identity";
 import type {
   AzureSelectionPreference,
 } from "./parsers";
@@ -37,6 +40,7 @@ import {
 } from "./use-azure-settings-effects";
 import type {
   AzureSettingsController,
+  AzureSettingsHandlerDependencies,
   AzureSettingsState,
   UseAzureSettingsOptions,
 } from "./types";
@@ -174,6 +178,21 @@ export function useAzureSettings(
     );
   }
 
+  const handlerDependencies: AzureSettingsHandlerDependencies = {
+    options,
+    dispatch,
+    patchState,
+    readState: () => stateRef.current,
+    readPreferredAzureSelection,
+    writePreferredAzureSelection,
+    nextAzureConnectionsRequestSeq,
+    readAzureConnectionsRequestSeq,
+    nextAzureDeploymentRequestSeq,
+    readAzureDeploymentRequestSeq,
+    clearWorkspaceMcpServerProfileLoginRetryTimeout,
+    scheduleWorkspaceMcpServerProfileLoginRetryTimeout,
+  };
+
   const {
     cancelAzureDeploymentLoad,
     clearWorkspaceMcpServerProfileLoginRetryTimeout:
@@ -191,20 +210,7 @@ export function useAzureSettings(
     handleSelectUtilityProject,
     handleSelectUtilityDeployment,
     handleUtilityReasoningEffortChange,
-  } = createAzureSettingsHandlers({
-    options,
-    dispatch,
-    patchState,
-    readState: () => stateRef.current,
-    readPreferredAzureSelection,
-    writePreferredAzureSelection,
-    nextAzureConnectionsRequestSeq,
-    readAzureConnectionsRequestSeq,
-    nextAzureDeploymentRequestSeq,
-    readAzureDeploymentRequestSeq,
-    clearWorkspaceMcpServerProfileLoginRetryTimeout,
-    scheduleWorkspaceMcpServerProfileLoginRetryTimeout,
-  });
+  } = createAzureSettingsHandlers(handlerDependencies);
 
   useAzureSettingsEffects({
     state,
@@ -284,9 +290,7 @@ export function useAzureSettings(
       });
     },
     markAzureAuthRequired() {
-      patchState({
-        isAzureAuthRequired: true,
-      });
+      applyAzureAuthRequiredState(handlerDependencies);
     },
     resolveAzureBackgroundSuccess() {
       patchState({

@@ -32,6 +32,7 @@ import {
   cancelAzureDeploymentLoads,
 } from "./deployment-selection";
 import {
+  applyAzureAuthRequiredState,
   clearActiveAzureIdentity,
   syncWorkspaceStateForLoadedIdentity,
   updateActiveAzureIdentity,
@@ -279,29 +280,29 @@ export async function loadAzureProjects(
       loadError instanceof ClientApiError
         ? loadError.kind === "auth_required"
         : isLikelyChatAzureAuthError(errorMessage);
-    clearActiveAzureIdentity(deps, () => cancelAzureDeploymentLoads(deps));
-    deps.options.clearWorkspaceMcpServerProfilesState();
-    deps.options.clearThreadsState(
-      nextAuthRequired
-        ? "Azure login is required. Open Settings and sign in to load threads."
-        : null,
-    );
-    deps.patchState({
-      isAzureAuthRequired: nextAuthRequired,
-      azureConnections: [],
-      playgroundAzureDeployments: [],
-      utilityAzureDeployments: [],
-      isLoadingPlaygroundAzureDeployments: false,
-      isLoadingUtilityAzureDeployments: false,
-      selectedPlaygroundAzureConnectionId: "",
-      selectedPlaygroundAzureDeploymentName: "",
-      selectedUtilityAzureConnectionId: "",
-      selectedUtilityAzureDeploymentName: "",
-      utilityReasoningEffort: DEFAULT_UTILITY_REASONING_EFFORT,
-      azureConnectionError: nextAuthRequired ? null : errorMessage,
-      playgroundAzureDeploymentError: null,
-      utilityAzureDeploymentError: null,
-    });
+    if (nextAuthRequired) {
+      applyAzureAuthRequiredState(deps);
+    } else {
+      clearActiveAzureIdentity(deps, () => cancelAzureDeploymentLoads(deps));
+      deps.options.clearWorkspaceMcpServerProfilesState();
+      deps.options.clearThreadsState();
+      deps.patchState({
+        isAzureAuthRequired: false,
+        azureConnections: [],
+        playgroundAzureDeployments: [],
+        utilityAzureDeployments: [],
+        isLoadingPlaygroundAzureDeployments: false,
+        isLoadingUtilityAzureDeployments: false,
+        selectedPlaygroundAzureConnectionId: "",
+        selectedPlaygroundAzureDeploymentName: "",
+        selectedUtilityAzureConnectionId: "",
+        selectedUtilityAzureDeploymentName: "",
+        utilityReasoningEffort: DEFAULT_UTILITY_REASONING_EFFORT,
+        azureConnectionError: errorMessage,
+        playgroundAzureDeploymentError: null,
+        utilityAzureDeploymentError: null,
+      });
+    }
     return {
       authRequired: nextAuthRequired,
       tenantSwitchPending: false,
