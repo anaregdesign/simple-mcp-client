@@ -4,22 +4,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  readRuntimeEventLogForCurrentUserMock,
+  readAuthenticatedWorkspaceUserMock,
+  readRuntimeEventLogForUserMock,
+  createRuntimeEventLogServiceMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
-  readRuntimeEventLogForCurrentUserMock: vi.fn(),
+  readAuthenticatedWorkspaceUserMock: vi.fn(),
+  readRuntimeEventLogForUserMock: vi.fn(),
+  createRuntimeEventLogServiceMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/application/runtime-event-logs/runtime-event-log-service", () => ({
-  runtimeEventLogService: {
-    readRuntimeEventLogForCurrentUser: readRuntimeEventLogForCurrentUserMock,
-  },
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
+  readAuthenticatedWorkspaceUser: readAuthenticatedWorkspaceUserMock,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/usecase/runtime-event-logs/runtime-event-log-service", () => ({
+  createRuntimeEventLogService: createRuntimeEventLogServiceMock.mockReturnValue({
+    readRuntimeEventLogForUser: readRuntimeEventLogForUserMock,
+  }),
+}));
+
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
 }));
@@ -29,11 +37,14 @@ import { action, loader } from "./api.runtime.event-logs.$eventLogId";
 describe("/api/runtime/event-logs/:eventLogId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    readRuntimeEventLogForCurrentUserMock.mockResolvedValue({
-      status: "ok",
+    createRuntimeEventLogServiceMock.mockClear();
+    readAuthenticatedWorkspaceUserMock.mockResolvedValue({
+      id: 10,
       tenantId: "tenant-a",
       principalId: "principal-a",
-      userId: 10,
+    });
+    readRuntimeEventLogForUserMock.mockResolvedValue({
+      status: "ok",
       eventLog: {
         id: "event-1",
         context: { origin: "client" },
@@ -58,9 +69,7 @@ describe("/api/runtime/event-logs/:eventLogId", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    readRuntimeEventLogForCurrentUserMock.mockResolvedValueOnce({
-      status: "auth_required",
-    });
+    readAuthenticatedWorkspaceUserMock.mockResolvedValueOnce(null);
 
     const response = await loader({
       request: new Request("http://localhost/api/runtime/event-logs/event-1", { method: "GET" }),
@@ -71,11 +80,8 @@ describe("/api/runtime/event-logs/:eventLogId", () => {
   });
 
   it("returns 404 for inaccessible event log", async () => {
-    readRuntimeEventLogForCurrentUserMock.mockResolvedValueOnce({
+    readRuntimeEventLogForUserMock.mockResolvedValueOnce({
       status: "not_found",
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-      userId: 10,
     });
 
     const response = await loader({

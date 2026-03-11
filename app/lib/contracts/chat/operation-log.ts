@@ -1,7 +1,11 @@
-import { readThreadEnvironmentFromUnknown } from "~/lib/contracts/threads/environment";
+import { readThreadEnvironmentFromUnknown } from "~/lib/domain/value-objects/thread-environment";
+import {
+  readThreadMessageFromUnknown,
+  type ThreadMessage,
+} from "~/lib/contracts/chat/messages";
 
-export type ChatApiResponse = {
-  message?: string;
+export type ChatRunResponse = {
+  assistantMessage?: ThreadMessage;
   threadEnvironment?: Record<string, string>;
   error?: string;
   errorCode?: "azure_login_required";
@@ -21,6 +25,8 @@ export type ThreadOperationLogEntry = {
   turnId: string;
 };
 
+export type ThreadOperationLogType = "mcp" | "skill";
+
 type ChatStreamProgressEvent = {
   type: "progress";
   message?: unknown;
@@ -28,7 +34,7 @@ type ChatStreamProgressEvent = {
 
 type ChatStreamFinalEvent = {
   type: "final";
-  message?: unknown;
+  assistantMessage?: unknown;
   threadEnvironment?: unknown;
 };
 
@@ -64,7 +70,11 @@ export function parseSseDataBlock(block: string): string | null {
 
 export function readChatStreamEvent(data: string): (
   | { type: "progress"; message: string }
-  | { type: "final"; message: string; threadEnvironment: Record<string, string> }
+  | {
+      type: "final";
+      assistantMessage: ThreadMessage;
+      threadEnvironment: Record<string, string>;
+    }
   | { type: "error"; error: string; errorCode?: "azure_login_required" }
   | { type: "operation_log"; record: ThreadOperationLogEntry }
 ) | null {
@@ -91,13 +101,13 @@ export function readChatStreamEvent(data: string): (
   }
 
   if (parsed.type === "final") {
-    const message = typeof parsed.message === "string" ? parsed.message : "";
-    if (!message) {
+    const assistantMessage = readThreadMessageFromUnknown(parsed.assistantMessage);
+    if (!assistantMessage) {
       return null;
     }
     return {
       type: "final",
-      message,
+      assistantMessage,
       threadEnvironment: readThreadEnvironmentFromUnknown(parsed.threadEnvironment),
     };
   }
@@ -171,65 +181,52 @@ export function readThreadOperationLogEntryFromUnknown(
   };
 }
 
-export function upsertThreadOperationLogEntry(
-  current: ThreadOperationLogEntry[],
-  entry: ThreadOperationLogEntry,
-): ThreadOperationLogEntry[] {
-  const existingIndex = current.findIndex((existing) => existing.id === entry.id);
-  if (existingIndex < 0) {
-    const insertIndex = findThreadOperationLogInsertIndex(current, entry);
-    if (insertIndex === current.length) {
-      return [...current, entry];
-    }
-    return [...current.slice(0, insertIndex), entry, ...current.slice(insertIndex)];
+export function readPersistedThreadOperationLogEntryFromUnknown(
+  value: unknown,
+  options: {
+    allowedKeys?: ReadonlySet<string>;
+  } = {},
+): ThreadOperationLogEntry | null {
+  const parsed = readThreadOperationLogEntryFromUnknown(value);
+  if (!parsed || !isRecord(value)) {
+    return null;
   }
 
-  const existing = current[existingIndex];
-  if (compareThreadOperationLogOrder(existing, entry) === 0) {
-    const next = [...current];
-    next[existingIndex] = entry;
-    return next;
+  if (options.allowedKeys && !hasOnlyAllowedKeys(value, options.allowedKeys)) {
+    return null;
   }
 
-  const withoutExisting = [
-    ...current.slice(0, existingIndex),
-    ...current.slice(existingIndex + 1),
-  ];
-  const insertIndex = findThreadOperationLogInsertIndex(withoutExisting, entry);
-  if (insertIndex === withoutExisting.length) {
-    return [...withoutExisting, entry];
+  const turnId = typeof value.turnId === "string" ? value.turnId.trim() : "";
+  if (!turnId) {
+    return null;
   }
-  return [
-    ...withoutExisting.slice(0, insertIndex),
-    entry,
-    ...withoutExisting.slice(insertIndex),
-  ];
+
+  return {
+    ...parsed,
+    turnId,
+  };
 }
 
+export function readOperationLogType(
+  entry: Pick<ThreadOperationLogEntry, "method"> &
+    Partial<Pick<ThreadOperationLogEntry, "operationType">>,
+): ThreadOperationLogType {
+  if (entry.operationType === "skill") {
+    return "skill";
+  }
+  if (entry.operationType === "mcp") {
+    return "mcp";
+  }
+
+  return entry.method.startsWith("skill_") ? "skill" : "mcp";
+}
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
 
-function compareThreadOperationLogOrder(
-  left: Pick<ThreadOperationLogEntry, "startedAt" | "sequence">,
-  right: Pick<ThreadOperationLogEntry, "startedAt" | "sequence">,
-): number {
-  const timeOrder = left.startedAt.localeCompare(right.startedAt);
-  if (timeOrder !== 0) {
-    return timeOrder;
-  }
-  return left.sequence - right.sequence;
-}
-
-function findThreadOperationLogInsertIndex(
-  entries: ThreadOperationLogEntry[],
-  entry: ThreadOperationLogEntry,
-): number {
-  for (let index = 0; index < entries.length; index += 1) {
-    if (compareThreadOperationLogOrder(entry, entries[index]!) < 0) {
-      return index;
-    }
-  }
-
-  return entries.length;
+function hasOnlyAllowedKeys(
+  value: Record<string, unknown>,
+  allowedKeys: ReadonlySet<string>,
+): boolean {
+  return Object.keys(value).every((key) => allowedKeys.has(key));
 }

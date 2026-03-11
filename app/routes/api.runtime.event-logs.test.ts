@@ -15,11 +15,11 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
+vi.mock("~/lib/server/infrastructure/auth/azure-arm-user-context", () => ({
   readAzureArmUserContext: readAzureArmUserContextMock,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logRuntimeEventWithId: logRuntimeEventWithIdMock,
   logServerRouteEvent: logServerRouteEventMock,

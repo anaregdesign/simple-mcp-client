@@ -3,9 +3,9 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  extractThreadAutoTitle,
   parseThreadTitleReasoningEffort,
-} from "./api.threads.title-suggestions";
+} from "~/lib/server/infrastructure/threads/thread-title-suggestion-request";
+import { extractThreadAutoTitle } from "~/lib/server/usecase/threads/thread-title-suggestion-service";
 
 describe("parseThreadTitleReasoningEffort", () => {
   it("defaults to high when omitted", () => {

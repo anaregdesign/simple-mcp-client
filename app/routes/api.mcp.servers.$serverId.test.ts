@@ -5,16 +5,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   readAuthenticatedUser,
+  createMcpServerProfileService,
   readWorkspaceMcpServerProfiles,
   deleteWorkspaceMcpServerProfile,
   writeWorkspaceMcpServerProfiles,
   parseIncomingMcpServer,
   mergeDefaultWorkspaceMcpServerProfiles,
   upsertWorkspaceMcpServerProfile,
-  readErrorMessage,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
+  createMcpServerProfileService: vi.fn(),
   readWorkspaceMcpServerProfiles: vi.fn(async () => []),
   deleteWorkspaceMcpServerProfile: vi.fn(() => ({ profiles: [], deleted: false })),
   writeWorkspaceMcpServerProfiles: vi.fn(async () => undefined),
@@ -34,22 +35,28 @@ const {
     profiles: [],
     warning: null,
   })),
-  readErrorMessage: vi.fn(() => "Unknown error."),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/application/mcp/mcp-server-profile-service", () => ({
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser,
-  readWorkspaceMcpServerProfiles,
-  deleteWorkspaceMcpServerProfile,
-  writeWorkspaceMcpServerProfiles,
-  parseIncomingMcpServer,
-  mergeDefaultWorkspaceMcpServerProfiles,
-  upsertWorkspaceMcpServerProfile,
-  readErrorMessage,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/usecase/mcp/mcp-server-profile-service", () => ({
+  createMcpServerProfileService: createMcpServerProfileService.mockReturnValue({
+    readWorkspaceMcpServerProfiles,
+    deleteWorkspaceMcpServerProfile,
+    mergeDefaultWorkspaceMcpServerProfiles,
+    upsertWorkspaceMcpServerProfile,
+    writeWorkspaceMcpServerProfiles,
+  }),
+}));
+
+vi.mock("~/lib/contracts/mcp/server-config-parser", () => ({
+  parseIncomingMcpServer,
+}));
+
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: vi.fn(),
   logServerRouteEvent,
 }));
@@ -60,6 +67,7 @@ describe("/api/mcp/servers/:serverId", () => {
   beforeEach(() => {
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
+    createMcpServerProfileService.mockClear();
     readWorkspaceMcpServerProfiles.mockReset();
     readWorkspaceMcpServerProfiles.mockResolvedValue([]);
     deleteWorkspaceMcpServerProfile.mockReset();
@@ -92,8 +100,6 @@ describe("/api/mcp/servers/:serverId", () => {
       profiles: [],
       warning: null,
     });
-    readErrorMessage.mockReset();
-    readErrorMessage.mockReturnValue("Unknown error.");
     logServerRouteEvent.mockReset();
     logServerRouteEvent.mockResolvedValue(undefined);
   });

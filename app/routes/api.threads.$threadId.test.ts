@@ -2,51 +2,62 @@
  * Test module verifying api.threads.$threadId behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
+import { Thread } from "~/lib/domain/entities/thread";
 
 const {
   readAuthenticatedUser,
-  readJsonPayload,
+  createThreadApplicationService,
   updateThread,
   logicalDeleteThread,
   logicalRestoreThread,
   isThreadRestorePayload,
-  readErrorMessage,
   readThreadWritePayloadFromUnknown,
   logServerRouteEvent,
 } = vi.hoisted(() => ({
   readAuthenticatedUser: vi.fn(async () => ({ id: 1 })),
-  readJsonPayload: vi.fn(async () => ({ ok: true as const, value: {} })),
+  createThreadApplicationService: vi.fn(),
   updateThread: vi.fn<any>(async () => ({ status: "not_found" })),
   logicalDeleteThread: vi.fn<any>(async () => ({ status: "not_found" as const })),
   logicalRestoreThread: vi.fn(async () => ({ status: "not_found" as const })),
   isThreadRestorePayload: vi.fn(() => false),
-  readErrorMessage: vi.fn(() => "Unknown error."),
   readThreadWritePayloadFromUnknown: vi.fn<any>(() => null),
   logServerRouteEvent: vi.fn(async () => undefined),
 }));
 
-vi.mock("~/lib/server/application/threads/thread-service", () => ({
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser,
-  readJsonPayload,
-  updateThread,
-  logicalDeleteThread,
-  logicalRestoreThread,
-  isThreadRestorePayload,
-  readErrorMessage,
 }));
+
+vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/lib/server/usecase/threads/thread-service")
+  >("~/lib/server/usecase/threads/thread-service");
+
+  return {
+    ...actual,
+    createThreadApplicationService:
+      createThreadApplicationService.mockReturnValue({
+        updateThread,
+        logicalDeleteThread,
+        logicalRestoreThread,
+      }),
+    isThreadRestorePayload,
+  };
+});
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
   readThreadWritePayloadFromUnknown,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: vi.fn(),
   logServerRouteEvent,
 }));
 
 import { action, loader } from "./api.threads.$threadId";
 
-function createThreadResource(threadId = "thread-a") {
+function createThreadProps(threadId = "thread-a"): ThreadSnapshot {
   return {
     id: threadId,
     userId: 1,
@@ -56,8 +67,8 @@ function createThreadResource(threadId = "thread-a") {
     deletedAt: null,
     reasoningEffort: "medium",
     webSearchEnabled: false,
-    threadEnvironmentJson: "{}",
-    instructionContextTogglesJson: "{\"system\":true}",
+    threadEnvironment: {},
+    instructionContextToggles: { system: true },
     instruction: {
       id: 1,
       threadId,
@@ -65,17 +76,20 @@ function createThreadResource(threadId = "thread-a") {
     },
     messages: [],
     mcpServers: [],
-    mcpRpcLogs: [],
+    operationLogs: [],
     skillSelections: [],
   };
+}
+
+function createThread(threadId = "thread-a"): Thread {
+  return new Thread(createThreadProps(threadId));
 }
 
 describe("/api/threads/:threadId", () => {
   beforeEach(() => {
     readAuthenticatedUser.mockReset();
     readAuthenticatedUser.mockResolvedValue({ id: 1 });
-    readJsonPayload.mockReset();
-    readJsonPayload.mockResolvedValue({ ok: true, value: {} });
+    createThreadApplicationService.mockClear();
     updateThread.mockReset();
     updateThread.mockResolvedValue({ status: "not_found" });
     logicalDeleteThread.mockReset();
@@ -84,8 +98,6 @@ describe("/api/threads/:threadId", () => {
     logicalRestoreThread.mockResolvedValue({ status: "not_found" });
     isThreadRestorePayload.mockReset();
     isThreadRestorePayload.mockReturnValue(false);
-    readErrorMessage.mockReset();
-    readErrorMessage.mockReturnValue("Unknown error.");
     readThreadWritePayloadFromUnknown.mockReset();
     readThreadWritePayloadFromUnknown.mockReturnValue(null);
     logServerRouteEvent.mockReset();
@@ -129,7 +141,13 @@ describe("/api/threads/:threadId", () => {
     });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
     const payload = (await response.json()) as { error?: string };
@@ -160,7 +178,13 @@ describe("/api/threads/:threadId", () => {
     updateThread.mockResolvedValueOnce({ status: "not_found" });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
     const payload = (await response.json()) as { error?: string };
@@ -190,11 +214,17 @@ describe("/api/threads/:threadId", () => {
     });
     updateThread.mockResolvedValueOnce({
       status: "ok",
-      thread: createThreadResource("thread-a"),
+      thread: createThread("thread-a"),
     });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
 
@@ -224,7 +254,13 @@ describe("/api/threads/:threadId", () => {
     updateThread.mockResolvedValueOnce({ status: "archived" });
 
     const response = await action({
-      request: new Request("http://localhost/api/threads/thread-a", { method: "PUT" }),
+      request: new Request("http://localhost/api/threads/thread-a", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
       params: { threadId: "thread-a" },
     } as never);
     const payload = (await response.json()) as { error?: string };
@@ -233,16 +269,22 @@ describe("/api/threads/:threadId", () => {
     expect(payload.error).toBe("Archived thread is read-only. Restore it from Archives to update.");
   });
 
-  it("returns 409 when deleting an empty thread", async () => {
-    logicalDeleteThread.mockResolvedValueOnce({ status: "empty" });
+  it("returns 200 when deleting an empty persisted thread", async () => {
+    logicalDeleteThread.mockResolvedValueOnce({
+      status: "ok",
+      thread: new Thread({
+        ...createThreadProps("thread-a"),
+        deletedAt: "2026-03-10T00:00:00.000Z",
+      }),
+    });
 
     const response = await action({
       request: new Request("http://localhost/api/threads/thread-a", { method: "DELETE" }),
       params: { threadId: "thread-a" },
     } as never);
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as { error?: string; thread?: { deletedAt?: string | null } };
 
-    expect(response.status).toBe(409);
-    expect(payload.error).toBe("Threads without messages cannot be deleted.");
+    expect(response.status).toBe(200);
+    expect(payload.thread?.deletedAt).toBe("2026-03-10T00:00:00.000Z");
   });
 });

@@ -1,0 +1,204 @@
+import { describe, expect, it } from "vitest";
+import {
+  parseSseDataBlock,
+  readChatStreamEvent,
+  readOperationLogType,
+  readPersistedThreadOperationLogEntryFromUnknown,
+  readThreadOperationLogEntryFromUnknown,
+  type ThreadOperationLogEntry,
+} from "./operation-log";
+
+function createEntry(
+  overrides: Partial<ThreadOperationLogEntry>,
+): ThreadOperationLogEntry {
+  return {
+    id: "rpc-1",
+    sequence: 1,
+    operationType: "mcp",
+    serverName: "server-a",
+    method: "tools/list",
+    startedAt: "2026-02-19T00:00:00.000Z",
+    completedAt: "2026-02-19T00:00:01.000Z",
+    request: {},
+    response: {},
+    isError: false,
+    turnId: "turn-1",
+    ...overrides,
+  };
+}
+
+describe("parseSseDataBlock", () => {
+  it("extracts data payload lines", () => {
+    const block = [
+      "event: message",
+      'data: {"type":"progress","message":"step 1"}',
+      "",
+    ].join("\n");
+
+    expect(parseSseDataBlock(block)).toBe(
+      '{"type":"progress","message":"step 1"}',
+    );
+  });
+
+  it("returns null when no data line exists", () => {
+    expect(parseSseDataBlock("event: ping\nid: 1")).toBeNull();
+  });
+});
+
+describe("readChatStreamEvent", () => {
+  it("parses operation_log record payload", () => {
+    const event = readChatStreamEvent(
+      JSON.stringify({
+        type: "operation_log",
+        record: {
+          id: "rpc-1",
+          sequence: 1,
+          operationType: "mcp",
+          serverName: "workiq",
+          method: "tools/call",
+          startedAt: "2026-02-16T00:00:00.000Z",
+          completedAt: "2026-02-16T00:00:01.000Z",
+          request: {
+            jsonrpc: "2.0",
+            id: "rpc-1",
+            method: "tools/call",
+            params: {},
+          },
+          response: { jsonrpc: "2.0", id: "rpc-1", result: {} },
+          isError: false,
+        },
+      }),
+    );
+
+    expect(event).not.toBeNull();
+    expect(event?.type).toBe("operation_log");
+  });
+
+  it("parses final payload with thread environment", () => {
+    const event = readChatStreamEvent(
+      JSON.stringify({
+        type: "final",
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          content: "done",
+          createdAt: "2026-02-16T00:00:02.000Z",
+          turnId: "turn-1",
+          attachments: [],
+          skillActivations: [],
+        },
+        threadEnvironment: {
+          VIRTUAL_ENV: "/tmp/.venv",
+        },
+      }),
+    );
+
+    expect(event).toEqual({
+      type: "final",
+      assistantMessage: {
+        id: "assistant-1",
+        role: "assistant",
+        content: "done",
+        createdAt: "2026-02-16T00:00:02.000Z",
+        turnId: "turn-1",
+        attachments: [],
+        skillActivations: [],
+      },
+      threadEnvironment: {
+        VIRTUAL_ENV: "/tmp/.venv",
+      },
+    });
+  });
+});
+
+describe("readThreadOperationLogEntryFromUnknown", () => {
+  it("accepts valid MCP JSON-RPC history entries", () => {
+    const entry = readThreadOperationLogEntryFromUnknown({
+      id: "rpc-2",
+      sequence: 2,
+      operationType: "mcp",
+      serverName: "workiq",
+      method: "tools/list",
+      startedAt: "2026-02-16T00:00:00.000Z",
+      completedAt: "2026-02-16T00:00:01.000Z",
+      request: { jsonrpc: "2.0", id: "rpc-2", method: "tools/list", params: {} },
+      response: { jsonrpc: "2.0", id: "rpc-2", result: {} },
+      isError: false,
+    });
+
+    expect(entry).not.toBeNull();
+    expect(entry?.sequence).toBe(2);
+    expect(entry?.serverName).toBe("workiq");
+    expect(entry?.turnId).toBe("");
+  });
+
+  it("rejects invalid entries", () => {
+    expect(readThreadOperationLogEntryFromUnknown({ id: "", sequence: 1 })).toBeNull();
+  });
+});
+
+describe("readPersistedThreadOperationLogEntryFromUnknown", () => {
+  it("requires a non-empty turnId for persisted entries", () => {
+    expect(
+      readPersistedThreadOperationLogEntryFromUnknown({
+        id: "rpc-2",
+        sequence: 2,
+        operationType: "mcp",
+        serverName: "workiq",
+        method: "tools/list",
+        startedAt: "2026-02-16T00:00:00.000Z",
+        completedAt: "2026-02-16T00:00:01.000Z",
+        request: { jsonrpc: "2.0", id: "rpc-2", method: "tools/list", params: {} },
+        response: { jsonrpc: "2.0", id: "rpc-2", result: {} },
+        isError: false,
+        turnId: " ",
+      }),
+    ).toBeNull();
+  });
+
+  it("honors strict allowed-key validation when requested", () => {
+    expect(
+      readPersistedThreadOperationLogEntryFromUnknown(
+        {
+          id: "rpc-2",
+          sequence: 2,
+          operationType: "mcp",
+          serverName: "workiq",
+          method: "tools/list",
+          startedAt: "2026-02-16T00:00:00.000Z",
+          completedAt: "2026-02-16T00:00:01.000Z",
+          request: { jsonrpc: "2.0", id: "rpc-2", method: "tools/list", params: {} },
+          response: { jsonrpc: "2.0", id: "rpc-2", result: {} },
+          isError: false,
+          turnId: "turn-1",
+          unexpected: true,
+        },
+        {
+          allowedKeys: new Set([
+            "id",
+            "sequence",
+            "operationType",
+            "serverName",
+            "method",
+            "startedAt",
+            "completedAt",
+            "request",
+            "response",
+            "isError",
+            "turnId",
+          ]),
+        },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("readOperationLogType", () => {
+  it("classifies skill-prefixed methods as skill operations", () => {
+    expect(
+      readOperationLogType({ operationType: "skill", method: "tools/call" }),
+    ).toBe("skill");
+    expect(readOperationLogType({ method: "skill_run_script" })).toBe("skill");
+    expect(readOperationLogType({ method: "tools/call" })).toBe("mcp");
+  });
+});

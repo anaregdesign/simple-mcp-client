@@ -3,6 +3,8 @@
  * These constants are shared across chat runtime validation and client UI validation.
  * Changing them affects what requests are accepted and what values users can set.
  */
+import { THREAD_AUTO_TITLE_MAX_LENGTH } from "~/lib/domain/value-objects/thread-name";
+
 export const TEMPERATURE_MIN = 0;
 export const TEMPERATURE_MAX = 2;
 export const CHAT_MAX_MCP_SERVERS = 8;
@@ -26,9 +28,6 @@ export const CHAT_MAX_IDENTICAL_SKILL_OPERATION_CALLS_PER_SIGNATURE = 1;
 export const CHAT_MAX_IDENTICAL_SKILL_RUN_SCRIPT_CALLS_PER_SIGNATURE = 2;
 export const CHAT_MAX_SKILL_OPERATION_ERRORS = 10;
 export const CHAT_CODE_INTERPRETER_UPLOAD_TIMEOUT_MS = 30_000;
-export const THREAD_ENVIRONMENT_VARIABLES_MAX = 128;
-export const THREAD_ENVIRONMENT_KEY_MAX_LENGTH = 128;
-export const THREAD_ENVIRONMENT_VALUE_MAX_LENGTH = 16_384;
 export const CHAT_ATTACHMENT_ALLOWED_EXTENSIONS = new Set([
   "c",
   "cpp",
@@ -56,8 +55,6 @@ export const CHAT_ATTACHMENT_ALLOWED_EXTENSIONS = new Set([
   "xml",
   "zip",
 ]);
-export const DEFAULT_AGENT_INSTRUCTION =
-  "You are a concise assistant for a local playground app.";
 export const REASONING_EFFORT_OPTIONS = [
   "none",
   "minimal",
@@ -66,10 +63,7 @@ export const REASONING_EFFORT_OPTIONS = [
   "high",
   "xhigh",
 ] as const;
-export const DEFAULT_REASONING_EFFORT = "none" as const;
 export const DEFAULT_UTILITY_REASONING_EFFORT = "high" as const;
-export const DEFAULT_WEB_SEARCH_ENABLED = false;
-export const THREAD_AUTO_TITLE_MAX_LENGTH = 20;
 export const THREAD_AUTO_TITLE_SYSTEM_PROMPT = [
   "<thread_auto_title_policy>",
   "  <objective>",
@@ -83,5 +77,4 @@ export const THREAD_AUTO_TITLE_SYSTEM_PROMPT = [
   "  </output_rules>",
   "</thread_auto_title_policy>",
 ].join("\n");
-export const THREAD_DEFAULT_NAME = "New Thread";
 export const CODE_INTERPRETER_ATTACHMENT_AVAILABILITY_CACHE_MS = 10 * 60 * 1000;

@@ -1,11 +1,32 @@
 import type {
-  WorkspaceSkillProfile as WorkspaceSkillProfileResource,
-  WorkspaceSkillRegistryProfile as WorkspaceSkillRegistryProfileResource,
-} from "@prisma/client";
-import type {
   ApiErrorResponseBody,
   ApiSuccessResponseBody,
 } from "~/lib/contracts/api/response";
+import type {
+  SkillCatalogEntry,
+  SkillRegistryCatalog,
+} from "~/lib/contracts/skills/types";
+
+export type WorkspaceSkillRegistryProfileResource = {
+  id: number;
+  userId: number;
+  registryId: string;
+  registryLabel: string;
+  registryDescription: string;
+  repository: string;
+  repositoryUrl: string;
+  sourcePath: string;
+  installDirectoryName: string;
+};
+
+export type WorkspaceSkillProfileResource = {
+  id: number;
+  userId: number;
+  registryProfileId: number | null;
+  name: string;
+  location: string;
+  source: string;
+};
 
 export type ReconcileWorkspaceSkillProfilesCommand = {
   forceRefresh?: boolean;
@@ -22,8 +43,8 @@ export type WorkspaceSkillProfilesResponseBody =
 
 export type ReconcileWorkspaceSkillProfilesData = {
   message: string;
-  skills: unknown;
-  skillRegistries: unknown;
+  skills: SkillCatalogEntry[];
+  skillRegistries: SkillRegistryCatalog[];
   skillWarnings: string[];
   registryWarnings: string[];
   warnings: string[];

@@ -1,4 +1,3 @@
-import type { WorkspaceMcpServerProfile } from "@prisma/client";
 import {
   ENV_KEY_PATTERN,
   HTTP_HEADER_NAME_PATTERN,
@@ -9,9 +8,25 @@ import {
   MCP_TIMEOUT_SECONDS_MAX,
   MCP_TIMEOUT_SECONDS_MIN,
 } from "~/lib/constants/mcp";
-import { buildMcpServerConfigKey } from "~/lib/domain/mcp/config-key";
 
-export type WorkspaceMcpServerProfileResource = WorkspaceMcpServerProfile;
+export type WorkspaceMcpServerProfileResource = {
+  id: string;
+  userId: number;
+  profileOrder: number;
+  connectOnThreadCreate: boolean;
+  configKey: string;
+  name: string;
+  transport: string;
+  url: string | null;
+  headersJson: string | null;
+  useAzureAuth: boolean;
+  azureAuthScope: string | null;
+  timeoutSeconds: number | null;
+  command: string | null;
+  argsJson: string | null;
+  cwd: string | null;
+  envJson: string | null;
+};
 
 export type McpHttpServerConfig = {
   id: string;
@@ -42,10 +57,6 @@ type SaveMcpHttpServerRequest = Omit<McpHttpServerConfig, "id"> & { id?: string 
 type SaveMcpStdioServerRequest = Omit<McpStdioServerConfig, "id"> & { id?: string };
 
 export type SaveMcpServerRequest = SaveMcpHttpServerRequest | SaveMcpStdioServerRequest;
-
-export function buildMcpServerKey(server: McpServerConfig): string {
-  return buildMcpServerConfigKey(server);
-}
 
 export function readMcpServerList(value: unknown): McpServerConfig[] {
   if (!Array.isArray(value)) {
@@ -250,32 +261,6 @@ export function readMcpServerFromWorkspaceProfileResource(
           timeoutSeconds: profile.timeoutSeconds ?? MCP_DEFAULT_TIMEOUT_SECONDS,
         },
   );
-}
-
-export function upsertMcpServer(
-  current: McpServerConfig[],
-  profile: McpServerConfig,
-): McpServerConfig[] {
-  const existingIndex = current.findIndex((entry) => entry.id === profile.id);
-  if (existingIndex < 0) {
-    return [...current, profile];
-  }
-
-  return current.map((entry, index) => (index === existingIndex ? profile : entry));
-}
-
-export function formatMcpServerOption(server: McpServerConfig): string {
-  if (server.transport === "stdio") {
-    return `${server.name} (stdio: ${server.command})`;
-  }
-
-  const headerCount = Object.keys(server.headers).length;
-  const azureAuthLabel = server.useAzureAuth ? `, Azure auth (${server.azureAuthScope})` : "";
-  const timeoutLabel = `, timeout ${server.timeoutSeconds}s`;
-  if (headerCount > 0) {
-    return `${server.name} (${server.transport}, +${headerCount} headers${azureAuthLabel}${timeoutLabel})`;
-  }
-  return `${server.name} (${server.transport}${azureAuthLabel}${timeoutLabel})`;
 }
 
 function readHttpHeadersFromUnknown(value: unknown): Record<string, string> | null {

@@ -4,13 +4,15 @@
 import { describe, expect, it } from "vitest";
 import { PROMPT_MAX_CONTENT_BYTES } from "~/lib/constants/instruction";
 import {
-  buildPromptFileName,
   extractInstructionDiffPatch,
-  parseInstructionReasoningEffort,
+} from "~/lib/server/usecase/instruction-patches/instruction-patch-service";
+import {
+  buildPromptFileName,
   normalizeRequestedPromptFileName,
   parseInstructionContent,
+  parseInstructionReasoningEffort,
   parseRequestedPromptFileName,
-} from "./api.instruction-patches";
+} from "~/lib/server/infrastructure/instruction-patches/instruction-patches-request";
 
 describe("parseInstructionContent", () => {
   it("accepts a non-empty instruction string", () => {

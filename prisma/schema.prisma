@@ -64,6 +64,8 @@ model Thread {
   deletedAt             String?
   reasoningEffort       String             @default("none")
   webSearchEnabled      Boolean            @default(false)
+  chatAzureConfigJson   String?
+  agentConversationId   String?
   threadEnvironmentJson String             @default("{}")
   instructionContextTogglesJson String     @default("{\"system\":true}")
   user                  WorkspaceUser      @relation(fields: [userId], references: [id], onDelete: Cascade)

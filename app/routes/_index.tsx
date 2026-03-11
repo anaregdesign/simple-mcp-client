@@ -2,15 +2,15 @@
  * Route composition module.
  */
 import type { CSSProperties } from "react";
-import { ConfigPanel } from "~/components/client/config/ConfigPanel";
-import { UnauthenticatedPanel } from "~/components/client/authorize/UnauthenticatedPanel";
-import { PlaygroundPanel } from "~/components/client/playground/PlaygroundPanel";
+import { ConfigPanel } from "~/components/config/ConfigPanel";
+import { UnauthenticatedPanel } from "~/components/authorize/UnauthenticatedPanel";
+import { PlaygroundPanel } from "~/components/playground/PlaygroundPanel";
 import {
   renderMessageContent,
   renderTurnOperationLog,
-} from "~/components/client/playground/PlaygroundRenderers";
-import { FluentUI } from "~/components/client/shared/fluent";
-import { useWorkspaceClientController } from "~/lib/client/controller/use-workspace-client-controller";
+} from "~/components/playground/PlaygroundRenderers";
+import { FluentUI } from "~/components/shared/fluent";
+import { useWorkspace } from "~/lib/client/usecase/workspace/use-workspace";
 import type { Route } from "./+types/_index";
 
 const { FluentProvider, webDarkTheme, webLightTheme } = FluentUI;
@@ -24,24 +24,16 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const {
-    layoutRef,
-    rightPaneWidth,
-    isMainSplitterResizing,
-    onMainSplitterPointerDown,
-    isAzureAuthRequired,
-    theme,
-    unauthenticatedPanelProps,
-    configPanelProps,
-    playgroundPanelProps,
-  } = useWorkspaceClientController();
+    screen,
+  } = useWorkspace();
 
-  const fluentTheme = theme === "dark" ? webDarkTheme : webLightTheme;
+  const fluentTheme = screen.theme === "dark" ? webDarkTheme : webLightTheme;
 
-  if (isAzureAuthRequired) {
+  if (screen.auth.isAzureAuthRequired) {
     return (
       <FluentProvider theme={fluentTheme}>
         <main className="chat-page chat-page-unauth">
-          <UnauthenticatedPanel {...unauthenticatedPanelProps} />
+          <UnauthenticatedPanel {...screen.auth.unauthenticatedPanelProps} />
         </main>
       </FluentProvider>
     );
@@ -52,29 +44,33 @@ export default function Home() {
       <main className="chat-page">
         <div
           className="chat-layout workspace-layout"
-          ref={layoutRef}
+          ref={screen.layout.layoutRef}
           style={
             {
-              "--right-pane-width": `${rightPaneWidth}px`,
+              "--right-pane-width": `${screen.layout.rightPaneWidth}px`,
             } as CSSProperties
           }
         >
           <PlaygroundPanel
-            {...playgroundPanelProps}
-            renderMessageContent={renderMessageContent}
-            renderTurnOperationLog={renderTurnOperationLog}
+            header={screen.playground.header}
+            conversation={{
+              ...screen.playground.conversation,
+              renderMessageContent,
+              renderTurnOperationLog,
+            }}
+            composer={screen.playground.composer}
           />
 
           <div
-            className={`layout-splitter main-splitter ${isMainSplitterResizing ? "resizing" : ""}`}
+            className={`layout-splitter main-splitter ${screen.layout.isMainSplitterResizing ? "resizing" : ""}`}
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize panels"
             title="Drag to resize Playground and side panels."
-            onPointerDown={onMainSplitterPointerDown}
+            onPointerDown={screen.layout.onMainSplitterPointerDown}
           />
 
-          <ConfigPanel {...configPanelProps} />
+          <ConfigPanel {...screen.config} />
         </div>
       </main>
     </FluentProvider>

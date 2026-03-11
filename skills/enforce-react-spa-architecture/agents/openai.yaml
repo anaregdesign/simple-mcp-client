@@ -1,0 +1,4 @@
+interface:
+  display_name: "React SPA Architecture"
+  short_description: "Enforce clean architecture in React Router + Prisma SPA work"
+  default_prompt: "Use $enforce-react-spa-architecture to implement this Vite/React Router/Prisma v7 SPA task with strict layer boundaries, explicit file naming, and pre-push verification."

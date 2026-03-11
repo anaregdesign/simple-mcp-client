@@ -3,9 +3,10 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  cloneThreadEnvironment,
   parseThreadEnvironmentFromUnknown,
   readThreadEnvironmentFromUnknown,
-} from "~/lib/contracts/threads/environment";
+} from "~/lib/domain/value-objects/thread-environment";
 
 describe("parseThreadEnvironmentFromUnknown", () => {
   it("parses valid environment maps", () => {
@@ -60,5 +61,16 @@ describe("readThreadEnvironmentFromUnknown", () => {
     ).toEqual({
       VIRTUAL_ENV: "/tmp/.venv",
     });
+  });
+
+  it("clones environment maps defensively", () => {
+    const environment = {
+      PATH: "/tmp/bin",
+    };
+
+    const cloned = cloneThreadEnvironment(environment);
+    cloned.PATH = "/tmp/other";
+
+    expect(environment.PATH).toBe("/tmp/bin");
   });
 });

@@ -4,7 +4,6 @@
 import nodePath from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  buildMcpServerKey,
   readMcpServerFromWorkspaceProfileResource,
   type McpServerConfig,
   type WorkspaceMcpServerProfileResource,
@@ -14,16 +13,18 @@ import {
   MCP_DEFAULT_AZURE_AUTH_SCOPE,
   MCP_DEFAULT_TIMEOUT_SECONDS,
 } from "~/lib/constants/mcp";
+import { parseIncomingMcpServer } from "~/lib/contracts/mcp/server-config-parser";
+import { buildMcpServerConfigKey } from "~/lib/domain/value-objects/mcp-server-config-key";
 import { resolveWorkspaceStorageDirectory } from "~/lib/server/infrastructure/config/workspace-storage-paths";
-import { mcpServersRouteTestUtils } from "./api.mcp.servers";
-
-const {
-  parseIncomingMcpServer,
+import {
   upsertWorkspaceMcpServerProfile,
   deleteWorkspaceMcpServerProfile,
   mergeDefaultWorkspaceMcpServerProfiles,
+} from "~/lib/server/usecase/mcp/mcp-server-profile-service";
+import {
   resolveDefaultFilesystemWorkingDirectory,
-} = mcpServersRouteTestUtils;
+  resolveLegacyFilesystemWorkingDirectory,
+} from "~/lib/server/infrastructure/config/workspace-mcp-server-default-paths";
 type DefaultWorkspaceMcpServerProfileRow =
   (typeof DEFAULT_WORKSPACE_MCP_SERVER_PROFILE_ROWS)[number];
 type DefaultWorkspaceMcpServerProfileStdioRow = Extract<
@@ -56,6 +57,10 @@ const defaultDrawioMcpServerProfile =
 const defaultMermaidMcpServerProfile =
   readDefaultStdioMcpServerProfile("mcp-mermaid");
 const defaultWorkspaceUserId = 42;
+const testMcpServerProfilePathResolver = {
+  resolveDefaultFilesystemWorkingDirectory,
+  resolveLegacyFilesystemWorkingDirectory,
+};
 
 function readDefaultStdioMcpServerProfile(
   name: string,
@@ -90,7 +95,7 @@ function createWorkspaceMcpServerProfileResource(
   userId = defaultWorkspaceUserId,
   profileOrder = 0,
 ): WorkspaceMcpServerProfileResource {
-  const configKey = buildMcpServerKey(profile);
+  const configKey = buildMcpServerConfigKey(profile);
   if (profile.transport === "stdio") {
     return {
       id: profile.id,
@@ -525,6 +530,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       [],
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const resultConfigs = readWorkspaceMcpServerProfileConfigs(result);
 
@@ -751,6 +757,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       existingProfiles,
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
 
     expect(result).toEqual(existingProfiles);
@@ -775,6 +782,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const resultConfigs = readWorkspaceMcpServerProfileConfigs(result);
 
@@ -874,6 +882,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const names = readWorkspaceMcpServerProfileConfigs(result).map((entry) => entry.name);
     expect(names).not.toContain("server-http");
@@ -899,6 +908,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const mermaidProfiles = readWorkspaceMcpServerProfileConfigs(result).filter(
       (entry) =>
@@ -939,6 +949,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const filesystemProfiles = readWorkspaceMcpServerProfileConfigs(result).filter(
       (entry) =>
@@ -995,6 +1006,7 @@ describe("mergeDefaultWorkspaceMcpServerProfiles", () => {
     const result = mergeDefaultWorkspaceMcpServerProfiles(
       createWorkspaceMcpServerProfileResources(existing),
       defaultWorkspaceUserId,
+      testMcpServerProfilePathResolver,
     );
     const names = readWorkspaceMcpServerProfileConfigs(result).map((entry) => entry.name);
     expect(names).toContain(defaultMicrosoftLearnMcpServerProfile.name);

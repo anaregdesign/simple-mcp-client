@@ -7,7 +7,6 @@ export const CLIENT_MAIN_SPLITTER_MIN_RIGHT_WIDTH_PX = 320;
 export const CLIENT_MAIN_SPLITTER_MIN_LEFT_WIDTH_PX = 560;
 export const CLIENT_CHAT_INPUT_MIN_HEIGHT_PX = 44;
 export const CLIENT_CHAT_INPUT_MAX_HEIGHT_PX = 220;
-export const THREAD_NAME_MAX_LENGTH = 80;
 
 export const DEFAULT_THEME_MODE = "light" as const;
 export const THEME_MODE_OPTIONS = [

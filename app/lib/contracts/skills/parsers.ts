@@ -1,4 +1,4 @@
-import { isSkillRegistryId } from "~/lib/contracts/skills/registry";
+import { isSkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
 import type {
   SkillCatalogEntry,
   SkillCatalogSource,

@@ -4,9 +4,6 @@
  * Changing them affects SKILL.md validation and chat-time Skill loading behavior.
  */
 export const AGENT_SKILLS_DIRECTORY_NAME = "skills";
-export const AGENT_SKILL_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-export const AGENT_SKILL_NAME_MAX_LENGTH = 64;
-export const AGENT_SKILL_DESCRIPTION_MAX_LENGTH = 1_024;
 export const AGENT_SKILL_FILE_MAX_BYTES = 1_000_000;
 export const CHAT_MAX_ACTIVE_SKILLS = 24;
 export const AGENT_SKILL_SCRIPTS_DIRECTORY_NAME = "scripts";
@@ -29,38 +26,3 @@ export const AGENT_SKILL_SCRIPT_OUTPUT_MAX_CHARS = 24_000;
 export const SKILL_REGISTRY_LIST_CACHE_TTL_MS = 30_000;
 export const SKILL_REGISTRY_TREE_CACHE_TTL_MS = 60_000;
 export const CLIENT_SKILLS_RELOAD_MIN_INTERVAL_MS = 2_000;
-export const DEFAULT_SKILL_REGISTRY_OPTIONS = [
-  {
-    id: "openai_curated",
-    label: "OpenAI Curated",
-    description: "Official curated Skill registry from openai/skills.",
-    repository: "openai/skills",
-    ref: "main",
-    sourcePath: "skills/.curated",
-    sourceUrl: "https://github.com/openai/skills/tree/main/skills/.curated",
-    installDirectoryName: "openai-curated",
-    skillPathLayout: "flat",
-  },
-  {
-    id: "anthropic_public",
-    label: "Anthropic Public",
-    description: "Public Skill registry from anthropics/skills.",
-    repository: "anthropics/skills",
-    ref: "main",
-    sourcePath: "skills",
-    sourceUrl: "https://github.com/anthropics/skills/tree/main/skills",
-    installDirectoryName: "anthropic-public",
-    skillPathLayout: "flat",
-  },
-  {
-    id: "anaregdesign_public",
-    label: "Anaregdesign Public",
-    description: "Public tagged Skill registry from anaregdesign/skills.",
-    repository: "anaregdesign/skills",
-    ref: "main",
-    sourcePath: "skills",
-    sourceUrl: "https://github.com/anaregdesign/skills/tree/main/skills",
-    installDirectoryName: "anaregdesign-public",
-    skillPathLayout: "tagged",
-  },
-] as const;

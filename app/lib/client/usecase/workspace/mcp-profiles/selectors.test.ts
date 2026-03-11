@@ -1,0 +1,244 @@
+/**
+ * Test module verifying workspace-mcp-server-profiles behavior.
+ */
+import { describe, expect, it } from "vitest";
+import {
+  buildWorkspaceMcpServerProfileOptions,
+  countSelectedWorkspaceMcpServerProfileOptions,
+  describeWorkspaceMcpServerProfile,
+  describeWorkspaceMcpServerProfileDetail,
+  resolveMcpTransportBadge,
+  selectWorkspaceMcpProfileViewModel,
+  shouldScheduleWorkspaceMcpServerProfileLoginRetry,
+} from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
+
+describe("shouldScheduleWorkspaceMcpServerProfileLoginRetry", () => {
+  it("returns true only when auth has just recovered and key exists", () => {
+    expect(shouldScheduleWorkspaceMcpServerProfileLoginRetry(true, "tenant::principal")).toBe(true);
+  });
+
+  it("returns false when auth was not required or key is empty", () => {
+    expect(shouldScheduleWorkspaceMcpServerProfileLoginRetry(false, "tenant::principal")).toBe(false);
+    expect(shouldScheduleWorkspaceMcpServerProfileLoginRetry(true, "")).toBe(false);
+    expect(shouldScheduleWorkspaceMcpServerProfileLoginRetry(true, "   ")).toBe(false);
+  });
+});
+
+describe("resolveMcpTransportBadge", () => {
+  it("returns badges for each transport", () => {
+    expect(
+      resolveMcpTransportBadge({
+        id: "stdio-1",
+        name: "local",
+        transport: "stdio",
+        command: "npx",
+        args: [],
+        env: {},
+      }),
+    ).toBe("STDIO");
+    expect(
+      resolveMcpTransportBadge({
+        id: "sse-1",
+        name: "sse-server",
+        transport: "sse",
+        url: "https://example.com/sse",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      }),
+    ).toBe("SSE");
+    expect(
+      resolveMcpTransportBadge({
+        id: "http-1",
+        name: "http-server",
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      }),
+    ).toBe("HTTP");
+  });
+});
+
+describe("describeWorkspaceMcpServerProfile", () => {
+  it("formats stdio server summaries", () => {
+    expect(
+      describeWorkspaceMcpServerProfile({
+        id: "stdio-1",
+        name: "local",
+        transport: "stdio",
+        command: "npx",
+        args: ["-y", "@playwright/mcp"],
+        env: {
+          NODE_ENV: "development",
+        },
+      }),
+    ).toBe("Command: npx -y @playwright/mcp; Environment variables: 1");
+  });
+
+  it("formats http server summaries", () => {
+    expect(
+      describeWorkspaceMcpServerProfile({
+        id: "http-1",
+        name: "docs",
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        headers: {
+          Authorization: "Bearer x",
+        },
+        useAzureAuth: true,
+        azureAuthScope: "https://scope/.default",
+        timeoutSeconds: 45,
+      }),
+    ).toBe(
+      "Transport: streamable_http; Headers: 1; Timeout: 45s; Azure auth: enabled (https://scope/.default)",
+    );
+  });
+});
+
+describe("describeWorkspaceMcpServerProfileDetail", () => {
+  it("formats details for stdio and http transports", () => {
+    expect(
+      describeWorkspaceMcpServerProfileDetail({
+        id: "stdio-1",
+        name: "local",
+        transport: "stdio",
+        command: "npx",
+        args: [],
+        env: {},
+      }),
+    ).toBe("Working directory: (inherit current workspace)");
+    expect(
+      describeWorkspaceMcpServerProfileDetail({
+        id: "http-1",
+        name: "docs",
+        transport: "streamable_http",
+        url: "https://example.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      }),
+    ).toBe("https://example.com/mcp");
+  });
+});
+
+describe("buildWorkspaceMcpServerProfileOptions", () => {
+  it("marks selected servers and sorts selected entries first", () => {
+    const saved = [
+      {
+        id: "s2",
+        name: "zeta",
+        transport: "stdio" as const,
+        command: "npx",
+        args: ["-y", "@playwright/mcp"],
+        env: {},
+      },
+      {
+        id: "s1",
+        name: "alpha",
+        transport: "streamable_http" as const,
+        url: "https://developers.openai.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      },
+    ];
+    const active = [
+      {
+        id: "a1",
+        name: "alpha-custom-name",
+        transport: "streamable_http" as const,
+        url: "https://developers.openai.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      },
+    ];
+
+    const options = buildWorkspaceMcpServerProfileOptions(saved, active);
+
+    expect(options).toEqual([
+      expect.objectContaining({
+        id: "s1",
+        name: "alpha",
+        isSelected: true,
+      }),
+      expect.objectContaining({
+        id: "s2",
+        name: "zeta",
+        isSelected: false,
+      }),
+    ]);
+  });
+});
+
+describe("countSelectedWorkspaceMcpServerProfileOptions", () => {
+  it("counts selected options", () => {
+    expect(
+      countSelectedWorkspaceMcpServerProfileOptions([
+        {
+          id: "1",
+          name: "one",
+          description: "desc",
+          detail: "detail",
+          isSelected: true,
+          isAvailable: true,
+        },
+        {
+          id: "2",
+          name: "two",
+          description: "desc",
+          detail: "detail",
+          isSelected: false,
+          isAvailable: true,
+        },
+      ]),
+    ).toBe(1);
+  });
+});
+
+describe("selectWorkspaceMcpProfileViewModel", () => {
+  it("derives editing and mutation flags from profile state", () => {
+    const saved = [
+      {
+        id: "server-1",
+        name: "Alpha",
+        transport: "streamable_http" as const,
+        url: "https://example.com/mcp",
+        headers: {},
+        useAzureAuth: false,
+        azureAuthScope: "scope",
+        timeoutSeconds: 30,
+      },
+      {
+        id: "server-2",
+        name: "Beta",
+        transport: "stdio" as const,
+        command: "npx",
+        args: ["-y", "@playwright/mcp"],
+        env: {},
+      },
+    ];
+
+    const viewModel = selectWorkspaceMcpProfileViewModel({
+      workspaceMcpServerProfiles: saved,
+      activeMcpServers: [saved[0]!],
+      editingMcpServerId: "server-2",
+      isSavingMcpServer: false,
+      isDeletingWorkspaceMcpServerProfile: true,
+    });
+
+    expect(viewModel.workspaceMcpServerProfileOptions).toHaveLength(2);
+    expect(viewModel.selectedWorkspaceMcpServerProfileCount).toBe(1);
+    expect(viewModel.editingMcpServer).toEqual(saved[1]);
+    expect(viewModel.isEditingMcpServer).toBe(true);
+    expect(viewModel.editingMcpServerName).toBe("Beta");
+    expect(viewModel.isMutatingWorkspaceMcpServerProfiles).toBe(true);
+  });
+});

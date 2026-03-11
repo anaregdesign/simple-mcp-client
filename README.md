@@ -28,8 +28,13 @@ If sign-in is required, complete Azure authentication from the app before using 
 The contributor architecture source of truth is:
 
 - [`AGENTS.md`](AGENTS.md)
-- [`client-clean-architecture.md`](docs/architecture/client-clean-architecture.md)
-- [`local-playground-dev skill`](skills/.dev/local-playground-dev/SKILL.md)
+- [`skills/enforce-react-spa-architecture/SKILL.md`](skills/enforce-react-spa-architecture/SKILL.md)
+
+Current workspace UI behavior baseline for post-refactor bug fixing:
+
+- [`workspace-ui-behavior-baseline.md`](docs/architecture/workspace-ui-behavior-baseline.md)
+
+There is intentionally no competing architecture migration doc under `docs/architecture/`. Durable architecture rules live in `AGENTS.md` and the skill; the baseline doc records current UI behavior only.
 
 Stable contributor rules:
 
@@ -37,9 +42,10 @@ Stable contributor rules:
 - shared client/server parsing and contract logic belongs in `app/lib/contracts/`
 - framework-independent model behavior belongs in `app/lib/domain/`
 - server-only integrations belong in `app/lib/server/infrastructure/`
-- route modules should stay thin and delegate reusable logic to `app/lib/server/`
+- route modules should stay thin and delegate reusable logic to `app/lib/server/usecase/` and `app/lib/server/infrastructure/`
 - Prisma vocabulary is the naming source of truth
 - legacy prefixes that still remain in the codebase should not be copied into new names
+- `npm run architecture:check` is a strict zero-findings gate, not a baseline drift check
 
 ## Runtime Model
 
@@ -53,6 +59,7 @@ Stable contributor rules:
 
 ```bash
 npm run dev
+npm run architecture:check
 npm run typecheck:core
 npm run test:core
 npm run quality:gate
@@ -65,17 +72,6 @@ npm run desktop:dev
 npm run desktop:start
 npm run desktop:package
 ```
-
-## Repository Skill
-
-For Codex-based development in this repository:
-
-```bash
-export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-npm run skill:enable
-```
-
-After updating the skill link, restart Codex.
 
 ## Screenshots
 

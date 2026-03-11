@@ -5,8 +5,8 @@ const {
   readWorkspaceSkillProfilesMock,
   discoverWorkspaceSkillsMock,
   syncWorkspaceSkillMastersMock,
+  createWorkspaceSkillServiceMock,
   readWorkspaceSkillProfileReconcilePayloadMock,
-  readErrorMessageMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
@@ -14,24 +14,30 @@ const {
   readWorkspaceSkillProfilesMock: vi.fn(),
   discoverWorkspaceSkillsMock: vi.fn(),
   syncWorkspaceSkillMastersMock: vi.fn(),
+  createWorkspaceSkillServiceMock: vi.fn(),
   readWorkspaceSkillProfileReconcilePayloadMock: vi.fn(),
-  readErrorMessageMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/application/skills/workspace-skill-service", () => ({
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
   readAuthenticatedUser: readAuthenticatedUserMock,
-  readWorkspaceSkillProfileReconcilePayload: readWorkspaceSkillProfileReconcilePayloadMock,
-  readErrorMessage: readErrorMessageMock,
-  workspaceSkillService: {
+}));
+
+vi.mock("~/lib/server/usecase/skills/workspace-skill-service", () => ({
+  createWorkspaceSkillService: createWorkspaceSkillServiceMock.mockReturnValue({
     readWorkspaceSkillProfiles: readWorkspaceSkillProfilesMock,
     discoverWorkspaceSkills: discoverWorkspaceSkillsMock,
     syncWorkspaceSkillMasters: syncWorkspaceSkillMastersMock,
-  },
+  }),
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/infrastructure/skills/workspace-skill-request", () => ({
+  readWorkspaceSkillProfileReconcilePayload:
+    readWorkspaceSkillProfileReconcilePayloadMock,
+}));
+
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
 }));
@@ -41,6 +47,7 @@ import { action, loader } from "./api.workspace-skill-profiles";
 describe("/api/workspace-skill-profiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createWorkspaceSkillServiceMock.mockClear();
     readAuthenticatedUserMock.mockResolvedValue({ id: 10 });
     readWorkspaceSkillProfilesMock.mockResolvedValue({
       workspaceSkillProfiles: [],
@@ -63,7 +70,6 @@ describe("/api/workspace-skill-profiles", () => {
         forceRefresh: false,
       },
     });
-    readErrorMessageMock.mockReturnValue("Unknown error.");
     logServerRouteEventMock.mockResolvedValue(undefined);
   });
 

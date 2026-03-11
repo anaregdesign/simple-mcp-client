@@ -1,26 +1,37 @@
 import type {
-  WorkspaceSkillProfile as WorkspaceSkillProfileResource,
-  WorkspaceSkillRegistryProfile as WorkspaceSkillRegistryProfileResource,
-} from "@prisma/client";
-import type {
   ApiErrorResponseBody,
   ApiSuccessResponseBody,
 } from "~/lib/contracts/api/response";
+import type {
+  AzureDeploymentResource,
+  AzurePrincipalProfileResource,
+  AzureProjectResource,
+  AzureSelectionPreferenceResource,
+  AzureTenantResource,
+} from "~/lib/contracts/api/azure";
 import type { WorkspaceMcpServerProfileResource } from "~/lib/contracts/mcp/profile";
+import type {
+  SkillCatalogEntry,
+  SkillRegistryCatalog,
+} from "~/lib/contracts/skills/types";
+import type {
+  WorkspaceSkillProfileResource,
+  WorkspaceSkillRegistryProfileResource,
+} from "~/lib/contracts/skills/workspace-skill-profiles";
 import type { ThreadResource } from "~/lib/contracts/threads/types";
 
 export type WorkspaceBootstrapData = {
   tenantId: string;
   principalId: string;
-  principal: unknown;
-  azureProjects: unknown;
-  azureTenants: unknown;
-  azureSelection: unknown;
-  azureDeploymentsByProjectId: Record<string, unknown>;
+  principal: AzurePrincipalProfileResource | null;
+  azureProjects: AzureProjectResource[];
+  azureTenants: AzureTenantResource[];
+  azureSelection: AzureSelectionPreferenceResource | null;
+  azureDeploymentsByProjectId: Record<string, AzureDeploymentResource[]>;
   threads: ThreadResource[];
   workspaceMcpServerProfiles: WorkspaceMcpServerProfileResource[];
-  skills: unknown;
-  skillRegistries: unknown;
+  skills: SkillCatalogEntry[];
+  skillRegistries: SkillRegistryCatalog[];
   workspaceSkillProfiles?: WorkspaceSkillProfileResource[];
   workspaceSkillRegistryProfiles?: WorkspaceSkillRegistryProfileResource[];
   skillWarnings: string[];

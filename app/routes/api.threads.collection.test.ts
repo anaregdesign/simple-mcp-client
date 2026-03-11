@@ -2,43 +2,69 @@
  * Test module verifying POST /api/threads behavior.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadResource, ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadWritePayload } from "~/lib/contracts/threads/types";
+import type { ThreadSnapshot } from "~/lib/domain/value-objects/thread-snapshot";
+import { Thread } from "~/lib/domain/entities/thread";
+import type { CreateThreadResult } from "~/lib/server/usecase/threads/thread-service";
 
 const {
-  readAzureArmUserContextMock,
-  getOrCreateUserByIdentityMock,
+  readAuthenticatedUserMock,
   readThreadWritePayloadFromUnknownMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
+  createThreadApplicationServiceMock,
+  createThreadQueryServiceMock,
+  createThreadMock,
+  createThreadPersistenceRepositoryMock,
 } = vi.hoisted(() => ({
-  readAzureArmUserContextMock: vi.fn(),
-  getOrCreateUserByIdentityMock: vi.fn(),
+  readAuthenticatedUserMock: vi.fn(),
   readThreadWritePayloadFromUnknownMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
+  createThreadApplicationServiceMock: vi.fn(),
+  createThreadQueryServiceMock: vi.fn(),
+  createThreadMock: vi.fn<any>(),
+  createThreadPersistenceRepositoryMock: vi.fn(() => ({})),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
-  readAzureArmUserContext: readAzureArmUserContextMock,
-}));
-
-vi.mock("~/lib/server/persistence/user", () => ({
-  getOrCreateUserByIdentity: getOrCreateUserByIdentityMock,
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
+  readAuthenticatedUser: readAuthenticatedUserMock,
 }));
 
 vi.mock("~/lib/contracts/threads/parsers", () => ({
   readThreadWritePayloadFromUnknown: readThreadWritePayloadFromUnknownMock,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
 }));
 
-import { action, threadCollectionActionHandlers } from "./api.threads";
-const createThreadSpy = vi.spyOn(threadCollectionActionHandlers, "createThread");
+vi.mock("~/lib/server/infrastructure/repositories/thread-persistence-repository", () => ({
+  createThreadPersistenceRepository: createThreadPersistenceRepositoryMock,
+}));
 
-function createThreadResource(): ThreadResource {
+vi.mock("~/lib/server/usecase/threads/thread-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("~/lib/server/usecase/threads/thread-service")
+  >("~/lib/server/usecase/threads/thread-service");
+
+  return {
+    ...actual,
+    createThreadApplicationService:
+      createThreadApplicationServiceMock.mockImplementation(() => ({
+        createThread: createThreadMock,
+      })),
+    createThreadQueryService:
+      createThreadQueryServiceMock.mockImplementation(() => ({
+        readUserThreads: vi.fn(),
+      })),
+  };
+});
+
+import { action } from "./api.threads";
+
+function createThreadProps(): ThreadSnapshot {
   return {
     id: "thread-a",
     userId: 10,
@@ -48,8 +74,8 @@ function createThreadResource(): ThreadResource {
     deletedAt: null,
     reasoningEffort: "medium",
     webSearchEnabled: true,
-    threadEnvironmentJson: "{}",
-    instructionContextTogglesJson: "{\"system\":true}",
+    threadEnvironment: {},
+    instructionContextToggles: { system: true },
     instruction: {
       id: 1,
       threadId: "thread-a",
@@ -57,9 +83,13 @@ function createThreadResource(): ThreadResource {
     },
     messages: [],
     mcpServers: [],
-    mcpRpcLogs: [],
+    operationLogs: [],
     skillSelections: [],
   };
+}
+
+function createThread(): Thread {
+  return new Thread(createThreadProps());
 }
 
 describe("POST /api/threads", () => {
@@ -84,22 +114,14 @@ describe("POST /api/threads", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    readAzureArmUserContextMock.mockResolvedValue({
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
-    getOrCreateUserByIdentityMock.mockResolvedValue({
-      id: 10,
-      tenantId: "tenant-a",
-      principalId: "principal-a",
-    });
+    readAuthenticatedUserMock.mockResolvedValue({ id: 10 });
     readThreadWritePayloadFromUnknownMock.mockReturnValue(thread);
     logServerRouteEventMock.mockResolvedValue(undefined);
-    createThreadSpy.mockReset();
-    createThreadSpy.mockResolvedValue({
+    createThreadMock.mockReset();
+    createThreadMock.mockResolvedValue({
       status: "created",
-      thread: createThreadResource(),
-    });
+      thread: createThread(),
+    } satisfies CreateThreadResult);
   });
 
   it("returns 201 with Location when thread is created", async () => {
@@ -113,16 +135,16 @@ describe("POST /api/threads", () => {
       }),
     } as never);
 
-    const payload = (await response.json()) as { thread?: ThreadResource };
+    const payload = (await response.json()) as { thread?: { id?: string } };
     expect(response.status).toBe(201);
     expect(response.headers.get("location")).toBe("/api/threads/thread-a");
     expect(payload.thread?.id).toBe("thread-a");
   });
 
   it("returns 409 when thread id already exists", async () => {
-    createThreadSpy.mockResolvedValueOnce({
+    createThreadMock.mockResolvedValueOnce({
       status: "conflict",
-    });
+    } satisfies CreateThreadResult);
 
     const response = await action({
       request: new Request("http://localhost/api/threads", {
@@ -158,7 +180,7 @@ describe("POST /api/threads", () => {
   });
 
   it("returns 401 when user is not authenticated", async () => {
-    readAzureArmUserContextMock.mockResolvedValueOnce(null);
+    readAuthenticatedUserMock.mockResolvedValueOnce(null);
 
     const response = await action({
       request: new Request("http://localhost/api/threads", {

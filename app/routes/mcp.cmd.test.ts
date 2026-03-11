@@ -6,6 +6,7 @@ import nodeOs from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MCP_LOCAL_PLAYGROUND_THREAD_ID_HEADER } from "~/lib/constants/mcp";
+import { resolveWorkingDirectory } from "~/lib/server/infrastructure/gateways/mcp/mcp-cmd-working-directory";
 
 const {
   readAzureArmUserContextMock,
@@ -19,20 +20,20 @@ const {
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/auth/azure-user", () => ({
+vi.mock("~/lib/server/infrastructure/auth/azure-arm-user-context", () => ({
   readAzureArmUserContext: readAzureArmUserContextMock,
 }));
 
-vi.mock("~/lib/server/persistence/user", () => ({
+vi.mock("~/lib/server/infrastructure/persistence/user", () => ({
   getOrCreateUserByIdentity: getOrCreateUserByIdentityMock,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
 }));
 
-import { action, loader, mcpCmdRouteTestUtils } from "./mcp.cmd";
+import { action, loader } from "./mcp.cmd";
 
 describe("mcp cmd route", () => {
   beforeEach(() => {
@@ -165,7 +166,7 @@ describe("mcp cmd route", () => {
   });
 
   it("executes shell command and returns stdout/stderr details", async () => {
-    const defaultWorkingDirectoryResult = mcpCmdRouteTestUtils.resolveWorkingDirectory(
+    const defaultWorkingDirectoryResult = resolveWorkingDirectory(
       42,
       "thread-2",
       null,
@@ -333,7 +334,7 @@ describe("mcp cmd route", () => {
   });
 
   it("uses client-provided threadId from tool arguments", async () => {
-    const defaultWorkingDirectoryResult = mcpCmdRouteTestUtils.resolveWorkingDirectory(
+    const defaultWorkingDirectoryResult = resolveWorkingDirectory(
       42,
       "thread-from-client",
       null,

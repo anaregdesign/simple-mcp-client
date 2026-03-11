@@ -1,22 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  readAuthenticatedWorkspaceUserMock,
   loadWorkspaceBootstrapMock,
+  createWorkspaceBootstrapServiceMock,
   installGlobalServerErrorLoggingMock,
   logServerRouteEventMock,
 } = vi.hoisted(() => ({
+  readAuthenticatedWorkspaceUserMock: vi.fn(),
   loadWorkspaceBootstrapMock: vi.fn(),
+  createWorkspaceBootstrapServiceMock: vi.fn(),
   installGlobalServerErrorLoggingMock: vi.fn(),
   logServerRouteEventMock: vi.fn(),
 }));
 
-vi.mock("~/lib/server/application/workspace/workspace-bootstrap-service", () => ({
-  workspaceBootstrapService: {
-    loadWorkspaceBootstrap: loadWorkspaceBootstrapMock,
-  },
+vi.mock("~/lib/server/infrastructure/auth/read-authenticated-user", () => ({
+  readAuthenticatedWorkspaceUser: readAuthenticatedWorkspaceUserMock,
 }));
 
-vi.mock("~/lib/server/observability/runtime-event-log", () => ({
+vi.mock("~/lib/server/usecase/workspace/workspace-bootstrap-service", () => ({
+  createWorkspaceBootstrapService:
+    createWorkspaceBootstrapServiceMock.mockReturnValue({
+      loadWorkspaceBootstrap: loadWorkspaceBootstrapMock,
+    }),
+}));
+
+vi.mock("~/lib/server/infrastructure/gateways/observability/runtime-event-log-gateway", () => ({
   installGlobalServerErrorLogging: installGlobalServerErrorLoggingMock,
   logServerRouteEvent: logServerRouteEventMock,
 }));
@@ -26,6 +35,11 @@ import { loader } from "./api.workspace-bootstrap";
 describe("/api/workspace-bootstrap", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    readAuthenticatedWorkspaceUserMock.mockResolvedValue({
+      id: 10,
+      tenantId: "tenant-a",
+      principalId: "principal-a",
+    });
     loadWorkspaceBootstrapMock.mockResolvedValue({
       tenantId: "tenant-a",
       principalId: "principal-a",
@@ -56,7 +70,7 @@ describe("/api/workspace-bootstrap", () => {
   });
 
   it("returns 401 when bootstrap auth is unavailable", async () => {
-    loadWorkspaceBootstrapMock.mockResolvedValueOnce(null);
+    readAuthenticatedWorkspaceUserMock.mockResolvedValueOnce(null);
 
     const response = await loader({
       request: new Request("http://localhost/api/workspace-bootstrap", { method: "GET" }),
