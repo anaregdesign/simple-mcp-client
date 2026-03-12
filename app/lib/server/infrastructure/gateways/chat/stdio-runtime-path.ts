@@ -56,6 +56,14 @@ export function resolveExecutableCommand(command: string, env: Record<string, st
   return resolved ?? command;
 }
 
+export function isExecutableCommandAvailable(
+  command: string,
+  env: Record<string, string>,
+): boolean {
+  const resolvedCommand = resolveExecutableCommand(command, env);
+  return isPathLikeCommand(resolvedCommand) && isExecutableFile(resolvedCommand);
+}
+
 export function resolveExecutableInvocation(
   command: string,
   args: string[],

@@ -35,7 +35,6 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "@fluentui/react-components": "^9.73.1",
-    "@microsoft/workiq": "^0.2.8",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@openai/agents": "^0.5.2",
     "@openai/agents-openai": "^0.5.2",

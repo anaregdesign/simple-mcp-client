@@ -8,14 +8,13 @@ import type {
   ClientMcpServerConfig,
 } from "~/lib/server/usecase/chat/mcp-server-config-types";
 import {
-  buildStdioSpawnEnvironment,
-  resolveExecutableInvocation,
-} from "~/lib/server/infrastructure/gateways/chat/stdio-runtime-path";
-import {
   buildMcpHttpRuntimeHeaders,
   fetchWithMcpMetaNormalization,
   type McpRequestContext,
 } from "~/lib/server/infrastructure/gateways/mcp/mcp-http-session-helpers";
+import {
+  prepareStdioMcpServerLaunch,
+} from "~/lib/server/infrastructure/gateways/mcp/mcp-stdio-launch-preflight";
 import type {
   ThreadMcpServerSession,
 } from "~/lib/server/infrastructure/gateways/mcp/thread-mcp-server-session-pool";
@@ -91,14 +90,13 @@ export async function createMcpServerSession(
   config: ClientMcpServerConfig,
 ): Promise<ThreadMcpServerSession<McpServerSessionRefreshState>> {
   if (config.transport === "stdio") {
-    const env = buildStdioSpawnEnvironment(config.env);
-    const invocation = resolveExecutableInvocation(config.command, config.args, env);
+    const launch = prepareStdioMcpServerLaunch(config);
     const server = new MCPServerStdio({
       name: config.name,
-      command: invocation.command,
-      args: invocation.args,
-      cwd: config.cwd,
-      env,
+      command: launch.command,
+      args: launch.args,
+      cwd: launch.cwd,
+      env: launch.env,
     });
     return {
       server,
