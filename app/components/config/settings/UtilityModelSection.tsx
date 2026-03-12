@@ -4,6 +4,7 @@
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
@@ -13,6 +14,7 @@ import {
   NO_AVAILABLE_DEPLOYMENTS_OPTION_LABEL,
   NO_AVAILABLE_PROJECTS_OPTION_LABEL,
 } from "~/lib/constants/client";
+import styles from "~/components/config/settings/UtilityModelSection.module.css";
 
 const { Select, Spinner } = FluentUI;
 
@@ -55,19 +57,19 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
 
   return (
     <ConfigSection
-      className="setting-group-utility-model"
+      className={styles.root}
       title="Utility Model 🧰"
       description="Used for instruction enhancement and utility workflows."
     >
       {isAzureAuthRequired ? (
-        <p className="field-hint">
+        <p className={configStyles.fieldHint}>
           Sign in from Azure Connection to configure Utility Model.
         </p>
       ) : (
         <>
           {isLoadingAzureConnections || isLoadingUtilityAzureDeployments ? (
             <div
-              className="azure-loading-notice"
+              className={configStyles.loadingNotice}
               role="status"
               aria-live="polite"
             >
@@ -77,7 +79,7 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
                 : "Loading Utility deployment options..."}
             </div>
           ) : null}
-          <label className="input-label" htmlFor="utility-model-project">
+          <label className={configStyles.inputLabel} htmlFor="utility-model-project">
             Utility Project
           </label>
           <Select
@@ -102,7 +104,7 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
               </option>
             ))}
           </Select>
-          <label className="input-label" htmlFor="utility-model-deployment">
+          <label className={configStyles.inputLabel} htmlFor="utility-model-deployment">
             Utility Deployment
           </label>
           <Select
@@ -137,7 +139,7 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
             ]}
           />
           <label
-            className="input-label"
+            className={configStyles.inputLabel}
             htmlFor="utility-model-reasoning-effort"
           >
             Utility Reasoning Effort
@@ -170,7 +172,7 @@ export function UtilityModelSection(props: UtilityModelSectionProps) {
             ))}
           </Select>
           {isUtilityReasoningEffortSupported ? null : (
-            <p className="field-hint">
+            <p className={configStyles.fieldHint}>
               This deployment does not support Reasoning Effort. Value is fixed
               to None and omitted from requests.
             </p>

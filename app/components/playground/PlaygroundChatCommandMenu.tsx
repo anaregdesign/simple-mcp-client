@@ -1,4 +1,6 @@
+import { clsx } from "clsx";
 import type { ChatCommandMenuView } from "~/lib/client/usecase/workspace/playground-panel/view-types";
+import styles from "~/components/playground/PlaygroundChatCommandMenu.module.css";
 
 type PlaygroundChatCommandMenuProps = {
   chatCommandMenu: ChatCommandMenuView | null;
@@ -20,10 +22,10 @@ export function PlaygroundChatCommandMenu({
   if (chatCommandMenu.suggestions.length === 0) {
     return (
       <section
-        className="chat-command-menu"
+        className={styles.menu}
         aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
       >
-        <p className="chat-command-empty" role="status">
+        <p className={styles.empty} role="status">
           {chatCommandMenu.emptyHint}
         </p>
       </section>
@@ -32,12 +34,12 @@ export function PlaygroundChatCommandMenu({
 
   return (
     <section
-      className="chat-command-menu"
+      className={styles.menu}
       aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
     >
       <ul
         id={chatCommandListboxId}
-        className="chat-command-list"
+        className={styles.list}
         role="listbox"
         aria-label={`Command suggestions for ${chatCommandMenu.keyword}`}
       >
@@ -51,11 +53,11 @@ export function PlaygroundChatCommandMenu({
               id={`chat-command-option-${index}`}
               role="option"
               aria-selected={isHighlighted}
-              className="chat-command-option"
+              className={styles.option}
             >
               <button
                 type="button"
-                className={`chat-command-item${isHighlighted ? " is-highlighted" : ""}`}
+                className={clsx(styles.item, isHighlighted && styles.itemHighlighted)}
                 onMouseDown={(event) => {
                   event.preventDefault();
                 }}
@@ -67,23 +69,23 @@ export function PlaygroundChatCommandMenu({
                 }}
                 disabled={isUnavailable}
               >
-                <span className="chat-command-item-title-row">
-                  <span className="chat-command-item-label">
+                <span className={styles.titleRow}>
+                  <span className={styles.label}>
                     {suggestion.label}
                   </span>
                   {suggestion.isSelected ? (
-                    <span className="chat-command-item-state">Added</span>
+                    <span className={styles.state}>Added</span>
                   ) : null}
                   {isUnavailable ? (
-                    <span className="chat-command-item-state chat-command-item-state-unavailable">
+                    <span className={clsx(styles.state, styles.stateUnavailable)}>
                       Unavailable
                     </span>
                   ) : null}
                 </span>
-                <span className="chat-command-item-description">
+                <span className={styles.description}>
                   {suggestion.description}
                 </span>
-                <span className="chat-command-item-detail">
+                <span className={styles.detail}>
                   {suggestion.detail}
                 </span>
               </button>

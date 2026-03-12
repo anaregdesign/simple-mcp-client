@@ -1,0 +1,164 @@
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.55rem;
+}
+
+.controls {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0.35rem 0.55rem;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.controlLoader {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 32px;
+  padding: 0.35rem 0.62rem;
+  border-radius: 10px;
+  background: var(--client-control-bg);
+  color: var(--client-ink-accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.projectLoader {
+  min-width: 170px;
+}
+
+.deploymentLoader {
+  min-width: 150px;
+}
+
+.switchFrame {
+  border-radius: 10px;
+  background: var(--client-control-bg);
+  padding: 0 0.5rem;
+  transition: background-color 0.14s ease;
+}
+
+.switchFrame:hover,
+.switchFrame:focus-within {
+  background: var(--client-control-bg-hover);
+}
+
+.webSearchToggle:global(.fui-Switch) {
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+}
+
+.webSearchToggle :global(.fui-Switch__label) {
+  color: var(--client-ink-accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.attachButton:global(.fui-Button),
+.sendButton:global(.fui-Button) {
+  border-radius: var(--client-radius-pill);
+  border: 1px solid var(--client-action-border);
+  padding: 0;
+  background: var(--client-action-bg);
+  color: var(--client-ink-accent-strong);
+}
+
+.attachButton:global(.fui-Button) {
+  min-width: 2rem !important;
+  width: 2rem !important;
+  min-height: 2rem !important;
+  height: 2rem !important;
+}
+
+.attachButton:global(.fui-Button):enabled:hover,
+.sendButton:global(.fui-Button):enabled:hover {
+  background: var(--client-action-bg-hover);
+}
+
+.attachButton:global(.fui-Button):enabled:active,
+.sendButton:global(.fui-Button):enabled:active {
+  background: var(--client-action-bg-active);
+}
+
+.attachButton :global(.fui-Button__content) {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.control :global(.fui-Select) select:hover,
+.control :global(.fui-Select) select:focus {
+  cursor: pointer;
+}
+
+.control :global(.fui-Select),
+.control :global(.fui-Select):hover,
+.control :global(.fui-Select):focus-within {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.control :global(.fui-Select)::before,
+.control :global(.fui-Select)::after {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.control :global(.fui-Select) select {
+  border: 0 !important;
+  outline: none;
+  box-shadow: none !important;
+  border-radius: 10px;
+  background: var(--client-control-bg);
+  transition: background-color 0.14s ease;
+}
+
+.control :global(.fui-Select) select:hover,
+.control :global(.fui-Select) select:focus {
+  background: var(--client-control-bg-hover);
+}
+
+.projectControl :global(select) {
+  min-width: 170px;
+}
+
+.deploymentControl :global(select) {
+  min-width: 150px;
+}
+
+.sendTooltipTarget {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sendButton:global(.fui-Button) {
+  min-width: 2.35rem !important;
+  width: 2.35rem !important;
+  min-height: 2.35rem !important;
+  height: 2.35rem !important;
+  align-self: flex-end;
+}
+
+.sendButton :global(.fui-Button__content) {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1;
+}
+
+.sendButton:global(.fui-Button):disabled {
+  opacity: 0.56;
+}

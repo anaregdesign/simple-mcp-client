@@ -2,6 +2,7 @@
  * Client UI component module.
  */
 import type { ComponentProps } from "react";
+import styles from "~/components/config/ConfigPanel.module.css";
 import { FluentUI } from "~/components/shared/fluent";
 import { McpServersTab } from "~/components/config/mcp/McpServersTab";
 import { SkillsTab } from "~/components/config/skills/SkillsTab";
@@ -54,10 +55,10 @@ export function ConfigPanel(props: ConfigPanelProps) {
   }
 
   return (
-    <aside className="side-shell main-panel" aria-label="Configuration panels">
-      <div className="side-shell-header">
+    <aside className={styles.root} aria-label="Configuration panels">
+      <div className={styles.header}>
         <TabList
-          className="main-tabs"
+          className={styles.tabs}
           aria-label="Side panels"
           appearance="subtle"
           size="small"
@@ -81,7 +82,7 @@ export function ConfigPanel(props: ConfigPanelProps) {
               value={tab.id}
               id={`tab-${tab.id}`}
               aria-controls={`panel-${tab.id}`}
-              className="main-tab-btn"
+              className={styles.tabButton}
               title={
                 tab.id === "settings"
                   ? "Open Settings panel."
@@ -97,15 +98,15 @@ export function ConfigPanel(props: ConfigPanelProps) {
           ))}
         </TabList>
         {isChatLocked ? (
-          <MessageBar intent="warning" className="tab-guidance-bar">
+          <MessageBar intent="warning" className={styles.guidanceBar}>
             <MessageBarBody>
               🔒 Playground is locked. Open Settings and sign in to Azure.
             </MessageBarBody>
           </MessageBar>
         ) : null}
       </div>
-      <div className="side-shell-body">
-        <div className="side-top-panel">{renderActiveMainTab()}</div>
+      <div className={styles.body}>
+        <div className={styles.topPanel}>{renderActiveMainTab()}</div>
       </div>
     </aside>
   );

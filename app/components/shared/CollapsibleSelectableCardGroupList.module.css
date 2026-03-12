@@ -1,0 +1,45 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.52rem;
+}
+
+.group {
+  display: block;
+}
+
+.groupContent {
+  margin: 0.52rem 0 0 0.24rem;
+  padding: 0.04rem 0 0 0.72rem;
+}
+
+.externalLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.42rem;
+  min-width: 1.42rem;
+  height: 1.42rem;
+  border-radius: var(--client-radius-pill);
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.76;
+  transition:
+    color 0.14s ease,
+    opacity 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.externalLink:hover {
+  color: var(--client-ink-accent);
+  opacity: 1;
+  background: var(--client-accent-soft-bg);
+}
+
+.externalLinkGlyph {
+  display: inline-block;
+  font-size: 0.9rem;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+}

@@ -2,6 +2,7 @@
  * Client UI component module.
  */
 import { useMemo } from "react";
+import { clsx } from "clsx";
 import type { ChangeEvent, RefObject } from "react";
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
@@ -9,6 +10,7 @@ import { SubSection } from "~/components/shared/SubSection";
 import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
 import type {
@@ -16,6 +18,7 @@ import type {
   InstructionEnhanceComparisonView,
   InstructionLanguage,
 } from "~/lib/client/usecase/workspace/instruction-editor/view-types";
+import styles from "~/components/config/threads/InstructionSection.module.css";
 
 const { Button, Spinner, Switch, Textarea } = FluentUI;
 
@@ -95,20 +98,20 @@ export function InstructionSection(props: InstructionSectionProps) {
 
   return (
     <ConfigSection
-      className="setting-group-agent-instruction"
+      className={styles.root}
       title="Agent Instruction 🧾"
       description="System instruction used for the agent."
     >
       {isThreadReadOnly ? (
-        <p className="field-hint">
+        <p className={configStyles.fieldHint}>
           This thread is archived and read-only. Restore it from Archives to edit instruction.
         </p>
       ) : null}
       {instructionEnhanceComparison ? (
-        <section className="instruction-diff-panel" aria-label="Instruction diff review">
-          <div className="instruction-diff-header">
-            <p className="instruction-diff-title">🔀 Enhanced Diff Preview</p>
-            <div className="instruction-diff-actions">
+        <section className={styles.diffPanel} aria-label="Instruction diff review">
+          <div className={styles.diffHeader}>
+            <p className={styles.diffTitle}>🔀 Enhanced Diff Preview</p>
+            <div className={styles.diffActions}>
               <Button
                 type="button"
                 appearance="primary"
@@ -131,26 +134,26 @@ export function InstructionSection(props: InstructionSectionProps) {
               </Button>
             </div>
           </div>
-          <p className="instruction-diff-meta">
+          <p className={styles.diffMeta}>
             Format: .{instructionEnhanceComparison.extension} | Language:{" "}
             {describeInstructionLanguage(instructionEnhanceComparison.language)}
           </p>
           {parsedDiffFiles.length > 0 ? (
-            <div className="instruction-diff-table" aria-label="Instruction diff">
+            <div className={styles.diffTable} aria-label="Instruction diff">
               {parsedDiffFiles.map((file, index) => (
                 <Diff
                   key={`${file.oldRevision ?? "old"}-${file.newRevision ?? "new"}-${index}`}
                   viewType="unified"
                   diffType={file.type}
                   hunks={file.hunks}
-                  className="instruction-diff-github"
+                  className={styles.diffGithub}
                 >
                   {(hunks) => hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
                 </Diff>
               ))}
             </div>
           ) : (
-            <pre className="instruction-diff-raw" aria-label="Instruction diff">
+            <pre className={styles.diffRaw} aria-label="Instruction diff">
               <code>{instructionEnhanceComparison.diffPatch}</code>
             </pre>
           )}
@@ -169,21 +172,21 @@ export function InstructionSection(props: InstructionSectionProps) {
             placeholder="System instruction for the agent"
           />
           {showEnhancingInstructionSpinner ? (
-            <div className="instruction-enhancing-state" role="status" aria-live="polite">
-              <div className="instruction-enhancing-head">
+            <div className={styles.enhancingState} role="status" aria-live="polite">
+              <div className={styles.enhancingHead}>
                 <Spinner size="tiny" />
                 <span>Enhancing instruction with the selected Utility Model...</span>
               </div>
-              <div className="instruction-enhancing-track" aria-hidden="true">
-                <span className="instruction-enhancing-bar" />
+              <div className={styles.enhancingTrack} aria-hidden="true">
+                <span className={styles.enhancingBar} />
               </div>
             </div>
           ) : null}
-          <div className="file-picker-row">
+          <div className={styles.filePickerRow}>
             <input
               id="agent-instruction-file"
               ref={instructionFileInputRef}
-              className="file-input-hidden"
+              className={styles.hiddenFileInput}
               type="file"
               accept=".md,.txt,.xml,.json,text/plain,text/markdown,application/json,application/xml,text/xml"
               onChange={(event) => {
@@ -245,7 +248,9 @@ export function InstructionSection(props: InstructionSectionProps) {
             >
               🧹 Clear
             </Button>
-            <span className="file-picker-name">{loadedInstructionFileName ?? "No file loaded"}</span>
+            <span className={styles.filePickerName}>
+              {loadedInstructionFileName ?? "No file loaded"}
+            </span>
           </div>
         </>
       )}
@@ -267,17 +272,17 @@ export function InstructionSection(props: InstructionSectionProps) {
         ]}
       />
       <SubSection
-        className="instruction-context-subsection"
+        className={styles.contextSubsection}
         title="Context"
         description="Toggle which context payloads are injected when sending instruction-guided turns."
       >
-        <div className="instruction-context-toggle-list" aria-label="Instruction context toggles">
+        <div className={styles.contextToggleList} aria-label="Instruction context toggles">
           {instructionContextToggleOptions.map((option) => (
-            <div key={option.key} className="instruction-context-toggle-item">
-              <div className="instruction-context-toggle-switch-row">
+            <div key={option.key} className={styles.contextToggleItem}>
+              <div className={styles.contextSwitchRow}>
                 <Switch
                   id={`instruction-context-toggle-${option.key}`}
-                  className="instruction-context-toggle-switch"
+                  className={styles.contextSwitch}
                   label={option.label}
                   checked={option.enabled}
                   onChange={(_, data) => {
@@ -289,10 +294,10 @@ export function InstructionSection(props: InstructionSectionProps) {
                   <LabeledTooltip
                     title={option.infoTitle}
                     lines={option.infoLines}
-                    className="setting-group-tooltip-target"
+                    className={configStyles.tooltipTarget}
                   >
                     <InfoIconButton
-                      className="setting-group-tooltip-icon instruction-context-toggle-info-icon"
+                      className={clsx(configStyles.tooltipIcon, styles.contextInfoIcon)}
                       ariaLabel={`Show ${option.label} injection details`}
                       title={`Show ${option.label} injection details`}
                     />

@@ -1,6 +1,7 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import {
   CollapsibleSelectableCardGroupList,
@@ -8,7 +9,10 @@ import {
 } from "~/components/shared/CollapsibleSelectableCardGroupList";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { FluentUI } from "~/components/shared/fluent";
+import configStyles from "~/components/shared/ConfigSection.module.css";
+import selectableStyles from "~/components/shared/SelectableCardList.module.css";
 import type { SkillRegistryId } from "~/lib/domain/value-objects/skill-registry";
+import styles from "~/components/config/skills/SkillRegistrySection.module.css";
 
 const { Button, Spinner } = FluentUI;
 
@@ -88,22 +92,23 @@ export function SkillRegistrySection(props: SkillRegistrySectionProps) {
 
   return (
     <ConfigSection
-      className="setting-group-skill-registry"
+      className={styles.root}
       title="Install Skills 📦"
       description="Browse supported registries and install or remove Skills under app data skills storage."
     >
       <div
-        className={`selectable-card-header-row${
-          registrySourceLinks.length > 0 ? "" : " selectable-card-header-row-right"
-        }`}
+        className={clsx(
+          selectableStyles.headerRow,
+          registrySourceLinks.length === 0 && selectableStyles.headerRowRight,
+        )}
       >
         {registrySourceLinks.length > 0 ? (
-          <p className="registry-source-links">
-            <span className="registry-source-links-label">Registry:</span>
+          <p className={styles.registrySourceLinks}>
+            <span className={styles.registrySourceLabel}>Registry:</span>
             {registrySourceLinks.map((registry, index) => (
-              <span key={registry.url} className="registry-source-link-item">
+              <span key={registry.url} className={styles.registrySourceItem}>
                 <a
-                  className="registry-source-link"
+                  className={styles.registrySourceLink}
                   href={registry.url}
                   target="_blank"
                   rel="noreferrer"
@@ -112,7 +117,7 @@ export function SkillRegistrySection(props: SkillRegistrySectionProps) {
                   {registry.label}
                 </a>
                 {index < registrySourceLinks.length - 1 ? (
-                  <span className="registry-source-link-separator" aria-hidden="true">
+                  <span className={styles.registrySourceSeparator} aria-hidden="true">
                     ·
                   </span>
                 ) : null}
@@ -124,7 +129,7 @@ export function SkillRegistrySection(props: SkillRegistrySectionProps) {
           type="button"
           appearance="subtle"
           size="small"
-          className="selectable-card-reload-btn"
+          className={selectableStyles.reloadButton}
           title="Reload registry skill list."
           onClick={onReloadSkillRegistries}
           disabled={isLoadingSkillRegistries || isMutatingSkillRegistries}
@@ -133,7 +138,7 @@ export function SkillRegistrySection(props: SkillRegistrySectionProps) {
         </Button>
       </div>
       {isLoadingSkillRegistries ? (
-        <div className="azure-loading-notice" role="status" aria-live="polite">
+        <div className={configStyles.loadingNotice} role="status" aria-live="polite">
           <Spinner size="tiny" />
           Loading registries...
         </div>

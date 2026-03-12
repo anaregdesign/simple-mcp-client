@@ -1,11 +1,14 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import type { McpTransport } from "~/lib/domain/value-objects/mcp-transport";
+import styles from "~/components/config/mcp/McpAddServerSection.module.css";
 
 const {
   Button,
@@ -107,6 +110,7 @@ export function McpAddServerSection(props: McpAddServerSectionProps) {
 
   return (
     <ConfigSection
+      className={styles.root}
       title={sectionTitle}
       description={sectionDescription}
     >
@@ -203,9 +207,9 @@ export function McpAddServerSection(props: McpAddServerSectionProps) {
             />
           </Field>
           <Field label="🔐 Azure authentication">
-            <div className="field-with-info">
+            <div className={styles.fieldWithInfo}>
               <Checkbox
-                className="field-checkbox"
+                className={styles.fieldCheckbox}
                 title="Attach Azure Bearer token from the app's Azure credential."
                 checked={mcpUseAzureAuthInput}
                 onChange={(_, data) => {
@@ -217,14 +221,14 @@ export function McpAddServerSection(props: McpAddServerSectionProps) {
               <Popover withArrow positioning="below-end">
                 <PopoverTrigger disableButtonEnhancement>
                   <InfoIconButton
-                    className="setting-group-tooltip-icon field-info-btn"
+                    className={clsx(configStyles.tooltipIcon, styles.infoButton)}
                     ariaLabel="Show Azure authentication behavior details"
                     title="Show Azure authentication behavior details."
                   />
                 </PopoverTrigger>
-                <PopoverSurface className="field-info-popover">
-                  <p className="field-info-title">Azure auth behavior</p>
-                  <ul className="field-info-list">
+                <PopoverSurface className={styles.infoPopover}>
+                  <p className={styles.infoTitle}>Azure auth behavior</p>
+                  <ul className={styles.infoList}>
                     <li>
                       Applies to HTTP MCP transports (<code>streamable_http</code> and <code>sse</code>).
                     </li>
@@ -273,13 +277,13 @@ export function McpAddServerSection(props: McpAddServerSectionProps) {
               disabled={isSending}
             />
           </Field>
-          <p className="field-hint">
+          <p className={configStyles.fieldHint}>
             Timeout (seconds): integer from {minMcpTimeoutSeconds} to {maxMcpTimeoutSeconds}.
           </p>
-          <p className="field-hint">Content-Type: application/json is always included.</p>
+          <p className={configStyles.fieldHint}>Content-Type: application/json is always included.</p>
         </>
       )}
-      <div className="mcp-form-action-row">
+      <div className={styles.actionRow}>
         <Button
           type="button"
           appearance="primary"

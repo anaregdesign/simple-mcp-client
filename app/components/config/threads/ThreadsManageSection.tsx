@@ -1,6 +1,7 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
@@ -9,10 +10,12 @@ import {
   type ContextActionMenuItem,
 } from "~/components/shared/ContextActionMenu";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import {
   type ThreadManagementSectionProps,
 } from "~/lib/client/usecase/workspace/threads/management/types";
 import { isRenamingThread } from "~/lib/client/usecase/workspace/threads/management/selectors";
+import styles from "~/components/config/threads/ThreadsManageSection.module.css";
 
 const { Button, Input, Spinner } = FluentUI;
 
@@ -46,22 +49,22 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
 
   return (
     <ConfigSection
-      className="setting-group-threads-manage"
+      className={styles.root}
       title="Threads 🧵"
       description="Switch Playground context across conversation, MCP logs, instruction, and connected MCP Servers."
     >
       {isLoadingThreads ? (
-        <div className="azure-loading-notice" role="status" aria-live="polite">
+        <div className={configStyles.loadingNotice} role="status" aria-live="polite">
           <Spinner size="tiny" />
           Loading threads...
         </div>
       ) : null}
-      <div className="threads-action-row">
+      <div className={styles.actionRow}>
         <Button
           type="button"
           appearance="secondary"
           size="small"
-          className="threads-new-btn"
+          className={styles.newThreadButton}
           onClick={onCreateThread}
           disabled={isThreadOperationBusy}
           title="Create a new thread and switch Playground to it."
@@ -70,10 +73,10 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
         </Button>
       </div>
       {activeThreadOptions.length === 0 ? (
-        <p className="field-hint">No active threads</p>
+        <p className={configStyles.fieldHint}>No active threads</p>
       ) : (
         <div
-          className="threads-active-list"
+          className={styles.activeList}
           role="list"
           aria-label="Playground threads"
         >
@@ -146,14 +149,14 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
             return (
               <div
                 key={thread.id}
-                className="threads-active-item-row"
+                className={styles.activeItemRow}
                 role="listitem"
               >
                 {isActiveRename ? (
                   <Input
                     ref={renameInputRef}
                     value={renamingThreadName}
-                    className="threads-rename-input"
+                    className={styles.renameInput}
                     aria-label={`Rename thread ${thread.name}`}
                     title={`Rename thread ${thread.name}`}
                     disabled={isThreadOperationBusy}
@@ -171,7 +174,7 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
                   <LabeledTooltip
                     title={thread.name}
                     lines={buildThreadTooltipLines(thread)}
-                    className="threads-active-item-tooltip-target"
+                    className={styles.activeItemTooltipTarget}
                   >
                     <ContextActionMenu
                       menuLabel={`Thread actions for ${thread.name}`}
@@ -180,21 +183,24 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
                       <Button
                         type="button"
                         appearance={isActive ? "secondary" : "subtle"}
-                        className={`threads-active-item${isActive ? " is-active" : ""}`}
+                        className={clsx(
+                          styles.activeItemButton,
+                          isActive && styles.activeItemSelected,
+                        )}
                         onClick={() => {
                           onActiveThreadChange(thread.id);
                         }}
                         disabled={isThreadOperationBusy}
                         aria-pressed={isActive}
                       >
-                        <span className="threads-active-item-content">
-                          <span className="threads-active-item-name">
+                        <span className={styles.activeItemContent}>
+                          <span className={styles.activeItemName}>
                             {thread.name}
                           </span>
                           {thread.isAwaitingResponse ? (
                             <Spinner
                               size="tiny"
-                              className="threads-active-item-pending-spinner"
+                              className={styles.pendingSpinner}
                               aria-label="Awaiting response"
                             />
                           ) : null}
@@ -209,12 +215,12 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
         </div>
       )}
       {archivedThreadOptions.length > 0 ? (
-        <details className="threads-archived-list">
-          <summary className="threads-archived-summary">
+        <details className={styles.archivedList}>
+          <summary className={styles.archivedSummary}>
             Archives ({archivedThreadOptions.length})
           </summary>
           <div
-            className="threads-archived-items"
+            className={styles.archivedItems}
             role="list"
             aria-label="Archived Playground threads"
           >
@@ -236,13 +242,13 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
               return (
                 <div
                   key={thread.id}
-                  className="threads-archived-item-row"
+                  className={styles.archivedItemRow}
                   role="listitem"
                 >
                   <LabeledTooltip
                     title={thread.name}
                     lines={buildArchivedThreadTooltipLines(thread)}
-                    className="threads-active-item-tooltip-target"
+                    className={styles.activeItemTooltipTarget}
                   >
                     <ContextActionMenu
                       menuLabel={`Archive actions for ${thread.name}`}
@@ -251,21 +257,25 @@ export function ThreadsManageSection(props: ThreadManagementSectionProps) {
                       <Button
                         type="button"
                         appearance={isActive ? "secondary" : "subtle"}
-                        className={`threads-active-item threads-archived-item${isActive ? " is-active" : ""}`}
+                        className={clsx(
+                          styles.activeItemButton,
+                          styles.archivedItemButton,
+                          isActive && styles.archivedItemSelected,
+                        )}
                         onClick={() => {
                           onActiveThreadChange(thread.id);
                         }}
                         disabled={isThreadOperationBusy}
                         aria-pressed={isActive}
                       >
-                        <span className="threads-active-item-content">
-                          <span className="threads-active-item-name">
+                        <span className={styles.activeItemContent}>
+                          <span className={styles.activeItemName}>
                             {thread.name}
                           </span>
                           {thread.isAwaitingResponse ? (
                             <Spinner
                               size="tiny"
-                              className="threads-active-item-pending-spinner"
+                              className={styles.pendingSpinner}
                               aria-label="Awaiting response"
                             />
                           ) : null}

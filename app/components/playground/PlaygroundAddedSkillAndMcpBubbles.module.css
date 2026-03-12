@@ -1,0 +1,81 @@
+.strip {
+  margin: 0;
+}
+
+.bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.compactBubbles {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.item {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 1.9rem;
+  max-width: 260px;
+  padding: 0 0.34rem 0 0.68rem;
+  border-radius: var(--client-radius-pill);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.messageActivationBubble {
+  border: 1px solid var(--theme-color-d7c8ef);
+  background: var(--theme-color-f2ebff);
+  color: var(--theme-color-4c2d74);
+}
+
+.threadBubble {
+  border: 1px solid var(--theme-color-c7decf);
+  background: var(--theme-color-f3f8f4);
+  color: var(--theme-color-2f5f45);
+}
+
+.mcpBubble {
+  border: 1px solid var(--theme-color-c5d6ea);
+  background: var(--theme-color-edf3fb);
+  color: var(--theme-color-274866);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.removeButton:global(.fui-Button) {
+  min-width: 1.45rem !important;
+  width: 1.45rem !important;
+  min-height: 1.45rem !important;
+  height: 1.45rem !important;
+  border-radius: var(--client-radius-pill);
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0;
+  background: transparent !important;
+  color: var(--theme-color-49604f);
+}
+
+.removeButton:global(.fui-Button):enabled:hover {
+  background: var(--theme-color-rgba-32-103-66-0-16) !important;
+  color: var(--theme-color-1f3f2e);
+}

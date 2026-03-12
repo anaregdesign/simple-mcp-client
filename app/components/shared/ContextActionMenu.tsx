@@ -1,8 +1,10 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { ReactElement } from "react";
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/shared/ContextActionMenu.module.css";
 
 const { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } = FluentUI;
 
@@ -41,7 +43,7 @@ export function ContextActionMenu(props: ContextActionMenuProps) {
               key={item.id}
               disabled={item.disabled}
               title={item.title}
-              className={item.intent === "danger" ? "context-action-item-danger" : undefined}
+              className={clsx(item.intent === "danger" && styles.dangerItem)}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();

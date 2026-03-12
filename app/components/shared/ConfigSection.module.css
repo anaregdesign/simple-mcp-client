@@ -1,0 +1,106 @@
+.root {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0.62rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.root + .root {
+  border-top: 1px solid var(--theme-color-rgba-225-223-221-0-82);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.titleRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--client-font-size-title);
+  font-weight: 700;
+}
+
+.tooltipTarget {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltipIcon {
+  --client-symbol-btn-size: 1.15rem;
+  --client-symbol-glyph-size: 0.76rem;
+  border-radius: var(--client-radius-pill);
+  opacity: 0.82;
+  cursor: help;
+}
+
+.tooltipIcon:hover {
+  color: var(--client-ink-accent);
+  opacity: 1;
+}
+
+.tooltipIcon:global(.fui-Button),
+.tooltipIcon:global(.fui-Button):enabled:hover,
+.tooltipIcon:global(.fui-Button):enabled:active {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.fieldHint {
+  margin: 0;
+  font-size: var(--client-font-size-caption);
+  color: var(--text-subtle);
+  word-break: break-word;
+}
+
+.inputLabel {
+  margin: 0;
+  font-size: var(--client-font-size-label);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.loadingNotice {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.34rem 0.2rem;
+  border-radius: var(--client-radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--client-ink-accent);
+  font-size: var(--client-font-size-caption);
+  font-weight: 600;
+}
+
+.root :global(.fui-Field) {
+  margin: 0;
+}
+
+.root :global(.fui-Input),
+.root :global(.fui-Select),
+.root :global(.fui-SpinButton),
+.root :global(.fui-Textarea) {
+  width: 100%;
+}
+
+.root :global(.fui-Textarea) textarea {
+  resize: vertical;
+  min-height: 7.5rem;
+  line-height: var(--client-line-height-body);
+}
+
+.root :global(.fui-Input[data-invalid="true"]),
+.root :global(.fui-Textarea[data-invalid="true"]) {
+  border-color: var(--danger);
+}

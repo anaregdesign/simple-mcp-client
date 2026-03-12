@@ -6,6 +6,7 @@ import { flatRoutes } from "@react-router/fs-routes";
 
 export default flatRoutes({
   ignoredRouteFiles: [
+    "**/*.css",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",

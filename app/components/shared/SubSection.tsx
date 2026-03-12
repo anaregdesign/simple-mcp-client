@@ -1,9 +1,12 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
+import styles from "~/components/shared/SubSection.module.css";
 
 type SubSectionProps = {
   title: string;
@@ -14,10 +17,6 @@ type SubSectionProps = {
   defaultOpen?: boolean;
   children: ReactNode;
 };
-
-function buildClassName(...values: Array<string | undefined>): string {
-  return values.filter((value) => value && value.trim().length > 0).join(" ");
-}
 
 export function SubSection(props: SubSectionProps) {
   const {
@@ -33,20 +32,20 @@ export function SubSection(props: SubSectionProps) {
 
   return (
     <details
-      className={buildClassName("subsection", className)}
+      className={clsx(styles.root, className)}
       open={defaultOpen ? true : undefined}
     >
-      <summary className="subsection-summary">
-        <div className="subsection-title-row">
-          <h4 className="subsection-title">{title}</h4>
+      <summary className={styles.summary}>
+        <div className={styles.titleRow}>
+          <h4 className={styles.title}>{title}</h4>
           {normalizedDescription ? (
             <LabeledTooltip
               title={`${title} Description`}
               lines={[normalizedDescription]}
-              className="setting-group-tooltip-target"
+              className={configStyles.tooltipTarget}
             >
               <InfoIconButton
-                className="setting-group-tooltip-icon"
+                className={configStyles.tooltipIcon}
                 ariaLabel={`${title} description`}
                 title={`${title} description`}
                 onClick={(event) => {
@@ -57,14 +56,14 @@ export function SubSection(props: SubSectionProps) {
             </LabeledTooltip>
           ) : null}
         </div>
-        <span className="subsection-summary-actions">
+        <span className={styles.summaryActions}>
           {summaryActions}
-          <span className="subsection-caret symbol-icon-btn" aria-hidden="true">
-            <span className="symbol-icon-btn-glyph">▸</span>
+          <span className={styles.caret} aria-hidden="true">
+            <span className={styles.caretGlyph}>▸</span>
           </span>
         </span>
       </summary>
-      <div className={buildClassName("subsection-content", contentClassName)}>{children}</div>
+      <div className={clsx(styles.content, contentClassName)}>{children}</div>
     </details>
   );
 }

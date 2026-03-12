@@ -2,6 +2,7 @@
  * Client UI component module.
  */
 import type { MainViewTab } from "~/lib/client/usecase/workspace/config-panel/main-view-tab";
+import styles from "~/components/config/ConfigTabPanel.module.css";
 import {
   McpAddServerSection,
   type McpAddServerSectionProps,
@@ -68,14 +69,14 @@ export function McpServersTab(props: McpServersTabProps) {
 
   return (
     <section
-      className="mcp-shell"
+      className={styles.shell}
       aria-label="MCP server settings"
       id="panel-mcp"
       role="tabpanel"
       aria-labelledby="tab-mcp"
       hidden={activeMainTab !== "mcp"}
     >
-      <div className="mcp-content">
+      <div className={styles.content}>
         <WorkspaceMcpServerProfilesSection
           workspaceMcpServerProfileOptions={workspaceMcpServerProfileOptions}
           selectedWorkspaceMcpServerProfileCount={selectedWorkspaceMcpServerProfileCount}

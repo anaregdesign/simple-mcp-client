@@ -22,6 +22,7 @@ import type {
   ThreadMessageAttachmentView,
   ThreadSkillView,
 } from "~/lib/client/usecase/workspace/playground-panel/view-types";
+import styles from "~/components/playground/PlaygroundComposer.module.css";
 
 const { Textarea } = FluentUI;
 
@@ -147,9 +148,9 @@ export function PlaygroundComposer<TMcpServer extends ThreadMcpConnectionView>({
   const isComposerReadOnly = isSending || isChatLocked || isThreadReadOnly;
 
   return (
-    <footer className="chat-footer">
+    <footer className={styles.footer}>
       <CopyableAutoDismissStatusMessageList
-        className="chat-error-stack"
+        className={styles.errorStack}
         messages={[
           {
             intent: "success",
@@ -161,7 +162,7 @@ export function PlaygroundComposer<TMcpServer extends ThreadMcpConnectionView>({
       />
       {error || azureLoginError || messageAttachmentError || isThreadReadOnly ? (
         <CopyableStatusMessageList
-          className="chat-error-stack"
+          className={styles.errorStack}
           messages={[
             {
               intent: "warning",
@@ -180,28 +181,28 @@ export function PlaygroundComposer<TMcpServer extends ThreadMcpConnectionView>({
           ]}
         />
       ) : null}
-      <form className="chat-form" onSubmit={onSubmit}>
+      <form className={styles.form} onSubmit={onSubmit}>
         <label className="sr-only" htmlFor="chat-input">
           Message
         </label>
         <input
           ref={messageAttachmentInputRef}
           id="chat-attachment-input"
-          className="file-input-hidden"
+          className={styles.hiddenFileInput}
           type="file"
           accept={messageAttachmentAccept}
           multiple
           onChange={onMessageAttachmentFileChange}
           disabled={isSending || isChatLocked || isThreadReadOnly}
         />
-        <div className="chat-composer">
+        <div className={styles.composer}>
           <Textarea
             id="chat-input"
             name="message"
             rows={2}
             resize="none"
             ref={chatInputRef}
-            className="chat-composer-input"
+            className={styles.composerInput}
             placeholder="Type a message..."
             title="Message input. Enter sends, Shift+Enter inserts a new line."
             aria-haspopup={chatCommandMenu ? "listbox" : undefined}
@@ -255,7 +256,7 @@ export function PlaygroundComposer<TMcpServer extends ThreadMcpConnectionView>({
           />
         </div>
       </form>
-      <div className="chat-footer-draft-meta">
+      <div className={styles.draftMeta}>
         <PlaygroundDraftAttachmentBubbles
           messageAttachments={messageAttachments}
           isSending={isSending}

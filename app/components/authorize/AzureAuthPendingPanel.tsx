@@ -2,18 +2,19 @@
  * Client UI component module.
  */
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/authorize/AuthorizePanel.module.css";
 
 const { Spinner } = FluentUI;
 
 export function AzureAuthPendingPanel() {
   return (
-    <section className="unauth-panel" aria-label="Checking Azure sign-in status">
-      <header className="chat-header unauth-panel-header">
-        <div className="chat-header-row">
-          <div className="chat-header-main">
-            <div className="chat-header-title">
+    <section className={styles.panel} aria-label="Checking Azure sign-in status">
+      <header className={styles.header}>
+        <div className={styles.headerRow}>
+          <div className={styles.headerMain}>
+            <div className={styles.headerTitle}>
               <img
-                className="chat-header-symbol"
+                className={styles.symbol}
                 src="/local-playground-symbol.svg"
                 alt=""
                 aria-hidden="true"
@@ -24,10 +25,10 @@ export function AzureAuthPendingPanel() {
         </div>
       </header>
 
-      <div className="unauth-panel-body">
-        <div className="unauth-status" role="status" aria-live="polite">
+      <div className={styles.body}>
+        <div className={styles.status} role="status" aria-live="polite">
           <Spinner size="medium" />
-          <p className="unauth-status-text">Checking Azure session...</p>
+          <p className={styles.statusText}>Checking Azure session...</p>
         </div>
       </div>
     </section>

@@ -6,6 +6,7 @@ import { ConfigSection } from "~/components/shared/ConfigSection";
 import { SubSection } from "~/components/shared/SubSection";
 import { THEME_MODE_OPTIONS } from "~/lib/constants/client";
 import type { ThemeMode } from "~/lib/domain/value-objects/theme-mode";
+import styles from "~/components/config/settings/AppearanceSection.module.css";
 
 const { Select } = FluentUI;
 
@@ -19,12 +20,12 @@ export function AppearanceSection(props: AppearanceSectionProps) {
 
   return (
     <ConfigSection
-      className="setting-group-appearance"
+      className={styles.root}
       title="Appearance 🎨"
       description="Choose a theme for Playground UI. Changes apply immediately."
     >
       <SubSection
-        className="appearance-theme-subsection"
+        className={styles.themeSubsection}
         title="Theme"
         description="Switch Playground visual theme. Preference is saved locally."
       >

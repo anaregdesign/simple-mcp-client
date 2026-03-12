@@ -1,19 +1,17 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
+import styles from "~/components/shared/QuickControlFrame.module.css";
 
 type QuickControlFrameProps = {
   className?: string;
   children: ReactNode;
 };
 
-function buildClassName(...values: Array<string | undefined>): string {
-  return values.filter((value) => value && value.trim().length > 0).join(" ");
-}
-
 export function QuickControlFrame(props: QuickControlFrameProps) {
   const { className, children } = props;
 
-  return <div className={buildClassName("quick-control-frame", className)}>{children}</div>;
+  return <div className={clsx(styles.root, className)}>{children}</div>;
 }

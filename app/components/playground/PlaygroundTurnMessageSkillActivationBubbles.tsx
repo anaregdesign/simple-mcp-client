@@ -1,5 +1,6 @@
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
 import type { ThreadMessageView } from "~/lib/client/usecase/workspace/playground-panel/view-types";
+import styles from "~/components/playground/PlaygroundTurnMessageSkillActivationBubbles.module.css";
 
 type PlaygroundTurnMessageSkillActivationBubblesProps<
   TMessage extends ThreadMessageView,
@@ -21,16 +22,16 @@ export function PlaygroundTurnMessageSkillActivationBubbles<
 
   return (
     <div
-      className="message-skill-activation-row"
+      className={styles.row}
       aria-label="Message Skill Activations used in this turn"
     >
       {skillActivations.map((skill) => (
         <div
           key={`${message.id}:message-skill-activation:${skill.location}`}
-          className="message-skill-activation-item"
+          className={styles.item}
         >
           <LabeledTooltip title={skill.name} lines={[`Source: ${skill.location}`]}>
-            <span className="message-skill-activation-bubble">{skill.name}</span>
+            <span className={styles.bubble}>{skill.name}</span>
           </LabeledTooltip>
         </div>
       ))}

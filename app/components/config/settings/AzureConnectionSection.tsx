@@ -1,15 +1,19 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import { SubSection } from "~/components/shared/SubSection";
+import configStyles from "~/components/shared/ConfigSection.module.css";
+import selectableStyles from "~/components/shared/SelectableCardList.module.css";
 import type {
   AzureConnectionView,
   AzurePrincipalView,
   AzureTenantView,
 } from "~/lib/client/usecase/workspace/azure-settings/view-types";
+import styles from "~/components/config/settings/AzureConnectionSection.module.css";
 
 const { Button, Select, Spinner } = FluentUI;
 
@@ -64,57 +68,57 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
   const isAzureLogoutDisabled =
     isSending || isLoadingAzureConnections || isSwitchingAzureTenant || isStartingAzureLogout;
   const azureConnectionSummary = hasActiveAzureContext ? (
-    <dl className="azure-connection-summary" aria-label="Active Azure connection details">
+    <dl className={styles.summary} aria-label="Active Azure connection details">
       {activeAzurePrincipal ? (
         <>
-          <div className="azure-connection-summary-row">
+          <div className={styles.summaryRow}>
             <dt>Principal</dt>
             <dd>{activeAzurePrincipal.displayName || activeAzurePrincipal.principalId}</dd>
           </div>
           {activeAzurePrincipal.principalName ? (
-            <div className="azure-connection-summary-row">
+            <div className={styles.summaryRow}>
               <dt>Principal name</dt>
               <dd>{activeAzurePrincipal.principalName}</dd>
             </div>
           ) : null}
-          <div className="azure-connection-summary-row">
+          <div className={styles.summaryRow}>
             <dt>Principal type</dt>
             <dd>{formatPrincipalTypeLabel(activeAzurePrincipal.principalType)}</dd>
           </div>
-          <div className="azure-connection-summary-row">
+          <div className={styles.summaryRow}>
             <dt>Tenant ID</dt>
             <dd>{activeAzurePrincipal.tenantId}</dd>
           </div>
-          <div className="azure-connection-summary-row">
+          <div className={styles.summaryRow}>
             <dt>Principal ID</dt>
             <dd>{activeAzurePrincipal.principalId}</dd>
           </div>
         </>
       ) : null}
-      <div className="azure-connection-summary-row">
+      <div className={styles.summaryRow}>
         <dt>Playground project</dt>
         <dd>{activeAzureConnection?.projectName ?? "Not selected"}</dd>
       </div>
-      <div className="azure-connection-summary-row">
+      <div className={styles.summaryRow}>
         <dt>Playground deployment</dt>
         <dd>{selectedPlaygroundAzureDeploymentName || "Not selected"}</dd>
       </div>
-      <div className="azure-connection-summary-row">
+      <div className={styles.summaryRow}>
         <dt>Endpoint</dt>
         <dd>{activeAzureConnection?.baseUrl ?? "Not selected"}</dd>
       </div>
-      <div className="azure-connection-summary-row">
+      <div className={styles.summaryRow}>
         <dt>API version</dt>
         <dd>{activeAzureConnection?.apiVersion ?? "Not selected"}</dd>
       </div>
     </dl>
   ) : (
-    <p className="field-hint">No active Azure project.</p>
+    <p className={configStyles.fieldHint}>No active Azure project.</p>
   );
 
   return (
     <ConfigSection
-      className="setting-group-azure-connection"
+      className={styles.root}
       title="Azure Connection 🔐"
       description="Sign in/out, switch Azure tenant, and review the active Playground model."
     >
@@ -122,7 +126,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
         <Button
           type="button"
           appearance="primary"
-          className="azure-login-btn"
+          className={styles.loginButton}
           title="Start Azure login in your browser."
           onClick={() => {
             void onAzureLogin();
@@ -134,12 +138,12 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
       ) : (
         <>
           {hasActiveAzureContext ? (
-            <div className="selectable-card-header-row selectable-card-header-row-right">
+            <div className={clsx(selectableStyles.headerRow, selectableStyles.headerRowRight)}>
               <Button
                 type="button"
                 appearance="subtle"
                 size="small"
-                className="selectable-card-reload-btn"
+                className={selectableStyles.reloadButton}
                 title="Reload tenant, project, and deployment lists from Azure."
                 onClick={() => {
                   void onAzureCatalogReload();
@@ -158,7 +162,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
             </div>
           ) : null}
           {isLoadingAzureConnections || isLoadingAzureDeployments ? (
-            <div className="azure-loading-notice" role="status" aria-live="polite">
+            <div className={configStyles.loadingNotice} role="status" aria-live="polite">
               <Spinner size="tiny" />
               {isLoadingAzureConnections
                 ? "Loading projects from Azure..."
@@ -167,7 +171,7 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
           ) : null}
           {showAzureTenantSubSection ? (
             <SubSection
-              className="azure-tenant-subsection"
+              className={styles.tenantSubsection}
               title="Azure Tenant"
               description="Switch signed-in tenant. Project and deployment catalog reloads automatically."
             >
@@ -194,17 +198,17 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
                 ))}
               </Select>
               {isSwitchingAzureTenant ? (
-                <div className="azure-loading-notice" role="status" aria-live="polite">
+                <div className={configStyles.loadingNotice} role="status" aria-live="polite">
                   <Spinner size="tiny" />
                   Switching tenant and reloading projects...
                 </div>
               ) : null}
               {azureConnectionSummary}
-              <div className="azure-connection-actions">
+              <div className={styles.actions}>
                 <Button
                   type="button"
                   appearance="outline"
-                  className="azure-logout-btn"
+                  className={styles.logoutButton}
                   title="Sign out from Azure for this app."
                   onClick={() => {
                     void onAzureLogout();
@@ -218,11 +222,11 @@ export function AzureConnectionSection(props: AzureConnectionSectionProps) {
           ) : null}
           {!showAzureTenantSubSection ? azureConnectionSummary : null}
           {hasActiveAzureContext && !showAzureTenantSubSection ? (
-            <div className="azure-connection-actions">
+            <div className={styles.actions}>
               <Button
                 type="button"
                 appearance="outline"
-                className="azure-logout-btn"
+                className={styles.logoutButton}
                 title="Sign out from Azure for this app."
                 onClick={() => {
                   void onAzureLogout();

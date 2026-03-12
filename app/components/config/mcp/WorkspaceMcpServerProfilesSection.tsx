@@ -5,8 +5,11 @@ import { FluentUI } from "~/components/shared/fluent";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { CopyableStatusMessageList } from "~/components/CopyableStatusMessageList";
 import { SelectableCardList } from "~/components/shared/SelectableCardList";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import type { ContextActionMenuItem } from "~/components/shared/ContextActionMenu";
+import selectableStyles from "~/components/shared/SelectableCardList.module.css";
 import type { WorkspaceMcpServerProfileOption } from "~/lib/client/usecase/workspace/mcp-profiles/selectors";
+import styles from "~/components/config/mcp/WorkspaceMcpServerProfilesSection.module.css";
 
 const { Button, Spinner } = FluentUI;
 
@@ -47,21 +50,22 @@ export function WorkspaceMcpServerProfilesSection(props: WorkspaceMcpServerProfi
 
   return (
     <ConfigSection
+      className={styles.root}
       title="MCP Servers 🧩"
       description="Add saved MCP profiles to the current thread."
     >
       {isThreadReadOnly ? (
-        <p className="field-hint">
+        <p className={configStyles.fieldHint}>
           This thread is archived and read-only. Restore it from Archives to edit MCP servers.
         </p>
       ) : null}
-      <div className="selectable-card-header-row">
-        <p className="selectable-card-count">Added: {selectedWorkspaceMcpServerProfileCount}</p>
+      <div className={selectableStyles.headerRow}>
+        <p className={selectableStyles.count}>Added: {selectedWorkspaceMcpServerProfileCount}</p>
         <Button
           type="button"
           appearance="subtle"
           size="small"
-          className="selectable-card-reload-btn"
+          className={selectableStyles.reloadButton}
           title="Reload saved MCP servers."
           aria-label="Reload saved MCP servers"
           onClick={onReloadWorkspaceMcpServerProfiles}
@@ -71,7 +75,7 @@ export function WorkspaceMcpServerProfilesSection(props: WorkspaceMcpServerProfi
         </Button>
       </div>
       {isLoadingWorkspaceMcpServerProfiles ? (
-        <div className="azure-loading-notice" role="status" aria-live="polite">
+        <div className={configStyles.loadingNotice} role="status" aria-live="polite">
           <Spinner size="tiny" />
           Loading MCP Servers...
         </div>

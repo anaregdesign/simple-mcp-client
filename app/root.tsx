@@ -13,6 +13,7 @@ import * as FluentUIComponents from "@fluentui/react-components";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import styles from "./root.module.css";
 
 function resolveFluentUIExports<T extends object>(moduleExports: T): T {
   const maybeDefault = Reflect.get(moduleExports, "default");
@@ -82,11 +83,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="error-boundary-main">
+    <main className={styles.errorBoundaryMain}>
       <h1>{message}</h1>
       <p>{details}</p>
       {stack && (
-        <pre className="error-boundary-stack">
+        <pre className={styles.errorBoundaryStack}>
           <code>{stack}</code>
         </pre>
       )}

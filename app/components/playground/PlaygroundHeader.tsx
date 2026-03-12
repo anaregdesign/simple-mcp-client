@@ -3,6 +3,7 @@ import type {
   DesktopUpdaterActionStateView,
   DesktopUpdaterStatusView,
 } from "~/lib/client/usecase/workspace/desktop-updater/view-types";
+import styles from "~/components/playground/PlaygroundHeader.module.css";
 
 const { Button } = FluentUI;
 
@@ -30,13 +31,13 @@ export function PlaygroundHeader({
   onCreateThread,
 }: PlaygroundHeaderProps) {
   return (
-    <header className="chat-header">
-      <div className="chat-header-row">
-        <div className="chat-header-main">
-          <div className="chat-header-title-row">
-            <div className="chat-header-title">
+    <header className={styles.header}>
+      <div className={styles.row}>
+        <div className={styles.main}>
+          <div className={styles.titleRow}>
+            <div className={styles.title}>
               <img
-                className="chat-header-symbol"
+                className={styles.symbol}
                 src="/local-playground-symbol.svg"
                 alt=""
                 aria-hidden="true"
@@ -49,7 +50,7 @@ export function PlaygroundHeader({
                 type="button"
                 appearance="subtle"
                 size="small"
-                className="chat-header-upgrade-btn"
+                className={styles.upgradeButton}
                 aria-label="Check for updates"
                 title={
                   desktopUpdaterStatus.lastCheckedAt
@@ -70,7 +71,7 @@ export function PlaygroundHeader({
                 type="button"
                 appearance="subtle"
                 size="small"
-                className="chat-header-upgrade-btn"
+                className={styles.upgradeButton}
                 aria-label="Update download in progress"
                 title={
                   desktopUpdaterStatus.availableVersion
@@ -88,7 +89,7 @@ export function PlaygroundHeader({
                 type="button"
                 appearance="subtle"
                 size="small"
-                className="chat-header-upgrade-btn"
+                className={styles.upgradeButton}
                 aria-label="Upgrade app"
                 title={
                   desktopUpdaterStatus.availableVersion
@@ -101,15 +102,15 @@ export function PlaygroundHeader({
                 {isApplyingDesktopUpdate ? "Upgrading…" : "Upgrade"}
               </Button>
             ) : null}
-            <div className="chat-thread-header-controls">
-              <span className="chat-thread-name-label" title={activeThreadName}>
+            <div className={styles.threadControls}>
+              <span className={styles.threadNameLabel} title={activeThreadName}>
                 {activeThreadName}
               </span>
               <Button
                 type="button"
                 appearance="subtle"
                 size="small"
-                className="chat-thread-new-btn"
+                className={styles.newThreadButton}
                 aria-label="Create new thread"
                 title="Create a new thread and switch to Threads."
                 onClick={onCreateThread}

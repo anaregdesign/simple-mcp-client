@@ -1,0 +1,36 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.bar {
+  margin: 0;
+}
+
+.body {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 0.35rem;
+}
+
+.main {
+  min-width: 0;
+}
+
+.text {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: var(--client-line-height-body);
+}
+
+.copyButton {
+  align-self: start;
+  justify-self: end;
+  margin-top: 0.05rem;
+}

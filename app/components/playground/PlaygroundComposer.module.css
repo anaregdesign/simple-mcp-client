@@ -1,0 +1,94 @@
+.footer {
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 0;
+  background: var(--surface);
+}
+
+.errorStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0 0 0.65rem;
+}
+
+.form {
+  display: block;
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.composer {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 0.36rem;
+  padding: 0.36rem 0.4rem 0.34rem 0.52rem;
+  border: 0;
+  border-radius: 16px;
+  background: var(--client-control-bg);
+  position: relative;
+  overflow: visible;
+}
+
+.composer:focus-within {
+  box-shadow: none;
+}
+
+.composerInput:global(.fui-Textarea),
+.composerInput:global(.fui-Textarea):hover,
+.composerInput:global(.fui-Textarea):focus-within {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none;
+  padding: 0;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.composerInput:global(.fui-Textarea)::before,
+.composerInput:global(.fui-Textarea)::after {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.composerInput:global(.fui-Textarea) textarea {
+  resize: none;
+  min-height: 2.8rem;
+  max-height: 40vh;
+  overflow-y: hidden;
+  border: 0 !important;
+  outline: none;
+  box-shadow: none !important;
+  background: transparent;
+  padding: 0.42rem 0.26rem;
+  line-height: 1.45;
+}
+
+.composerInput:global(.fui-Textarea) textarea:hover,
+.composerInput:global(.fui-Textarea) textarea:focus {
+  border: 0 !important;
+  outline: none;
+  box-shadow: none !important;
+}
+
+.draftMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.draftMeta:empty {
+  display: none;
+}

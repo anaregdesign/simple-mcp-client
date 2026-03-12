@@ -1,0 +1,28 @@
+.target {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.content {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+
+.title,
+.line {
+  margin: 0;
+}
+
+.title {
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+
+.line {
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

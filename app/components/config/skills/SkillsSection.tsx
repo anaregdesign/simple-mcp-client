@@ -1,6 +1,7 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import { CopyableAutoDismissStatusMessageList } from "~/components/CopyableAutoDismissStatusMessageList";
 import {
   CollapsibleSelectableCardGroupList,
@@ -8,7 +9,10 @@ import {
 } from "~/components/shared/CollapsibleSelectableCardGroupList";
 import { ConfigSection } from "~/components/shared/ConfigSection";
 import { FluentUI } from "~/components/shared/fluent";
+import configStyles from "~/components/shared/ConfigSection.module.css";
+import selectableStyles from "~/components/shared/SelectableCardList.module.css";
 import type { SkillCatalogSource } from "~/lib/contracts/skills/types";
+import styles from "~/components/config/skills/SkillsSection.module.css";
 
 const { Button, Spinner } = FluentUI;
 
@@ -84,21 +88,21 @@ export function SkillsSection(props: SkillsSectionProps) {
 
   return (
     <ConfigSection
-      className="setting-group-thread-skills"
+      className={styles.root}
       title="Skills 🧠"
       description="Enable agentskills-compatible SKILL.md instructions for the current thread."
     >
       {isThreadReadOnly ? (
-        <p className="field-hint">
+        <p className={configStyles.fieldHint}>
           This thread is archived and read-only. Restore it from Archives to edit skill selections.
         </p>
       ) : null}
-      <div className="selectable-card-header-row selectable-card-header-row-right">
+      <div className={clsx(selectableStyles.headerRow, selectableStyles.headerRowRight)}>
         <Button
           type="button"
           appearance="subtle"
           size="small"
-          className="selectable-card-reload-btn"
+          className={selectableStyles.reloadButton}
           title="Reload skill list from local skills directories."
           onClick={onReloadSkills}
           disabled={isLoadingSkills || isSending}
@@ -107,7 +111,7 @@ export function SkillsSection(props: SkillsSectionProps) {
         </Button>
       </div>
       {isLoadingSkills ? (
-        <div className="azure-loading-notice" role="status" aria-live="polite">
+        <div className={configStyles.loadingNotice} role="status" aria-live="polite">
           <Spinner size="tiny" />
           Loading Skills...
         </div>

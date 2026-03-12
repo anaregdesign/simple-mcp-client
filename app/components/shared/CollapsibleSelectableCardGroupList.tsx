@@ -1,8 +1,10 @@
 /**
  * Client UI component module.
  */
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import { SelectableCardList, type SelectableCardItem } from "~/components/shared/SelectableCardList";
 import { SubSection } from "~/components/shared/SubSection";
+import styles from "~/components/shared/CollapsibleSelectableCardGroupList.module.css";
 
 export type CollapsibleSelectableCardGroup = {
   id: string;
@@ -31,16 +33,16 @@ export function CollapsibleSelectableCardGroupList(
   const visibleGroups = groups.filter((group) => group.items.length > 0);
 
   if (visibleGroups.length === 0) {
-    return <p className="field-hint">{emptyHint}</p>;
+    return <p className={configStyles.fieldHint}>{emptyHint}</p>;
   }
 
   return (
-    <div className="subsection-list collapsible-selectable-group-list">
+    <div className={styles.list}>
       {visibleGroups.map((group) => {
         const externalHref = readHttpUrl(group.externalHref);
         const summaryActions = externalHref ? (
           <a
-            className="subsection-selectable-group-link symbol-icon-btn"
+            className={styles.externalLink}
             href={externalHref}
             target="_blank"
             rel="noreferrer"
@@ -49,7 +51,7 @@ export function CollapsibleSelectableCardGroupList(
               event.stopPropagation();
             }}
           >
-            <span className="symbol-icon-btn-glyph" aria-hidden="true">
+            <span className={styles.externalLinkGlyph} aria-hidden="true">
               ↗
             </span>
           </a>
@@ -58,8 +60,8 @@ export function CollapsibleSelectableCardGroupList(
         return (
           <SubSection
             key={group.id}
-            className="subsection-selectable-group"
-            contentClassName="subsection-selectable-group-content"
+            className={styles.group}
+            contentClassName={styles.groupContent}
             title={group.label}
             description={group.description}
             summaryActions={summaryActions}

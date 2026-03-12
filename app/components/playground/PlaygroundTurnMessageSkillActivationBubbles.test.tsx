@@ -26,7 +26,7 @@ describe("PlaygroundTurnMessageSkillActivationBubbles", () => {
     );
 
     expect(markup).toContain("Summary");
-    expect(markup).toContain("message-skill-activation-bubble");
+    expect(markup).toContain("Message Skill Activations used in this turn");
   });
 
   it("does not render bubbles for assistant messages", () => {

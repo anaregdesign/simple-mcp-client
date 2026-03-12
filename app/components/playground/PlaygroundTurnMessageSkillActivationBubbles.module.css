@@ -1,0 +1,29 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem 0.3rem;
+  max-width: 72%;
+  justify-content: flex-end;
+}
+
+.item {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.4rem;
+  max-width: 240px;
+  padding: 0 0.5rem;
+  border-radius: var(--client-radius-pill);
+  border: 1px solid var(--theme-color-d7c8ef);
+  background: var(--theme-color-f2ebff);
+  color: var(--theme-color-4c2d74);
+  font-size: 0.69rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

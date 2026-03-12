@@ -1,8 +1,10 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { MouseEventHandler, ReactNode } from "react";
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/shared/SymbolIconButton.module.css";
 
 const { Button } = FluentUI;
 
@@ -14,10 +16,6 @@ type SymbolIconButtonProps = {
   disabled?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
 };
-
-function buildClassName(...values: Array<string | undefined>): string {
-  return values.filter((value) => value && value.trim().length > 0).join(" ");
-}
 
 export function SymbolIconButton(props: SymbolIconButtonProps) {
   const {
@@ -34,13 +32,13 @@ export function SymbolIconButton(props: SymbolIconButtonProps) {
       type="button"
       appearance="subtle"
       size="small"
-      className={buildClassName("symbol-icon-btn", className)}
+      className={clsx(styles.root, className)}
       aria-label={ariaLabel}
       title={title}
       disabled={disabled}
       onClick={onClick}
     >
-      <span className="symbol-icon-btn-glyph" aria-hidden="true">
+      <span className={styles.glyph} aria-hidden="true">
         {symbol}
       </span>
     </Button>

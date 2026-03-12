@@ -1,0 +1,20 @@
+.root {
+  position: relative;
+  margin: 0.45rem 0;
+}
+
+.toolbar {
+  position: absolute;
+  top: 0.38rem;
+  right: 0.42rem;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.copyButton {
+  flex-shrink: 0;
+  background: var(--theme-color-rgba-255-255-255-0-72) !important;
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+}

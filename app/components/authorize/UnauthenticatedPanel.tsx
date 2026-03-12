@@ -2,6 +2,7 @@
  * Client UI component module.
  */
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/authorize/AuthorizePanel.module.css";
 
 const { Button } = FluentUI;
 
@@ -14,13 +15,13 @@ export function UnauthenticatedPanel(props: UnauthenticatedPanelProps) {
   const { isStartingAzureLogin, onAzureLogin } = props;
 
   return (
-    <section className="unauth-panel" aria-label="Azure sign-in required">
-      <header className="chat-header unauth-panel-header">
-        <div className="chat-header-row">
-          <div className="chat-header-main">
-            <div className="chat-header-title">
+    <section className={styles.panel} aria-label="Azure sign-in required">
+      <header className={styles.header}>
+        <div className={styles.headerRow}>
+          <div className={styles.headerMain}>
+            <div className={styles.headerTitle}>
               <img
-                className="chat-header-symbol"
+                className={styles.symbol}
                 src="/local-playground-symbol.svg"
                 alt=""
                 aria-hidden="true"
@@ -31,11 +32,11 @@ export function UnauthenticatedPanel(props: UnauthenticatedPanelProps) {
         </div>
       </header>
 
-      <div className="unauth-panel-body">
+      <div className={styles.body}>
         <Button
           type="button"
           appearance="primary"
-          className="unauth-login-btn"
+          className={styles.loginButton}
           title="Start Azure login in your browser."
           onClick={() => {
             void onAzureLogin();

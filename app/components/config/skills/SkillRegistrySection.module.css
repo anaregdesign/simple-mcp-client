@@ -1,0 +1,41 @@
+.root {
+  gap: 0.42rem;
+}
+
+.registrySourceLinks {
+  margin: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.16rem 0.28rem;
+  font-size: var(--client-font-size-note);
+  line-height: var(--client-line-height-compact);
+  color: var(--text-subtle);
+  flex: 1 1 12rem;
+}
+
+.registrySourceLabel {
+  margin-right: 0.08rem;
+  font-weight: 600;
+  color: var(--theme-color-rgba-72-70-68-0-84);
+}
+
+.registrySourceItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.registrySourceLink {
+  color: var(--client-ink-accent);
+  text-decoration: none;
+}
+
+.registrySourceLink:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+.registrySourceSeparator {
+  color: var(--theme-color-rgba-96-94-92-0-9);
+}

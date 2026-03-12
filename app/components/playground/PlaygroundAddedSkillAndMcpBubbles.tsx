@@ -1,9 +1,11 @@
+import { clsx } from "clsx";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
 import { FluentUI } from "~/components/shared/fluent";
 import type {
   ThreadMcpConnectionView,
   ThreadSkillView,
 } from "~/lib/client/usecase/workspace/playground-panel/view-types";
+import styles from "~/components/playground/PlaygroundAddedSkillAndMcpBubbles.module.css";
 
 const { Button } = FluentUI;
 
@@ -61,26 +63,26 @@ export function PlaygroundAddedSkillAndMcpBubbles<
 
   return (
     <section
-      className="chat-skill-strip-compact"
+      className={styles.strip}
       aria-label="Added thread skill activations, message skill activations, and thread MCP connections"
     >
-      <div className="chat-skill-bubbles chat-skill-bubbles-compact">
+      <div className={clsx(styles.bubbles, styles.compactBubbles)}>
         {selectedMessageSkillActivations.map((skill) => (
           <div
             key={`message_activation:${skill.location}`}
-            className="chat-skill-bubble-item"
+            className={styles.item}
           >
             <LabeledTooltip
               title={skill.name}
               lines={[`Source: ${skill.location}`]}
             >
-              <span className="chat-skill-bubble chat-skill-bubble-message-activation">
-                <span className="chat-skill-bubble-name">{skill.name}</span>
+              <span className={clsx(styles.bubble, styles.messageActivationBubble)}>
+                <span className={styles.name}>{skill.name}</span>
                 <Button
                   type="button"
                   appearance="subtle"
                   size="small"
-                  className="chat-skill-bubble-remove"
+                  className={styles.removeButton}
                   onClick={() => onRemoveMessageSkillActivation(skill.location)}
                   disabled={isSending || isThreadReadOnly}
                   aria-label={`Remove message skill activation ${skill.name}`}
@@ -93,18 +95,18 @@ export function PlaygroundAddedSkillAndMcpBubbles<
           </div>
         ))}
         {selectedThreadSkills.map((skill) => (
-          <div key={`thread:${skill.location}`} className="chat-skill-bubble-item">
+          <div key={`thread:${skill.location}`} className={styles.item}>
             <LabeledTooltip
               title={skill.name}
               lines={[`Source: ${skill.location}`]}
             >
-              <span className="chat-skill-bubble chat-skill-bubble-thread">
-                <span className="chat-skill-bubble-name">{skill.name}</span>
+              <span className={clsx(styles.bubble, styles.threadBubble)}>
+                <span className={styles.name}>{skill.name}</span>
                 <Button
                   type="button"
                   appearance="subtle"
                   size="small"
-                  className="chat-skill-bubble-remove"
+                  className={styles.removeButton}
                   onClick={() => onRemoveThreadSkill(skill.location)}
                   disabled={isSending || isThreadReadOnly}
                   aria-label={`Remove thread skill ${skill.name}`}
@@ -117,18 +119,18 @@ export function PlaygroundAddedSkillAndMcpBubbles<
           </div>
         ))}
         {mcpServers.map((server) => (
-          <div key={`mcp:${server.id}`} className="chat-skill-bubble-item">
+          <div key={`mcp:${server.id}`} className={styles.item}>
             <LabeledTooltip
               title={server.name}
               lines={buildMcpServerTooltipLines(server)}
             >
-              <span className="chat-skill-bubble chat-skill-bubble-mcp">
-                <span className="chat-skill-bubble-name">{server.name}</span>
+              <span className={clsx(styles.bubble, styles.mcpBubble)}>
+                <span className={styles.name}>{server.name}</span>
                 <Button
                   type="button"
                   appearance="subtle"
                   size="small"
-                  className="chat-skill-bubble-remove"
+                  className={styles.removeButton}
                   onClick={() => onRemoveMcpServer(server.id)}
                   disabled={isSending || isThreadReadOnly}
                   aria-label={`Remove MCP server ${server.name}`}

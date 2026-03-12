@@ -1,8 +1,10 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
 import { CopyIconButton } from "~/components/shared/CopyIconButton";
+import styles from "~/components/shared/CopyableBlock.module.css";
 
 type CopyableBlockProps = {
   ariaLabel: string;
@@ -13,20 +15,16 @@ type CopyableBlockProps = {
   children: ReactNode;
 };
 
-function buildClassName(...values: Array<string | undefined>): string {
-  return values.filter((value) => value && value.trim().length > 0).join(" ");
-}
-
 export function CopyableBlock(props: CopyableBlockProps) {
   const { ariaLabel, title, copyText, className, onCopyText, children } = props;
   const isCopyDisabled = copyText.length === 0;
 
   return (
-    <div className={buildClassName("copyable-block", className)}>
+    <div className={clsx(styles.root, className)}>
       {children}
-      <div className="copyable-block-toolbar">
+      <div className={styles.toolbar}>
         <CopyIconButton
-          className="copyable-block-copy-btn"
+          className={styles.copyButton}
           ariaLabel={ariaLabel}
           title={title}
           disabled={isCopyDisabled}

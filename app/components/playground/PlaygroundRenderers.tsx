@@ -1,6 +1,7 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
 import "katex/dist/katex.min.css";
 import rehypeKatex from "rehype-katex";
@@ -28,6 +29,7 @@ import {
   readOperationLogType,
   type ThreadOperationLogEntry,
 } from "~/lib/contracts/chat/operation-log";
+import styles from "~/components/playground/PlaygroundRenderers.module.css";
 
 type JsonHighlightStyle = "default" | "compact";
 type CopyableMarkdownBlockKind =
@@ -37,17 +39,26 @@ type CopyableMarkdownBlockKind =
   | "unordered list"
   | "ordered list";
 
+const jsonTokenClassByType: Record<Exclude<JsonToken["type"], "plain">, string> = {
+  key: styles.jsonTokenKey,
+  string: styles.jsonTokenString,
+  number: styles.jsonTokenNumber,
+  boolean: styles.jsonTokenBoolean,
+  null: styles.jsonTokenNull,
+  punctuation: styles.jsonTokenPunctuation,
+};
+
 export function renderTurnOperationLog(
   entries: ThreadOperationLogEntry[],
   isLive: boolean,
   onCopyText: (text: string) => void,
 ) {
   return (
-    <details className="mcp-turn-log">
-      <summary>
+    <details className={styles.turnLog}>
+      <summary className={styles.turnLogSummary}>
         <span>🧩 MCP / Skill Operation Log ({entries.length})</span>
         <CopyIconButton
-          className="mcp-log-copy-btn"
+          className={styles.logCopyButton}
           ariaLabel="Copy MCP and Skill operation log"
           title="Copy all MCP and Skill operation logs in this turn."
           onClick={(event) => {
@@ -62,35 +73,44 @@ export function renderTurnOperationLog(
         />
       </summary>
       {entries.length === 0 ? (
-        <p className="mcp-turn-log-empty">
+        <p className={styles.turnLogEmpty}>
           {isLive
             ? "Waiting for MCP / Skill operations..."
             : "No MCP / Skill operations in this turn."}
         </p>
       ) : (
-        <div className="mcp-history-list">
+        <div className={styles.historyList}>
           {entries.map((entry) => {
             const operationType = readOperationLogType(entry);
             const isSystemSkillOperation =
               operationType === "skill" && entry.serverName === "skill-runtime";
             const operationLabel =
               operationType === "mcp" ? "MCP" : isSystemSkillOperation ? "SYSTEM" : "SKILL";
-            const operationBadgeType =
-              operationType === "mcp" ? "mcp" : isSystemSkillOperation ? "system" : "skill";
+            const operationBadgeClassName =
+              operationType === "mcp"
+                ? styles.historyTypeMcp
+                : isSystemSkillOperation
+                  ? styles.historyTypeSystem
+                  : styles.historyTypeSkill;
             return (
-              <details key={entry.id} className="mcp-history-item">
-                <summary>
-                  <span className="mcp-history-seq">#{entry.sequence}</span>
-                  <span className={`mcp-history-type-badge ${operationBadgeType}`}>
+              <details key={entry.id} className={styles.historyItem}>
+                <summary className={styles.historySummary}>
+                  <span className={styles.historySequence}>#{entry.sequence}</span>
+                  <span className={clsx(styles.historyTypeBadge, operationBadgeClassName)}>
                     {operationLabel}
                   </span>
-                  <span className="mcp-history-method">{entry.method}</span>
-                  <span className="mcp-history-server">{entry.serverName}</span>
-                  <span className={`mcp-history-state ${entry.isError ? "error" : "ok"}`}>
+                  <span className={styles.historyMethod}>{entry.method}</span>
+                  <span className={styles.historyServer}>{entry.serverName}</span>
+                  <span
+                    className={clsx(
+                      styles.historyState,
+                      entry.isError ? styles.historyStateError : styles.historyStateOk,
+                    )}
+                  >
                     {entry.isError ? "error" : "ok"}
                   </span>
                   <CopyIconButton
-                    className="mcp-history-copy-btn"
+                    className={styles.historyCopyButton}
                     ariaLabel="Copy operation entry"
                     title="Copy this operation entry."
                     onClick={(event) => {
@@ -100,16 +120,16 @@ export function renderTurnOperationLog(
                     }}
                   />
                 </summary>
-                <div className="mcp-history-body">
-                  <p className="mcp-history-time">
+                <div className={styles.historyBody}>
+                  <p className={styles.historyTime}>
                     {entry.startedAt}
                     {" -> "}
                     {entry.completedAt}
                   </p>
-                  <p className="mcp-history-label-row">
-                    <span className="mcp-history-label">request</span>
+                  <p className={styles.historyLabelRow}>
+                    <span className={styles.historyLabel}>request</span>
                     <CopyIconButton
-                      className="mcp-part-copy-btn"
+                      className={styles.partCopyButton}
                       ariaLabel="Copy operation request payload"
                       title="Copy operation request payload."
                       onClick={() => {
@@ -122,10 +142,10 @@ export function renderTurnOperationLog(
                     />
                   </p>
                   {renderHighlightedJson(entry.request, "Operation request JSON", "compact")}
-                  <p className="mcp-history-label-row">
-                    <span className="mcp-history-label">response</span>
+                  <p className={styles.historyLabelRow}>
+                    <span className={styles.historyLabel}>response</span>
                     <CopyIconButton
-                      className="mcp-part-copy-btn"
+                      className={styles.partCopyButton}
                       ariaLabel="Copy operation response payload"
                       title="Copy operation response payload."
                       onClick={() => {
@@ -154,14 +174,14 @@ export function renderMessageContent(
 ) {
   if (message.role !== "assistant") {
     return (
-      <div className="user-message-body">
+      <div className={styles.userMessageBody}>
         <p>{message.content}</p>
         {message.attachments.length > 0 ? (
-          <ul className="user-message-attachments" aria-label="Attached files">
+          <ul className={styles.userMessageAttachments} aria-label="Attached files">
             {message.attachments.map((attachment, index) => (
               <li key={`${message.id}-attachment-${index}`}>
-                <span className="user-message-attachment-name">{attachment.name}</span>
-                <span className="user-message-attachment-size">
+                <span className={styles.userMessageAttachmentName}>{attachment.name}</span>
+                <span className={styles.userMessageAttachmentSize}>
                   {formatPlaygroundAttachmentSize(attachment.sizeBytes)}
                 </span>
               </li>
@@ -191,7 +211,7 @@ function renderCopyableMarkdownBlock(params: {
 
   return (
     <CopyableBlock
-      className={className}
+      className={clsx(styles.copyableBlockWrapper, className)}
       ariaLabel={`Copy ${kind}`}
       title={`Copy ${kind}.`}
       copyText={readMarkdownBlockCopyText(node)}
@@ -210,7 +230,7 @@ function MarkdownMessageContent(props: {
   const normalizedContent = normalizeChatMarkdownMath(content);
 
   return (
-    <div className="markdown-message">
+    <div className={styles.markdownMessage}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
         rehypePlugins={[rehypeKatex]}
@@ -268,7 +288,7 @@ function MarkdownMessageContent(props: {
                 {tokens.map((token, index) => (
                   <span
                     key={`${token.type}-${index}`}
-                    className={token.type === "plain" ? undefined : `json-token ${token.type}`}
+                    className={readJsonTokenClassName(token.type)}
                   >
                     {token.value}
                   </span>
@@ -299,17 +319,30 @@ function renderJsonTokens(
   ariaLabel: string,
   style: JsonHighlightStyle,
 ) {
-  const className = style === "compact" ? "json-message mcp-history-json" : "json-message";
   return (
-    <pre className={className} aria-label={ariaLabel}>
+    <pre
+      className={clsx(
+        styles.jsonMessage,
+        style === "compact" ? styles.historyJson : styles.messageJson,
+      )}
+      aria-label={ariaLabel}
+    >
       {tokens.map((token, index) => (
         <span
           key={`${token.type}-${index}`}
-          className={token.type === "plain" ? undefined : `json-token ${token.type}`}
+          className={readJsonTokenClassName(token.type)}
         >
           {token.value}
         </span>
       ))}
     </pre>
   );
+}
+
+function readJsonTokenClassName(type: JsonToken["type"]): string | undefined {
+  if (type === "plain") {
+    return undefined;
+  }
+
+  return jsonTokenClassByType[type];
 }

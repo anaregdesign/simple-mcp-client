@@ -28,6 +28,7 @@ import type {
   ThreadOperationLogEntryView,
   ThreadSkillView,
 } from "~/lib/client/usecase/workspace/playground-panel/view-types";
+import styles from "~/components/playground/PlaygroundPanel.module.css";
 
 type PlaygroundPanelProps<
   TMessage extends ThreadMessageView,
@@ -137,7 +138,7 @@ export function PlaygroundPanel<
   } = props;
 
   return (
-    <section className="chat-shell main-panel" aria-label="Playground">
+    <section className={styles.root} aria-label="Playground">
       <PlaygroundHeader {...header} />
       <PlaygroundConversation
         {...conversation}

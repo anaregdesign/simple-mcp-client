@@ -1,9 +1,11 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { ComponentProps } from "react";
 import { CopyIconButton } from "~/components/shared/CopyIconButton";
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/shared/StatusMessageList.module.css";
 
 const { MessageBar, MessageBarBody, MessageBarTitle } = FluentUI;
 
@@ -37,24 +39,24 @@ export function StatusMessageList(props: StatusMessageListProps) {
   };
 
   return (
-    <div className={className}>
+    <div className={clsx(styles.list, className)}>
       {messages.map((message, index) => {
         if (!message.text) {
           return null;
         }
 
         return (
-          <MessageBar key={`${message.intent}-${index}`} intent={message.intent} className="setting-message-bar">
-            <MessageBarBody className="status-message-body">
-              <div className="status-message-main">
+          <MessageBar key={`${message.intent}-${index}`} intent={message.intent} className={styles.bar}>
+            <MessageBarBody className={styles.body}>
+              <div className={styles.main}>
                 {message.title ? <MessageBarTitle>{message.title}</MessageBarTitle> : null}
-                <span className="status-message-text">{message.text}</span>
+                <span className={styles.text}>{message.text}</span>
               </div>
               {onCopyText ? (
                 <CopyIconButton
                   ariaLabel={message.title ? `${message.title} message copy` : "Message copy"}
                   title={message.title ? `${message.title} message copy` : "Copy message"}
-                  className="status-message-copy-btn"
+                  className={styles.copyButton}
                   onClick={() => {
                     handleCopyMessage(message);
                   }}

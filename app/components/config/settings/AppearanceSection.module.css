@@ -1,0 +1,11 @@
+.root {
+  gap: 0.5rem;
+}
+
+.themeSubsection {
+  gap: 0.55rem;
+}
+
+.themeSubsection :global(.fui-Select) {
+  max-width: 16rem;
+}

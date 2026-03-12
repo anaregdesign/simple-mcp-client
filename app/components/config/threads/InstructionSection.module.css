@@ -1,0 +1,231 @@
+.root {
+  gap: 0.52rem;
+}
+
+.diffPanel {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--client-radius-md);
+  background: var(--theme-color-fff);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.6rem;
+}
+
+.diffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.diffTitle {
+  margin: 0;
+  font-size: var(--client-font-size-body);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.diffActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.diffMeta {
+  margin: 0;
+  font-size: var(--client-font-size-note);
+  color: var(--text-subtle);
+}
+
+.diffTable {
+  border: 1px solid var(--theme-color-d0d7de);
+  border-radius: var(--client-radius-sm);
+  background: var(--surface);
+  max-height: 340px;
+  overflow: auto;
+}
+
+.diffGithub {
+  margin: 0;
+  --diff-background-color: var(--surface);
+  --diff-text-color: var(--text-main);
+  --diff-selection-background-color: var(--theme-color-rgba-31-94-139-0-28);
+  --diff-selection-text-color: var(--text-main);
+  --diff-gutter-insert-background-color: var(--theme-color-c7decf);
+  --diff-gutter-insert-text-color: var(--theme-color-1f553a);
+  --diff-gutter-delete-background-color: var(--theme-color-f6edeb);
+  --diff-gutter-delete-text-color: var(--theme-color-8a332f);
+  --diff-gutter-selected-background-color: var(--theme-color-e8f1fb);
+  --diff-gutter-selected-text-color: var(--text-main);
+  --diff-code-insert-background-color: var(--theme-color-ebf6ee);
+  --diff-code-insert-text-color: var(--theme-color-1f553a);
+  --diff-code-delete-background-color: var(--theme-color-fde7e9);
+  --diff-code-delete-text-color: var(--theme-color-8a332f);
+  --diff-code-insert-edit-background-color: var(--theme-color-e7f4ea);
+  --diff-code-insert-edit-text-color: var(--theme-color-1e5a3f);
+  --diff-code-delete-edit-background-color: var(--theme-color-f6edeb);
+  --diff-code-delete-edit-text-color: var(--theme-color-8a332f);
+  --diff-code-selected-background-color: var(--theme-color-e8f1fb);
+  --diff-code-selected-text-color: var(--text-main);
+  --diff-omit-gutter-line-color: var(--theme-color-a4262c);
+}
+
+.diffGithub :global(.diff) {
+  margin: 0;
+}
+
+.diffGithub :global(.diff td) {
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.diffGithub :global(.diff code) {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.diffRaw {
+  margin: 0;
+  border: 1px solid var(--theme-color-d0d7de);
+  border-radius: var(--client-radius-sm);
+  background: var(--theme-color-f6f8fa);
+  color: var(--theme-color-1f2328);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: var(--client-line-height-compact);
+  padding: 0.5rem 0.6rem;
+  max-height: 340px;
+  overflow: auto;
+  white-space: pre;
+}
+
+.diffRaw code {
+  font: inherit;
+}
+
+.enhancingState {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--client-radius-md);
+  background: var(--theme-color-f7fbff);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.enhancingHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--client-font-size-body);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.enhancingTrack {
+  position: relative;
+  height: 6px;
+  border-radius: var(--client-radius-pill);
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    var(--theme-color-e8f1fb) 0%,
+    var(--theme-color-d6e7f8) 100%
+  );
+}
+
+.enhancingBar {
+  position: absolute;
+  top: 0;
+  left: -35%;
+  height: 100%;
+  width: 35%;
+  border-radius: var(--client-radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--theme-color-5b8db8) 0%,
+    var(--theme-color-7fa6c3) 100%
+  );
+  animation: enhancingSlide 1s ease-in-out infinite;
+}
+
+@keyframes enhancingSlide {
+  0% {
+    left: -35%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+.filePickerRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.filePickerRow :global(.fui-Button) {
+  flex-shrink: 0;
+}
+
+.filePickerName {
+  font-size: var(--client-font-size-caption);
+  color: var(--text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.contextSubsection {
+  gap: 0.45rem;
+}
+
+.contextToggleList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.contextToggleItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.contextSwitchRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.contextSwitch:global(.fui-Switch) {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.contextSwitch :global(.fui-Switch__label) {
+  font-weight: 600;
+}
+
+.contextInfoIcon {
+  margin-top: 0.02rem;
+}

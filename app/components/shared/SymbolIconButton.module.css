@@ -1,0 +1,45 @@
+.root {
+  --client-symbol-btn-size: 1.45rem;
+  --client-symbol-glyph-size: 0.96rem;
+  min-width: var(--client-symbol-btn-size);
+  width: var(--client-symbol-btn-size);
+  height: var(--client-symbol-btn-size);
+  min-height: var(--client-symbol-btn-size);
+  padding: 0;
+  border-radius: var(--client-radius-xs);
+  color: var(--text-subtle);
+  line-height: 1;
+  transition:
+    color 0.14s ease,
+    opacity 0.14s ease,
+    background-color 0.14s ease;
+}
+
+.root:global(.fui-Button) {
+  min-width: var(--client-symbol-btn-size) !important;
+  width: var(--client-symbol-btn-size) !important;
+  height: var(--client-symbol-btn-size) !important;
+  min-height: var(--client-symbol-btn-size) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: inherit;
+  background: transparent !important;
+}
+
+.root :global(.fui-Button__icon) {
+  margin-inline: 0;
+}
+
+.root :global(.fui-Button__content) {
+  margin: 0;
+  line-height: 1;
+}
+
+.glyph {
+  display: inline-block;
+  font-size: var(--client-symbol-glyph-size);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+}

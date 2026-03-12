@@ -12,7 +12,7 @@ export function PlaygroundControlTooltip({
   title,
   lines,
   children,
-  className = "chat-tooltip-target",
+  className,
 }: PlaygroundControlTooltipProps) {
   return (
     <LabeledTooltip title={title} lines={lines} className={className}>

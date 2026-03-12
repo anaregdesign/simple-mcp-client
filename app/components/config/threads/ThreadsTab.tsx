@@ -2,6 +2,7 @@
  * Client UI component module.
  */
 import type { ComponentProps } from "react";
+import styles from "~/components/config/ConfigTabPanel.module.css";
 import { InstructionSection } from "~/components/config/threads/InstructionSection";
 import {
   ThreadsManageSection,
@@ -54,14 +55,14 @@ export function ThreadsTab(props: ThreadsTabProps) {
 
   return (
     <section
-      className="threads-shell"
+      className={styles.shell}
       aria-label="Thread settings"
       id="panel-threads"
       role="tabpanel"
       aria-labelledby="tab-threads"
       hidden={activeMainTab !== "threads"}
     >
-      <div className="threads-content">
+      <div className={styles.content}>
         <InstructionSection {...instructionSectionProps} />
         <ThreadsManageSection
           activeThreadOptions={activeThreadOptions}

@@ -1,0 +1,17 @@
+.root {
+  --client-symbol-btn-size: 1.45rem;
+  --client-symbol-glyph-size: 1.04rem;
+  opacity: 0.76;
+}
+
+.root:hover {
+  opacity: 1;
+  color: var(--client-ink-accent);
+  background: var(--client-accent-soft-bg) !important;
+}
+
+.root:focus-visible {
+  outline: 2px solid var(--theme-color-rgba-44-98-123-0-3);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

@@ -2,6 +2,7 @@
  * Client UI component module.
  */
 import type { ComponentProps } from "react";
+import styles from "~/components/config/ConfigTabPanel.module.css";
 import { AppearanceSection } from "~/components/config/settings/AppearanceSection";
 import { AzureConnectionSection } from "~/components/config/settings/AzureConnectionSection";
 import { UtilityModelSection } from "~/components/config/settings/UtilityModelSection";
@@ -24,17 +25,17 @@ export function SettingsTab(props: SettingsTabProps) {
 
   return (
     <section
-      className="settings-shell"
+      className={styles.shell}
       aria-label="Playground settings"
       id="panel-settings"
       role="tabpanel"
       aria-labelledby="tab-settings"
       hidden={activeMainTab !== "settings"}
     >
-      <div className="settings-content">
+      <div className={styles.content}>
         <UtilityModelSection {...utilityModelSectionProps} />
-        <AppearanceSection {...appearanceSectionProps} />
         <AzureConnectionSection {...azureConnectionSectionProps} />
+        <AppearanceSection {...appearanceSectionProps} />
       </div>
     </section>
   );

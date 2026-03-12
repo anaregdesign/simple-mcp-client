@@ -1,0 +1,61 @@
+.strip {
+  margin: 0;
+}
+
+.bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+}
+
+.item {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.9rem;
+  max-width: 320px;
+  padding: 0 0.34rem 0 0.68rem;
+  border-radius: var(--client-radius-pill);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--theme-color-f2f5f9);
+  color: var(--theme-color-24475f);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.size {
+  color: var(--theme-color-496073);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.removeButton:global(.fui-Button) {
+  min-width: 1.45rem !important;
+  width: 1.45rem !important;
+  min-height: 1.45rem !important;
+  height: 1.45rem !important;
+  border-radius: var(--client-radius-pill);
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0;
+  background: transparent !important;
+  color: var(--theme-color-4b5560);
+}
+
+.removeButton:global(.fui-Button):enabled:hover {
+  background: var(--theme-color-rgba-31-78-103-0-15) !important;
+  color: var(--theme-color-2b2f32);
+}

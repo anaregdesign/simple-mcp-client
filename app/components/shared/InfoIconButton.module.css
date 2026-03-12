@@ -1,0 +1,7 @@
+.root {
+  border-radius: var(--client-radius-pill);
+}
+
+.root :global(.fui-Button__content) > span {
+  font-weight: 500;
+}

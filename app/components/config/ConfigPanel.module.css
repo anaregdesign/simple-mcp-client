@@ -1,0 +1,77 @@
+.root {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-radius: 0;
+  border: 0;
+  background: var(--surface);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.62rem;
+  background: var(--surface);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.tabs :global(.fui-Tab__content--reserved-space) {
+  display: none;
+}
+
+.tabButton {
+  font-size: 0.84rem;
+  min-height: 30px;
+  border-radius: var(--client-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tabButton::after {
+  display: none !important;
+}
+
+.tabButton[aria-selected="true"] {
+  border-color: var(--theme-color-cbd7e4);
+  background: var(--theme-color-f6f9fc);
+  color: var(--client-ink-accent);
+}
+
+.tabButton:hover {
+  background: var(--theme-color-f8fafc);
+}
+
+.tabButton:focus-visible {
+  outline: 2px solid var(--theme-color-rgba-15-108-189-0-45);
+  outline-offset: 1px;
+}
+
+.guidanceBar {
+  width: 100%;
+  margin: 0;
+}
+
+.body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.topPanel {
+  min-height: 0;
+  overflow: hidden;
+}

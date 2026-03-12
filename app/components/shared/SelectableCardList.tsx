@@ -1,6 +1,8 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
+import configStyles from "~/components/shared/ConfigSection.module.css";
 import { InfoIconButton } from "~/components/shared/InfoIconButton";
 import { LabeledTooltip } from "~/components/shared/LabeledTooltip";
 import {
@@ -8,6 +10,7 @@ import {
   type ContextActionMenuItem,
 } from "~/components/shared/ContextActionMenu";
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/shared/SelectableCardList.module.css";
 
 const { Button } = FluentUI;
 
@@ -47,11 +50,11 @@ export function SelectableCardList(props: SelectableCardListProps) {
   } = props;
 
   if (items.length === 0) {
-    return <p className="field-hint">{emptyHint}</p>;
+    return <p className={configStyles.fieldHint}>{emptyHint}</p>;
   }
 
   return (
-    <div className="selectable-card-list" role="list" aria-label={listAriaLabel}>
+    <div className={styles.list} role="list" aria-label={listAriaLabel}>
       {items.map((item) => {
         const description = item.description.trim();
         const detail = item.detail.trim();
@@ -70,22 +73,24 @@ export function SelectableCardList(props: SelectableCardListProps) {
           <article
             key={key}
             role="listitem"
-            className={`selectable-card-item${item.isSelected ? " is-selected" : ""}${
-              item.isAvailable ? "" : " is-unavailable"
-            }`}
+            className={clsx(
+              styles.item,
+              item.isSelected && styles.itemSelected,
+              !item.isAvailable && styles.itemUnavailable,
+            )}
           >
-            <div className="selectable-card-item-top-row">
-              <div className="selectable-card-item-title-row">
-                <p className="selectable-card-name">{item.name}</p>
-                {item.badge ? <span className="selectable-card-badge">{item.badge}</span> : null}
+            <div className={styles.itemTopRow}>
+              <div className={styles.itemTitleRow}>
+                <p className={styles.name}>{item.name}</p>
+                {item.badge ? <span className={styles.badge}>{item.badge}</span> : null}
                 {tooltipLines.length > 0 ? (
                   <LabeledTooltip
                     title={`${item.name} Details`}
                     lines={tooltipLines}
-                    className="selectable-card-tooltip-target"
+                    className={styles.tooltipTarget}
                   >
                     <InfoIconButton
-                      className="selectable-card-tooltip-icon"
+                      className={styles.tooltipIcon}
                       ariaLabel={`${item.name} details`}
                       title={`${item.name} details`}
                     />
@@ -96,7 +101,10 @@ export function SelectableCardList(props: SelectableCardListProps) {
                 type="button"
                 appearance={item.isSelected ? "subtle" : "secondary"}
                 size="small"
-                className={`selectable-card-add-btn${item.isSelected ? " is-selected" : ""}`}
+                className={clsx(
+                  styles.addButton,
+                  item.isSelected && styles.addButtonSelected,
+                )}
                 onClick={() => {
                   onToggleItem(item.id);
                 }}

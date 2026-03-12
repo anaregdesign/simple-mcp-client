@@ -1,8 +1,10 @@
 /**
  * Client UI component module.
  */
+import { clsx } from "clsx";
 import type { MouseEventHandler } from "react";
 import { SymbolIconButton } from "~/components/shared/SymbolIconButton";
+import styles from "~/components/shared/CopyIconButton.module.css";
 
 type CopyIconButtonProps = {
   ariaLabel: string;
@@ -12,10 +14,6 @@ type CopyIconButtonProps = {
   onClick: MouseEventHandler<HTMLButtonElement>;
 };
 
-function buildClassName(...values: Array<string | undefined>): string {
-  return values.filter((value) => value && value.trim().length > 0).join(" ");
-}
-
 export function CopyIconButton(props: CopyIconButtonProps) {
   const { ariaLabel, title, className, disabled = false, onClick } = props;
 
@@ -23,7 +21,7 @@ export function CopyIconButton(props: CopyIconButtonProps) {
     <SymbolIconButton
       ariaLabel={ariaLabel}
       title={title}
-      className={buildClassName("copy-symbol-btn", className)}
+      className={clsx(styles.root, className)}
       disabled={disabled}
       onClick={onClick}
       symbol="⎘"

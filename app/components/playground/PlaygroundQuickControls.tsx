@@ -1,7 +1,9 @@
+import { clsx } from "clsx";
 import { PlaygroundAzureActionSelect } from "~/components/playground/PlaygroundAzureActionSelect";
 import { PlaygroundControlTooltip } from "~/components/playground/PlaygroundControlTooltip";
 import { QuickControlFrame } from "~/components/shared/QuickControlFrame";
 import { FluentUI } from "~/components/shared/fluent";
+import styles from "~/components/playground/PlaygroundQuickControls.module.css";
 import type { ReasoningEffort } from "~/lib/domain/value-objects/reasoning-effort";
 import type {
   AzureConnectionOptionView,
@@ -75,7 +77,7 @@ export function PlaygroundQuickControls({
 
   const projectControl = isLoadingAzureConnections ? (
     <span
-      className="chat-control-loader chat-control-loader-project"
+      className={clsx(styles.controlLoader, styles.projectLoader)}
       role="status"
       aria-live="polite"
     >
@@ -124,7 +126,7 @@ export function PlaygroundQuickControls({
   const deploymentControl =
     isLoadingAzureConnections || isLoadingAzureDeployments ? (
       <span
-        className="chat-control-loader chat-control-loader-deployment"
+        className={clsx(styles.controlLoader, styles.deploymentLoader)}
         role="status"
         aria-live="polite"
       >
@@ -183,8 +185,8 @@ export function PlaygroundQuickControls({
     );
 
   return (
-    <div className="chat-composer-actions">
-      <div className="chat-quick-controls">
+    <div className={styles.actions}>
+      <div className={styles.controls}>
         <PlaygroundControlTooltip
           title="Attach Files"
           lines={[
@@ -193,11 +195,11 @@ export function PlaygroundQuickControls({
             "Attachments are sent together with the current message.",
           ]}
         >
-          <div className="chat-quick-control">
+          <div className={styles.control}>
             <Button
               type="button"
               appearance="subtle"
-              className="chat-attach-btn"
+              className={styles.attachButton}
               aria-label="Attach files"
               title="Attach files"
               onClick={onOpenMessageAttachmentPicker}
@@ -219,7 +221,9 @@ export function PlaygroundQuickControls({
                   : "Used for this chat request.",
           ]}
         >
-          <div className="chat-quick-control">{projectControl}</div>
+          <div className={clsx(styles.control, styles.projectControl)}>
+            {projectControl}
+          </div>
         </PlaygroundControlTooltip>
         <PlaygroundControlTooltip
           title="Deployment"
@@ -237,7 +241,9 @@ export function PlaygroundQuickControls({
                     : "Used to run the model.",
           ]}
         >
-          <div className="chat-quick-control">{deploymentControl}</div>
+          <div className={clsx(styles.control, styles.deploymentControl)}>
+            {deploymentControl}
+          </div>
         </PlaygroundControlTooltip>
         <PlaygroundControlTooltip
           title="Reasoning Effort"
@@ -251,8 +257,8 @@ export function PlaygroundQuickControls({
                 ]
           }
         >
-          <div className="chat-quick-control">
-            <QuickControlFrame className="chat-quick-control-frame">
+          <div className={styles.control}>
+            <QuickControlFrame>
               <Select
                 id="chat-reasoning-effort"
                 aria-label="Reasoning Effort"
@@ -282,11 +288,11 @@ export function PlaygroundQuickControls({
           title="Web Search"
           lines={["Enable Azure web-search-preview tool for this thread."]}
         >
-          <div className="chat-quick-control">
-            <QuickControlFrame className="chat-quick-control-frame chat-quick-control-frame-switch">
+          <div className={styles.control}>
+            <QuickControlFrame className={styles.switchFrame}>
               <Switch
                 id="chat-web-search-preview"
-                className="chat-web-search-toggle"
+                className={styles.webSearchToggle}
                 aria-label="Web Search"
                 label="Web Search"
                 checked={webSearchEnabled}
@@ -310,13 +316,13 @@ export function PlaygroundQuickControls({
                 ]
               : ["Send current message."]
         }
-        className="chat-tooltip-target chat-send-tooltip-target"
+        className={styles.sendTooltipTarget}
       >
         {isSending ? (
           <Button
             type="button"
             appearance="subtle"
-            className="chat-send-btn"
+            className={styles.sendButton}
             aria-label="Cancel in-progress processing"
             title="Cancel in-progress processing."
             onClick={onCancelThreadProcessing}
@@ -327,7 +333,7 @@ export function PlaygroundQuickControls({
           <Button
             type="submit"
             appearance="subtle"
-            className="chat-send-btn"
+            className={styles.sendButton}
             aria-label="Send message"
             title="Send current message."
             disabled={!canSendMessage}

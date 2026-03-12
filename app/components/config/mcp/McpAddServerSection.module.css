@@ -1,0 +1,56 @@
+.root {
+  gap: 0.52rem;
+}
+
+.fieldWithInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.fieldCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: var(--client-font-size-body);
+  color: var(--text-main);
+  flex: 1;
+  min-width: 0;
+}
+
+.fieldCheckbox input[type="checkbox"] {
+  margin: 0;
+}
+
+.infoButton {
+  flex-shrink: 0;
+}
+
+.infoPopover {
+  max-width: min(520px, calc(100vw - 2.2rem));
+}
+
+.infoTitle {
+  margin: 0 0 0.35rem;
+  font-size: var(--client-font-size-body);
+  font-weight: 700;
+}
+
+.infoList {
+  margin: 0;
+  padding-left: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--client-font-size-label);
+  color: var(--text-subtle);
+}
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+}
